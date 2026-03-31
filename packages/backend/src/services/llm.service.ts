@@ -78,12 +78,16 @@ export class AnthropicLLM {
 
 /**
  * OpenAI LLM provider.
+ * Supports custom baseURL for OAuth proxy (e.g. openai-oauth on port 10531).
  */
 export class OpenAILLM {
   private client: OpenAI;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+  constructor(apiKey: string, baseURL?: string) {
+    this.client = new OpenAI({
+      apiKey,
+      ...(baseURL ? { baseURL } : {}),
+    });
   }
 
   async generateStream(
@@ -139,6 +143,12 @@ export async function createLLMProvider(
   workspaceId: string,
   provider: 'anthropic' | 'openai' | 'xai',
 ): Promise<LLMProvider> {
+  // OAuth proxy mode — uses ChatGPT Plus/Pro subscription via openai-oauth proxy
+  const oauthProxyUrl = process.env.OPENAI_OAUTH_PROXY_URL;
+  if (provider === 'openai' && oauthProxyUrl) {
+    return new OpenAILLM('dummy', oauthProxyUrl);
+  }
+
   const providerKey = provider === 'xai' ? 'xai' : provider;
 
   const [row] = await db
