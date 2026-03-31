@@ -104,6 +104,13 @@ const PROVIDER_META: Record<string, { label: string; color: string; fields: { ke
       { key: 'api_key', label: 'API Key', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', secret: true },
     ],
   },
+  xai: {
+    label: 'xAI (Grok Voice)',
+    color: 'bg-[#ef4444]/10 text-[#ef4444]',
+    fields: [
+      { key: 'api_key', label: 'API Key', placeholder: 'xai-...', secret: true },
+    ],
+  },
 };
 
 function fmtDate(iso: string | null | undefined) {
