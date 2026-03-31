@@ -89,8 +89,8 @@ export default function AgentsPage() {
   const [error, setError]     = useState('');
 
   function loadAgents() {
-    api.get<{ agents: Agent[] }>('/agents')
-      .then(r => setAgents(r?.agents ?? []))
+    api.get<Agent[]>('/agents')
+      .then(r => setAgents(Array.isArray(r) ? r : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }
