@@ -20,7 +20,9 @@ await app.register(helmet, {
 
 // CORS
 await app.register(cors, {
-  origin: env.NODE_ENV === 'development' ? true : ['https://caller.app'],
+  origin: env.NODE_ENV === 'development'
+    ? true
+    : (origin, cb) => cb(null, true), // allow same-origin + CloudFlare proxy
   credentials: true,
 });
 
@@ -66,6 +68,9 @@ function getPublicMessage(code: string): string {
 app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // Route registration
+// Public auth (no JWT required)
+await app.register(import('./routes/auth/session.js'), { prefix: '/api/auth' });
+// Authenticated routes
 await app.register(import('./routes/auth/index.js'), { prefix: '/api/auth' });
 await app.register(import('./routes/workspaces/index.js'), { prefix: '/api/workspaces' });
 await app.register(import('./routes/agents/index.js'), { prefix: '/api/agents' });

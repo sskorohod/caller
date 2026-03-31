@@ -13,7 +13,7 @@ const envSchema = z.object({
 
   ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/, 'Must be 32-byte hex string (64 chars)'),
 
-  TWILIO_WEBHOOK_SECRET: z.string().min(1),
+  TWILIO_WEBHOOK_SECRET: z.string().default(''), // optional at startup, configure later in dashboard
 
   API_DOMAIN: z.string().min(1).default('localhost:3001'),
 

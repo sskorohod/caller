@@ -11,6 +11,17 @@ const vector = customType<{ data: string; dpiverName: string }>({
 });
 
 // ============================================================
+// USERS (self-hosted auth)
+// ============================================================
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull().unique(),
+  password_hash: text('password_hash').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================================
 // WORKSPACES
 // ============================================================
 export const workspaces = pgTable('workspaces', {
