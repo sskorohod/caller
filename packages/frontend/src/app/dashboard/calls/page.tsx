@@ -41,7 +41,7 @@ export default function CallsPage() {
 
   useEffect(() => {
     api.get<{ calls: Call[]; total: number }>('/calls?limit=100')
-      .then(r => setCalls(r.calls))
+      .then(r => setCalls(r?.calls ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

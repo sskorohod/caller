@@ -63,7 +63,7 @@ export default function OverviewPage() {
 
   useEffect(() => {
     api.get<{ calls: RecentCall[]; total: number }>('/calls?limit=8')
-      .then(r => setCalls(r.calls))
+      .then(r => setCalls(r?.calls ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
