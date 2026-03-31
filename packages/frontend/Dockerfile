@@ -10,7 +10,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY package.json ./
 
 # Install all deps
-RUN npm install
+RUN npm ci
 
 # Copy source
 COPY . .

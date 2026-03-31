@@ -88,11 +88,13 @@ export default function AgentsPage() {
   const [form, setForm]       = useState<AgentForm>(EMPTY_FORM);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState('');
+  const [loadError, setLoadError] = useState('');
 
   function loadAgents() {
+    setLoadError('');
     api.get<Agent[]>('/agents')
       .then(r => setAgents(Array.isArray(r) ? r : []))
-      .catch(() => {})
+      .catch((err: any) => setLoadError(err?.message ?? 'Failed to load agents'))
       .finally(() => setLoading(false));
   }
 
@@ -119,9 +121,7 @@ export default function AgentsPage() {
       } else {
         await api.post('/agents', payload);
       }
-      setModal(false);
-      setEditId(null);
-      setForm(EMPTY_FORM);
+      closeModal();
       loadAgents();
     } catch (err: any) {
       setError(err.message);
@@ -152,6 +152,13 @@ export default function AgentsPage() {
     setModal(true);
   }
 
+  function closeModal() {
+    setModal(false);
+    setEditId(null);
+    setForm(EMPTY_FORM);
+    setError('');
+  }
+
   async function handleDelete(agent: Agent) {
     if (!confirm(`Delete agent "${agent.name}"?`)) return;
     try {
@@ -180,7 +187,12 @@ export default function AgentsPage() {
         </button>
       </div>
 
-      {loading ? (
+      {loadError ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <p className="text-sm font-medium text-red-700">{loadError}</p>
+          <button onClick={loadAgents} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+        </div>
+      ) : loading ? (
         <div className="grid grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse space-y-3">
@@ -261,11 +273,11 @@ export default function AgentsPage() {
 
       {/* Create Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setEditId(null); setForm(EMPTY_FORM); }}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
               <h2 className="text-base font-semibold text-[#0f172a]">{editId ? 'Edit Agent' : 'New AI Agent'}</h2>
-              <button onClick={() => { setModal(false); setEditId(null); setForm(EMPTY_FORM); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg">
+              <button onClick={closeModal} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -383,7 +395,7 @@ export default function AgentsPage() {
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => { setModal(false); setEditId(null); setForm(EMPTY_FORM); }} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
                 <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
                   {saving ? 'Saving...' : editId ? 'Save Changes' : 'Create Agent'}
                 </button>

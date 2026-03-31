@@ -38,13 +38,17 @@ export default function CallsPage() {
   const [search, setSearch]     = useState('');
   const [filter, setFilter]     = useState('all');
   const [selected, setSelected] = useState<Call | null>(null);
+  const [error, setError]       = useState('');
 
-  useEffect(() => {
+  function loadCalls() {
+    setError('');
     api.get<{ calls: Call[]; total: number }>('/calls?limit=100')
       .then(r => setCalls(r?.calls ?? []))
-      .catch(() => {})
+      .catch((err: any) => setError(err?.message ?? 'Failed to load calls'))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { loadCalls(); }, []);
 
   const filtered = calls.filter(c => {
     const matchSearch = !search || c.phone_number_to?.includes(search) || c.phone_number_from?.includes(search);
@@ -60,6 +64,13 @@ export default function CallsPage() {
           <p className="text-sm text-[#94a3b8] mt-0.5">{calls.length} total calls</p>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <p className="text-sm font-medium text-red-700">{error}</p>
+          <button onClick={loadCalls} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
         {/* Filters */}
@@ -148,7 +159,7 @@ export default function CallsPage() {
 
       {/* Detail panel */}
       {selected && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)} onKeyDown={e => e.key === 'Escape' && setSelected(null)} role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
               <div>

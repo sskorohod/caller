@@ -69,6 +69,7 @@ export async function authenticateApiKey(request: FastifyRequest, reply: Fastify
   for (const k of keys) {
     if (verifyApiKey(token, k.key_hash)) {
       matched = k;
+      break;
     }
   }
   if (!matched) throw new UnauthorizedError('Invalid API key');

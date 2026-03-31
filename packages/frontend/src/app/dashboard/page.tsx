@@ -60,13 +60,17 @@ export default function OverviewPage() {
   const { workspace } = useAuth();
   const [calls, setCalls] = useState<RecentCall[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
+  function loadCalls() {
+    setError('');
     api.get<{ calls: RecentCall[]; total: number }>('/calls?limit=8')
       .then(r => setCalls(r?.calls ?? []))
-      .catch(() => {})
+      .catch((err: any) => setError(err?.message ?? 'Failed to load calls'))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { loadCalls(); }, []);
 
   const totalCalls = calls.length;
   const activeCalls = calls.filter(c => c.status === 'in_progress').length;
@@ -95,7 +99,12 @@ export default function OverviewPage() {
           <a href="/dashboard/calls" className="text-xs text-[#6366f1] hover:text-[#4f46e5] font-medium">View all →</a>
         </div>
 
-        {loading ? (
+        {error ? (
+          <div className="p-6 text-center">
+            <p className="text-sm font-medium text-red-700">{error}</p>
+            <button onClick={loadCalls} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+          </div>
+        ) : loading ? (
           <div className="p-6 space-y-3">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="flex items-center gap-4 animate-pulse">

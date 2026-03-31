@@ -110,7 +110,12 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     if (!user) throw new UnauthorizedError('Invalid email or password');
 
-    const valid = await verifyPassword(body.password, user.password_hash);
+    let valid: boolean;
+    try {
+      valid = await verifyPassword(body.password, user.password_hash);
+    } catch {
+      throw new UnauthorizedError('Invalid email or password');
+    }
     if (!valid) throw new UnauthorizedError('Invalid email or password');
 
     const token = await issueJWT(user.id);

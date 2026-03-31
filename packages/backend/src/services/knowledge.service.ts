@@ -1,4 +1,5 @@
 import { eq, and, desc, sql } from 'drizzle-orm';
+import pino from 'pino';
 import { db } from '../config/db.js';
 import {
   knowledgeBases,
@@ -9,6 +10,8 @@ import {
 import { NotFoundError } from '../lib/errors.js';
 import { decrypt } from '../lib/crypto.js';
 import type { KnowledgeBase, KnowledgeDocument } from '../models/types.js';
+
+const logger = pino({ name: 'knowledge-service' });
 
 // ============================================================
 // Knowledge Base CRUD
@@ -173,7 +176,7 @@ async function generateEmbeddings(documentId: string, workspaceId: string, conte
     }
   } catch (err) {
     // Log but don't fail document creation
-    console.error('Failed to generate embeddings:', err);
+    logger.error({ err }, 'Failed to generate embeddings');
   }
 }
 

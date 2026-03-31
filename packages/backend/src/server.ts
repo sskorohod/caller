@@ -22,7 +22,10 @@ await app.register(helmet, {
 await app.register(cors, {
   origin: env.NODE_ENV === 'development'
     ? true
-    : (origin, cb) => cb(null, true), // allow same-origin + CloudFlare proxy
+    : (origin, cb) => {
+      const allowed = [`https://${env.API_DOMAIN}`, `https://caller.n8nskorx.top`];
+      cb(null, !origin || allowed.includes(origin));
+    },
   credentials: true,
 });
 

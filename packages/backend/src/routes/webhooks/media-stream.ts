@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import websocket from '@fastify/websocket';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../../config/db.js';
@@ -18,7 +19,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   await app.register(websocket);
 
   app.get('/media-stream/:callId', { websocket: true }, async (socket, request) => {
-    const callId = (request.params as any).callId;
+    const callId = z.string().uuid().parse((request.params as any).callId);
 
     logger.info({ callId }, 'Twilio MediaStream WebSocket connected');
 
