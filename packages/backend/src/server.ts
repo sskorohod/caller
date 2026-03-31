@@ -79,6 +79,7 @@ await app.register(import('./routes/webhooks/index.js'), { prefix: '/webhooks' }
 await app.register(import('./routes/knowledge/index.js'), { prefix: '/api/knowledge' });
 await app.register(import('./routes/memory/index.js'), { prefix: '/api/memory' });
 await app.register(import('./routes/oauth/index.js'), { prefix: '/api/oauth' });
+await app.register(import('./routes/telephony/index.js'), { prefix: '/api/telephony' });
 
 // Start
 try {

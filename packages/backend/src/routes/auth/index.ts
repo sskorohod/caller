@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import twilio from 'twilio';
 import { authenticateUser } from '../../middleware/auth.js';
 import * as apiKeyService from '../../services/api-key.service.js';
 import * as providerService from '../../services/provider.service.js';
@@ -82,7 +83,17 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/auth/providers
   app.get('/providers', async (request) => {
-    return providerService.listProviderCredentials(request.auth.workspaceId);
+    const rows = await providerService.listProviderCredentials(request.auth.workspaceId);
+    // Add updated_at from provider_credentials table
+    const { db } = await import('../../config/db.js');
+    const { providerCredentials } = await import('../../db/schema.js');
+    const { eq } = await import('drizzle-orm');
+    const full = await db
+      .select({ provider: providerCredentials.provider, updated_at: providerCredentials.updated_at })
+      .from(providerCredentials)
+      .where(eq(providerCredentials.workspace_id, request.auth.workspaceId));
+    const updatedMap = Object.fromEntries(full.map(r => [r.provider, r.updated_at]));
+    return rows.map(r => ({ ...r, updated_at: updatedMap[r.provider] ?? null }));
   });
 
   // PUT /api/auth/providers/:provider
@@ -112,10 +123,29 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       changes: { provider },
     });
 
+    // For Twilio: verify credentials immediately by fetching account info
+    let twilioNumbers: Array<{ sid: string; phone_number: string; friendly_name: string }> = [];
+    let verifyError: string | null = null;
+    if (provider === 'twilio' && body.credentials.account_sid && body.credentials.auth_token) {
+      try {
+        const client = twilio(body.credentials.account_sid, body.credentials.auth_token);
+        const numbers = await client.incomingPhoneNumbers.list({ limit: 50 });
+        twilioNumbers = numbers.map(n => ({
+          sid: n.sid,
+          phone_number: n.phoneNumber,
+          friendly_name: n.friendlyName || n.phoneNumber,
+        }));
+        await providerService.markProviderVerified(request.auth.workspaceId, 'twilio');
+      } catch (e: any) {
+        verifyError = e.message || 'Invalid Twilio credentials';
+      }
+    }
+
     return {
       provider: credential.provider,
-      is_verified: credential.is_verified,
+      is_verified: provider === 'twilio' ? !verifyError : credential.is_verified,
       updated_at: credential.updated_at,
+      ...(provider === 'twilio' ? { phone_numbers: twilioNumbers, verify_error: verifyError } : {}),
     };
   });
 

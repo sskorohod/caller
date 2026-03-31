@@ -19,7 +19,23 @@ interface Workspace {
 interface Provider {
   provider: string;
   is_verified: boolean;
-  updated_at: string;
+  updated_at: string | null;
+}
+
+interface TwilioPhone {
+  sid: string;
+  phone_number: string;
+  friendly_name: string;
+  voice_enabled: boolean;
+}
+
+interface TelephonyConnection {
+  id: string;
+  phone_number: string;
+  friendly_name: string | null;
+  inbound_enabled: boolean;
+  outbound_enabled: boolean;
+  created_at: string;
 }
 
 interface OAuthClient {
@@ -56,9 +72,8 @@ const PROVIDER_META: Record<string, { label: string; color: string; fields: { ke
     label: 'Twilio',
     color: 'bg-[#f22f46]/10 text-[#f22f46]',
     fields: [
-      { key: 'account_sid',  label: 'Account SID',  placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
-      { key: 'auth_token',   label: 'Auth Token',   placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', secret: true },
-      { key: 'phone_number', label: 'Phone Number', placeholder: '+1 555 000 0000' },
+      { key: 'account_sid', label: 'Account SID', placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+      { key: 'auth_token',  label: 'Auth Token',  placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', secret: true },
     ],
   },
   anthropic: {
@@ -461,6 +476,264 @@ function ProviderCard({
   );
 }
 
+function TwilioCard({
+  existingProvider,
+  onSaved,
+}: {
+  existingProvider: Provider | undefined;
+  onSaved: () => void;
+}) {
+  const [accountSid, setAccountSid] = useState('');
+  const [authToken, setAuthToken]   = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState('');
+  const [saved, setSaved]           = useState(false);
+
+  const [phones, setPhones]               = useState<TwilioPhone[]>([]);
+  const [connections, setConnections]     = useState<TelephonyConnection[]>([]);
+  const [loadingPhones, setLoadingPhones] = useState(false);
+  const [activating, setActivating]       = useState<string | null>(null);
+
+  const isConnected = existingProvider?.is_verified === true;
+
+  const loadPhones = useCallback(() => {
+    setLoadingPhones(true);
+    Promise.all([
+      api.get<TwilioPhone[]>('/telephony/numbers').catch(() => []),
+      api.get<TelephonyConnection[]>('/telephony/connections').catch(() => []),
+    ]).then(([nums, conns]) => {
+      setPhones(Array.isArray(nums) ? nums : []);
+      setConnections(Array.isArray(conns) ? conns : []);
+    }).finally(() => setLoadingPhones(false));
+  }, []);
+
+  useEffect(() => {
+    if (isConnected) loadPhones();
+  }, [isConnected, loadPhones]);
+
+  async function handleSave() {
+    if (!accountSid.trim() || !authToken.trim()) {
+      setError('Enter Account SID and Auth Token');
+      return;
+    }
+    setSaving(true); setError(''); setSaved(false);
+    try {
+      const res = await api.put<{
+        is_verified: boolean;
+        phone_numbers?: TwilioPhone[];
+        verify_error?: string | null;
+      }>('/auth/providers/twilio', {
+        credentials: { account_sid: accountSid.trim(), auth_token: authToken.trim() },
+      });
+
+      if (res.verify_error) {
+        setError(res.verify_error);
+      } else {
+        setSaved(true);
+        setAccountSid('');
+        setAuthToken('');
+        setPhones(res.phone_numbers ?? []);
+        onSaved();
+        // Load connections too
+        api.get<TelephonyConnection[]>('/telephony/connections').then(c => setConnections(Array.isArray(c) ? c : []));
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleActivate(phone: TwilioPhone) {
+    setActivating(phone.phone_number);
+    try {
+      await api.post('/telephony/connections', {
+        phone_number: phone.phone_number,
+        friendly_name: phone.friendly_name,
+        twilio_sid: phone.sid,
+        inbound_enabled: true,
+        outbound_enabled: true,
+      });
+      loadPhones();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setActivating(null);
+    }
+  }
+
+  async function handleDeactivate(conn: TelephonyConnection) {
+    if (!confirm(`Remove ${conn.phone_number}?`)) return;
+    try {
+      await api.delete(`/telephony/connections/${conn.id}`);
+      loadPhones();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!confirm('Remove Twilio credentials? All phone connections will stop working.')) return;
+    try {
+      await api.delete('/auth/providers/twilio');
+      setPhones([]);
+      setConnections([]);
+      onSaved();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
+  const activeNumbers = new Set(connections.map(c => c.phone_number));
+
+  return (
+    <div className="bg-white rounded-xl border border-[#e2e8f0] p-5 col-span-2 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold bg-[#f22f46]/10 text-[#f22f46]">
+            TW
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-[#0f172a]">Twilio</div>
+            {isConnected ? (
+              <div className="flex items-center gap-1.5 text-xs text-[#059669]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                Connected · {phones.length} number{phones.length !== 1 ? 's' : ''} in account
+              </div>
+            ) : (
+              <div className="text-xs text-[#94a3b8]">Not configured</div>
+            )}
+          </div>
+        </div>
+        {isConnected && (
+          <button onClick={handleDisconnect} className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium">
+            Disconnect
+          </button>
+        )}
+      </div>
+
+      {/* Credentials form (always shown so user can update) */}
+      <div className="grid grid-cols-2 gap-4">
+        <Field
+          label="Account SID"
+          value={accountSid}
+          onChange={setAccountSid}
+          placeholder={isConnected ? '••••••••••••••••••••' : 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
+        />
+        <Field
+          label="Auth Token"
+          value={authToken}
+          onChange={setAuthToken}
+          placeholder={isConnected ? '••••••••••••••••' : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
+          type="password"
+        />
+      </div>
+
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-xs">
+          {error && <span className="text-red-500">{error}</span>}
+          {saved && <span className="text-[#059669] flex items-center gap-1"><IconCheck className="w-3 h-3" />Connected successfully</span>}
+        </span>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
+        >
+          {saving ? 'Connecting…' : isConnected ? 'Update Credentials' : 'Connect Twilio'}
+        </button>
+      </div>
+
+      {/* Phone numbers list */}
+      {isConnected && (
+        <div className="mt-5 pt-5 border-t border-[#f1f5f9]">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-[#475569] uppercase tracking-wide">
+              Phone Numbers
+            </p>
+            <button onClick={loadPhones} className="text-xs text-[#6366f1] hover:text-[#4f46e5]">
+              Refresh
+            </button>
+          </div>
+
+          {loadingPhones ? (
+            <div className="space-y-2">
+              {[1, 2].map(i => <div key={i} className="h-12 bg-[#f8fafc] rounded-xl animate-pulse" />)}
+            </div>
+          ) : phones.length === 0 ? (
+            <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-xl border border-dashed border-[#e2e8f0]">
+              <svg className="w-5 h-5 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-[#475569]">No phone numbers in this account</p>
+                <p className="text-xs text-[#94a3b8]">Buy a number in the Twilio Console first</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {phones.map(phone => {
+                const isActive = activeNumbers.has(phone.phone_number);
+                const conn = connections.find(c => c.phone_number === phone.phone_number);
+                return (
+                  <div
+                    key={phone.sid}
+                    className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+                      isActive
+                        ? 'bg-[#f0fdf4] border-[#bbf7d0]'
+                        : 'bg-[#f8fafc] border-[#e2e8f0] hover:border-[#c7d2fe]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isActive ? (
+                        <div className="w-7 h-7 bg-[#dcfce7] rounded-full flex items-center justify-center shrink-0">
+                          <IconCheck className="w-3.5 h-3.5 text-[#16a34a]" />
+                        </div>
+                      ) : (
+                        <div className="w-7 h-7 bg-[#f1f5f9] rounded-full flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372..." />
+                          </svg>
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-sm font-semibold text-[#0f172a]">{phone.phone_number}</div>
+                        <div className="text-xs text-[#94a3b8]">{phone.friendly_name !== phone.phone_number ? phone.friendly_name : 'Voice enabled'}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isActive ? (
+                        <>
+                          <span className="text-xs text-[#16a34a] font-medium">Active</span>
+                          <button
+                            onClick={() => conn && handleDeactivate(conn)}
+                            className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleActivate(phone)}
+                          disabled={activating === phone.phone_number}
+                          className="px-3 py-1.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50"
+                        >
+                          {activating === phone.phone_number ? '…' : 'Use this number'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProvidersSection() {
   const [providers, setProviders] = useState<Provider[]>([]);
 
@@ -471,6 +744,7 @@ function ProvidersSection() {
   useEffect(() => { load(); }, [load]);
 
   const providerMap = Object.fromEntries(providers.map(p => [p.provider, p]));
+  const otherProviders = Object.keys(PROVIDER_META).filter(k => k !== 'twilio');
 
   return (
     <div className="space-y-4">
@@ -480,8 +754,13 @@ function ProvidersSection() {
           Credentials are encrypted at rest with AES-256-GCM. Only you can access them.
         </p>
       </div>
+
+      {/* Twilio — full width card with phone number picker */}
+      <TwilioCard existingProvider={providerMap['twilio']} onSaved={load} />
+
+      {/* Other AI providers — 2-column grid */}
       <div className="grid grid-cols-2 gap-4">
-        {Object.keys(PROVIDER_META).map(key => (
+        {otherProviders.map(key => (
           <ProviderCard
             key={key}
             providerKey={key}
