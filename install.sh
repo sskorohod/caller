@@ -24,40 +24,50 @@ warn()    { echo -e "${YELLOW}⚠ $*${NC}"; }
 error()   { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 prompt()  { echo -e "${BOLD}$*${NC}"; }
 
-# ----- Fix stdin for curl | bash -----
-# When piped through curl, stdin is the pipe (script contents).
-# Redirect stdin to /dev/tty so interactive prompts work correctly.
-if [ ! -t 0 ] && [ -e /dev/tty ]; then
-  exec 0</dev/tty
-fi
+# Read user input from /dev/tty (works with curl | bash)
+ask() {
+  local varname="$1"
+  local msg="$2"
+  printf '%s' "$msg"
+  IFS= read -r "$varname" </dev/tty
+}
+
+ask_secret() {
+  local varname="$1"
+  local msg="$2"
+  printf '%s' "$msg"
+  IFS= read -r -s "$varname" </dev/tty
+  echo ""
+}
+
+ask_yn() {
+  local varname="$1"
+  local msg="$2"
+  printf '%s' "$msg"
+  IFS= read -r "$varname" </dev/tty
+}
 
 # ----- Header -----
 echo ""
 echo -e "${BOLD}╔══════════════════════════════════════╗${NC}"
 echo -e "${BOLD}║       Caller AI Phone Agent          ║${NC}"
-echo -e "${BOLD}║         Installer v0.2               ║${NC}"
+echo -e "${BOLD}║         Installer v0.3               ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════╝${NC}"
 echo ""
 
-# ----- Check OS -----
-if [[ "$OSTYPE" != "linux-gnu"* && "$OSTYPE" != "linux-musl"* && "$OSTYPE" != "linux"* ]]; then
-  error "This installer supports Linux only. For macOS, see DEPLOY.md."
-fi
-
-# ----- Install Docker if missing -----
-install_docker() {
-  info "Installing Docker..."
-  curl -fsSL https://get.docker.com | sh
-  sudo usermod -aG docker "$USER" 2>/dev/null || true
-  success "Docker installed"
-  warn "You may need to log out and back in for group changes to take effect."
-  warn "If docker commands fail, run: newgrp docker"
-}
-
+# ----- Check Docker -----
 if ! command -v docker &>/dev/null; then
   warn "Docker not found."
-  read -r -p "Install Docker automatically? [Y/n] " yn
-  [[ "${yn:-Y}" =~ ^[Yy]$ ]] && install_docker || error "Docker is required. Install it and re-run."
+  ask_yn yn "Install Docker automatically? [Y/n] "
+  if [[ "${yn:-Y}" =~ ^[Yy]$ ]]; then
+    info "Installing Docker..."
+    curl -fsSL https://get.docker.com | sh
+    sudo usermod -aG docker "$USER" 2>/dev/null || true
+    success "Docker installed"
+    warn "If docker commands fail after install, run: newgrp docker"
+  else
+    error "Docker is required. Install it and re-run."
+  fi
 else
   success "Docker $(docker --version | awk '{print $3}' | tr -d ',')"
 fi
@@ -84,56 +94,42 @@ else
 fi
 cd "$INSTALL_DIR"
 
-# ----- Generate secrets -----
-gen_secret() {
-  openssl rand -hex 32
-}
-
-gen_jwt_secret() {
-  openssl rand -base64 48 | tr -d '\n/+=' | head -c 64
-}
-
 # ----- Interactive configuration -----
 echo ""
-prompt "═══ Configuration Wizard ══════════════════"
+echo -e "${BOLD}═══ Configuration Wizard ══════════════════${NC}"
 echo ""
 
-# Domain
-prompt "1. Your subdomain (e.g. caller.yourdomain.com):"
-read -r -p "   Domain: " DOMAIN
+echo -e "${BOLD}1. Your subdomain (e.g. caller.yourdomain.com):${NC}"
+ask DOMAIN "   Domain: "
 [[ -z "$DOMAIN" ]] && error "Domain is required."
 
-# PostgreSQL password
 echo ""
-prompt "2. PostgreSQL password (leave blank to auto-generate):"
-read -r -s -p "   Password: " POSTGRES_PASSWORD
-echo ""
+echo -e "${BOLD}2. PostgreSQL password (Enter to auto-generate):${NC}"
+ask_secret POSTGRES_PASSWORD "   Password: "
 if [[ -z "$POSTGRES_PASSWORD" ]]; then
   POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '\n/+=')
-  warn "Auto-generated PostgreSQL password (saved in .env)"
+  warn "Auto-generated password (saved in .env)"
 fi
 
-# Twilio
 echo ""
-prompt "3. Twilio Auth Token (for webhook validation, press Enter to skip and set later):"
-read -r -p "   Twilio Auth Token: " TWILIO_WEBHOOK_SECRET
+echo -e "${BOLD}3. Twilio Auth Token (Enter to skip, set later in dashboard):${NC}"
+ask TWILIO_WEBHOOK_SECRET "   Twilio Auth Token: "
 TWILIO_WEBHOOK_SECRET="${TWILIO_WEBHOOK_SECRET:-}"
 
-# Optional providers
 echo ""
-prompt "4. Optional: Deepgram API key (STT, press Enter to skip):"
-read -r -p "   Deepgram API key: " DEEPGRAM_KEY
+echo -e "${BOLD}4. Deepgram API key for STT (Enter to skip):${NC}"
+ask DEEPGRAM_KEY "   Deepgram API key: "
 DEEPGRAM_KEY="${DEEPGRAM_KEY:-}"
 
 echo ""
-prompt "5. Optional: ElevenLabs API key (TTS, press Enter to skip):"
-read -r -p "   ElevenLabs API key: " ELEVENLABS_KEY
+echo -e "${BOLD}5. ElevenLabs API key for TTS (Enter to skip):${NC}"
+ask ELEVENLABS_KEY "   ElevenLabs API key: "
 ELEVENLABS_KEY="${ELEVENLABS_KEY:-}"
 
 # Auto-generate security secrets
 info "Generating security keys..."
-JWT_SECRET=$(gen_jwt_secret)
-ENCRYPTION_KEY=$(gen_secret)
+JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n/+=')
+ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 # ----- Write .env -----
 info "Writing .env..."
@@ -154,17 +150,15 @@ TWILIO_WEBHOOK_SECRET=${TWILIO_WEBHOOK_SECRET}
 LOG_LEVEL=info
 NEXT_PUBLIC_API_URL=/api
 EOF
-
 success ".env written"
 
 # ----- Configure nginx domain -----
 info "Configuring nginx for domain: $DOMAIN"
-cp nginx/nginx.conf nginx/nginx.conf.bak
 sed -i "s/__DOMAIN__/${DOMAIN}/g" nginx/nginx.conf
 
 # ----- Build and start -----
 echo ""
-info "Building Docker images (this takes 3-5 minutes on first run)..."
+info "Building Docker images (first run takes 3-5 min)..."
 docker compose build --parallel
 
 info "Starting services..."
@@ -177,11 +171,11 @@ MAX_WAIT=120
 ELAPSED=0
 until docker compose exec -T backend wget -qO- http://localhost:3001/health >/dev/null 2>&1; do
   if [[ $ELAPSED -ge $MAX_WAIT ]]; then
-    warn "Backend health check timed out."
-    warn "Check logs with: cd ~/caller && docker compose logs backend"
+    warn "Timed out waiting for backend."
+    warn "Check logs: cd ~/caller && docker compose logs backend"
     break
   fi
-  echo -n "."
+  printf '.'
   sleep 3
   ELAPSED=$((ELAPSED + 3))
 done
@@ -192,7 +186,7 @@ info "Running database migrations..."
 if docker compose exec -T backend node dist/migrate.js; then
   success "Migrations complete"
 else
-  warn "Migration step failed or not found — check logs: docker compose logs backend"
+  warn "Migration failed — check: docker compose logs backend"
 fi
 
 # ----- Done -----
@@ -204,13 +198,12 @@ echo ""
 echo -e "  ${BOLD}Dashboard:${NC}  https://${DOMAIN}"
 echo -e "  ${BOLD}API:${NC}        https://${DOMAIN}/api/health"
 echo ""
-echo -e "${YELLOW}${BOLD}Useful commands:${NC}"
-echo "  cd ~/caller"
-echo "  docker compose logs -f          # view all logs"
-echo "  docker compose logs backend     # backend logs only"
-echo "  docker compose ps               # service status"
-echo "  docker compose restart backend  # restart a service"
-echo "  docker compose down             # stop everything"
+echo -e "${YELLOW}${BOLD}Useful commands (run from ~/caller):${NC}"
+echo "  docker compose logs -f           # view logs"
+echo "  docker compose logs backend      # backend only"
+echo "  docker compose ps                # status"
+echo "  docker compose restart backend   # restart service"
+echo "  docker compose down              # stop all"
 echo ""
-echo -e "  Config file: ${BOLD}${INSTALL_DIR}/.env${NC}"
+echo -e "  Config: ${BOLD}${INSTALL_DIR}/.env${NC}"
 echo ""
