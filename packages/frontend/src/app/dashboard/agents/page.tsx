@@ -17,13 +17,39 @@ interface AgentForm {
   language: string;
   voice_provider: string;
   llm_provider: string;
+  llm_model: string;
   system_prompt: string;
   first_message: string;
 }
 
+const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
+  anthropic: [
+    { value: 'claude-sonnet-4-5-20250514', label: 'Claude Sonnet 4.5 (recommended)' },
+    { value: 'claude-opus-4-5', label: 'Claude Opus 4.5' },
+    { value: 'claude-haiku-3-5-20241022', label: 'Claude Haiku 3.5 (fast)' },
+  ],
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o (recommended)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o mini (fast & cheap)' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (cheapest)' },
+  ],
+  xai: [
+    { value: 'grok-3', label: 'Grok 3' },
+    { value: 'grok-3-mini', label: 'Grok 3 Mini (fast)' },
+  ],
+};
+
+const DEFAULT_MODELS: Record<string, string> = {
+  anthropic: 'claude-sonnet-4-5-20250514',
+  openai: 'gpt-4o',
+  xai: 'grok-3',
+};
+
 const EMPTY_FORM: AgentForm = {
   name: '', language: 'en', voice_provider: 'elevenlabs',
-  llm_provider: 'anthropic', system_prompt: '', first_message: '',
+  llm_provider: 'anthropic', llm_model: 'claude-sonnet-4-5-20250514',
+  system_prompt: '', first_message: '',
 };
 
 export default function AgentsPage() {
@@ -36,7 +62,7 @@ export default function AgentsPage() {
 
   function loadAgents() {
     api.get<{ agents: Agent[] }>('/agents')
-      .then(r => setAgents(r.agents))
+      .then(r => setAgents(r?.agents ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }
@@ -48,7 +74,16 @@ export default function AgentsPage() {
     setError('');
     setSaving(true);
     try {
-      await api.post('/agents', form);
+      await api.post('/agents', {
+        name: form.name,
+        display_name: form.name,
+        language: form.language,
+        voice_provider: form.voice_provider,
+        llm_provider: form.llm_provider,
+        llm_model: form.llm_model,
+        system_prompt: form.system_prompt,
+        greeting_message: form.first_message,
+      });
       setModal(false);
       setForm(EMPTY_FORM);
       loadAgents();
@@ -124,7 +159,7 @@ export default function AgentsPage() {
               </div>
               <h3 className="font-semibold text-[#0f172a] text-sm">{agent.name}</h3>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[#64748b] font-medium">{agent.llm_provider ?? 'anthropic'}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#eef2ff] text-[#6366f1] font-medium">{(agent as any).llm_model ?? agent.llm_provider ?? 'anthropic'}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[#64748b] font-medium">{agent.voice_provider ?? 'elevenlabs'}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[#64748b] font-medium">{agent.language}</span>
               </div>
@@ -166,10 +201,18 @@ export default function AgentsPage() {
               ))}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">LLM</label>
-                  <select value={form.llm_provider} onChange={e => setForm(p => ({ ...p, llm_provider: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]">
-                    <option value="anthropic">Claude (Anthropic)</option>
-                    <option value="openai">GPT-4o (OpenAI)</option>
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">LLM Provider</label>
+                  <select
+                    value={form.llm_provider}
+                    onChange={e => {
+                      const provider = e.target.value;
+                      setForm(p => ({ ...p, llm_provider: provider, llm_model: DEFAULT_MODELS[provider] ?? '' }));
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  >
+                    <option value="anthropic">Anthropic</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="xai">xAI (Grok)</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -179,6 +222,18 @@ export default function AgentsPage() {
                     <option value="openai">OpenAI TTS</option>
                   </select>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Model</label>
+                <select
+                  value={form.llm_model}
+                  onChange={e => setForm(p => ({ ...p, llm_model: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                >
+                  {(LLM_MODELS[form.llm_provider] ?? []).map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">System Prompt</label>

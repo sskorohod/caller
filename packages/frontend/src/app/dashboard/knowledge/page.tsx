@@ -20,7 +20,7 @@ export default function KnowledgePage() {
 
   function load() {
     api.get<{ knowledge_bases: KnowledgeBase[] }>('/knowledge')
-      .then(r => setBases(r.knowledge_bases))
+      .then(r => setBases(r?.knowledge_bases ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }
