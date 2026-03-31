@@ -104,11 +104,52 @@ export class OpenAITTS extends EventEmitter {
   }
 }
 
-export type TTSProvider = ElevenLabsTTS | OpenAITTS;
+/**
+ * xAI Grok TTS.
+ * Uses OpenAI-compatible API at api.x.ai with Grok voices: ara, rex, sal, eve, leo.
+ */
+export class XaiTTS extends EventEmitter {
+  private apiKey: string;
+  private voice: string;
+
+  constructor(apiKey: string, voice = 'ara') {
+    super();
+    this.apiKey = apiKey;
+    this.voice = voice.toLowerCase();
+  }
+
+  async synthesize(text: string): Promise<Buffer> {
+    const res = await fetch('https://api.x.ai/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'grok-3-fast',
+        input: text,
+        voice: this.voice,
+        response_format: 'pcm',
+        speed: 1.0,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`xAI TTS error: ${res.status} ${res.statusText}`);
+    }
+
+    const arrayBuf = await res.arrayBuffer();
+    const audio = Buffer.from(arrayBuf);
+    this.emit('chunk', { audio, index: 0 } as TTSChunk);
+    return audio;
+  }
+}
+
+export type TTSProvider = ElevenLabsTTS | OpenAITTS | XaiTTS;
 
 export async function createTTSProvider(
   workspaceId: string,
-  provider: 'elevenlabs' | 'openai',
+  provider: 'elevenlabs' | 'openai' | 'xai',
   voiceId?: string,
 ): Promise<TTSProvider> {
   const [row] = await db
@@ -127,6 +168,9 @@ export async function createTTSProvider(
 
   if (provider === 'elevenlabs') {
     return new ElevenLabsTTS(creds.api_key, voiceId ?? 'EXAVITQu4vr4xnSDxMaL');
+  }
+  if (provider === 'xai') {
+    return new XaiTTS(creds.api_key, voiceId ?? 'ara');
   }
   return new OpenAITTS(creds.api_key, voiceId ?? 'alloy');
 }

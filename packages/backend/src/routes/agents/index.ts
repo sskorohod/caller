@@ -10,7 +10,7 @@ const createAgentSchema = z.object({
   company_name: z.string().optional(),
   company_identity: z.string().optional(),
   language: z.enum(['en', 'ru']).default('en'),
-  voice_provider: z.enum(['elevenlabs', 'openai']).default('elevenlabs'),
+  voice_provider: z.enum(['elevenlabs', 'openai', 'xai']).default('elevenlabs'),
   voice_id: z.string().optional(),
   llm_provider: z.enum(['anthropic', 'openai', 'xai']).default('anthropic'),
   llm_model: z.string().default('claude-sonnet-4-5-20250514'),

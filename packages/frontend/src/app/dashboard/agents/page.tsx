@@ -16,11 +16,39 @@ interface AgentForm {
   name: string;
   language: string;
   voice_provider: string;
+  voice_id: string;
   llm_provider: string;
   llm_model: string;
   system_prompt: string;
   first_message: string;
 }
+
+const VOICE_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  elevenlabs: [
+    { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Default (Sarah)' },
+  ],
+  openai: [
+    { value: 'alloy', label: 'Alloy' },
+    { value: 'echo', label: 'Echo' },
+    { value: 'fable', label: 'Fable' },
+    { value: 'onyx', label: 'Onyx' },
+    { value: 'nova', label: 'Nova' },
+    { value: 'shimmer', label: 'Shimmer' },
+  ],
+  xai: [
+    { value: 'ara', label: 'Ara — warm, friendly female' },
+    { value: 'rex', label: 'Rex — professional male' },
+    { value: 'sal', label: 'Sal — neutral, balanced' },
+    { value: 'eve', label: 'Eve — energetic female' },
+    { value: 'leo', label: 'Leo — authoritative male' },
+  ],
+};
+
+const DEFAULT_VOICE: Record<string, string> = {
+  elevenlabs: 'EXAVITQu4vr4xnSDxMaL',
+  openai: 'alloy',
+  xai: 'ara',
+};
 
 const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
   anthropic: [
@@ -47,7 +75,7 @@ const DEFAULT_MODELS: Record<string, string> = {
 };
 
 const EMPTY_FORM: AgentForm = {
-  name: '', language: 'en', voice_provider: 'elevenlabs',
+  name: '', language: 'en', voice_provider: 'elevenlabs', voice_id: 'EXAVITQu4vr4xnSDxMaL',
   llm_provider: 'anthropic', llm_model: 'claude-sonnet-4-5-20250514',
   system_prompt: '', first_message: '',
 };
@@ -79,6 +107,7 @@ export default function AgentsPage() {
         display_name: form.name,
         language: form.language,
         voice_provider: form.voice_provider,
+        voice_id: form.voice_id,
         llm_provider: form.llm_provider,
         llm_model: form.llm_model,
         system_prompt: form.system_prompt,
@@ -216,10 +245,18 @@ export default function AgentsPage() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Voice</label>
-                  <select value={form.voice_provider} onChange={e => setForm(p => ({ ...p, voice_provider: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]">
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Voice Provider</label>
+                  <select
+                    value={form.voice_provider}
+                    onChange={e => {
+                      const vp = e.target.value;
+                      setForm(p => ({ ...p, voice_provider: vp, voice_id: DEFAULT_VOICE[vp] ?? '' }));
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  >
                     <option value="elevenlabs">ElevenLabs</option>
                     <option value="openai">OpenAI TTS</option>
+                    <option value="xai">xAI Grok</option>
                   </select>
                 </div>
               </div>
@@ -235,6 +272,20 @@ export default function AgentsPage() {
                   ))}
                 </select>
               </div>
+              {(VOICE_OPTIONS[form.voice_provider]?.length ?? 0) > 1 && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Voice</label>
+                  <select
+                    value={form.voice_id}
+                    onChange={e => setForm(p => ({ ...p, voice_id: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  >
+                    {(VOICE_OPTIONS[form.voice_provider] ?? []).map(v => (
+                      <option key={v.value} value={v.value}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">System Prompt</label>
                 <textarea
