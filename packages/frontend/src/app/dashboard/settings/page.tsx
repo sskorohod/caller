@@ -22,6 +22,14 @@ interface Provider {
   updated_at: string;
 }
 
+interface OAuthClient {
+  id: string;
+  name: string;
+  client_id: string;
+  redirect_uris: string[];
+  created_at: string;
+}
+
 interface ApiKey {
   id: string;
   name: string;
@@ -37,6 +45,7 @@ const SECTIONS = [
   { id: 'general',    label: 'General',    icon: IconBuildingOffice },
   { id: 'providers',  label: 'Providers',  icon: IconPuzzle },
   { id: 'api-keys',   label: 'API Keys',   icon: IconKey },
+  { id: 'oauth',      label: 'OAuth Apps', icon: IconOAuth },
   { id: 'compliance', label: 'Compliance', icon: IconShield },
 ] as const;
 
@@ -113,6 +122,13 @@ function IconShield({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  );
+}
+function IconOAuth({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
     </svg>
   );
 }
@@ -693,6 +709,226 @@ function ApiKeysSection() {
   );
 }
 
+function OAuthAppsSection() {
+  const [clients, setClients]   = useState<OAuthClient[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [modal, setModal]       = useState(false);
+  const [name, setName]         = useState('');
+  const [uris, setUris]         = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newClient, setNewClient] = useState<{ client_id: string; client_secret: string; name: string } | null>(null);
+  const [copiedId, setCopiedId]   = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+  const [createError, setCreateError]   = useState('');
+
+  const load = useCallback(() => {
+    api.get<OAuthClient[]>('/oauth/clients').then(setClients).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    const redirect_uris = uris.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!redirect_uris.length) { setCreateError('Enter at least one redirect URI'); return; }
+    setCreating(true); setCreateError('');
+    try {
+      const res = await api.post<{ id: string; name: string; client_id: string; client_secret: string; redirect_uris: string[]; created_at: string }>(
+        '/oauth/clients', { name: name.trim(), redirect_uris }
+      );
+      setNewClient({ client_id: res.client_id, client_secret: res.client_secret, name: res.name });
+      setName(''); setUris('');
+      load();
+    } catch (e: any) {
+      setCreateError(e.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function deleteClient(id: string, clientName: string) {
+    if (!confirm(`Delete OAuth app "${clientName}"? All issued tokens will stop working.`)) return;
+    await api.delete(`/oauth/clients/${id}`);
+    load();
+  }
+
+  function copy(text: string, setFlag: (v: boolean) => void) {
+    navigator.clipboard.writeText(text);
+    setFlag(true);
+    setTimeout(() => setFlag(false), 2000);
+  }
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://caller.yourdomain.com';
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-[#0f172a]">OAuth 2.0 Applications</h3>
+          <p className="text-xs text-[#94a3b8] mt-1">
+            Register apps (ChatGPT GPT Actions, custom integrations) to connect via OAuth.
+          </p>
+        </div>
+        <button
+          onClick={() => { setModal(true); setNewClient(null); }}
+          className="shrink-0 px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[#6366f1]/30"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          Register App
+        </button>
+      </div>
+
+      {/* Endpoints reference */}
+      <div className="bg-[#fafbff] border border-[#e0e7ff] rounded-xl p-4 space-y-2">
+        <p className="text-xs font-semibold text-[#4338ca]">OAuth 2.0 Endpoints (for ChatGPT GPT Actions)</p>
+        {[
+          { label: 'Authorization URL', value: `${origin}/oauth/authorize` },
+          { label: 'Token URL', value: `${origin}/api/oauth/token` },
+          { label: 'Scope', value: '(leave empty)' },
+        ].map(row => (
+          <div key={row.label} className="flex items-center gap-3">
+            <span className="text-[11px] text-[#6366f1] font-medium w-36 shrink-0">{row.label}</span>
+            <code className="text-xs text-[#334155] font-mono bg-white border border-[#e2e8f0] px-2 py-0.5 rounded">{row.value}</code>
+          </div>
+        ))}
+      </div>
+
+      {/* Clients table */}
+      <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+        {loading ? (
+          <div className="p-5 space-y-3 animate-pulse">
+            {[1, 2].map(i => <div key={i} className="h-12 bg-[#f8fafc] rounded-lg" />)}
+          </div>
+        ) : clients.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-14">
+            <div className="w-11 h-11 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-3">
+              <IconOAuth className="w-5 h-5 text-[#94a3b8]" />
+            </div>
+            <p className="text-sm font-medium text-[#475569]">No OAuth apps registered</p>
+            <p className="text-xs text-[#94a3b8] mt-1">Register your first app to enable OAuth connections</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+              <tr>
+                {['App Name', 'Client ID', 'Redirect URIs', 'Created', ''].map(h => (
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f1f5f9]">
+              {clients.map(c => (
+                <tr key={c.id} className="hover:bg-[#fafbfc] transition-colors">
+                  <td className="px-5 py-3.5 text-sm font-medium text-[#0f172a]">{c.name}</td>
+                  <td className="px-5 py-3.5">
+                    <code className="text-xs bg-[#f1f5f9] text-[#475569] px-2 py-0.5 rounded-md font-mono">{c.client_id}</code>
+                  </td>
+                  <td className="px-5 py-3.5 text-xs text-[#64748b] max-w-[200px]">
+                    {c.redirect_uris.map(u => <div key={u} className="truncate">{u}</div>)}
+                  </td>
+                  <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(c.created_at)}</td>
+                  <td className="px-5 py-3.5">
+                    <button
+                      onClick={() => deleteClient(c.id, c.name)}
+                      className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Register modal */}
+      {modal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setNewClient(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
+              <h2 className="text-base font-semibold text-[#0f172a]">
+                {newClient ? 'App Registered!' : 'Register OAuth App'}
+              </h2>
+              <button onClick={() => { setModal(false); setNewClient(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg">
+                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {newClient ? (
+              <div className="px-6 py-5 space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl">
+                  <IconCheck className="w-4 h-4 text-[#16a34a] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#15803d]">{newClient.name} registered</p>
+                    <p className="text-xs text-[#16a34a] mt-0.5">Save the client secret — it won't be shown again.</p>
+                  </div>
+                </div>
+                {[
+                  { label: 'Client ID', value: newClient.client_id, copied: copiedId, onCopy: () => copy(newClient.client_id, setCopiedId) },
+                  { label: 'Client Secret', value: newClient.client_secret, copied: copiedSecret, onCopy: () => copy(newClient.client_secret, setCopiedSecret) },
+                ].map(row => (
+                  <div key={row.label} className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{row.label}</label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 px-3 py-2.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-xs font-mono text-[#0f172a] break-all select-all">
+                        {row.value}
+                      </code>
+                      <button onClick={row.onCopy} className="shrink-0 p-2.5 border border-[#e2e8f0] hover:bg-[#f1f5f9] rounded-lg transition-colors">
+                        {row.copied ? <IconCheck className="w-4 h-4 text-[#059669]" /> : <IconCopy className="w-4 h-4 text-[#94a3b8]" />}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button onClick={() => { setModal(false); setNewClient(null); }} className="w-full py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all mt-2">
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">App Name</label>
+                  <input
+                    autoFocus
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="e.g. ChatGPT, My Integration"
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Redirect URIs</label>
+                  <textarea
+                    rows={3}
+                    value={uris}
+                    onChange={e => setUris(e.target.value)}
+                    placeholder={'https://chat.openai.com/aip/oauth/callback\nhttps://...'}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] resize-none focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] font-mono"
+                  />
+                  <p className="text-xs text-[#94a3b8]">One URL per line. For ChatGPT: <code className="font-mono">https://chat.openai.com/aip/oauth/callback</code></p>
+                </div>
+                {createError && <p className="text-sm text-red-500">{createError}</p>}
+                <div className="flex justify-end gap-3 pt-1">
+                  <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg">Cancel</button>
+                  <button type="submit" disabled={creating || !name.trim()} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg disabled:opacity-60">
+                    {creating ? 'Registering…' : 'Register App'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | null; onUpdated: (w: Workspace) => void }) {
   const [recording, setRecording] = useState(workspace?.call_recording_disclosure ?? true);
   const [aiDisclosure, setAiDisclosure] = useState(workspace?.ai_disclosure ?? true);
@@ -829,6 +1065,7 @@ export default function SettingsPage() {
         {activeSection === 'general'    && <GeneralSection workspace={workspace} onUpdated={handleWorkspaceUpdate} />}
         {activeSection === 'providers'  && <ProvidersSection />}
         {activeSection === 'api-keys'   && <ApiKeysSection />}
+        {activeSection === 'oauth'      && <OAuthAppsSection />}
         {activeSection === 'compliance' && <ComplianceSection workspace={workspace} onUpdated={handleWorkspaceUpdate} />}
       </div>
     </div>

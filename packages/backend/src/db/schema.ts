@@ -435,6 +435,38 @@ export const auditLogs = pgTable('audit_logs', {
 ]);
 
 // ============================================================
+// OAUTH 2.0
+// ============================================================
+export const oauthClients = pgTable('oauth_clients', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  client_id: text('client_id').notNull().unique(),
+  client_secret_hash: text('client_secret_hash').notNull(),
+  redirect_uris: text('redirect_uris').array().notNull().default(sql`'{}'`),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_oauth_clients_workspace').on(t.workspace_id),
+  index('idx_oauth_clients_client_id').on(t.client_id),
+]);
+
+export const oauthCodes = pgTable('oauth_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  user_id: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  client_id: text('client_id').notNull(),
+  code: text('code').notNull().unique(),
+  redirect_uri: text('redirect_uri').notNull(),
+  state: text('state'),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull().default(sql`now() + interval '10 minutes'`),
+  used_at: timestamp('used_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_oauth_codes_code').on(t.code),
+  index('idx_oauth_codes_expires').on(t.expires_at),
+]);
+
+// ============================================================
 // QA EVALUATIONS
 // ============================================================
 export const qaEvaluations = pgTable('qa_evaluations', {
