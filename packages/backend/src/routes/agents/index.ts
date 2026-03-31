@@ -19,6 +19,7 @@ const createAgentSchema = z.object({
   greeting_message: z.string().optional(),
   business_mode: z.string().optional(),
   is_default: z.boolean().default(false),
+  is_active: z.boolean().optional(),
 });
 
 const agentRoutes: FastifyPluginAsync = async (app) => {
