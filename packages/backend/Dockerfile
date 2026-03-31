@@ -9,7 +9,7 @@ COPY packages/backend/package.json ./
 COPY packages/backend/tsconfig.json ./
 
 # Install all deps (including devDeps for build)
-RUN npm ci
+RUN npm install
 
 # Copy backend source
 COPY packages/backend/src/ ./src/
@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 
 # Install production deps
 COPY packages/backend/package.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
