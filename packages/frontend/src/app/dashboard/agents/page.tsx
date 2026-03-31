@@ -84,6 +84,7 @@ export default function AgentsPage() {
   const [agents, setAgents]   = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState(false);
+  const [editId, setEditId]   = useState<string | null>(null);
   const [form, setForm]       = useState<AgentForm>(EMPTY_FORM);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState('');
@@ -97,12 +98,12 @@ export default function AgentsPage() {
 
   useEffect(() => { loadAgents(); }, []);
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setSaving(true);
     try {
-      await api.post('/agents', {
+      const payload = {
         name: form.name,
         display_name: form.name,
         language: form.language,
@@ -112,8 +113,14 @@ export default function AgentsPage() {
         llm_model: form.llm_model,
         system_prompt: form.system_prompt,
         greeting_message: form.first_message,
-      });
+      };
+      if (editId) {
+        await api.patch(`/agents/${editId}`, payload);
+      } else {
+        await api.post('/agents', payload);
+      }
       setModal(false);
+      setEditId(null);
       setForm(EMPTY_FORM);
       loadAgents();
     } catch (err: any) {
@@ -126,6 +133,33 @@ export default function AgentsPage() {
   async function toggleActive(agent: Agent) {
     await api.patch(`/agents/${agent.id}`, { is_active: !agent.is_active });
     loadAgents();
+  }
+
+  function openEdit(agent: Agent) {
+    const a = agent as any;
+    setEditId(agent.id);
+    setForm({
+      name: agent.name,
+      language: agent.language ?? 'en',
+      voice_provider: agent.voice_provider ?? 'elevenlabs',
+      voice_id: a.voice_id ?? DEFAULT_VOICE[agent.voice_provider ?? 'elevenlabs'] ?? '',
+      llm_provider: a.llm_provider ?? 'anthropic',
+      llm_model: a.llm_model ?? DEFAULT_MODELS[a.llm_provider ?? 'anthropic'] ?? '',
+      system_prompt: a.system_prompt ?? '',
+      first_message: a.greeting_message ?? '',
+    });
+    setError('');
+    setModal(true);
+  }
+
+  async function handleDelete(agent: Agent) {
+    if (!confirm(`Delete agent "${agent.name}"?`)) return;
+    try {
+      await api.delete(`/agents/${agent.id}`);
+      loadAgents();
+    } catch (err: any) {
+      alert(err.message);
+    }
   }
 
   return (
@@ -172,19 +206,22 @@ export default function AgentsPage() {
       ) : (
         <div className="grid grid-cols-3 gap-5">
           {agents.map(agent => (
-            <div key={agent.id} className="bg-white rounded-xl border border-[#e2e8f0] p-5 hover:shadow-md transition-shadow">
+            <div key={agent.id} className="bg-white rounded-xl border border-[#e2e8f0] p-5 hover:shadow-md transition-shadow group">
               <div className="flex items-start justify-between mb-4">
                 <div className="w-10 h-10 bg-[#eef2ff] rounded-xl flex items-center justify-center">
                   <svg className="w-5 h-5 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 </div>
-                <button
-                  onClick={() => toggleActive(agent)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${agent.is_active ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${agent.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleActive(agent)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${agent.is_active ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+                    title={agent.is_active ? 'Active — click to disable' : 'Disabled — click to enable'}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${agent.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
               </div>
               <h3 className="font-semibold text-[#0f172a] text-sm">{agent.name}</h3>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -192,9 +229,31 @@ export default function AgentsPage() {
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[#64748b] font-medium">{agent.voice_provider ?? 'elevenlabs'}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[#64748b] font-medium">{agent.language}</span>
               </div>
-              <p className="text-[10px] text-[#94a3b8] mt-3">
-                Created {new Date(agent.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </p>
+              <div className="mt-3 flex items-center justify-between">
+                <p className="text-[10px] text-[#94a3b8]">
+                  Created {new Date(agent.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => openEdit(agent)}
+                    className="p-1.5 rounded-lg hover:bg-[#f1f5f9] text-[#94a3b8] hover:text-[#6366f1] transition-colors"
+                    title="Edit"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(agent)}
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-[#94a3b8] hover:text-red-500 transition-colors"
+                    title="Delete"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -202,17 +261,17 @@ export default function AgentsPage() {
 
       {/* Create Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setEditId(null); setForm(EMPTY_FORM); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">New AI Agent</h2>
-              <button onClick={() => setModal(false)} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg">
+              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? 'Edit Agent' : 'New AI Agent'}</h2>
+              <button onClick={() => { setModal(false); setEditId(null); setForm(EMPTY_FORM); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
+            <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
               {[
                 { label: 'Agent Name', key: 'name', type: 'text', placeholder: 'Support Agent' },
               ].map(f => (
@@ -324,9 +383,9 @@ export default function AgentsPage() {
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
+                <button type="button" onClick={() => { setModal(false); setEditId(null); setForm(EMPTY_FORM); }} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
                 <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
-                  {saving ? 'Creating...' : 'Create Agent'}
+                  {saving ? 'Saving...' : editId ? 'Save Changes' : 'Create Agent'}
                 </button>
               </div>
             </form>
