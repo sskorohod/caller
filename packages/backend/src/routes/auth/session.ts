@@ -100,7 +100,15 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // POST /api/auth/login
-  app.post('/login', async (request, reply) => {
+  app.post('/login', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '15 minutes',
+        keyGenerator: (request: import('fastify').FastifyRequest) => request.ip,
+      },
+    },
+  }, async (request, reply) => {
     const body = loginBody.parse(request.body);
 
     const [user] = await db

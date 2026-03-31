@@ -33,19 +33,31 @@ function fmtDate(iso: string) {
 }
 
 export default function CallsPage() {
+  const LIMIT = 50;
   const [calls, setCalls]       = useState<Call[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch]     = useState('');
   const [filter, setFilter]     = useState('all');
   const [selected, setSelected] = useState<Call | null>(null);
   const [error, setError]       = useState('');
+  const [offset, setOffset]     = useState(0);
+  const [total, setTotal]       = useState(0);
 
-  function loadCalls() {
+  function loadCalls(loadOffset = 0) {
     setError('');
-    api.get<{ calls: Call[]; total: number }>('/calls?limit=100')
-      .then(r => setCalls(r?.calls ?? []))
+    const isLoadMore = loadOffset > 0;
+    if (isLoadMore) setLoadingMore(true); else setLoading(true);
+    api.get<{ calls: Call[]; total: number }>(`/calls?limit=${LIMIT}&offset=${loadOffset}`)
+      .then(r => {
+        const newCalls = r?.calls ?? [];
+        const newTotal = r?.total ?? 0;
+        setCalls(prev => isLoadMore ? [...prev, ...newCalls] : newCalls);
+        setTotal(newTotal);
+        setOffset(loadOffset + newCalls.length);
+      })
       .catch((err: any) => setError(err?.message ?? 'Failed to load calls'))
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); setLoadingMore(false); });
   }
 
   useEffect(() => { loadCalls(); }, []);
@@ -61,14 +73,14 @@ export default function CallsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-[#0f172a]">Calls</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">{calls.length} total calls</p>
+          <p className="text-sm text-[#94a3b8] mt-0.5">{total > 0 ? `${total} total calls` : `${calls.length} calls loaded`}</p>
         </div>
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-sm font-medium text-red-700">{error}</p>
-          <button onClick={loadCalls} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+          <button onClick={() => loadCalls()} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
         </div>
       )}
 
@@ -157,6 +169,19 @@ export default function CallsPage() {
         )}
       </div>
 
+      {/* Load More */}
+      {!loading && offset < total && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => loadCalls(offset)}
+            disabled={loadingMore}
+            className="px-5 py-2.5 text-sm font-medium text-[#6366f1] hover:bg-[#eef2ff] border border-[#e2e8f0] rounded-xl transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? 'Loading...' : `Load More (${total - offset} remaining)`}
+          </button>
+        </div>
+      )}
+
       {/* Detail panel */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)} onKeyDown={e => e.key === 'Escape' && setSelected(null)} role="dialog" aria-modal="true">
@@ -166,7 +191,7 @@ export default function CallsPage() {
                 <h2 className="text-base font-semibold text-[#0f172a]">Call Details</h2>
                 <p className="text-xs text-[#94a3b8] mt-0.5">{fmtDate(selected.created_at)}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg transition-colors">
+              <button onClick={() => setSelected(null)} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg transition-colors" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>

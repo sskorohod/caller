@@ -227,6 +227,7 @@ function Field({
             type="button"
             onClick={() => setShow(s => !s)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#475569] transition-colors"
+            aria-label={show ? 'Hide value' : 'Show value'}
           >
             {show ? <IconEyeOff className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
           </button>
@@ -389,6 +390,7 @@ function ProviderCard({
   const [saved, setSaved]   = useState(false);
   const [error, setError]   = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function handleSave() {
     const filled = Object.values(fields).some(v => v.trim());
@@ -406,11 +408,11 @@ function ProviderCard({
     }
   }
 
-  async function handleDelete() {
-    if (!confirm(`Remove ${meta.label} credentials?`)) return;
+  async function handleDeleteConfirm() {
     setDeleting(true);
     try {
       await api.delete(`/auth/providers/${providerKey}`);
+      setConfirmDelete(false);
       onSaved();
     } catch (e: any) {
       setError(e.message);
@@ -441,14 +443,20 @@ function ProviderCard({
           </div>
         </div>
         {isConnected && (
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="p-1.5 hover:bg-red-50 rounded-lg text-[#94a3b8] hover:text-red-500 transition-colors"
-            title="Remove credentials"
-          >
-            <IconTrash className="w-4 h-4" />
-          </button>
+          confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <button onClick={handleDeleteConfirm} disabled={deleting} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{deleting ? 'Removing...' : 'Confirm'}</button>
+              <button onClick={() => setConfirmDelete(false)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="p-1.5 hover:bg-red-50 rounded-lg text-[#94a3b8] hover:text-red-500 transition-colors"
+              aria-label="Remove credentials"
+            >
+              <IconTrash className="w-4 h-4" />
+            </button>
+          )
         )}
       </div>
 
@@ -500,6 +508,8 @@ function TwilioCard({
   const [connections, setConnections]     = useState<TelephonyConnection[]>([]);
   const [loadingPhones, setLoadingPhones] = useState(false);
   const [activating, setActivating]       = useState<string | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<TelephonyConnection | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   const isConnected = existingProvider?.is_verified === true;
 
@@ -564,31 +574,34 @@ function TwilioCard({
       });
       loadPhones();
     } catch (e: any) {
-      alert(e.message);
+      setError(e.message);
     } finally {
       setActivating(null);
     }
   }
 
-  async function handleDeactivate(conn: TelephonyConnection) {
-    if (!confirm(`Remove ${conn.phone_number}?`)) return;
+  async function handleDeactivateConfirm() {
+    if (!confirmDeactivate) return;
     try {
-      await api.delete(`/telephony/connections/${conn.id}`);
+      await api.delete(`/telephony/connections/${confirmDeactivate.id}`);
+      setConfirmDeactivate(null);
       loadPhones();
     } catch (e: any) {
-      alert(e.message);
+      setError(e.message);
+      setConfirmDeactivate(null);
     }
   }
 
-  async function handleDisconnect() {
-    if (!confirm('Remove Twilio credentials? All phone connections will stop working.')) return;
+  async function handleDisconnectConfirm() {
     try {
       await api.delete('/auth/providers/twilio');
       setPhones([]);
       setConnections([]);
+      setConfirmDisconnect(false);
       onSaved();
     } catch (e: any) {
-      alert(e.message);
+      setError(e.message);
+      setConfirmDisconnect(false);
     }
   }
 
@@ -615,9 +628,17 @@ function TwilioCard({
           </div>
         </div>
         {isConnected && (
-          <button onClick={handleDisconnect} className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium">
-            Disconnect
-          </button>
+          confirmDisconnect ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#94a3b8]">All connections will stop.</span>
+              <button onClick={handleDisconnectConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
+              <button onClick={() => setConfirmDisconnect(false)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmDisconnect(true)} className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium">
+              Disconnect
+            </button>
+          )
         )}
       </div>
 
@@ -713,12 +734,19 @@ function TwilioCard({
                       {isActive ? (
                         <>
                           <span className="text-xs text-[#16a34a] font-medium">Active</span>
-                          <button
-                            onClick={() => conn && handleDeactivate(conn)}
-                            className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors"
-                          >
-                            Remove
-                          </button>
+                          {confirmDeactivate?.id === conn?.id ? (
+                            <div className="flex items-center gap-2">
+                              <button onClick={handleDeactivateConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
+                              <button onClick={() => setConfirmDeactivate(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => conn && setConfirmDeactivate(conn)}
+                              className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors"
+                            >
+                              Remove
+                            </button>
+                          )}
                         </>
                       ) : (
                         <button
@@ -789,6 +817,7 @@ function ApiKeysSection() {
   const [newKey, setNewKey]   = useState<{ key: string; name: string } | null>(null);
   const [copied, setCopied]   = useState(false);
   const [error, setError]     = useState('');
+  const [revokeTarget, setRevokeTarget] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(() => {
     api.get<ApiKey[]>('/auth/api-keys').then(setKeys).catch(() => {}).finally(() => setLoading(false));
@@ -814,13 +843,15 @@ function ApiKeysSection() {
     }
   }
 
-  async function revokeKey(id: string, name: string) {
-    if (!confirm(`Revoke API key "${name}"? This cannot be undone.`)) return;
+  async function revokeKeyConfirm() {
+    if (!revokeTarget) return;
     try {
-      await api.delete(`/auth/api-keys/${id}`);
+      await api.delete(`/auth/api-keys/${revokeTarget.id}`);
+      setRevokeTarget(null);
       load();
     } catch (e: any) {
-      alert(e.message);
+      setError(e.message);
+      setRevokeTarget(null);
     }
   }
 
@@ -887,12 +918,19 @@ function ApiKeysSection() {
                   </td>
                   <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(k.created_at)}</td>
                   <td className="px-5 py-3.5">
-                    <button
-                      onClick={() => revokeKey(k.id, k.name)}
-                      className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
-                    >
-                      Revoke
-                    </button>
+                    {revokeTarget?.id === k.id ? (
+                      <div className="flex items-center gap-2">
+                        <button onClick={revokeKeyConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
+                        <button onClick={() => setRevokeTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setRevokeTarget({ id: k.id, name: k.name })}
+                        className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
+                      >
+                        Revoke
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -930,7 +968,7 @@ function ApiKeysSection() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
               <h2 className="text-base font-semibold text-[#0f172a]">Create API Key</h2>
-              <button onClick={() => { setModal(false); setNewKey(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg">
+              <button onClick={() => { setModal(false); setNewKey(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -957,6 +995,7 @@ function ApiKeysSection() {
                     <button
                       onClick={() => copyKey(newKey.key)}
                       className="shrink-0 p-2.5 border border-[#e2e8f0] hover:bg-[#f1f5f9] rounded-lg transition-colors"
+                      aria-label="Copy API key"
                     >
                       {copied ? <IconCheck className="w-4 h-4 text-[#059669]" /> : <IconCopy className="w-4 h-4 text-[#94a3b8]" />}
                     </button>
@@ -1009,6 +1048,7 @@ function OAuthAppsSection() {
   const [copiedId, setCopiedId]   = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [createError, setCreateError]   = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(() => {
     api.get<OAuthClient[]>('/oauth/clients').then(setClients).catch(() => {}).finally(() => setLoading(false));
@@ -1035,10 +1075,16 @@ function OAuthAppsSection() {
     }
   }
 
-  async function deleteClient(id: string, clientName: string) {
-    if (!confirm(`Delete OAuth app "${clientName}"? All issued tokens will stop working.`)) return;
-    await api.delete(`/oauth/clients/${id}`);
-    load();
+  async function deleteClientConfirm() {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/oauth/clients/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      load();
+    } catch (e: any) {
+      setCreateError(e.message);
+      setDeleteTarget(null);
+    }
   }
 
   function copy(text: string, setFlag: (v: boolean) => void) {
@@ -1119,12 +1165,19 @@ function OAuthAppsSection() {
                   </td>
                   <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(c.created_at)}</td>
                   <td className="px-5 py-3.5">
-                    <button
-                      onClick={() => deleteClient(c.id, c.name)}
-                      className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
-                    >
-                      Delete
-                    </button>
+                    {deleteTarget?.id === c.id ? (
+                      <div className="flex items-center gap-2">
+                        <button onClick={deleteClientConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
+                        <button onClick={() => setDeleteTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
+                        className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1141,7 +1194,7 @@ function OAuthAppsSection() {
               <h2 className="text-base font-semibold text-[#0f172a]">
                 {newClient ? 'App Registered!' : 'Register OAuth App'}
               </h2>
-              <button onClick={() => { setModal(false); setNewClient(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg">
+              <button onClick={() => { setModal(false); setNewClient(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1167,7 +1220,7 @@ function OAuthAppsSection() {
                       <code className="flex-1 px-3 py-2.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-xs font-mono text-[#0f172a] break-all select-all">
                         {row.value}
                       </code>
-                      <button onClick={row.onCopy} className="shrink-0 p-2.5 border border-[#e2e8f0] hover:bg-[#f1f5f9] rounded-lg transition-colors">
+                      <button onClick={row.onCopy} className="shrink-0 p-2.5 border border-[#e2e8f0] hover:bg-[#f1f5f9] rounded-lg transition-colors" aria-label={`Copy ${row.label}`}>
                         {row.copied ? <IconCheck className="w-4 h-4 text-[#059669]" /> : <IconCopy className="w-4 h-4 text-[#94a3b8]" />}
                       </button>
                     </div>
@@ -1262,6 +1315,9 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
         <div className="flex items-start gap-4">
           <button
             type="button"
+            role="switch"
+            aria-checked={recording}
+            aria-label="Toggle call recording disclosure"
             onClick={() => setRecording(v => !v)}
             className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${recording ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
           >
@@ -1278,6 +1334,9 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
         <div className="flex items-start gap-4">
           <button
             type="button"
+            role="switch"
+            aria-checked={aiDisclosure}
+            aria-label="Toggle AI identity disclosure"
             onClick={() => setAiDisclosure(v => !v)}
             className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${aiDisclosure ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
           >
@@ -1323,11 +1382,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex gap-7 min-h-full">
-      {/* Left nav */}
-      <div className="w-52 shrink-0">
-        <nav className="space-y-0.5 sticky top-0">
-          <p className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-widest px-3 mb-2">Settings</p>
+    <div className="flex flex-col md:flex-row gap-5 md:gap-7 min-h-full">
+      {/* Left nav (vertical on desktop, horizontal scroll on mobile) */}
+      <div className="md:w-52 shrink-0">
+        <nav className="md:space-y-0.5 md:sticky md:top-0 flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1 md:gap-0 pb-2 md:pb-0">
+          <p className="hidden md:block text-[10px] font-semibold text-[#94a3b8] uppercase tracking-widest px-3 mb-2">Settings</p>
           {SECTIONS.map(s => {
             const Icon = s.icon;
             const active = activeSection === s.id;
@@ -1335,7 +1394,7 @@ export default function SettingsPage() {
               <button
                 key={s.id}
                 onClick={() => setActiveSection(s.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${
+                className={`flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-lg text-sm whitespace-nowrap transition-colors shrink-0 md:w-full md:text-left ${
                   active
                     ? 'bg-[#eef2ff] text-[#6366f1] font-medium'
                     : 'text-[#475569] hover:bg-[#f1f5f9] hover:text-[#0f172a]'
