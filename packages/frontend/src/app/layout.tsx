@@ -1,16 +1,17 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/lib/auth-context';
 
 export const metadata: Metadata = {
-  title: 'Caller - AI Phone Agent Platform',
-  description: 'Configurable AI phone agents for business',
+  title: 'Caller — AI Phone Agent Platform',
+  description: 'Automate phone calls with AI agents',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
-        {children}
+      <body>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
