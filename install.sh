@@ -7,7 +7,7 @@ set -euo pipefail
 # Supports: Ubuntu 22.04+, Debian 11+
 # =============================================================
 
-REPO="https://github.com/vskorokhod/caller.git"
+REPO="https://github.com/sskorohod/caller.git"
 INSTALL_DIR="$HOME/caller"
 
 # Colors
