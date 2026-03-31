@@ -23,24 +23,24 @@ interface AgentForm {
   first_message: string;
 }
 
-const VOICE_OPTIONS: Record<string, { value: string; label: string }[]> = {
+const VOICE_OPTIONS: Record<string, { value: string; label: string; desc: string; emoji: string }[]> = {
   elevenlabs: [
-    { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Default (Sarah)' },
+    { value: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah', desc: 'Default female voice', emoji: '🎙️' },
   ],
   openai: [
-    { value: 'alloy', label: 'Alloy' },
-    { value: 'echo', label: 'Echo' },
-    { value: 'fable', label: 'Fable' },
-    { value: 'onyx', label: 'Onyx' },
-    { value: 'nova', label: 'Nova' },
-    { value: 'shimmer', label: 'Shimmer' },
+    { value: 'alloy', label: 'Alloy', desc: 'Neutral, balanced', emoji: '⚡' },
+    { value: 'echo', label: 'Echo', desc: 'Warm male voice', emoji: '🔊' },
+    { value: 'fable', label: 'Fable', desc: 'Expressive, storytelling', emoji: '📖' },
+    { value: 'onyx', label: 'Onyx', desc: 'Deep, authoritative', emoji: '🪨' },
+    { value: 'nova', label: 'Nova', desc: 'Friendly female', emoji: '✨' },
+    { value: 'shimmer', label: 'Shimmer', desc: 'Soft, gentle female', emoji: '🌟' },
   ],
   xai: [
-    { value: 'ara', label: 'Ara — warm, friendly female' },
-    { value: 'rex', label: 'Rex — professional male' },
-    { value: 'sal', label: 'Sal — neutral, balanced' },
-    { value: 'eve', label: 'Eve — energetic female' },
-    { value: 'leo', label: 'Leo — authoritative male' },
+    { value: 'ara', label: 'Ara', desc: 'Warm, friendly female', emoji: '🌸' },
+    { value: 'rex', label: 'Rex', desc: 'Professional male', emoji: '👔' },
+    { value: 'sal', label: 'Sal', desc: 'Neutral, balanced', emoji: '⚖️' },
+    { value: 'eve', label: 'Eve', desc: 'Energetic female', emoji: '⚡' },
+    { value: 'leo', label: 'Leo', desc: 'Authoritative male', emoji: '🦁' },
   ],
 };
 
@@ -275,15 +275,31 @@ export default function AgentsPage() {
               {(VOICE_OPTIONS[form.voice_provider]?.length ?? 0) > 1 && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Voice</label>
-                  <select
-                    value={form.voice_id}
-                    onChange={e => setForm(p => ({ ...p, voice_id: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
-                  >
+                  <div className="grid grid-cols-3 gap-2">
                     {(VOICE_OPTIONS[form.voice_provider] ?? []).map(v => (
-                      <option key={v.value} value={v.value}>{v.label}</option>
+                      <button
+                        key={v.value}
+                        type="button"
+                        onClick={() => setForm(p => ({ ...p, voice_id: v.value }))}
+                        className={`relative flex flex-col items-center gap-1 px-3 py-3 rounded-xl border-2 text-center transition-all ${
+                          form.voice_id === v.value
+                            ? 'border-[#6366f1] bg-[#eef2ff] shadow-sm'
+                            : 'border-[#e2e8f0] bg-white hover:border-[#c7d2fe] hover:bg-[#f8fafc]'
+                        }`}
+                      >
+                        <span className="text-lg">{v.emoji}</span>
+                        <span className={`text-sm font-semibold ${form.voice_id === v.value ? 'text-[#6366f1]' : 'text-[#0f172a]'}`}>{v.label}</span>
+                        <span className="text-[10px] text-[#94a3b8] leading-tight">{v.desc}</span>
+                        {form.voice_id === v.value && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-[#6366f1] rounded-full flex items-center justify-center">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
               )}
               <div className="space-y-1.5">
