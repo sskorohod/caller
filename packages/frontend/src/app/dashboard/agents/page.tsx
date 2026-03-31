@@ -216,10 +216,10 @@ export default function AgentsPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleActive(agent)}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${agent.is_active ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+                    className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${agent.is_active ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
                     title={agent.is_active ? 'Active — click to disable' : 'Disabled — click to enable'}
                   >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${agent.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${agent.is_active ? 'translate-x-4' : 'translate-x-0'}`} />
                   </button>
                 </div>
               </div>
