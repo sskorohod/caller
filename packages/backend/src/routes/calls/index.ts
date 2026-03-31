@@ -126,9 +126,17 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  // GET /api/calls (list)
+  // GET /api/calls (list) — supports both JWT (dashboard) and API key (MCP)
   app.get('/', {
-    preHandler: [authenticateApiKey],
+    preHandler: [
+      async (request, reply) => {
+        const token = request.headers.authorization?.replace('Bearer ', '') ?? '';
+        if (token.startsWith('mcp_')) {
+          return authenticateApiKey(request, reply);
+        }
+        return authenticateUser(request, reply);
+      },
+    ],
   }, async (request) => {
     const query = listCallsSchema.parse(request.query);
     return callService.listCalls(request.auth.workspaceId, query);
