@@ -154,7 +154,11 @@ success ".env written"
 
 # ----- Configure nginx domain -----
 info "Configuring nginx for domain: $DOMAIN"
-sed -i "s/__DOMAIN__/${DOMAIN}/g" nginx/nginx.conf
+if [[ "$(uname)" == "Darwin" ]]; then
+  sed -i '' "s/__DOMAIN__/${DOMAIN}/g" nginx/nginx.conf
+else
+  sed -i "s/__DOMAIN__/${DOMAIN}/g" nginx/nginx.conf
+fi
 
 # ----- Build and start -----
 echo ""
