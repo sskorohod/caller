@@ -38,6 +38,6 @@ COPY supabase/migrations ./supabase/migrations
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 USER nodejs
 
-EXPOSE 3001
+EXPOSE 3011
 
 CMD ["node", "dist/server.js"]

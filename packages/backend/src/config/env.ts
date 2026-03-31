@@ -2,7 +2,7 @@ import { z } from 'zod';
 import 'dotenv/config';
 
 const envSchema = z.object({
-  PORT: z.coerce.number().default(3001),
+  PORT: z.coerce.number().default(3011),
   HOST: z.string().default('0.0.0.0'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
@@ -15,7 +15,7 @@ const envSchema = z.object({
 
   TWILIO_WEBHOOK_SECRET: z.string().default(''), // optional at startup, configure later in dashboard
 
-  API_DOMAIN: z.string().min(1).default('localhost:3001'),
+  API_DOMAIN: z.string().min(1).default('localhost:3011'),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
