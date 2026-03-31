@@ -1,0 +1,161 @@
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import { eq, and } from 'drizzle-orm';
+import { db } from '../../config/db.js';
+import { telephonyConnections, workspaces } from '../../db/schema.js';
+import * as callService from '../../services/call.service.js';
+import * as telephonyService from '../../services/telephony.service.js';
+import * as agentService from '../../services/agent.service.js';
+import { env } from '../../config/env.js';
+import { validateTwilioSignature } from '../../middleware/twilio-auth.js';
+import { calls } from '../../db/schema.js';
+
+const inboundSchema = z.object({
+  Called: z.string().optional(),
+  To: z.string().optional(),
+  Caller: z.string().optional(),
+  From: z.string().optional(),
+  CallSid: z.string().min(1),
+});
+
+const statusSchema = z.object({
+  CallSid: z.string().min(1),
+  CallStatus: z.string().min(1),
+  CallDuration: z.string().optional(),
+});
+
+const twilioRoutes: FastifyPluginAsync = async (app) => {
+  app.addHook('onRequest', validateTwilioSignature);
+
+  app.post('/inbound', async (request, reply) => {
+    const body = inboundSchema.parse(request.body);
+    const calledNumber = body.Called ?? body.To;
+    const callerNumber = body.Caller ?? body.From;
+    const callSid = body.CallSid;
+
+    if (!calledNumber || !callerNumber) {
+      reply.status(400).send('Missing phone numbers');
+      return;
+    }
+
+    // Find connection + workspace via join
+    const rows = await db.select({
+      connection: telephonyConnections,
+      workspace: workspaces,
+    })
+      .from(telephonyConnections)
+      .innerJoin(workspaces, eq(telephonyConnections.workspace_id, workspaces.id))
+      .where(and(
+        eq(telephonyConnections.phone_number, calledNumber),
+        eq(telephonyConnections.ai_answering_enabled, true),
+      ))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) {
+      reply.type('text/xml').send('<Response><Say>This number is not configured. Goodbye.</Say><Hangup/></Response>');
+      return;
+    }
+
+    const { connection, workspace } = row;
+    const agentProfileId = connection.default_agent_profile_id;
+
+    let agentProfile = agentProfileId
+      ? await agentService.getAgentProfile(workspace.id, agentProfileId)
+      : await agentService.getDefaultAgentProfile(workspace.id);
+
+    if (!agentProfile) {
+      reply.type('text/xml').send('<Response><Say>No agent configured. Goodbye.</Say><Hangup/></Response>');
+      return;
+    }
+
+    const call = await callService.createCall({
+      workspaceId: workspace.id,
+      direction: 'inbound',
+      fromNumber: callerNumber,
+      toNumber: calledNumber,
+      telephonyConnectionId: connection.id,
+      conversationOwnerRequested: workspace.conversation_owner_default as any,
+      agentProfileId: agentProfile.id,
+    });
+
+    await callService.updateCallStatus(call.id, 'ringing', {
+      twilio_call_sid: callSid,
+    } as any);
+
+    await callService.createAiSession({
+      callId: call.id,
+      workspaceId: workspace.id,
+      agentProfileId: agentProfile.id,
+      conversationOwner: workspace.conversation_owner_default as any,
+      promptSnapshot: agentProfile.system_prompt ?? undefined,
+    });
+
+    await callService.addCallEvent({
+      callId: call.id,
+      workspaceId: workspace.id,
+      eventType: 'inbound_call_received',
+      eventData: { callerNumber, calledNumber, callSid },
+    });
+
+    const streamUrl = `wss://${env.API_DOMAIN}/ws/media-stream/${call.id}`;
+    const disclosure = workspace.call_recording_disclosure
+      ? (agentProfile.language === 'ru'
+        ? 'Этот звонок может быть записан для повышения качества обслуживания.'
+        : 'This call may be recorded for quality purposes.')
+      : undefined;
+
+    const twiml = telephonyService.generateInboundTwiml({
+      callId: call.id,
+      streamUrl,
+      disclosureMessage: disclosure,
+    });
+
+    reply.type('text/xml').send(twiml);
+  });
+
+  app.post('/status', async (request, reply) => {
+    const body = statusSchema.parse(request.body);
+    const callSid = body.CallSid;
+    const callStatus = body.CallStatus;
+    const duration = body.CallDuration;
+
+    const [call] = await db.select({ id: calls.id, workspace_id: calls.workspace_id })
+      .from(calls)
+      .where(eq(calls.twilio_call_sid, callSid));
+
+    if (!call) {
+      reply.status(200).send('OK');
+      return;
+    }
+
+    const statusMap: Record<string, string> = {
+      'initiated': 'initiated',
+      'ringing': 'ringing',
+      'in-progress': 'in_progress',
+      'completed': 'completed',
+      'busy': 'failed',
+      'no-answer': 'failed',
+      'canceled': 'canceled',
+      'failed': 'failed',
+    };
+
+    const ourStatus = statusMap[callStatus] ?? callStatus;
+
+    await callService.updateCallStatus(call.id, ourStatus as any, {
+      twilio_status: callStatus,
+      duration_seconds: duration ? parseInt(duration, 10) : undefined,
+    } as any);
+
+    await callService.addCallEvent({
+      callId: call.id,
+      workspaceId: call.workspace_id,
+      eventType: `twilio_status_${callStatus}`,
+      eventData: { callSid, callStatus, duration },
+    });
+
+    reply.status(200).send('OK');
+  });
+};
+
+export default twilioRoutes;

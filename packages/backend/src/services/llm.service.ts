@@ -1,0 +1,168 @@
+import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import { eq, and } from 'drizzle-orm';
+import { db } from '../config/db.js';
+import { providerCredentials } from '../db/schema.js';
+import { decrypt } from '../lib/crypto.js';
+
+export interface LLMMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface LLMResponse {
+  text: string;
+  tokensIn: number;
+  tokensOut: number;
+  model: string;
+  latencyMs: number;
+}
+
+export interface LLMStreamCallbacks {
+  onToken: (token: string) => void;
+  onComplete: (response: LLMResponse) => void;
+  onError: (error: Error) => void;
+}
+
+/**
+ * Anthropic (Claude) LLM provider.
+ */
+export class AnthropicLLM {
+  private client: Anthropic;
+
+  constructor(apiKey: string) {
+    this.client = new Anthropic({ apiKey });
+  }
+
+  async generateStream(
+    messages: LLMMessage[],
+    model: string,
+    temperature: number,
+    callbacks: LLMStreamCallbacks,
+  ): Promise<void> {
+    const start = Date.now();
+    const systemMsg = messages.find(m => m.role === 'system')?.content ?? '';
+    const chatMessages = messages
+      .filter(m => m.role !== 'system')
+      .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+    try {
+      let fullText = '';
+      const stream = this.client.messages.stream({
+        model,
+        max_tokens: 1024,
+        temperature,
+        system: systemMsg,
+        messages: chatMessages,
+      });
+
+      stream.on('text', (text) => {
+        fullText += text;
+        callbacks.onToken(text);
+      });
+
+      const finalMessage = await stream.finalMessage();
+
+      callbacks.onComplete({
+        text: fullText,
+        tokensIn: finalMessage.usage.input_tokens,
+        tokensOut: finalMessage.usage.output_tokens,
+        model: finalMessage.model,
+        latencyMs: Date.now() - start,
+      });
+    } catch (err) {
+      callbacks.onError(err instanceof Error ? err : new Error(String(err)));
+    }
+  }
+}
+
+/**
+ * OpenAI LLM provider.
+ */
+export class OpenAILLM {
+  private client: OpenAI;
+
+  constructor(apiKey: string) {
+    this.client = new OpenAI({ apiKey });
+  }
+
+  async generateStream(
+    messages: LLMMessage[],
+    model: string,
+    temperature: number,
+    callbacks: LLMStreamCallbacks,
+  ): Promise<void> {
+    const start = Date.now();
+
+    try {
+      let fullText = '';
+      let tokensIn = 0;
+      let tokensOut = 0;
+
+      const stream = await this.client.chat.completions.create({
+        model,
+        temperature,
+        max_tokens: 1024,
+        stream: true,
+        stream_options: { include_usage: true },
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          callbacks.onToken(delta);
+        }
+        if (chunk.usage) {
+          tokensIn = chunk.usage.prompt_tokens;
+          tokensOut = chunk.usage.completion_tokens;
+        }
+      }
+
+      callbacks.onComplete({
+        text: fullText,
+        tokensIn,
+        tokensOut,
+        model,
+        latencyMs: Date.now() - start,
+      });
+    } catch (err) {
+      callbacks.onError(err instanceof Error ? err : new Error(String(err)));
+    }
+  }
+}
+
+export type LLMProvider = AnthropicLLM | OpenAILLM;
+
+export async function createLLMProvider(
+  workspaceId: string,
+  provider: 'anthropic' | 'openai' | 'xai',
+): Promise<LLMProvider> {
+  const providerKey = provider === 'xai' ? 'xai' : provider;
+
+  const [row] = await db
+    .select({ credential_data: providerCredentials.credential_data })
+    .from(providerCredentials)
+    .where(
+      and(
+        eq(providerCredentials.workspace_id, workspaceId),
+        eq(providerCredentials.provider, providerKey),
+      ),
+    );
+
+  if (!row) throw new Error(`${provider} LLM credentials not configured`);
+
+  const creds = JSON.parse(decrypt(row.credential_data));
+
+  if (provider === 'anthropic') {
+    return new AnthropicLLM(creds.api_key);
+  }
+
+  if (provider === 'xai') {
+    // xAI uses OpenAI-compatible API
+    return new OpenAILLM(creds.api_key);
+  }
+
+  return new OpenAILLM(creds.api_key);
+}

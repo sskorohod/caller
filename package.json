@@ -1,0 +1,21 @@
+{
+  "name": "caller",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Phone Agent MCP Platform",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w packages/backend",
+    "dev:frontend": "npm run dev -w packages/frontend",
+    "dev:mcp": "npm run dev -w packages/mcp-server",
+    "build": "npm run build -w packages/backend && npm run build -w packages/frontend && npm run build -w packages/mcp-server",
+    "lint": "npm run lint -w packages/backend && npm run lint -w packages/frontend",
+    "db:migrate": "supabase db push",
+    "db:reset": "supabase db reset"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

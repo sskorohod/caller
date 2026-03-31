@@ -1,0 +1,84 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
+import { env } from './config/env.js';
+import { AppError } from './lib/errors.js';
+
+const app = Fastify({
+  logger: {
+    level: env.LOG_LEVEL,
+    transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+  },
+  bodyLimit: 1024 * 100, // 100KB max request body
+});
+
+// Security headers
+await app.register(helmet, {
+  contentSecurityPolicy: env.NODE_ENV === 'production' ? undefined : false,
+});
+
+// CORS
+await app.register(cors, {
+  origin: env.NODE_ENV === 'development' ? true : ['https://caller.app'],
+  credentials: true,
+});
+
+// Rate limiting
+await app.register(rateLimit, {
+  max: 100,
+  timeWindow: '1 minute',
+});
+
+// Global error handler — sanitize errors in production
+app.setErrorHandler((error, request, reply) => {
+  if (error instanceof AppError) {
+    const message = env.NODE_ENV === 'production'
+      ? getPublicMessage(error.code ?? 'UNKNOWN')
+      : error.message;
+
+    reply.status(error.statusCode).send({
+      error: error.code,
+      message,
+    });
+    return;
+  }
+
+  request.log.error(error);
+  reply.status(500).send({
+    error: 'INTERNAL_ERROR',
+    message: 'Internal server error',
+  });
+});
+
+function getPublicMessage(code: string): string {
+  const messages: Record<string, string> = {
+    NOT_FOUND: 'Resource not found',
+    UNAUTHORIZED: 'Invalid credentials',
+    FORBIDDEN: 'Access denied',
+    CONFLICT: 'Resource already exists',
+    VALIDATION_ERROR: 'Invalid input',
+  };
+  return messages[code] ?? 'An error occurred';
+}
+
+// Health check
+app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// Route registration
+await app.register(import('./routes/auth/index.js'), { prefix: '/api/auth' });
+await app.register(import('./routes/workspaces/index.js'), { prefix: '/api/workspaces' });
+await app.register(import('./routes/agents/index.js'), { prefix: '/api/agents' });
+await app.register(import('./routes/calls/index.js'), { prefix: '/api/calls' });
+await app.register(import('./routes/webhooks/index.js'), { prefix: '/webhooks' });
+await app.register(import('./routes/knowledge/index.js'), { prefix: '/api/knowledge' });
+await app.register(import('./routes/memory/index.js'), { prefix: '/api/memory' });
+
+// Start
+try {
+  await app.listen({ port: env.PORT, host: env.HOST });
+  app.log.info(`Server running at http://${env.HOST}:${env.PORT}`);
+} catch (err) {
+  app.log.fatal(err);
+  process.exit(1);
+}
