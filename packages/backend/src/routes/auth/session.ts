@@ -115,9 +115,25 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     const token = await issueJWT(user.id);
 
+    // Resolve workspace for the user
+    const [membership] = await db
+      .select({ workspace_id: workspaceMembers.workspace_id })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.user_id, user.id))
+      .limit(1);
+
+    let workspace = null;
+    if (membership) {
+      const [ws] = await db.select({ id: workspaces.id, name: workspaces.name })
+        .from(workspaces)
+        .where(eq(workspaces.id, membership.workspace_id));
+      if (ws) workspace = ws;
+    }
+
     return reply.send({
       token,
       user: { id: user.id, email: user.email },
+      workspace,
     });
   });
 };

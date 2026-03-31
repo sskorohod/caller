@@ -60,7 +60,7 @@ export const authApi = {
       '/auth/register', { method: 'POST', body: JSON.stringify(data) }
     ),
   login: (data: { email: string; password: string }) =>
-    request<{ token: string; user: { id: string; email: string } }>(
+    request<{ token: string; user: { id: string; email: string }; workspace: { id: string; name: string } | null }>(
       '/auth/login', { method: 'POST', body: JSON.stringify(data) }
     ),
 };

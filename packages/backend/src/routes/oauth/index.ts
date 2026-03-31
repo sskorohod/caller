@@ -3,7 +3,7 @@ import { z } from 'zod';
 import crypto from 'node:crypto';
 import * as jose from 'jose';
 import { db } from '../../config/db.js';
-import { oauthClients, oauthCodes } from '../../db/schema.js';
+import { oauthClients, oauthCodes, workspaceMembers } from '../../db/schema.js';
 import { eq, and, gt, isNull } from 'drizzle-orm';
 import { env } from '../../config/env.js';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
@@ -16,7 +16,19 @@ async function verifyJwt(token: string): Promise<{ sub: string; workspaceId: str
   try {
     const secret = new TextEncoder().encode(env.JWT_SECRET);
     const { payload } = await jose.jwtVerify(token, secret);
-    return payload as { sub: string; workspaceId: string };
+    const userId = payload.sub as string;
+    // OAuth tokens already include workspaceId; session JWTs do not — resolve from DB
+    let workspaceId = (payload as any).workspaceId as string | undefined;
+    if (!workspaceId) {
+      const [membership] = await db
+        .select({ workspace_id: workspaceMembers.workspace_id })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.user_id, userId))
+        .limit(1);
+      if (!membership) return null;
+      workspaceId = membership.workspace_id;
+    }
+    return { sub: userId, workspaceId };
   } catch {
     return null;
   }

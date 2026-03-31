@@ -10,7 +10,7 @@ interface AuthState {
   workspace: Workspace | null;
   token: string | null;
   isLoading: boolean;
-  login: (token: string, user: User, workspace?: Workspace) => void;
+  login: (token: string, user: User, workspace?: Workspace, redirectTo?: string) => void;
   logout: () => void;
   setWorkspace: (w: Workspace) => void;
 }
@@ -36,14 +36,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback((t: string, u: User, w?: Workspace) => {
+  const login = useCallback((t: string, u: User, w?: Workspace, redirectTo?: string) => {
     localStorage.setItem('caller_token', t);
     localStorage.setItem('caller_user', JSON.stringify(u));
     if (w) localStorage.setItem('caller_workspace', JSON.stringify(w));
     setToken(t);
     setUser(u);
     if (w) setWorkspaceState(w);
-    router.push('/dashboard');
+    router.push(redirectTo ?? '/dashboard');
   }, [router]);
 
   const logout = useCallback(() => {

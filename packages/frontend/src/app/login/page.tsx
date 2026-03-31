@@ -1,11 +1,14 @@
 'use client';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { authApi } from '@/lib/api';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginContent() {
   const { login } = useAuth();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('return');
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,10 +23,10 @@ export default function LoginPage() {
     try {
       if (tab === 'login') {
         const res = await authApi.login({ email, password });
-        login(res.token, res.user);
+        login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
       } else {
         const res = await authApi.register({ email, password, workspace_name: workspaceName });
-        login(res.token, res.user, res.workspace);
+        login(res.token, res.user, res.workspace, returnUrl ?? undefined);
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -134,5 +137,17 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
