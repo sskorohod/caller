@@ -36,7 +36,11 @@ async function migrate() {
   `);
 
   // Find migration files
-  const migrationsDir = path.resolve(__dirname, '../../supabase/migrations');
+  // In Docker: __dirname = /app/dist, migrations at /app/supabase/migrations
+  // In dev: __dirname = packages/backend/dist, migrations at ../../supabase/migrations
+  const migrationsDir = process.env.NODE_ENV === 'production'
+    ? path.resolve(__dirname, '../supabase/migrations')
+    : path.resolve(__dirname, '../../supabase/migrations');
 
   if (!fs.existsSync(migrationsDir)) {
     console.log(`Migrations directory not found: ${migrationsDir}`);
