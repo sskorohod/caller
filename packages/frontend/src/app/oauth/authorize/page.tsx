@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useT } from '@/lib/i18n';
 
 interface ClientInfo {
   client_name: string;
@@ -13,6 +14,7 @@ function OAuthConsentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { token, isLoading, user, workspace } = useAuth();
+  const t = useT();
 
   const clientId    = searchParams.get('client_id') ?? '';
   const redirectUri = searchParams.get('redirect_uri') ?? '';
@@ -33,7 +35,7 @@ function OAuthConsentContent() {
   // Validate params and fetch client info
   useEffect(() => {
     if (!clientId || !redirectUri || responseType !== 'code') {
-      setPageError('Invalid authorization request — missing required parameters.');
+      setPageError(t('oauth.invalidRequest'));
       return;
     }
     const url = `/api/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
@@ -61,7 +63,7 @@ function OAuthConsentContent() {
       if (data.redirect_to) {
         window.location.href = data.redirect_to;
       } else {
-        setPageError(data.error_description ?? data.error ?? 'Authorization failed');
+        setPageError(data.error_description ?? data.error ?? t('oauth.authFailed'));
       }
     } catch (e: any) {
       setPageError(e.message);
@@ -89,7 +91,7 @@ function OAuthConsentContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
             </svg>
           </div>
-          <h2 className="text-base font-semibold text-[#0f172a] mb-2">Authorization Error</h2>
+          <h2 className="text-base font-semibold text-[#0f172a] mb-2">{t('oauth.authError')}</h2>
           <p className="text-sm text-[#94a3b8] leading-relaxed">{pageError}</p>
         </div>
       </div>
@@ -133,22 +135,22 @@ function OAuthConsentContent() {
           </div>
           <h1 className="text-lg font-bold text-[#0f172a]">{clientInfo.client_name}</h1>
           <p className="text-sm text-[#64748b] mt-1">
-            wants to connect to{' '}
-            <span className="font-semibold text-[#0f172a]">{workspace?.name ?? 'your workspace'}</span>
+            {t('oauth.wantsToConnect')}{' '}
+            <span className="font-semibold text-[#0f172a]">{workspace?.name ?? t('oauth.yourWorkspace')}</span>
           </p>
         </div>
 
         {/* Permissions list */}
         <div className="px-8 py-5">
           <p className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-widest mb-3">
-            This app will be able to
+            {t('oauth.thisAppWillBeAbleTo')}
           </p>
           <ul className="space-y-2.5">
             {[
-              { icon: '📞', text: 'Start and manage phone calls' },
-              { icon: '📋', text: 'Read call history and transcripts' },
-              { icon: '🤖', text: 'Access your AI agents' },
-              { icon: '🧠', text: 'Read caller memory and profiles' },
+              { icon: '📞', text: t('oauth.perm.calls') },
+              { icon: '📋', text: t('oauth.perm.history') },
+              { icon: '🤖', text: t('oauth.perm.agents') },
+              { icon: '🧠', text: t('oauth.perm.memory') },
             ].map(item => (
               <li key={item.text} className="flex items-center gap-3">
                 <span className="w-6 text-center text-sm">{item.icon}</span>
@@ -181,7 +183,7 @@ function OAuthConsentContent() {
             disabled={submitting}
             className="flex-1 py-2.5 border border-[#e2e8f0] rounded-xl text-sm font-medium text-[#475569] hover:bg-[#f8fafc] transition-colors disabled:opacity-50"
           >
-            Deny
+            {t('oauth.deny')}
           </button>
           <button
             onClick={() => handleDecision(true)}
@@ -191,15 +193,14 @@ function OAuthConsentContent() {
             {submitting ? (
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Authorizing…
+                {t('oauth.authorizing')}
               </span>
-            ) : 'Allow Access'}
+            ) : t('oauth.allowAccess')}
           </button>
         </div>
 
         <p className="text-center text-[10px] text-[#94a3b8] pb-5 px-8">
-          By clicking Allow Access, you grant <span className="font-medium">{clientInfo.client_name}</span> permission
-          to access your Caller workspace on your behalf.
+          {t('oauth.consentNotice', { appName: clientInfo.client_name })}
         </p>
       </div>
     </div>

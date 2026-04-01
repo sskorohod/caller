@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 interface PromptPack {
   id: string;
@@ -24,6 +25,7 @@ const EMPTY_FORM: PromptPackForm = { name: '', description: '', content: '', cat
 const CATEGORIES = ['greeting', 'objection', 'closing', 'qualification', 'follow-up', 'general'];
 
 export default function PromptsPage() {
+  const t = useT();
   const [packs, setPacks] = useState<PromptPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -106,8 +108,8 @@ export default function PromptsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">Prompt Packs</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">Reusable prompt templates for your agents</p>
+          <h2 className="text-xl font-bold text-[#0f172a]">{t('prompts.title')}</h2>
+          <p className="text-sm text-[#94a3b8] mt-0.5">{t('prompts.subtitle')}</p>
         </div>
         <button
           onClick={() => setModal(true)}
@@ -116,14 +118,14 @@ export default function PromptsPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          New Prompt Pack
+          {t('prompts.newPack')}
         </button>
       </div>
 
       {loadError ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-sm font-medium text-red-700">{loadError}</p>
-          <button onClick={loadPacks} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+          <button onClick={loadPacks} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">{t('common.retry')}</button>
         </div>
       ) : loading ? (
         <div className="grid grid-cols-3 gap-5">
@@ -142,10 +144,10 @@ export default function PromptsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-[#475569]">No prompt packs yet</p>
-          <p className="text-xs text-[#94a3b8] mt-1 mb-4">Create reusable prompt templates</p>
+          <p className="text-sm font-semibold text-[#475569]">{t('prompts.noPacks')}</p>
+          <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('prompts.noPacksDesc')}</p>
           <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">
-            Create Prompt Pack
+            {t('prompts.createPack')}
           </button>
         </div>
       ) : (
@@ -215,13 +217,13 @@ export default function PromptsPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-[#0f172a]">Delete prompt pack</h3>
-                <p className="text-sm text-[#64748b] mt-1">Are you sure you want to delete &quot;{deleteTarget.name}&quot;? This action cannot be undone.</p>
+                <h3 className="text-base font-semibold text-[#0f172a]">{t('prompts.deletePack')}</h3>
+                <p className="text-sm text-[#64748b] mt-1">{t('prompts.deleteConfirm', { name: deleteTarget.name })}</p>
               </div>
               {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
               <div className="flex justify-end gap-3">
-                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
-                <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">Delete</button>
+                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">{t('common.delete')}</button>
               </div>
             </div>
           </div>
@@ -233,7 +235,7 @@ export default function PromptsPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? 'Edit Prompt Pack' : 'New Prompt Pack'}</h2>
+              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? t('prompts.editPack') : t('prompts.newPack')}</h2>
               <button onClick={closeModal} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -242,7 +244,7 @@ export default function PromptsPage() {
             </div>
             <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Name</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.name')}</label>
                 <input
                   type="text"
                   value={form.name}
@@ -253,7 +255,7 @@ export default function PromptsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Description</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.description')}</label>
                 <input
                   type="text"
                   value={form.description}
@@ -263,20 +265,20 @@ export default function PromptsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Category</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.category')}</label>
                 <select
                   value={form.category}
                   onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
                   className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
                 >
-                  <option value="">No category</option>
+                  <option value="">{t('prompts.noCategory')}</option>
                   {CATEGORIES.map(c => (
                     <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Content</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.content')}</label>
                 <textarea
                   rows={6}
                   value={form.content}
@@ -288,9 +290,9 @@ export default function PromptsPage() {
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
-                  {saving ? 'Saving...' : editId ? 'Save Changes' : 'Create Prompt Pack'}
+                  {saving ? t('prompts.saving') : editId ? t('prompts.saveChanges') : t('prompts.createPack')}
                 </button>
               </div>
             </form>

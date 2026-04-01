@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 interface Call {
   id: string;
@@ -56,6 +57,7 @@ function fmtDate(iso: string) {
 }
 
 export default function CallsPage() {
+  const t = useT();
   const LIMIT = 50;
   const [calls, setCalls]       = useState<Call[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -112,15 +114,15 @@ export default function CallsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">Calls</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">{total > 0 ? `${total} total calls` : `${calls.length} calls loaded`}</p>
+          <h2 className="text-xl font-bold text-[#0f172a]">{t('calls.title')}</h2>
+          <p className="text-sm text-[#94a3b8] mt-0.5">{total > 0 ? t('calls.totalCalls', { count: String(total) }) : t('calls.callsLoaded', { count: String(calls.length) })}</p>
         </div>
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-sm font-medium text-red-700">{error}</p>
-          <button onClick={() => loadCalls()} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+          <button onClick={() => loadCalls()} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">{t('common.retry')}</button>
         </div>
       )}
 
@@ -134,7 +136,7 @@ export default function CallsPage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by phone number..."
+              placeholder={t('calls.searchPhone')}
               className="w-full pl-9 pr-3.5 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
             />
           </div>
@@ -143,13 +145,13 @@ export default function CallsPage() {
             onChange={e => setFilter(e.target.value)}
             className="px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] bg-white"
           >
-            <option value="all">All calls</option>
-            <option value="inbound">Inbound</option>
-            <option value="outbound">Outbound</option>
-            <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
+            <option value="all">{t('calls.allCalls')}</option>
+            <option value="inbound">{t('calls.inboundFilter')}</option>
+            <option value="outbound">{t('calls.outboundFilter')}</option>
+            <option value="completed">{t('calls.completedFilter')}</option>
+            <option value="failed">{t('calls.failedFilter')}</option>
           </select>
-          <div className="ml-auto text-xs text-[#94a3b8]">{filtered.length} results</div>
+          <div className="ml-auto text-xs text-[#94a3b8]">{filtered.length} {t('calls.results')}</div>
         </div>
 
         {/* Table */}
@@ -167,15 +169,15 @@ export default function CallsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16">
-            <p className="text-sm text-[#475569] font-medium">No calls found</p>
-            <p className="text-xs text-[#94a3b8] mt-1">Try adjusting your filters</p>
+            <p className="text-sm text-[#475569] font-medium">{t('calls.noCalls')}</p>
+            <p className="text-xs text-[#94a3b8] mt-1">{t('calls.noCallsHint')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px]">
               <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
                 <tr>
-                  {['Phone Number','Direction','Status','Duration','Date',''].map(h => (
+                  {[t('calls.phone'), t('calls.direction'), t('calls.status'), t('calls.duration'), t('calls.date'), ''].map(h => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -188,7 +190,7 @@ export default function CallsPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${call.direction === 'outbound' ? 'bg-[#eef2ff] text-[#6366f1]' : 'bg-[#f0fdf4] text-[#16a34a]'}`}>
-                        {call.direction === 'outbound' ? '↑ Out' : '↓ In'}
+                        {call.direction === 'outbound' ? `↑ ${t('calls.outbound')}` : `↓ ${t('calls.inbound')}`}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
@@ -199,7 +201,7 @@ export default function CallsPage() {
                     <td className="px-5 py-3.5 text-sm text-[#475569]">{fmtDuration(call.duration_seconds)}</td>
                     <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(call.created_at)}</td>
                     <td className="px-5 py-3.5">
-                      <span className="text-xs text-[#6366f1] hover:text-[#4f46e5]">Details →</span>
+                      <span className="text-xs text-[#6366f1] hover:text-[#4f46e5]">{t('calls.details')} →</span>
                     </td>
                   </tr>
                 ))}
@@ -217,7 +219,7 @@ export default function CallsPage() {
             disabled={loadingMore}
             className="px-5 py-2.5 text-sm font-medium text-[#6366f1] hover:bg-[#eef2ff] border border-[#e2e8f0] rounded-xl transition-colors disabled:opacity-50"
           >
-            {loadingMore ? 'Loading...' : `Load More (${total - offset} remaining)`}
+            {loadingMore ? t('common.loading') : `${t('calls.loadMore')} (${total - offset} ${t('calls.remaining')})`}
           </button>
         </div>
       )}
@@ -229,7 +231,7 @@ export default function CallsPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0] shrink-0">
               <div>
-                <h2 className="text-base font-semibold text-[#0f172a]">Call Details</h2>
+                <h2 className="text-base font-semibold text-[#0f172a]">{t('calls.callDetail')}</h2>
                 <p className="text-xs text-[#94a3b8] mt-0.5">{fmtDate(selected.created_at)}</p>
               </div>
               <button onClick={closeDetail} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg transition-colors" aria-label="Close">
@@ -258,7 +260,7 @@ export default function CallsPage() {
               {detailLoading && (
                 <div className="flex items-center justify-center py-8">
                   <div className="w-5 h-5 border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin" />
-                  <span className="ml-2 text-sm text-[#94a3b8]">Loading details...</span>
+                  <span className="ml-2 text-sm text-[#94a3b8]">{t('calls.loadingDetails')}</span>
                 </div>
               )}
 
@@ -299,7 +301,7 @@ export default function CallsPage() {
                     {/* Summary */}
                     {summaryText && (
                       <div className="rounded-xl bg-[#f8fafc] p-4">
-                        <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">AI Summary</p>
+                        <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">{t('calls.summary')}</p>
                         <p className="text-sm text-[#475569] leading-relaxed">{summaryText}</p>
                       </div>
                     )}
@@ -307,7 +309,7 @@ export default function CallsPage() {
                     {/* Action items */}
                     {session?.action_items && session.action_items.length > 0 && (
                       <div className="rounded-xl bg-[#f8fafc] p-4">
-                        <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">Action Items</p>
+                        <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">{t('calls.actionItems')}</p>
                         <ul className="space-y-1.5">
                           {session.action_items.map((item, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-[#475569]">
@@ -322,7 +324,7 @@ export default function CallsPage() {
                     {/* Recording player */}
                     {session?.recording_url && (
                       <div className="rounded-xl bg-[#f8fafc] p-4">
-                        <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">Recording</p>
+                        <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">{t('calls.recording')}</p>
                         <audio controls className="w-full rounded-lg" src={session.recording_url}>
                           Your browser does not support the audio element.
                         </audio>
@@ -331,9 +333,9 @@ export default function CallsPage() {
 
                     {/* Transcript */}
                     <div className="rounded-xl bg-[#f8fafc] p-4">
-                      <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-3">Transcript</p>
+                      <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-3">{t('calls.transcript')}</p>
                       {!session?.transcript || session.transcript.length === 0 ? (
-                        <p className="text-sm text-[#94a3b8] italic">No transcript available</p>
+                        <p className="text-sm text-[#94a3b8] italic">{t('calls.noTranscript')}</p>
                       ) : (
                         <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
                           {session.transcript.map((entry, i) => (
@@ -367,7 +369,7 @@ export default function CallsPage() {
               {/* Fallback summary when detail hasn't loaded yet and not loading */}
               {!detailLoading && !detail && selected.summary && (
                 <div className="rounded-xl bg-[#f8fafc] p-4">
-                  <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">AI Summary</p>
+                  <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">{t('calls.summary')}</p>
                   <p className="text-sm text-[#475569] leading-relaxed">{selected.summary}</p>
                 </div>
               )}

@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useT } from '@/lib/i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,11 +59,11 @@ interface ApiKey {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const SECTIONS = [
-  { id: 'general',    label: 'General',    icon: IconBuildingOffice },
-  { id: 'providers',  label: 'Providers',  icon: IconPuzzle },
-  { id: 'api-keys',   label: 'API Keys',   icon: IconKey },
-  { id: 'oauth',      label: 'OAuth Apps', icon: IconOAuth },
-  { id: 'compliance', label: 'Compliance', icon: IconShield },
+  { id: 'general',    labelKey: 'settings.general',    icon: IconBuildingOffice },
+  { id: 'providers',  labelKey: 'settings.providers',  icon: IconPuzzle },
+  { id: 'api-keys',   labelKey: 'settings.apiKeys',   icon: IconKey },
+  { id: 'oauth',      labelKey: 'settings.oauth', icon: IconOAuth },
+  { id: 'compliance', labelKey: 'settings.compliance', icon: IconShield },
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
@@ -256,17 +257,18 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 }
 
 function SaveBar({ saving, saved, error, onSave }: { saving: boolean; saved: boolean; error: string; onSave: () => void }) {
+  const t = useT();
   return (
     <div className="flex items-center justify-between mt-6 pt-5 border-t border-[#f1f5f9]">
       <span className="text-xs text-[#94a3b8]">
-        {error ? <span className="text-red-500">{error}</span> : saved ? <span className="text-[#059669] flex items-center gap-1"><IconCheck className="w-3.5 h-3.5" />Saved</span> : null}
+        {error ? <span className="text-red-500">{error}</span> : saved ? <span className="text-[#059669] flex items-center gap-1"><IconCheck className="w-3.5 h-3.5" />{t('settings.saved')}</span> : null}
       </span>
       <button
         onClick={onSave}
         disabled={saving}
         className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
       >
-        {saving ? 'Saving…' : 'Save Changes'}
+        {saving ? t('settings.saving') : t('settings.saveChanges')}
       </button>
     </div>
   );
@@ -275,6 +277,7 @@ function SaveBar({ saving, saved, error, onSave }: { saving: boolean; saved: boo
 // ─── Sections ─────────────────────────────────────────────────────────────────
 
 function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null; onUpdated: (w: Workspace) => void }) {
+  const t = useT();
   const [name, setName]       = useState(workspace?.name ?? '');
   const [industry, setIndustry] = useState(workspace?.industry ?? '');
   const [timezone, setTimezone] = useState(workspace?.timezone ?? '');
@@ -313,18 +316,18 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
 
   return (
     <div className="bg-white rounded-xl border border-[#e2e8f0] p-6 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
-      <h3 className="text-sm font-semibold text-[#0f172a] mb-5">Workspace Settings</h3>
+      <h3 className="text-sm font-semibold text-[#0f172a] mb-5">{t('settings.workspaceSettings')}</h3>
       <div className="space-y-4">
-        <Field label="Workspace Name" value={name} onChange={setName} placeholder="My Company" />
+        <Field label={t('settings.workspaceName')} value={name} onChange={setName} placeholder="My Company" />
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Industry</label>
+            <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.industry')}</label>
             <select
               value={industry}
               onChange={e => setIndustry(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
             >
-              <option value="">Select industry…</option>
+              <option value="">{t('settings.selectIndustry')}</option>
               <option value="appliance_repair">Appliance Repair</option>
               <option value="hvac">HVAC</option>
               <option value="plumbing">Plumbing</option>
@@ -335,13 +338,13 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Timezone</label>
+            <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.timezone')}</label>
             <select
               value={timezone}
               onChange={e => setTimezone(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
             >
-              <option value="">Select timezone…</option>
+              <option value="">{t('settings.selectTimezone')}</option>
               <option value="America/New_York">Eastern (ET)</option>
               <option value="America/Chicago">Central (CT)</option>
               <option value="America/Denver">Mountain (MT)</option>
@@ -354,17 +357,17 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
           </div>
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Default Conversation Owner</label>
+          <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.defaultConversationOwner')}</label>
           <select
             value={convOwner}
             onChange={e => setConvOwner(e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
           >
-            <option value="internal">Internal Platform Agent</option>
-            <option value="external">External Calling Agent (MCP)</option>
+            <option value="internal">{t('settings.internalAgent')}</option>
+            <option value="external">{t('settings.externalAgent')}</option>
           </select>
           <p className="text-xs text-[#94a3b8]">
-            Controls who manages conversations by default. External mode requires an MCP agent to be connected.
+            {t('settings.convOwnerHint')}
           </p>
         </div>
       </div>
@@ -382,6 +385,7 @@ function ProviderCard({
   existingProvider: Provider | undefined;
   onSaved: () => void;
 }) {
+  const t = useT();
   const meta = PROVIDER_META[providerKey];
   const [fields, setFields] = useState<Record<string, string>>(() =>
     Object.fromEntries(meta.fields.map(f => [f.key, '']))
@@ -394,7 +398,7 @@ function ProviderCard({
 
   async function handleSave() {
     const filled = Object.values(fields).some(v => v.trim());
-    if (!filled) { setError('Enter at least one credential field.'); return; }
+    if (!filled) { setError(t('settings.enterCredential')); return; }
     setSaving(true); setError(''); setSaved(false);
     try {
       await api.put(`/auth/providers/${providerKey}`, { credentials: fields });
@@ -438,15 +442,15 @@ function ProviderCard({
                 Connected · {fmtDate(existingProvider.updated_at)}
               </div>
             ) : (
-              <div className="text-xs text-[#94a3b8]">Not configured</div>
+              <div className="text-xs text-[#94a3b8]">{t('settings.notConfigured')}</div>
             )}
           </div>
         </div>
         {isConnected && (
           confirmDelete ? (
             <div className="flex items-center gap-2">
-              <button onClick={handleDeleteConfirm} disabled={deleting} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{deleting ? 'Removing...' : 'Confirm'}</button>
-              <button onClick={() => setConfirmDelete(false)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+              <button onClick={handleDeleteConfirm} disabled={deleting} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{deleting ? t('settings.removing') : t('settings.confirm')}</button>
+              <button onClick={() => setConfirmDelete(false)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
             </div>
           ) : (
             <button
@@ -484,7 +488,7 @@ function ProviderCard({
           disabled={saving}
           className="px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
         >
-          {saving ? 'Saving…' : isConnected ? 'Update' : 'Save & Connect'}
+          {saving ? t('settings.saving') : isConnected ? t('settings.update') : t('settings.saveConnect')}
         </button>
       </div>
     </div>
@@ -498,6 +502,7 @@ function TwilioCard({
   existingProvider: Provider | undefined;
   onSaved: () => void;
 }) {
+  const t = useT();
   const [accountSid, setAccountSid] = useState('');
   const [authToken, setAuthToken]   = useState('');
   const [saving, setSaving]         = useState(false);
@@ -770,6 +775,7 @@ function TwilioCard({
 }
 
 function ProvidersSection() {
+  const t = useT();
   const [providers, setProviders] = useState<Provider[]>([]);
 
   const load = useCallback(() => {
@@ -784,9 +790,9 @@ function ProvidersSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-[#0f172a]">Provider Credentials</h3>
+        <h3 className="text-sm font-semibold text-[#0f172a]">{t('settings.providerCredentials')}</h3>
         <p className="text-xs text-[#94a3b8] mt-1">
-          Credentials are encrypted at rest with AES-256-GCM. Only you can access them.
+          {t('settings.providerCredentials')}
         </p>
       </div>
 
@@ -809,6 +815,7 @@ function ProvidersSection() {
 }
 
 function ApiKeysSection() {
+  const t = useT();
   const [keys, setKeys]     = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal]   = useState(false);
@@ -880,7 +887,7 @@ function ApiKeysSection() {
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Create Key
+          {t('settings.createApiKey')}
         </button>
       </div>
 
@@ -894,8 +901,8 @@ function ApiKeysSection() {
             <div className="w-11 h-11 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-3">
               <IconKey className="w-5 h-5 text-[#94a3b8]" />
             </div>
-            <p className="text-sm font-medium text-[#475569]">No active API keys</p>
-            <p className="text-xs text-[#94a3b8] mt-1">Create a key to connect Claude or ChatGPT as an external agent</p>
+            <p className="text-sm font-medium text-[#475569]">{t('settings.noApiKeys')}</p>
+            <p className="text-xs text-[#94a3b8] mt-1">{t('settings.noApiKeys')}</p>
           </div>
         ) : (
           <table className="w-full">
@@ -914,21 +921,21 @@ function ApiKeysSection() {
                     <code className="text-xs bg-[#f1f5f9] text-[#475569] px-2 py-0.5 rounded-md font-mono">{k.key_prefix}…</code>
                   </td>
                   <td className="px-5 py-3.5 text-sm text-[#94a3b8]">
-                    {k.last_used_at ? fmtDate(k.last_used_at) : 'Never'}
+                    {k.last_used_at ? fmtDate(k.last_used_at) : t('settings.never')}
                   </td>
                   <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(k.created_at)}</td>
                   <td className="px-5 py-3.5">
                     {revokeTarget?.id === k.id ? (
                       <div className="flex items-center gap-2">
-                        <button onClick={revokeKeyConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
-                        <button onClick={() => setRevokeTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+                        <button onClick={revokeKeyConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{t('settings.confirm')}</button>
+                        <button onClick={() => setRevokeTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setRevokeTarget({ id: k.id, name: k.name })}
                         className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
                       >
-                        Revoke
+                        {t('settings.revoke')}
                       </button>
                     )}
                   </td>
@@ -967,7 +974,7 @@ function ApiKeysSection() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setNewKey(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">Create API Key</h2>
+              <h2 className="text-base font-semibold text-[#0f172a]">{t('settings.createApiKey')}</h2>
               <button onClick={() => { setModal(false); setNewKey(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1008,13 +1015,13 @@ function ApiKeysSection() {
             ) : (
               <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Key Name</label>
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.keyName')}</label>
                   <input
                     autoFocus
                     type="text"
                     value={keyName}
                     onChange={e => setKeyName(e.target.value)}
-                    placeholder="e.g. Claude Desktop, ChatGPT Plugin"
+                    placeholder={t('settings.keyNamePlaceholder')}
                     required
                     className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
                   />
@@ -1022,10 +1029,10 @@ function ApiKeysSection() {
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <div className="flex justify-end gap-3 pt-1">
                   <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button type="submit" disabled={creating || !keyName.trim()} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
-                    {creating ? 'Creating…' : 'Create Key'}
+                    {creating ? t('settings.generating') : t('settings.generate')}
                   </button>
                 </div>
               </form>
@@ -1038,6 +1045,7 @@ function ApiKeysSection() {
 }
 
 function OAuthAppsSection() {
+  const t = useT();
   const [clients, setClients]   = useState<OAuthClient[]>([]);
   const [loading, setLoading]   = useState(true);
   const [modal, setModal]       = useState(false);
@@ -1111,7 +1119,7 @@ function OAuthAppsSection() {
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Register App
+          {t('settings.createOAuth')}
         </button>
       </div>
 
@@ -1141,8 +1149,8 @@ function OAuthAppsSection() {
             <div className="w-11 h-11 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-3">
               <IconOAuth className="w-5 h-5 text-[#94a3b8]" />
             </div>
-            <p className="text-sm font-medium text-[#475569]">No OAuth apps registered</p>
-            <p className="text-xs text-[#94a3b8] mt-1">Register your first app to enable OAuth connections</p>
+            <p className="text-sm font-medium text-[#475569]">{t('settings.noOAuthApps')}</p>
+            <p className="text-xs text-[#94a3b8] mt-1">{t('settings.noOAuthApps')}</p>
           </div>
         ) : (
           <table className="w-full">
@@ -1167,15 +1175,15 @@ function OAuthAppsSection() {
                   <td className="px-5 py-3.5">
                     {deleteTarget?.id === c.id ? (
                       <div className="flex items-center gap-2">
-                        <button onClick={deleteClientConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
-                        <button onClick={() => setDeleteTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+                        <button onClick={deleteClientConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{t('settings.confirm')}</button>
+                        <button onClick={() => setDeleteTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
                         className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
                       >
-                        Delete
+                        {t('common.delete')}
                       </button>
                     )}
                   </td>
@@ -1192,7 +1200,7 @@ function OAuthAppsSection() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
               <h2 className="text-base font-semibold text-[#0f172a]">
-                {newClient ? 'App Registered!' : 'Register OAuth App'}
+                {newClient ? t('settings.createOAuth') : t('settings.newOAuthApp')}
               </h2>
               <button onClick={() => { setModal(false); setNewClient(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1233,18 +1241,18 @@ function OAuthAppsSection() {
             ) : (
               <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">App Name</label>
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.appName')}</label>
                   <input
                     autoFocus
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    placeholder="e.g. ChatGPT, My Integration"
+                    placeholder={t('settings.appNamePlaceholder')}
                     required
                     className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Redirect URIs</label>
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.redirectUris')}</label>
                   <textarea
                     rows={3}
                     value={uris}
@@ -1257,9 +1265,9 @@ function OAuthAppsSection() {
                 </div>
                 {createError && <p className="text-sm text-red-500">{createError}</p>}
                 <div className="flex justify-end gap-3 pt-1">
-                  <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg">Cancel</button>
+                  <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg">{t('common.cancel')}</button>
                   <button type="submit" disabled={creating || !name.trim()} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg disabled:opacity-60">
-                    {creating ? 'Registering…' : 'Register App'}
+                    {creating ? t('settings.creating') : t('settings.createOAuth')}
                   </button>
                 </div>
               </form>
@@ -1272,6 +1280,7 @@ function OAuthAppsSection() {
 }
 
 function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | null; onUpdated: (w: Workspace) => void }) {
+  const t = useT();
   const [recording, setRecording] = useState(workspace?.call_recording_disclosure ?? true);
   const [aiDisclosure, setAiDisclosure] = useState(workspace?.ai_disclosure ?? true);
   const [saving, setSaving]   = useState(false);
@@ -1305,7 +1314,7 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-[#0f172a]">Compliance & Disclosures</h3>
+        <h3 className="text-sm font-semibold text-[#0f172a]">{t('settings.complianceSettings')}</h3>
         <p className="text-xs text-[#94a3b8] mt-1">
           Configure required disclosures for call recording and AI identity laws.
         </p>
@@ -1324,9 +1333,9 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${recording ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
           <div>
-            <div className="text-sm font-medium text-[#0f172a]">Call Recording Disclosure</div>
+            <div className="text-sm font-medium text-[#0f172a]">{t('settings.callRecordingDisclosure')}</div>
             <div className="text-xs text-[#94a3b8] mt-0.5">
-              Announce at the start of each call that the conversation may be recorded. Required in many US states (e.g. California two-party consent).
+              {t('settings.callRecordingHint')}
             </div>
           </div>
         </div>
@@ -1343,9 +1352,9 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${aiDisclosure ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
           <div>
-            <div className="text-sm font-medium text-[#0f172a]">AI Identity Disclosure</div>
+            <div className="text-sm font-medium text-[#0f172a]">{t('settings.aiDisclosure')}</div>
             <div className="text-xs text-[#94a3b8] mt-0.5">
-              Identify the agent as an AI at the start of each call. Required by law in several jurisdictions (FTC guidelines, California AB 302).
+              {t('settings.aiDisclosureHint')}
             </div>
           </div>
         </div>
@@ -1369,6 +1378,7 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
 
 export default function SettingsPage() {
   const { setWorkspace } = useAuth();
+  const t = useT();
   const [activeSection, setActiveSection] = useState<SectionId>('general');
   const [workspace, setWorkspaceLocal] = useState<Workspace | null>(null);
 
@@ -1386,7 +1396,7 @@ export default function SettingsPage() {
       {/* Left nav (vertical on desktop, horizontal scroll on mobile) */}
       <div className="md:w-52 shrink-0">
         <nav className="md:space-y-0.5 md:sticky md:top-0 flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1 md:gap-0 pb-2 md:pb-0">
-          <p className="hidden md:block text-[10px] font-semibold text-[#94a3b8] uppercase tracking-widest px-3 mb-2">Settings</p>
+          <p className="hidden md:block text-[10px] font-semibold text-[#94a3b8] uppercase tracking-widest px-3 mb-2">{t('settings.title')}</p>
           {SECTIONS.map(s => {
             const Icon = s.icon;
             const active = activeSection === s.id;
@@ -1401,7 +1411,7 @@ export default function SettingsPage() {
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
-                {s.label}
+                {t(s.labelKey)}
               </button>
             );
           })}

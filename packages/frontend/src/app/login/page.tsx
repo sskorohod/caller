@@ -4,9 +4,11 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { authApi } from '@/lib/api';
 import Link from 'next/link';
+import { useT } from '@/lib/i18n';
 
 function LoginContent() {
   const { login } = useAuth();
+  const t = useT();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('return');
   const [tab, setTab] = useState<'login' | 'register'>('login');
@@ -58,7 +60,7 @@ function LoginContent() {
                 tab === 'login' ? 'text-[#6366f1] border-b-2 border-[#6366f1]' : 'text-[#94a3b8] hover:text-[#475569]'
               }`}
             >
-              Sign In
+              {t('login.signIn')}
             </button>
             <button
               onClick={() => setTab('register')}
@@ -66,7 +68,7 @@ function LoginContent() {
                 tab === 'register' ? 'text-[#6366f1] border-b-2 border-[#6366f1]' : 'text-[#94a3b8] hover:text-[#475569]'
               }`}
             >
-              Create Account
+              {t('login.createAccount')}
             </button>
           </div>
 
@@ -74,7 +76,7 @@ function LoginContent() {
             {tab === 'register' && (
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wide">
-                  Workspace Name
+                  {t('login.workspaceName')}
                 </label>
                 <input
                   type="text"
@@ -89,7 +91,7 @@ function LoginContent() {
 
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wide">
-                Email
+                {t('login.email')}
               </label>
               <input
                 type="email"
@@ -103,7 +105,7 @@ function LoginContent() {
 
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wide">
-                Password
+                {t('login.password')}
               </label>
               <input
                 type="password"
@@ -127,13 +129,13 @@ function LoginContent() {
               disabled={loading}
               className="w-full py-3.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold rounded-xl text-sm transition-all active:scale-[.98] disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-[#6366f1]/25 mt-2"
             >
-              {loading ? 'Please wait...' : tab === 'login' ? 'Sign In' : 'Create Account'}
+              {loading ? t('login.pleaseWait') : tab === 'login' ? t('login.signIn') : t('login.createAccount')}
             </button>
           </form>
         </div>
 
         <p className="text-center text-xs text-[#475569] mt-6">
-          AI Phone Agent Platform © {new Date().getFullYear()}
+          {t('login.copyright')} © {new Date().getFullYear()}
         </p>
       </div>
     </div>

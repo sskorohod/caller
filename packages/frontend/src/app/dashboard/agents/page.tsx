@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 interface Agent {
   id: string;
@@ -81,6 +82,7 @@ const EMPTY_FORM: AgentForm = {
 };
 
 export default function AgentsPage() {
+  const t = useT();
   const [agents, setAgents]   = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState(false);
@@ -177,8 +179,8 @@ export default function AgentsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">AI Agents</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">Configure your AI phone agents</p>
+          <h2 className="text-xl font-bold text-[#0f172a]">{t('agents.title')}</h2>
+          <p className="text-sm text-[#94a3b8] mt-0.5">{t('agents.subtitle')}</p>
         </div>
         <button
           onClick={() => setModal(true)}
@@ -187,14 +189,14 @@ export default function AgentsPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          New Agent
+          {t('agents.newAgent')}
         </button>
       </div>
 
       {loadError ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-sm font-medium text-red-700">{loadError}</p>
-          <button onClick={loadAgents} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+          <button onClick={loadAgents} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">{t('common.retry')}</button>
         </div>
       ) : loading ? (
         <div className="grid grid-cols-3 gap-5">
@@ -213,10 +215,10 @@ export default function AgentsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-[#475569]">No agents yet</p>
-          <p className="text-xs text-[#94a3b8] mt-1 mb-4">Create your first AI phone agent</p>
+          <p className="text-sm font-semibold text-[#475569]">{t('agents.noAgents')}</p>
+          <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('agents.noAgentsDesc')}</p>
           <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">
-            Create Agent
+            {t('agents.createAgent')}
           </button>
         </div>
       ) : (
@@ -286,13 +288,13 @@ export default function AgentsPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-[#0f172a]">Delete agent</h3>
-                <p className="text-sm text-[#64748b] mt-1">Are you sure you want to delete &quot;{deleteTarget.name}&quot;? This action cannot be undone.</p>
+                <h3 className="text-base font-semibold text-[#0f172a]">{t('agents.deleteAgent')}</h3>
+                <p className="text-sm text-[#64748b] mt-1">{t('agents.deleteConfirm', { name: deleteTarget.name })}</p>
               </div>
               {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
               <div className="flex justify-end gap-3">
-                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
-                <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">Delete</button>
+                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">{t('common.delete')}</button>
               </div>
             </div>
           </div>
@@ -304,7 +306,7 @@ export default function AgentsPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? 'Edit Agent' : 'New AI Agent'}</h2>
+              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? t('agents.editAgent') : t('agents.newAIAgent')}</h2>
               <button onClick={closeModal} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -313,7 +315,7 @@ export default function AgentsPage() {
             </div>
             <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
               {[
-                { label: 'Agent Name', key: 'name', type: 'text', placeholder: 'Support Agent' },
+                { label: t('agents.agentName'), key: 'name', type: 'text', placeholder: 'Support Agent' },
               ].map(f => (
                 <div key={f.key} className="space-y-1.5">
                   <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{f.label}</label>
@@ -329,7 +331,7 @@ export default function AgentsPage() {
               ))}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">LLM Provider</label>
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.llmProvider')}</label>
                   <select
                     value={form.llm_provider}
                     onChange={e => {
@@ -344,7 +346,7 @@ export default function AgentsPage() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Voice Provider</label>
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.voiceProvider')}</label>
                   <select
                     value={form.voice_provider}
                     onChange={e => {
@@ -360,7 +362,7 @@ export default function AgentsPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Model</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.model')}</label>
                 <select
                   value={form.llm_model}
                   onChange={e => setForm(p => ({ ...p, llm_model: e.target.value }))}
@@ -373,7 +375,7 @@ export default function AgentsPage() {
               </div>
               {(VOICE_OPTIONS[form.voice_provider]?.length ?? 0) > 1 && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Voice</label>
+                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.voice')}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {(VOICE_OPTIONS[form.voice_provider] ?? []).map(v => (
                       <button
@@ -402,7 +404,7 @@ export default function AgentsPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">System Prompt</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.systemPrompt')}</label>
                 <textarea
                   rows={3}
                   value={form.system_prompt}
@@ -412,7 +414,7 @@ export default function AgentsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">First Message</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.firstMessage')}</label>
                 <input
                   type="text"
                   value={form.first_message}
@@ -423,9 +425,9 @@ export default function AgentsPage() {
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
-                  {saving ? 'Saving...' : editId ? 'Save Changes' : 'Create Agent'}
+                  {saving ? t('agents.saving') : editId ? t('agents.saveChanges') : t('agents.createAgent')}
                 </button>
               </div>
             </form>

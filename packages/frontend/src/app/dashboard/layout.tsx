@@ -3,10 +3,11 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
+import { useT, useI18n } from '@/lib/i18n';
 
 const navItems = [
   {
-    label: 'Overview',
+    key: 'nav.overview',
     href: '/dashboard',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -15,7 +16,7 @@ const navItems = [
     ),
   },
   {
-    label: 'Calls',
+    key: 'nav.calls',
     href: '/dashboard/calls',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -24,7 +25,7 @@ const navItems = [
     ),
   },
   {
-    label: 'Agents',
+    key: 'nav.agents',
     href: '/dashboard/agents',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -33,7 +34,7 @@ const navItems = [
     ),
   },
   {
-    label: 'Knowledge',
+    key: 'nav.knowledge',
     href: '/dashboard/knowledge',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -42,7 +43,7 @@ const navItems = [
     ),
   },
   {
-    label: 'Prompts',
+    key: 'nav.prompts',
     href: '/dashboard/prompts',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -51,7 +52,7 @@ const navItems = [
     ),
   },
   {
-    label: 'Skills',
+    key: 'nav.skills',
     href: '/dashboard/skills',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -60,7 +61,16 @@ const navItems = [
     ),
   },
   {
-    label: 'Settings',
+    key: 'nav.connectors',
+    href: '/dashboard/connectors',
+    icon: (
+      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+      </svg>
+    ),
+  },
+  {
+    key: 'nav.settings',
     href: '/dashboard/settings',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -75,6 +85,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { token, isLoading, user, workspace, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const t = useT();
+  const { lang, setLang } = useI18n();
 
   useEffect(() => {
     if (!isLoading && !token) router.replace('/login');
@@ -125,11 +137,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 }`}
               >
                 {item.icon}
-                {item.label}
+                {t(item.key)}
               </Link>
             );
           })}
         </nav>
+
+        {/* Language Switcher */}
+        <div className="px-3 py-2 border-t border-[#1e293b]">
+          <div className="flex items-center gap-1 px-3">
+            <span className="text-[10px] text-[#475569] font-medium mr-auto">{t('settings.language')}</span>
+            <button
+              onClick={() => setLang('en')}
+              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+                lang === 'en'
+                  ? 'bg-[#6366f1]/20 text-[#818cf8]'
+                  : 'text-[#475569] hover:text-[#94a3b8]'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang('ru')}
+              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+                lang === 'ru'
+                  ? 'bg-[#6366f1]/20 text-[#818cf8]'
+                  : 'text-[#475569] hover:text-[#94a3b8]'
+              }`}
+            >
+              RU
+            </button>
+          </div>
+        </div>
 
         {/* User */}
         <div className="px-3 py-4 border-t border-[#1e293b]">
@@ -139,7 +178,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium text-white truncate">{user?.email}</div>
-              <div className="text-[10px] text-[#475569]">Sign out</div>
+              <div className="text-[10px] text-[#475569]">{t('login.signOut')}</div>
             </div>
             <svg className="w-3.5 h-3.5 text-[#475569] group-hover:text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
@@ -153,7 +192,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Topbar */}
         <header className="h-16 bg-white border-b border-[#e2e8f0] px-8 flex items-center justify-between shrink-0">
           <h1 className="text-base font-semibold text-[#0f172a]">
-            {navItems.find(i => i.href === pathname || (i.href !== '/dashboard' && pathname.startsWith(i.href)))?.label ?? 'Dashboard'}
+            {(() => {
+              const found = navItems.find(i => i.href === pathname || (i.href !== '/dashboard' && pathname.startsWith(i.href)));
+              return found ? t(found.key) : 'Dashboard';
+            })()}
           </h1>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ecfdf5] text-[#059669] text-xs font-medium">

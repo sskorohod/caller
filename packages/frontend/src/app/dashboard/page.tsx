@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useT } from '@/lib/i18n';
 
 interface Stats {
   total_calls: number;
@@ -58,7 +59,7 @@ function fmtDate(iso: string) {
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function CallsWeekChart({ calls }: { calls: RecentCall[] }) {
+function CallsWeekChart({ calls, t }: { calls: RecentCall[]; t: (key: string, vars?: Record<string, string>) => string }) {
   const chartData = useMemo(() => {
     const now = new Date();
     const days: { label: string; date: string; count: number }[] = [];
@@ -87,7 +88,7 @@ function CallsWeekChart({ calls }: { calls: RecentCall[] }) {
 
   return (
     <div className="bg-white rounded-xl border border-[#e2e8f0] p-6 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
-      <h2 className="text-sm font-semibold text-[#0f172a] mb-5">Calls This Week</h2>
+      <h2 className="text-sm font-semibold text-[#0f172a] mb-5">{t('dashboard.callsThisWeek')}</h2>
       <div className="flex items-end justify-between gap-3" style={{ height: 160 }}>
         {chartData.map(day => {
           const barHeight = maxCount > 0 ? Math.max((day.count / maxCount) * 130, day.count > 0 ? 8 : 0) : 0;
@@ -115,6 +116,7 @@ function CallsWeekChart({ calls }: { calls: RecentCall[] }) {
 
 export default function OverviewPage() {
   const { workspace } = useAuth();
+  const t = useT();
   const [calls, setCalls] = useState<RecentCall[]>([]);
   const [weekCalls, setWeekCalls] = useState<RecentCall[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,32 +147,32 @@ export default function OverviewPage() {
     <div className="space-y-7">
       {/* Welcome */}
       <div>
-        <h2 className="text-xl font-bold text-[#0f172a]">Good {getTimeOfDay()}, {workspace?.name ?? 'there'} 👋</h2>
-        <p className="text-sm text-[#94a3b8] mt-1">Here's what's happening with your AI phone agents.</p>
+        <h2 className="text-xl font-bold text-[#0f172a]">{t('dashboard.greeting', { timeOfDay: t(`time.${getTimeOfDay()}`), name: workspace?.name ?? 'there' })} 👋</h2>
+        <p className="text-sm text-[#94a3b8] mt-1">{t('dashboard.subtitle')}</p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-5">
-        <KpiCard label="Total Calls" value={String(totalCalls)} sub="All time" color="bg-[#eef2ff]" />
-        <KpiCard label="Active Now" value={String(activeCalls)} sub="In progress" color="bg-[#dcfce7]" />
-        <KpiCard label="Minutes Used" value={String(totalMinutes)} sub="This session" color="bg-[#fef3c7]" />
-        <KpiCard label="Agents" value="—" sub="Configure below" color="bg-[#fce7f3]" />
+        <KpiCard label={t('dashboard.totalCalls')} value={String(totalCalls)} sub={t('dashboard.allTime')} color="bg-[#eef2ff]" />
+        <KpiCard label={t('dashboard.activeNow')} value={String(activeCalls)} sub={t('dashboard.inProgress')} color="bg-[#dcfce7]" />
+        <KpiCard label={t('dashboard.minutesUsed')} value={String(totalMinutes)} sub={t('dashboard.thisSession')} color="bg-[#fef3c7]" />
+        <KpiCard label={t('dashboard.agents')} value="—" sub={t('dashboard.configureBelow')} color="bg-[#fce7f3]" />
       </div>
 
       {/* Calls This Week Chart */}
-      {!loading && <CallsWeekChart calls={weekCalls} />}
+      {!loading && <CallsWeekChart calls={weekCalls} t={t} />}
 
       {/* Recent Calls */}
       <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
         <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[#0f172a]">Recent Calls</h2>
-          <a href="/dashboard/calls" className="text-xs text-[#6366f1] hover:text-[#4f46e5] font-medium">View all →</a>
+          <h2 className="text-sm font-semibold text-[#0f172a]">{t('dashboard.recentCalls')}</h2>
+          <a href="/dashboard/calls" className="text-xs text-[#6366f1] hover:text-[#4f46e5] font-medium">{t('dashboard.viewAll')} →</a>
         </div>
 
         {error ? (
           <div className="p-6 text-center">
             <p className="text-sm font-medium text-red-700">{error}</p>
-            <button onClick={loadCalls} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+            <button onClick={loadCalls} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">{t('common.retry')}</button>
           </div>
         ) : loading ? (
           <div className="p-6 space-y-3">
@@ -192,14 +194,14 @@ export default function OverviewPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-[#475569]">No calls yet</p>
-            <p className="text-xs text-[#94a3b8] mt-1 max-w-xs">Connect Twilio and create an agent to start making AI-powered calls.</p>
+            <p className="text-sm font-medium text-[#475569]">{t('dashboard.noCalls')}</p>
+            <p className="text-xs text-[#94a3b8] mt-1 max-w-xs">{t('dashboard.noCallsDesc')}</p>
           </div>
         ) : (
           <table className="w-full">
             <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
               <tr>
-                {['Phone Number', 'Direction', 'Status', 'Duration', 'Date'].map(h => (
+                {[t('dashboard.phoneNumber'), t('dashboard.direction'), t('dashboard.status'), t('dashboard.duration'), t('dashboard.date')].map(h => (
                   <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -212,7 +214,7 @@ export default function OverviewPage() {
                   </td>
                   <td className="px-6 py-3.5">
                     <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${call.direction === 'outbound' ? 'bg-[#eef2ff] text-[#6366f1]' : 'bg-[#f0fdf4] text-[#16a34a]'}`}>
-                      {call.direction === 'outbound' ? '↑ Out' : '↓ In'}
+                      {call.direction === 'outbound' ? `↑ ${t('calls.outbound')}` : `↓ ${t('calls.inbound')}`}
                     </span>
                   </td>
                   <td className="px-6 py-3.5">

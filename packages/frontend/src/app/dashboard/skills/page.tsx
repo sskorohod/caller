@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 interface SkillPack {
   id: string;
@@ -29,6 +30,7 @@ interface SkillPackForm {
 const EMPTY_FORM: SkillPackForm = { name: '', description: '', intent: '', conversation_rules: '', advanced_json: '' };
 
 export default function SkillsPage() {
+  const t = useT();
   const [packs, setPacks] = useState<SkillPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -134,8 +136,8 @@ export default function SkillsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">Skill Packs</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">Define skills and conversation flows for agents</p>
+          <h2 className="text-xl font-bold text-[#0f172a]">{t('skills.title')}</h2>
+          <p className="text-sm text-[#94a3b8] mt-0.5">{t('skills.subtitle')}</p>
         </div>
         <button
           onClick={() => setModal(true)}
@@ -144,14 +146,14 @@ export default function SkillsPage() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          New Skill Pack
+          {t('skills.newPack')}
         </button>
       </div>
 
       {loadError ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-sm font-medium text-red-700">{loadError}</p>
-          <button onClick={loadPacks} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">Retry</button>
+          <button onClick={loadPacks} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">{t('common.retry')}</button>
         </div>
       ) : loading ? (
         <div className="grid grid-cols-3 gap-5">
@@ -170,10 +172,10 @@ export default function SkillsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-[#475569]">No skill packs yet</p>
-          <p className="text-xs text-[#94a3b8] mt-1 mb-4">Define conversation skills for your agents</p>
+          <p className="text-sm font-semibold text-[#475569]">{t('skills.noPacks')}</p>
+          <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('skills.noPacksDesc')}</p>
           <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">
-            Create Skill Pack
+            {t('skills.createPack')}
           </button>
         </div>
       ) : (
@@ -241,13 +243,13 @@ export default function SkillsPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-[#0f172a]">Delete skill pack</h3>
-                <p className="text-sm text-[#64748b] mt-1">Are you sure you want to delete &quot;{deleteTarget.name}&quot;? This action cannot be undone.</p>
+                <h3 className="text-base font-semibold text-[#0f172a]">{t('skills.deletePack')}</h3>
+                <p className="text-sm text-[#64748b] mt-1">{t('skills.deleteConfirm', { name: deleteTarget.name })}</p>
               </div>
               {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
               <div className="flex justify-end gap-3">
-                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
-                <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">Delete</button>
+                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">{t('common.delete')}</button>
               </div>
             </div>
           </div>
@@ -259,7 +261,7 @@ export default function SkillsPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? 'Edit Skill Pack' : 'New Skill Pack'}</h2>
+              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? t('skills.editPack') : t('skills.newPack')}</h2>
               <button onClick={closeModal} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
                 <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -268,7 +270,7 @@ export default function SkillsPage() {
             </div>
             <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Name</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('skills.name')}</label>
                 <input
                   type="text"
                   value={form.name}
@@ -279,7 +281,7 @@ export default function SkillsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Description</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('skills.description')}</label>
                 <input
                   type="text"
                   value={form.description}
@@ -289,7 +291,7 @@ export default function SkillsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Intent</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('skills.intent')}</label>
                 <input
                   type="text"
                   value={form.intent}
@@ -300,7 +302,7 @@ export default function SkillsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Conversation Rules</label>
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('skills.conversationRules')}</label>
                 <textarea
                   rows={4}
                   value={form.conversation_rules}
@@ -318,7 +320,7 @@ export default function SkillsPage() {
                   <svg className={`w-3 h-3 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                   </svg>
-                  Advanced Fields (JSON)
+                  {t('skills.advancedJSON')}
                 </button>
                 {showAdvanced && (
                   <div className="mt-2 space-y-1.5">
@@ -335,9 +337,9 @@ export default function SkillsPage() {
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">Cancel</button>
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
-                  {saving ? 'Saving...' : editId ? 'Save Changes' : 'Create Skill Pack'}
+                  {saving ? t('skills.saving') : editId ? t('skills.saveChanges') : t('skills.createPack')}
                 </button>
               </div>
             </form>
