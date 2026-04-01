@@ -79,6 +79,8 @@ await app.register(import('./routes/workspaces/index.js'), { prefix: '/api/works
 await app.register(import('./routes/agents/index.js'), { prefix: '/api/agents' });
 await app.register(import('./routes/calls/index.js'), { prefix: '/api/calls' });
 await app.register(import('./routes/webhooks/index.js'), { prefix: '/webhooks' });
+await app.register(import('./routes/prompt-packs/index.js'), { prefix: '/api/prompt-packs' });
+await app.register(import('./routes/skill-packs/index.js'), { prefix: '/api/skill-packs' });
 await app.register(import('./routes/knowledge/index.js'), { prefix: '/api/knowledge' });
 await app.register(import('./routes/memory/index.js'), { prefix: '/api/memory' });
 await app.register(import('./routes/oauth/index.js'), { prefix: '/api/oauth' });

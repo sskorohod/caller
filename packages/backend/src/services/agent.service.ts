@@ -133,6 +133,21 @@ export async function listPromptPacks(workspaceId: string): Promise<PromptPack[]
   return rows as unknown as PromptPack[];
 }
 
+export async function getPromptPack(workspaceId: string, packId: string): Promise<PromptPack> {
+  const [row] = await db
+    .select()
+    .from(promptPacks)
+    .where(
+      and(
+        eq(promptPacks.id, packId),
+        eq(promptPacks.workspace_id, workspaceId),
+      ),
+    );
+
+  if (!row) throw new NotFoundError('Prompt Pack', packId);
+  return row as unknown as PromptPack;
+}
+
 export async function updatePromptPack(
   workspaceId: string,
   packId: string,
@@ -151,6 +166,17 @@ export async function updatePromptPack(
 
   if (!updated) throw new NotFoundError('Prompt Pack', packId);
   return updated as unknown as PromptPack;
+}
+
+export async function deletePromptPack(workspaceId: string, packId: string): Promise<void> {
+  await db
+    .delete(promptPacks)
+    .where(
+      and(
+        eq(promptPacks.id, packId),
+        eq(promptPacks.workspace_id, workspaceId),
+      ),
+    );
 }
 
 // ============================================================
@@ -204,6 +230,48 @@ export async function getSkillPack(workspaceId: string, packId: string): Promise
 
   if (!row) throw new NotFoundError('Skill Pack', packId);
   return row as unknown as SkillPack;
+}
+
+export async function updateSkillPack(
+  workspaceId: string,
+  packId: string,
+  updates: Partial<{
+    name: string;
+    description: string;
+    intent: string;
+    activation_rules: Record<string, unknown>;
+    required_data: unknown[];
+    tool_sequence: unknown[];
+    allowed_tools: string[];
+    escalation_conditions: unknown[];
+    completion_criteria: Record<string, unknown>;
+    conversation_rules: string;
+  }>,
+): Promise<SkillPack> {
+  const [updated] = await db
+    .update(skillPacks)
+    .set(updates)
+    .where(
+      and(
+        eq(skillPacks.id, packId),
+        eq(skillPacks.workspace_id, workspaceId),
+      ),
+    )
+    .returning();
+
+  if (!updated) throw new NotFoundError('Skill Pack', packId);
+  return updated as unknown as SkillPack;
+}
+
+export async function deleteSkillPack(workspaceId: string, packId: string): Promise<void> {
+  await db
+    .delete(skillPacks)
+    .where(
+      and(
+        eq(skillPacks.id, packId),
+        eq(skillPacks.workspace_id, workspaceId),
+      ),
+    );
 }
 
 // ============================================================
