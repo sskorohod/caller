@@ -3,6 +3,9 @@ import { redis } from '../config/redis.js';
 import { createLLMProvider, type LLMMessage } from '../services/llm.service.js';
 import * as callService from '../services/call.service.js';
 import * as memoryService from '../services/memory.service.js';
+import { deliverWebhookEvent } from '../services/webhook.service.js';
+import { db } from '../config/db.js';
+import { qaEvaluations } from '../db/schema.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'post-call-worker' });
@@ -55,6 +58,7 @@ export function startPostCallWorker(): Worker {
 2. Action items (if any)
 3. Sentiment (positive/neutral/negative)
 4. Key facts about the caller that should be remembered
+5. QA evaluation: score 0-10 and criteria breakdown
 
 Respond in JSON format:
 {
@@ -62,7 +66,14 @@ Respond in JSON format:
   "action_items": ["..."],
   "sentiment": "positive|neutral|negative",
   "quality_flags": ["..."],
-  "extracted_facts": [{"type": "issue|preference|promise|follow_up|appointment|general", "content": "..."}]
+  "extracted_facts": [{"type": "issue|preference|promise|follow_up|appointment|general", "content": "..."}],
+  "qa_score": 8.5,
+  "qa_criteria": [
+    {"name": "greeting", "score": 9, "max": 10, "comment": "..."},
+    {"name": "problem_resolution", "score": 8, "max": 10, "comment": "..."},
+    {"name": "professionalism", "score": 9, "max": 10, "comment": "..."},
+    {"name": "closing", "score": 8, "max": 10, "comment": "..."}
+  ]
 }`,
           },
           {
@@ -94,13 +105,26 @@ Respond in JSON format:
         if (!result) return;
 
         // Update AI session
+        const qaScore = typeof result.qa_score === 'number' ? result.qa_score : null;
         await callService.updateAiSession(sessionId, {
           summary: result.summary,
           action_items: result.action_items ?? [],
           extracted_facts: result.extracted_facts ?? [],
           sentiment: result.sentiment,
           quality_flags: result.quality_flags ?? [],
+          qa_score: qaScore != null ? String(qaScore) : null,
         } as any);
+
+        // Insert QA evaluation
+        if (qaScore != null) {
+          await db.insert(qaEvaluations).values({
+            session_id: sessionId,
+            workspace_id: workspaceId,
+            criteria: result.qa_criteria ?? [],
+            overall_score: String(qaScore),
+            evaluated_by: 'system',
+          });
+        }
 
         // Update caller memory
         if (callerProfileId && result.extracted_facts) {
@@ -136,8 +160,19 @@ Respond in JSON format:
             sentiment: result.sentiment,
             actionItemCount: result.action_items?.length ?? 0,
             factCount: result.extracted_facts?.length ?? 0,
+            qaScore: qaScore,
           },
         });
+
+        // Deliver session.summary_ready webhook
+        deliverWebhookEvent(workspaceId, 'session.summary_ready', {
+          call_id: callId,
+          session_id: sessionId,
+          summary: result.summary,
+          sentiment: result.sentiment,
+          qa_score: qaScore,
+          action_items: result.action_items ?? [],
+        }).catch(() => {});
 
         logger.info({ callId }, 'Post-call analysis complete');
       } catch (err) {

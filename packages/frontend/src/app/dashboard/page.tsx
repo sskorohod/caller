@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
@@ -56,18 +56,83 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function CallsWeekChart({ calls }: { calls: RecentCall[] }) {
+  const chartData = useMemo(() => {
+    const now = new Date();
+    const days: { label: string; date: string; count: number }[] = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      days.push({
+        label: DAY_LABELS[d.getDay()],
+        date: dateStr,
+        count: 0,
+      });
+    }
+
+    for (const call of calls) {
+      const callDate = call.created_at.slice(0, 10);
+      const match = days.find(d => d.date === callDate);
+      if (match) match.count++;
+    }
+
+    return days;
+  }, [calls]);
+
+  const maxCount = Math.max(...chartData.map(d => d.count), 1);
+
+  return (
+    <div className="bg-white rounded-xl border border-[#e2e8f0] p-6 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+      <h2 className="text-sm font-semibold text-[#0f172a] mb-5">Calls This Week</h2>
+      <div className="flex items-end justify-between gap-3" style={{ height: 160 }}>
+        {chartData.map(day => {
+          const barHeight = maxCount > 0 ? Math.max((day.count / maxCount) * 130, day.count > 0 ? 8 : 0) : 0;
+          return (
+            <div key={day.date} className="flex-1 flex flex-col items-center gap-1.5">
+              <span className="text-xs font-semibold text-[#0f172a]">{day.count}</span>
+              <div className="w-full flex justify-center">
+                <div
+                  className="w-8 rounded-t-md transition-all"
+                  style={{
+                    height: barHeight,
+                    backgroundColor: day.count > 0 ? '#6366f1' : '#e2e8f0',
+                    minHeight: 4,
+                  }}
+                />
+              </div>
+              <span className="text-[11px] text-[#94a3b8] font-medium">{day.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function OverviewPage() {
   const { workspace } = useAuth();
   const [calls, setCalls] = useState<RecentCall[]>([]);
+  const [weekCalls, setWeekCalls] = useState<RecentCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   function loadCalls() {
     setError('');
-    api.get<{ calls: RecentCall[]; total: number }>('/calls?limit=8')
+    // Load recent calls for table
+    const tablePromise = api.get<{ calls: RecentCall[]; total: number }>('/calls?limit=8')
       .then(r => setCalls(r?.calls ?? []))
-      .catch((err: any) => setError(err?.message ?? 'Failed to load calls'))
-      .finally(() => setLoading(false));
+      .catch((err: any) => setError(err?.message ?? 'Failed to load calls'));
+
+    // Load last 7 days of calls for chart
+    const chartPromise = api.get<{ calls: RecentCall[]; total: number }>('/calls?limit=250')
+      .then(r => setWeekCalls(r?.calls ?? []))
+      .catch(() => {});
+
+    Promise.all([tablePromise, chartPromise]).finally(() => setLoading(false));
   }
 
   useEffect(() => { loadCalls(); }, []);
@@ -91,6 +156,9 @@ export default function OverviewPage() {
         <KpiCard label="Minutes Used" value={String(totalMinutes)} sub="This session" color="bg-[#fef3c7]" />
         <KpiCard label="Agents" value="—" sub="Configure below" color="bg-[#fce7f3]" />
       </div>
+
+      {/* Calls This Week Chart */}
+      {!loading && <CallsWeekChart calls={weekCalls} />}
 
       {/* Recent Calls */}
       <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">

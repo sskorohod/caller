@@ -6,6 +6,7 @@ import { telephonyConnections, workspaces } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
+import { deliverWebhookEvent } from '../../services/webhook.service.js';
 import { env } from '../../config/env.js';
 import { validateTwilioSignature } from '../../middleware/twilio-auth.js';
 import { calls } from '../../db/schema.js';
@@ -153,6 +154,29 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       eventType: `twilio_status_${callStatus}`,
       eventData: { callSid, callStatus, duration },
     });
+
+    // Deliver outbound webhooks based on status
+    if (ourStatus === 'in_progress') {
+      deliverWebhookEvent(call.workspace_id, 'call.started', {
+        call_id: call.id,
+        twilio_call_sid: callSid,
+        status: ourStatus,
+      }).catch(() => {});
+    } else if (ourStatus === 'completed') {
+      deliverWebhookEvent(call.workspace_id, 'call.completed', {
+        call_id: call.id,
+        twilio_call_sid: callSid,
+        status: ourStatus,
+        duration_seconds: duration ? parseInt(duration, 10) : null,
+      }).catch(() => {});
+    } else if (ourStatus === 'failed') {
+      deliverWebhookEvent(call.workspace_id, 'call.failed', {
+        call_id: call.id,
+        twilio_call_sid: callSid,
+        status: ourStatus,
+        twilio_status: callStatus,
+      }).catch(() => {});
+    }
 
     reply.status(200).send('OK');
   });
