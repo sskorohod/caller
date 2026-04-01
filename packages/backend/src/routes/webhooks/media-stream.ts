@@ -13,6 +13,7 @@ import { createLLMProvider } from '../../services/llm.service.js';
 import { CallOrchestrator } from '../../services/call-orchestrator.js';
 import { sendBootstrapWebhook, ExternalAgentSession } from '../../services/external-handoff.service.js';
 import { env } from '../../config/env.js';
+import { queuePostCallProcessing } from '../../workers/post-call.worker.js';
 import type { DeepgramSTT } from '../../services/stt.service.js';
 import type { Call } from '../../models/types.js';
 import pino from 'pino';
@@ -319,6 +320,14 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           total_tokens_out: result.totalTokensOut,
           avg_latency_ms: result.avgLatencyMs,
         } as any);
+
+        // Queue post-call processing (summary, sentiment, fact extraction, memory)
+        queuePostCallProcessing({
+          callId,
+          sessionId: session.id,
+          workspaceId: call.workspace_id,
+          callerProfileId: call.caller_profile_id ?? undefined,
+        }).catch(err => logger.error({ err, callId }, 'Failed to queue post-call processing'));
       }
       await callService.updateCallStatus(callId, 'completed');
     });

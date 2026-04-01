@@ -25,6 +25,16 @@ const statusSchema = z.object({
   CallDuration: z.string().optional(),
 });
 
+import { aiCallSessions } from '../../db/schema.js';
+
+const recordingSchema = z.object({
+  CallSid: z.string().min(1),
+  RecordingSid: z.string().min(1),
+  RecordingUrl: z.string().url(),
+  RecordingStatus: z.string(),
+  RecordingDuration: z.string().optional(),
+});
+
 const twilioRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', validateTwilioSignature);
 
@@ -177,6 +187,56 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         twilio_status: callStatus,
       }).catch(() => {});
     }
+
+    reply.status(200).send('OK');
+  });
+
+  // POST /webhooks/twilio/recording — Twilio sends recording URL when ready
+  app.post('/recording', async (request, reply) => {
+    const body = recordingSchema.parse(request.body);
+
+    if (body.RecordingStatus !== 'completed') {
+      reply.status(200).send('OK');
+      return;
+    }
+
+    // Find call by Twilio SID
+    const [call] = await db.select({ id: calls.id, workspace_id: calls.workspace_id })
+      .from(calls)
+      .where(eq(calls.twilio_call_sid, body.CallSid));
+
+    if (!call) {
+      reply.status(200).send('OK');
+      return;
+    }
+
+    // Find AI session for this call and save recording URL
+    const [session] = await db.select({ id: aiCallSessions.id })
+      .from(aiCallSessions)
+      .where(eq(aiCallSessions.call_id, call.id));
+
+    if (session) {
+      const recordingUrl = `${body.RecordingUrl}.mp3`;
+      const durationSeconds = body.RecordingDuration ? parseInt(body.RecordingDuration, 10) : null;
+
+      await db.update(aiCallSessions)
+        .set({
+          recording_url: recordingUrl,
+          recording_duration_seconds: durationSeconds,
+        })
+        .where(eq(aiCallSessions.id, session.id));
+    }
+
+    await callService.addCallEvent({
+      callId: call.id,
+      workspaceId: call.workspace_id,
+      eventType: 'recording_completed',
+      eventData: {
+        recording_sid: body.RecordingSid,
+        recording_url: body.RecordingUrl,
+        duration: body.RecordingDuration,
+      },
+    });
 
     reply.status(200).send('OK');
   });

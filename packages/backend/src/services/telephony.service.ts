@@ -4,6 +4,7 @@ import { db } from '../config/db.js';
 import { providerCredentials, telephonyConnections } from '../db/schema.js';
 import { decrypt } from '../lib/crypto.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
+import { env } from '../config/env.js';
 import type { TelephonyConnection, ProviderName } from '../models/types.js';
 
 interface TwilioCredentials {
@@ -79,6 +80,9 @@ export async function initiateOutboundCall(params: {
     twiml: twiml.toString(),
     to: params.to,
     from: params.from,
+    record: true,
+    recordingStatusCallback: `https://${env.API_DOMAIN}/webhooks/twilio/recording`,
+    recordingStatusCallbackMethod: 'POST',
     statusCallback: params.statusCallbackUrl,
     statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
     statusCallbackMethod: 'POST',
@@ -87,7 +91,7 @@ export async function initiateOutboundCall(params: {
   return call.sid;
 }
 
-/** Generate TwiML for inbound call — connects to MediaStream */
+/** Generate TwiML for inbound call — connects to MediaStream + enables recording */
 export function generateInboundTwiml(params: {
   callId: string;
   streamUrl: string;
@@ -99,6 +103,13 @@ export function generateInboundTwiml(params: {
   if (params.disclosureMessage) {
     twiml.say({ voice: 'Polly.Joanna' }, params.disclosureMessage);
   }
+
+  // Start recording
+  twiml.record({
+    recordingStatusCallback: `https://${env.API_DOMAIN}/webhooks/twilio/recording`,
+    recordingStatusCallbackMethod: 'POST',
+    trim: 'trim-silence',
+  });
 
   const connect = twiml.connect();
   connect.stream({
