@@ -5,7 +5,8 @@ import * as callService from '../services/call.service.js';
 import * as memoryService from '../services/memory.service.js';
 import { deliverWebhookEvent } from '../services/webhook.service.js';
 import { db } from '../config/db.js';
-import { qaEvaluations } from '../db/schema.js';
+import { qaEvaluations, calls } from '../db/schema.js';
+import { eq } from 'drizzle-orm';
 import pino from 'pino';
 
 const logger = pino({ name: 'post-call-worker' });
@@ -136,11 +137,23 @@ Respond in JSON format:
           });
         }
 
+        // Resolve caller profile — find by phone if not passed
+        let resolvedProfileId = callerProfileId;
+        if (!resolvedProfileId) {
+          const [call] = await db.select({ from_number: calls.from_number }).from(calls).where(eq(calls.id, callId));
+          if (call?.from_number) {
+            const profile = await memoryService.findOrCreateCallerProfile(workspaceId, call.from_number);
+            resolvedProfileId = profile.id;
+            // Also update the call record
+            await db.update(calls).set({ caller_profile_id: resolvedProfileId }).where(eq(calls.id, callId));
+          }
+        }
+
         // Update caller memory
-        if (callerProfileId && result.extracted_facts) {
+        if (resolvedProfileId && result.extracted_facts) {
           for (const fact of result.extracted_facts) {
             await memoryService.addMemoryFact({
-              callerProfileId,
+              callerProfileId: resolvedProfileId,
               workspaceId,
               factType: fact.type ?? 'general',
               content: fact.content,
@@ -153,7 +166,7 @@ Respond in JSON format:
             await memoryService.extractAndSaveMemory({
               workspaceId,
               callId,
-              callerProfileId,
+              callerProfileId: resolvedProfileId,
               transcript,
               summary: result.summary,
             });

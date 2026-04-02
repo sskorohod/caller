@@ -16,6 +16,7 @@ export async function createCall(params: {
   telephonyConnectionId?: string;
   conversationOwnerRequested: ConversationOwner;
   agentProfileId?: string;
+  callerProfileId?: string;
   goal?: string;
   goalSource?: string;
   goalPayload?: unknown;
@@ -34,6 +35,7 @@ export async function createCall(params: {
       conversation_owner_requested: params.conversationOwnerRequested,
       conversation_owner_actual: params.conversationOwnerRequested,
       agent_profile_id: params.agentProfileId ?? null,
+      caller_profile_id: params.callerProfileId ?? null,
       goal: params.goal ?? null,
       goal_source: params.goalSource ?? null,
       goal_payload: params.goalPayload ?? null,

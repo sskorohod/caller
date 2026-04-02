@@ -97,6 +97,9 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
+    // Find or create caller profile for memory
+    const callerProfile = await memoryService.findOrCreateCallerProfile(workspace.id, callerNumber);
+
     const call = await callService.createCall({
       workspaceId: workspace.id,
       direction: 'inbound',
@@ -105,6 +108,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       telephonyConnectionId: connection.id,
       conversationOwnerRequested: workspace.conversation_owner_default as any,
       agentProfileId: agentProfile.id,
+      callerProfileId: callerProfile.id,
     });
 
     await callService.updateCallStatus(call.id, 'ringing', {
