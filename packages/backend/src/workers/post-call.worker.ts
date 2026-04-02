@@ -5,7 +5,7 @@ import * as callService from '../services/call.service.js';
 import * as memoryService from '../services/memory.service.js';
 import { deliverWebhookEvent } from '../services/webhook.service.js';
 import { db } from '../config/db.js';
-import { qaEvaluations, calls } from '../db/schema.js';
+import { qaEvaluations, calls, workspaces } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import pino from 'pino';
 
@@ -57,11 +57,13 @@ export function startPostCallWorker(): Worker {
         }
         if (!llm) throw new Error('No LLM provider configured for post-call analysis');
 
-        // Detect transcript language (use first caller utterance)
-        const firstCallerText = transcript.find(t => t.speaker === 'caller')?.text || '';
-        const hasRussian = /[а-яА-ЯёЁ]/.test(firstCallerText);
-        const hasSpanish = /[ñÑáéíóú¿¡]/.test(firstCallerText);
-        const transcriptLang = hasRussian ? 'Russian' : hasSpanish ? 'Spanish' : 'English';
+        // Use workspace primary language for summary output
+        const [ws] = await db.select({ languages: workspaces.languages })
+          .from(workspaces)
+          .where(eq(workspaces.id, workspaceId));
+        const primaryLang = ws?.languages?.[0] || 'en';
+        const langMap: Record<string, string> = { en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French' };
+        const summaryLang = langMap[primaryLang] || 'English';
 
         // Generate summary + action items in one call
         const messages: LLMMessage[] = [
@@ -74,7 +76,7 @@ export function startPostCallWorker(): Worker {
 4. Key facts about the caller that should be remembered
 5. QA evaluation: score 0-10 and criteria breakdown
 
-IMPORTANT: Write the summary, action_items, and extracted_facts content in ${transcriptLang} — the same language as the conversation.
+IMPORTANT: Write ALL output (summary, action_items, extracted_facts, quality_flags, qa_criteria comments) in ${summaryLang}.
 
 Respond in JSON format:
 {
