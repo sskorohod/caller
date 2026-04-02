@@ -136,9 +136,15 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private onConversationCreated(): void {
     logger.info({ callId: this.config.call.id }, 'Grok conversation created, sending session.update');
 
-    const instructions = this.config.callerContext
-      ? `${this.config.systemPrompt}\n\nContext about this caller:\n${this.config.callerContext}`
-      : this.config.systemPrompt;
+    const lang = this.config.agentProfile.language;
+    const langInstruction = lang === 'auto'
+      ? '\n\nIMPORTANT: Detect the language the caller is speaking and respond in the same language. Switch languages mid-conversation if the caller switches.'
+      : `\n\nIMPORTANT: Always respond in ${lang === 'ru' ? 'Russian' : lang === 'es' ? 'Spanish' : lang === 'de' ? 'German' : lang === 'fr' ? 'French' : 'English'}.`;
+
+    let instructions = this.config.systemPrompt + langInstruction;
+    if (this.config.callerContext) {
+      instructions += `\n\nContext about this caller:\n${this.config.callerContext}`;
+    }
 
     this.sendGrok({
       type: 'session.update',

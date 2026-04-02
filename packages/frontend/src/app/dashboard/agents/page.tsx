@@ -387,6 +387,21 @@ export default function AgentsPage() {
                   />
                 </div>
               ))}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.language') || 'Language'}</label>
+                <select
+                  value={form.language}
+                  onChange={e => setForm(p => ({ ...p, language: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                >
+                  <option value="auto">Auto-detect</option>
+                  <option value="en">English</option>
+                  <option value="ru">Russian</option>
+                  <option value="es">Spanish</option>
+                  <option value="de">German</option>
+                  <option value="fr">French</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.llmProvider')}</label>

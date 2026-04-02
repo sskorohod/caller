@@ -9,7 +9,7 @@ const createAgentSchema = z.object({
   display_name: z.string().min(1).max(100),
   company_name: z.string().optional(),
   company_identity: z.string().optional(),
-  language: z.enum(['en', 'ru']).default('en'),
+  language: z.enum(['en', 'ru', 'es', 'de', 'fr', 'auto']).default('auto'),
   voice_provider: z.enum(['elevenlabs', 'openai', 'xai']).default('elevenlabs'),
   voice_id: z.string().optional(),
   llm_provider: z.enum(['anthropic', 'openai', 'xai']).default('anthropic'),
