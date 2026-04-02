@@ -174,10 +174,10 @@ export default function LiveCallPage() {
 
     socket.emit('call:join', { call_id: callId });
 
-    const handleTranscript = (data: { call_id: string; entry: RawTranscriptEntry }) => {
+    const handleTranscript = (data: { call_id: string; speaker: string; text: string; timestamp: string; isFinal: boolean }) => {
       if (data.call_id !== callId) return;
-      const entry = normalizeTranscript([data.entry])[0];
-      setTranscript(prev => [...prev, entry]);
+      const entry = normalizeTranscript([{ speaker: data.speaker, text: data.text, timestamp: data.timestamp }])[0];
+      if (entry?.content) setTranscript(prev => [...prev, entry]);
     };
 
     const handleStatus = (data: { call_id: string; status: string }) => {
