@@ -36,6 +36,7 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private turnCount = 0;
   private isStopped = false;
   private currentAgentTranscript = '';
+  private currentInstructions = '';
 
   constructor(config: GrokRealtimeConfig) {
     super();
@@ -145,6 +146,8 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     if (this.config.callerContext) {
       instructions += `\n\nContext about this caller:\n${this.config.callerContext}`;
     }
+
+    this.currentInstructions = instructions;
 
     this.sendGrok({
       type: 'session.update',
@@ -311,23 +314,19 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   }
 
   injectInstruction(text: string): void {
-    // Cancel any in-progress response first
-    this.sendGrok({ type: 'response.cancel' });
+    // Don't interrupt — update session instructions for the next natural response
+    // This makes the agent weave the instruction naturally into the conversation
+    this.currentInstructions += `\n\n[OPERATOR NOTE — weave this naturally into the conversation when appropriate. ` +
+      `Do NOT abruptly change topic. Finish your current thought first, then naturally incorporate this]: ${text}`;
 
-    // Inject as a user message (Grok responds better to user role than system for mid-call)
     this.sendGrok({
-      type: 'conversation.item.create',
-      item: {
-        type: 'message',
-        role: 'user',
-        content: [{ type: 'input_text', text: `[IMPORTANT INSTRUCTION FROM SUPERVISOR - follow this immediately]: ${text}` }],
+      type: 'session.update',
+      session: {
+        instructions: this.currentInstructions,
       },
     });
 
-    // Trigger new response based on the instruction
-    this.sendGrok({ type: 'response.create' });
-
-    logger.info({ callId: this.config.call.id, instruction: text }, 'Instruction injected into Grok');
+    logger.info({ callId: this.config.call.id, instruction: text }, 'Instruction added to session (smooth mode)');
   }
 
   private sendGrok(msg: Record<string, unknown>): void {
