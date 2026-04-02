@@ -231,17 +231,22 @@ export default function LiveCallPage() {
     };
   }, [socket, callId]);
 
-  // ─── Auto-scroll transcript ─────────────────────────────────────────────
+  // ─── Auto-scroll transcript (only when new messages arrive, not on translation) ─────
 
+  const prevTranscriptLen = useRef(0);
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [transcript]);
+    // Only scroll when new entries are added, not when existing entries are updated (translation)
+    if (transcript.length > prevTranscriptLen.current) {
+      transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+    prevTranscriptLen.current = transcript.length;
+  }, [transcript.length]);
 
   // ─── Translation ────────────────────────────────────────────────────────
 
   const translateEntry = useCallback(async (entry: TranscriptEntry, targetLang: string): Promise<string> => {
     try {
-      const res = await api.post<{ translated: string }>('/translate', {
+      const res = await api.post<{ translated: string }>('/calls/translate', {
         text: entry.content,
         target_language: targetLang,
       });
