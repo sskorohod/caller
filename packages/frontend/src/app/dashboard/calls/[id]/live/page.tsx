@@ -475,7 +475,7 @@ export default function LiveCallPage() {
                       </svg>
                     </button>
                     {pastCall.summary && (
-                      <div className="px-3 pb-2 text-xs text-[var(--th-text-secondary)] line-clamp-2">{pastCall.summary}</div>
+                      <div className="px-3 pb-2 text-xs text-[var(--th-text-secondary)]">{pastCall.summary}</div>
                     )}
                     {expandedCall === pastCall.id && (
                       <div className="px-3 pb-3 border-t border-[var(--th-border-light)]">
