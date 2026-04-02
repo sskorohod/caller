@@ -311,15 +311,23 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   }
 
   injectInstruction(text: string): void {
+    // Cancel any in-progress response first
+    this.sendGrok({ type: 'response.cancel' });
+
+    // Inject as a user message (Grok responds better to user role than system for mid-call)
     this.sendGrok({
       type: 'conversation.item.create',
       item: {
         type: 'message',
-        role: 'system',
-        content: [{ type: 'input_text', text: `[Operator instruction - apply immediately]: ${text}` }],
+        role: 'user',
+        content: [{ type: 'input_text', text: `[IMPORTANT INSTRUCTION FROM SUPERVISOR - follow this immediately]: ${text}` }],
       },
     });
+
+    // Trigger new response based on the instruction
     this.sendGrok({ type: 'response.create' });
+
+    logger.info({ callId: this.config.call.id, instruction: text }, 'Instruction injected into Grok');
   }
 
   private sendGrok(msg: Record<string, unknown>): void {
