@@ -224,6 +224,93 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
+  // GET /api/calls/stats — aggregated dashboard stats
+  app.get('/stats', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const wid = request.auth.workspaceId;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // All queries in parallel
+    const [
+      totalRow,
+      todayRow,
+      weekRow,
+      activeRow,
+      statusRows,
+      directionRows,
+      sentimentRows,
+      costRow,
+      avgDurationRow,
+      dailyRows,
+      topAgentRows,
+    ] = await Promise.all([
+      // Total calls all time
+      db.select({ count: sql<number>`count(*)::int` }).from(calls).where(eq(calls.workspace_id, wid)),
+      // Today's calls
+      db.select({ count: sql<number>`count(*)::int` }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, today))),
+      // Week calls
+      db.select({ count: sql<number>`count(*)::int` }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, sevenDaysAgo))),
+      // Active calls
+      db.select({ count: sql<number>`count(*)::int` }).from(calls).where(and(eq(calls.workspace_id, wid), eq(calls.status, 'in_progress'))),
+      // Status breakdown (last 30 days)
+      db.select({ status: calls.status, count: sql<number>`count(*)::int` }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, thirtyDaysAgo))).groupBy(calls.status),
+      // Direction breakdown (last 30 days)
+      db.select({ direction: calls.direction, count: sql<number>`count(*)::int` }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, thirtyDaysAgo))).groupBy(calls.direction),
+      // Sentiment (last 30 days)
+      db.select({ sentiment: aiCallSessions.sentiment, count: sql<number>`count(*)::int` }).from(aiCallSessions).where(and(eq(aiCallSessions.workspace_id, wid), gte(aiCallSessions.created_at, thirtyDaysAgo))).groupBy(aiCallSessions.sentiment),
+      // Cost & quality (last 30 days)
+      db.select({
+        total_cost: sql<string>`coalesce(sum(cost_total), 0)::text`,
+        avg_qa: sql<string>`coalesce(avg(qa_score), 0)::text`,
+        total_turns: sql<number>`coalesce(sum(total_turns), 0)::int`,
+      }).from(aiCallSessions).where(and(eq(aiCallSessions.workspace_id, wid), gte(aiCallSessions.created_at, thirtyDaysAgo))),
+      // Avg duration (last 30 days, completed only)
+      db.select({
+        avg: sql<number>`coalesce(avg(duration_seconds), 0)::int`,
+        total_minutes: sql<number>`coalesce(sum(duration_seconds) / 60, 0)::int`,
+      }).from(calls).where(and(eq(calls.workspace_id, wid), eq(calls.status, 'completed'), gte(calls.created_at, thirtyDaysAgo))),
+      // Daily calls (last 7 days)
+      db.select({
+        day: sql<string>`to_char(created_at, 'YYYY-MM-DD')`,
+        count: sql<number>`count(*)::int`,
+      }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, sevenDaysAgo))).groupBy(sql`to_char(created_at, 'YYYY-MM-DD')`).orderBy(sql`to_char(created_at, 'YYYY-MM-DD')`),
+      // Top agents by call count (last 30 days)
+      db.select({
+        agent_profile_id: calls.agent_profile_id,
+        count: sql<number>`count(*)::int`,
+      }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, thirtyDaysAgo), sql`agent_profile_id IS NOT NULL`)).groupBy(calls.agent_profile_id).orderBy(sql`count(*) desc`).limit(5),
+    ]);
+
+    const statusMap = Object.fromEntries(statusRows.map(r => [r.status, r.count]));
+    const directionMap = Object.fromEntries(directionRows.map(r => [r.direction, r.count]));
+    const sentimentMap = Object.fromEntries(sentimentRows.filter(r => r.sentiment).map(r => [r.sentiment!, r.count]));
+    const completed = statusMap['completed'] ?? 0;
+    const total30 = Object.values(statusMap).reduce((a, b) => a + b, 0);
+    const successRate = total30 > 0 ? Math.round((completed / total30) * 100) : 0;
+
+    return {
+      total_calls: totalRow[0]?.count ?? 0,
+      today_calls: todayRow[0]?.count ?? 0,
+      week_calls: weekRow[0]?.count ?? 0,
+      active_calls: activeRow[0]?.count ?? 0,
+      success_rate: successRate,
+      status_breakdown: statusMap,
+      direction_breakdown: directionMap,
+      sentiment_breakdown: sentimentMap,
+      avg_duration_seconds: avgDurationRow[0]?.avg ?? 0,
+      total_minutes_30d: avgDurationRow[0]?.total_minutes ?? 0,
+      cost_total_30d: parseFloat(costRow[0]?.total_cost ?? '0'),
+      avg_qa_score: parseFloat(parseFloat(costRow[0]?.avg_qa ?? '0').toFixed(1)),
+      total_turns_30d: costRow[0]?.total_turns ?? 0,
+      daily_calls: dailyRows,
+      top_agents: topAgentRows,
+    };
+  });
+
   // GET /api/calls (list) — supports both JWT (dashboard) and API key (MCP)
   app.get('/', {
     preHandler: [
