@@ -285,34 +285,67 @@ export default function LiveCallPage() {
 
   // ─── Voice input (Web Speech API) ───────────────────────────────────────
 
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const toggleVoiceInput = useCallback(() => {
     if (listening && recognitionRef.current) {
       recognitionRef.current.stop();
       setListening(false);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       return;
     }
 
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      toast.error('Speech recognition not supported');
+      return;
+    }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
+    recognition.continuous = true;        // Keep listening until manually stopped
+    recognition.interimResults = true;    // Show partial results
+    recognition.lang = '';                // Auto-detect language
 
-    recognition.onresult = (event: any) => {
-      const text = event.results[0]?.[0]?.transcript ?? '';
-      if (text) setInstruction(prev => prev + (prev ? ' ' : '') + text);
-      setListening(false);
+    // Reset silence timer on each result
+    const resetSilenceTimer = () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        // 10 seconds of silence → auto stop
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+          setListening(false);
+        }
+      }, 10000);
     };
 
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
+    recognition.onresult = (event: any) => {
+      resetSilenceTimer();
+      // Get the latest final result
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const text = event.results[i][0]?.transcript?.trim() ?? '';
+          if (text) setInstruction(prev => prev + (prev ? ' ' : '') + text);
+        }
+      }
+    };
+
+    recognition.onerror = (e: any) => {
+      if (e.error !== 'no-speech') setListening(false);
+    };
+
+    // Auto-restart if browser stops (some browsers stop after silence)
+    recognition.onend = () => {
+      if (listening && recognitionRef.current) {
+        try { recognitionRef.current.start(); } catch { setListening(false); }
+      }
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
     setListening(true);
-  }, [listening]);
+    resetSilenceTimer();
+    toast.info(t('live.voiceInput'));
+  }, [listening, t]);
 
   // ─── Takeover handler ───────────────────────────────────────────────────
 
