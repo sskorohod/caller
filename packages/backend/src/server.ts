@@ -3,13 +3,13 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import http from 'node:http';
+import { Server as SocketServer } from 'socket.io';
 import { env } from './config/env.js';
 import { AppError } from './lib/errors.js';
 import { initSocketServer } from './realtime/socket-server.js';
 
-// Create HTTP server first so Socket.IO can attach before Fastify
+// Create shared HTTP server — Socket.IO and Fastify both attach to it
 const httpServer = http.createServer();
-const io = initSocketServer(httpServer);
 
 const app = Fastify({
   logger: {
@@ -18,7 +18,11 @@ const app = Fastify({
   },
   bodyLimit: 1024 * 100, // 100KB max request body
   serverFactory: (handler) => {
-    httpServer.on('request', handler);
+    httpServer.on('request', (req, res) => {
+      // Let Socket.IO handle its own path
+      if (req.url?.startsWith('/socket.io/')) return;
+      handler(req, res);
+    });
     return httpServer;
   },
 });
@@ -107,6 +111,7 @@ app.log.info('Post-call worker started');
 // Start
 try {
   await app.listen({ port: env.PORT, host: env.HOST });
+  initSocketServer(httpServer);
   app.log.info('Socket.IO server initialized');
   app.log.info(`Server running at http://${env.HOST}:${env.PORT}`);
 } catch (err) {
