@@ -4,6 +4,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useT, useI18n } from '@/lib/i18n';
+import { SocketProvider, useSocket } from '@/lib/socket';
+import IncomingCallCard from '@/components/IncomingCallCard';
 
 const navItems = [
   {
@@ -89,6 +91,22 @@ const navItems = [
     ),
   },
 ];
+
+function ConnectionIndicator() {
+  const { connected } = useSocket();
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+      connected
+        ? 'bg-[#ecfdf5] text-[#059669]'
+        : 'bg-[#fef2f2] text-[#dc2626]'
+    }`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${
+        connected ? 'bg-[#10b981] animate-pulse' : 'bg-[#ef4444]'
+      }`} />
+      {connected ? 'Live' : 'Offline'}
+    </span>
+  );
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { token, isLoading, user, workspace, logout } = useAuth();
@@ -203,7 +221,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   );
 
   return (
+    <SocketProvider>
     <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
+      <IncomingCallCard />
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
@@ -242,10 +262,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ecfdf5] text-[#059669] text-xs font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
-              Live
-            </span>
+            <ConnectionIndicator />
           </div>
         </header>
 
@@ -255,5 +272,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+    </SocketProvider>
   );
 }

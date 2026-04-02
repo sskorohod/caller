@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { env } from './config/env.js';
 import { AppError } from './lib/errors.js';
+import { initSocketServer } from './realtime/socket-server.js';
 
 const app = Fastify({
   logger: {
@@ -97,6 +98,8 @@ app.log.info('Post-call worker started');
 // Start
 try {
   await app.listen({ port: env.PORT, host: env.HOST });
+  initSocketServer(app.server);
+  app.log.info('Socket.IO server initialized');
   app.log.info(`Server running at http://${env.HOST}:${env.PORT}`);
 } catch (err) {
   app.log.fatal(err);

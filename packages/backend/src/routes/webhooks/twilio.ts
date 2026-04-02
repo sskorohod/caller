@@ -9,7 +9,11 @@ import * as agentService from '../../services/agent.service.js';
 import { deliverWebhookEvent } from '../../services/webhook.service.js';
 import { env } from '../../config/env.js';
 import { validateTwilioSignature } from '../../middleware/twilio-auth.js';
-import { calls } from '../../db/schema.js';
+import { calls, providerCredentials } from '../../db/schema.js';
+import { getIo } from '../../realtime/io.js';
+import * as memoryService from '../../services/memory.service.js';
+import { sendCallNotification } from '../../services/telegram.service.js';
+import { decrypt } from '../../lib/crypto.js';
 
 const inboundSchema = z.object({
   Called: z.string().optional(),
@@ -122,6 +126,56 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       eventData: { callerNumber, calledNumber, callSid },
     });
 
+    // --- Real-time notifications (fire-and-forget) ---
+    (async () => {
+      try {
+        const profile = await memoryService.findOrCreateCallerProfile(workspace.id, callerNumber);
+        const facts = await memoryService.getUnresolvedFacts(profile.id, 5);
+
+        // Socket.IO event
+        const io = getIo();
+        if (io) {
+          io.to(`workspace:${workspace.id}`).emit('call:incoming', {
+            call_id: call.id,
+            from_number: callerNumber,
+            to_number: calledNumber,
+            direction: 'inbound',
+            agent_name: agentProfile.display_name,
+            caller: {
+              name: profile.name,
+              company: profile.company,
+              total_calls: profile.total_calls,
+              last_call_at: profile.last_call_at,
+              recent_facts: facts.map(f => f.content),
+            },
+          });
+        }
+
+        // Telegram notification
+        const [telegramCreds] = await db
+          .select()
+          .from(providerCredentials)
+          .where(and(
+            eq(providerCredentials.workspace_id, workspace.id),
+            eq(providerCredentials.provider, 'telegram'),
+          ));
+
+        if (telegramCreds) {
+          const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+          sendCallNotification(creds.bot_token, creds.chat_id, {
+            phone: callerNumber,
+            name: profile.name,
+            company: profile.company,
+            total_calls: profile.total_calls,
+            agent_name: agentProfile.display_name,
+            recent_facts: facts.map(f => f.content),
+          }).catch(() => {});
+        }
+      } catch {
+        // Non-critical — don't fail the call
+      }
+    })();
+
     const streamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${call.id}`;
     const disclosure = workspace.call_recording_disclosure
       ? (agentProfile.language === 'ru'
@@ -177,6 +231,17 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       eventType: `twilio_status_${callStatus}`,
       eventData: { callSid, callStatus, duration },
     });
+
+    // Emit real-time status update
+    const io = getIo();
+    if (io) {
+      io.to(`workspace:${call.workspace_id}`).emit('call:status', {
+        call_id: call.id,
+        status: ourStatus,
+        twilio_status: callStatus,
+        duration_seconds: duration ? parseInt(duration, 10) : null,
+      });
+    }
 
     // Deliver outbound webhooks based on status
     if (ourStatus === 'in_progress') {

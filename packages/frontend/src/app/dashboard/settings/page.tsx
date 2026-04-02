@@ -122,6 +122,14 @@ const PROVIDER_META: Record<string, { label: string; color: string; fields: { ke
       { key: 'api_key', label: 'API Key', placeholder: 'xai-...', secret: true },
     ],
   },
+  telegram: {
+    label: 'Telegram Bot',
+    color: 'bg-[#0088cc]/10 text-[#0088cc]',
+    fields: [
+      { key: 'bot_token', label: 'Bot Token', placeholder: '123456:ABC-DEF...', secret: true },
+      { key: 'chat_id', label: 'Chat ID', placeholder: '-1001234567890' },
+    ],
+  },
 };
 
 function fmtDate(iso: string | null | undefined) {

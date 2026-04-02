@@ -155,6 +155,32 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
+  // POST /api/workspaces/test-telegram — send test message via Telegram bot
+  app.post('/test-telegram', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request, reply) => {
+    const { getProviderCredential } = await import('../../services/provider.service.js');
+    const { testBot } = await import('../../services/telegram.service.js');
+
+    let creds: Record<string, string>;
+    try {
+      creds = await getProviderCredential(request.auth.workspaceId, 'telegram');
+    } catch {
+      return reply.status(404).send({ ok: false, error: 'Telegram credentials not configured' });
+    }
+
+    if (!creds.bot_token || !creds.chat_id) {
+      return reply.status(400).send({ ok: false, error: 'bot_token and chat_id are required' });
+    }
+
+    const success = await testBot(creds.bot_token, creds.chat_id);
+    if (!success) {
+      return reply.status(502).send({ ok: false, error: 'Failed to send test message. Check bot token and chat ID.' });
+    }
+
+    return { ok: true };
+  });
+
   // POST /api/workspaces/test-storage — test MinIO connection
   app.post('/test-storage', {
     preHandler: [requireRole('owner', 'admin')],

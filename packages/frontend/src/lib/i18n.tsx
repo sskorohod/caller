@@ -400,6 +400,17 @@ const en: Record<string, string> = {
   'audit.noLogsHint': 'Actions will appear here as they are performed',
   'audit.showChanges': 'Show',
   'audit.hideChanges': 'Hide',
+
+  // Realtime
+  'realtime.incomingCall': 'Incoming Call',
+  'realtime.from': 'From',
+  'realtime.caller': 'Caller',
+  'realtime.previousCalls': 'previous calls',
+  'realtime.recentNotes': 'Recent notes',
+  'realtime.agent': 'Agent',
+  'realtime.view': 'View',
+  'realtime.dismiss': 'Dismiss',
+  'realtime.unknownCaller': 'Unknown caller',
 };
 
 const ru: Record<string, string> = {
@@ -799,6 +810,17 @@ const ru: Record<string, string> = {
   'audit.noLogsHint': 'Действия будут отображаться здесь по мере выполнения',
   'audit.showChanges': 'Показать',
   'audit.hideChanges': 'Скрыть',
+
+  // Realtime
+  'realtime.incomingCall': 'Входящий звонок',
+  'realtime.from': 'От',
+  'realtime.caller': 'Звонящий',
+  'realtime.previousCalls': 'предыдущих звонков',
+  'realtime.recentNotes': 'Последние заметки',
+  'realtime.agent': 'Агент',
+  'realtime.view': 'Открыть',
+  'realtime.dismiss': 'Закрыть',
+  'realtime.unknownCaller': 'Неизвестный',
 };
 
 // ─── Dictionaries map ────────────────────────────────────────────────────────
