@@ -170,10 +170,11 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       `- Do NOT write long paragraphs. People can't read on a phone call — they listen.\n` +
       `- Sound natural, like a real person on a phone, not a chatbot.\n\n` +
       `CALL ENDING RULES:\n` +
-      `- Only call end_call when the caller EXPLICITLY says goodbye: "пока", "до свидания", "bye", "that's all goodbye".\n` +
+      `- When the caller says goodbye ("пока", "до свидания", "bye", "всё, пока", "ладно, пока") — ` +
+      `say ONE SHORT farewell (max 5 words) and IMMEDIATELY call end_call. Do NOT say goodbye twice.\n` +
       `- Do NOT end the call just because the caller said "спасибо" or "thanks" — that's just politeness, not goodbye.\n` +
       `- When an operator instructs you to end the call — politely wrap up and then call end_call.\n` +
-      `- When ending: ONE short farewell sentence, then end_call. Do not keep talking after.`;
+      `- NEVER say goodbye more than once. One "Пока!" or "До свидания!" then end_call. That's it.`;
 
     this.currentInstructions = instructions;
 
