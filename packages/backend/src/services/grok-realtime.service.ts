@@ -120,6 +120,10 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         this.onResponseDone();
         break;
 
+      case 'response.output_item.done':
+        this.onOutputItemDone(msg);
+        break;
+
       case 'error':
         logger.error({ callId: this.config.call.id, error: msg.error }, 'Grok Realtime error event');
         this.emit('error', new Error(JSON.stringify(msg.error)));
@@ -147,6 +151,14 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       instructions += `\n\nContext about this caller:\n${this.config.callerContext}`;
     }
 
+    instructions += `\n\nCALL ENDING RULES:\n` +
+      `- When the caller says goodbye (пока, до свидания, всё спасибо, bye, thanks that's all, etc.) — ` +
+      `say a brief polite goodbye and then call the end_call function to hang up.\n` +
+      `- When an operator instructs you to end the call — politely wrap up the conversation, ` +
+      `say goodbye, and call end_call.\n` +
+      `- Do NOT keep talking after the caller has clearly ended the conversation.\n` +
+      `- Always be polite and brief when ending — one short farewell sentence, then end_call.`;
+
     this.currentInstructions = instructions;
 
     this.sendGrok({
@@ -160,6 +172,12 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         },
         turn_detection: { type: 'server_vad' },
         input_audio_transcription: { model: 'grok-3-mini' },
+        tools: [{
+          type: 'function',
+          name: 'end_call',
+          description: 'End the phone call. Use this when: the caller says goodbye, the conversation is clearly over, or the operator instructs to end the call.',
+          parameters: { type: 'object', properties: { reason: { type: 'string', description: 'Brief reason for ending' } } },
+        }],
       },
     });
   }
@@ -266,6 +284,40 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     }
 
     this.currentAgentTranscript = '';
+  }
+
+  /**
+   * Handle completed output items — check for function calls (e.g. end_call).
+   */
+  private onOutputItemDone(msg: Record<string, unknown>): void {
+    const item = msg.item as Record<string, unknown> | undefined;
+    if (!item || item.type !== 'function_call') return;
+
+    const functionName = item.name as string;
+    const callId = item.call_id as string;
+
+    if (functionName === 'end_call') {
+      logger.info({ callId: this.config.call.id }, 'Grok called end_call — hanging up');
+
+      // Send function result back to Grok
+      this.sendGrok({
+        type: 'conversation.item.create',
+        item: {
+          type: 'function_call_output',
+          call_id: callId,
+          output: JSON.stringify({ status: 'call_ended' }),
+        },
+      });
+
+      // Wait 2 seconds for goodbye audio to finish playing, then hang up
+      setTimeout(() => {
+        this.stop('agent_ended_call');
+        // Close the Twilio WebSocket to actually hang up the call
+        try {
+          this.config.twilioWs.close();
+        } catch { /* ignore */ }
+      }, 2000);
+    }
   }
 
   /**
