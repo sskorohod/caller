@@ -92,80 +92,80 @@
 }
 
 [data-theme="dark"] {
-  /* Page */
-  --th-page: #0b0d1a;
-  --th-page-alt: #10122a;
+  /* Page — neutral zinc, no blue tint */
+  --th-page: #111113;
+  --th-page-alt: #18181b;
   /* Cards / surfaces */
-  --th-card: #111326;
-  --th-card-hover: #161838;
-  --th-surface: #161838;
-  --th-surface-hover: #1c1f45;
+  --th-card: #1c1c1f;
+  --th-card-hover: #222225;
+  --th-surface: #222225;
+  --th-surface-hover: #2a2a2e;
   /* Sidebar */
-  --th-sidebar: #080a15;
-  --th-sidebar-border: #1a1d3a;
-  --th-sidebar-hover: #131530;
-  --th-sidebar-text: #7c82a5;
-  --th-sidebar-label: #4a4f70;
-  /* Text */
-  --th-text: #e2e5f0;
-  --th-text-secondary: #8b92b0;
-  --th-text-muted: #525a78;
-  --th-text-dark: #c0c5dd;
+  --th-sidebar: #0e0e10;
+  --th-sidebar-border: #1c1c1f;
+  --th-sidebar-hover: #1c1c1f;
+  --th-sidebar-text: #8b8b92;
+  --th-sidebar-label: #52525a;
+  /* Text — zinc scale, off-white */
+  --th-text: #e4e4e7;
+  --th-text-secondary: #a1a1a9;
+  --th-text-muted: #63636b;
+  --th-text-dark: #c8c8cd;
   /* Borders */
-  --th-border: #1e2145;
-  --th-border-light: #161838;
+  --th-border: #27272b;
+  --th-border-light: #1c1c1f;
   /* Topbar */
-  --th-topbar: #0e1025;
+  --th-topbar: #141416;
   /* Input */
-  --th-input: #131530;
-  --th-input-border: #1e2145;
-  /* Primary accent */
+  --th-input: #18181b;
+  --th-input-border: #27272b;
+  /* Primary accent — slightly desaturated indigo */
   --th-primary: #6366f1;
-  --th-primary-hover: #818cf8;
-  --th-primary-bg: rgba(99,102,241,0.15);
-  --th-primary-bg-hover: rgba(99,102,241,0.25);
-  --th-primary-text: #818cf8;
-  --th-primary-light: #a5b4fc;
-  --th-primary-muted: rgba(99,102,241,0.3);
-  --th-primary-subtle: #818cf8;
-  /* Status */
-  --th-success-bg: rgba(16,185,129,0.12);
-  --th-success-bg-strong: rgba(16,185,129,0.2);
-  --th-success-text: #34d399;
-  --th-success-icon: #10b981;
-  --th-success-dark: #34d399;
-  --th-success-border: rgba(16,185,129,0.3);
-  --th-error-bg: rgba(239,68,68,0.12);
+  --th-primary-hover: #7c7ff7;
+  --th-primary-bg: rgba(99,102,241,0.10);
+  --th-primary-bg-hover: rgba(99,102,241,0.18);
+  --th-primary-text: #8b8ef5;
+  --th-primary-light: #a0a3f7;
+  --th-primary-muted: rgba(99,102,241,0.20);
+  --th-primary-subtle: #8b8ef5;
+  /* Status — muted, desaturated ~20%, lower opacity backgrounds */
+  --th-success-bg: rgba(34,197,94,0.08);
+  --th-success-bg-strong: rgba(34,197,94,0.14);
+  --th-success-text: #4ade80;
+  --th-success-icon: #22c55e;
+  --th-success-dark: #4ade80;
+  --th-success-border: rgba(34,197,94,0.20);
+  --th-error-bg: rgba(239,68,68,0.08);
   --th-error-text: #f87171;
   --th-error-icon: #ef4444;
-  --th-error-border: rgba(239,68,68,0.3);
-  --th-warning-bg: rgba(245,158,11,0.12);
-  --th-warning-text: #fbbf24;
-  --th-warning-icon: #f59e0b;
-  --th-warning-border: rgba(245,158,11,0.3);
-  --th-info-bg: rgba(37,99,235,0.12);
+  --th-error-border: rgba(239,68,68,0.20);
+  --th-warning-bg: rgba(234,179,8,0.08);
+  --th-warning-text: #facc15;
+  --th-warning-icon: #eab308;
+  --th-warning-border: rgba(234,179,8,0.20);
+  --th-info-bg: rgba(59,130,246,0.08);
   --th-info-text: #60a5fa;
-  --th-info-border: rgba(37,99,235,0.3);
+  --th-info-border: rgba(59,130,246,0.20);
   /* Skeleton / pulse */
-  --th-skeleton: #161838;
+  --th-skeleton: #1c1c1f;
   /* Table */
-  --th-table-header: #0e1025;
-  --th-table-row-hover: #131530;
-  --th-table-divider: #1a1d3a;
+  --th-table-header: #141416;
+  --th-table-row-hover: #1c1c1f;
+  --th-table-divider: #222225;
   /* Code */
-  --th-code-bg: #161838;
-  --th-code-text: #8b92b0;
+  --th-code-bg: #1c1c1f;
+  --th-code-text: #a1a1a9;
   /* Modal overlay */
-  --th-overlay: rgba(0,0,0,0.6);
-  --th-modal: #111326;
+  --th-overlay: rgba(0,0,0,0.55);
+  --th-modal: #1c1c1f;
   /* Scrollbar */
-  --th-scrollbar: #2a2d50;
+  --th-scrollbar: #333338;
   /* Shadow */
-  --th-shadow: rgba(0,0,0,0.3);
-  --th-shadow-primary: rgba(99,102,241,0.4);
+  --th-shadow: rgba(0,0,0,0.4);
+  --th-shadow-primary: rgba(99,102,241,0.25);
   /* Badge / tag */
-  --th-badge-purple-bg: rgba(139,92,246,0.15);
-  --th-badge-blue-bg: rgba(37,99,235,0.15);
+  --th-badge-purple-bg: rgba(139,92,246,0.10);
+  --th-badge-blue-bg: rgba(59,130,246,0.10);
 }
 
 * { box-sizing: border-box; }
