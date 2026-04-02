@@ -455,10 +455,10 @@ export default function LiveCallPage() {
       </div>
 
       {/* Two-column layout */}
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
 
-        {/* ─── Left Column: Caller Info (40%) ───────────────────────────── */}
-        <div className="w-full lg:w-2/5 space-y-4">
+        {/* ─── Left Column: Caller Info (40%) — scrollable ─────────────── */}
+        <div className="w-full lg:w-2/5 space-y-4 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto">
 
           {/* Caller card */}
           <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
@@ -543,8 +543,8 @@ export default function LiveCallPage() {
           </div>
         </div>
 
-        {/* ─── Right Column: Live Transcript (60%) ──────────────────────── */}
-        <div className="w-full lg:w-3/5 flex flex-col bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden" style={{ minHeight: '500px' }}>
+        {/* ─── Right Column: Live Transcript (60%) — sticky ────────────── */}
+        <div className="w-full lg:w-3/5 flex flex-col bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden lg:sticky lg:top-4" style={{ height: 'calc(100vh - 120px)' }}>
 
           {/* Transcript header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--th-border-light)]">
@@ -566,7 +566,7 @@ export default function LiveCallPage() {
           </div>
 
           {/* Transcript body */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
             {callData.status === 'ringing' && transcript.length === 0 && (
               <div className="flex items-center justify-center h-full text-sm text-[var(--th-text-muted)]">
                 <div className="text-center space-y-2">
