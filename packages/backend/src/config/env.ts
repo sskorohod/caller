@@ -18,6 +18,14 @@ const envSchema = z.object({
   API_DOMAIN: z.string().min(1).default('localhost:3011'),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+  // MinIO / S3 storage (optional — if not set, recordings stay on Twilio)
+  MINIO_ENDPOINT: z.string().default(''),
+  MINIO_PORT: z.coerce.number().default(9000),
+  MINIO_ACCESS_KEY: z.string().default(''),
+  MINIO_SECRET_KEY: z.string().default(''),
+  MINIO_USE_SSL: z.string().transform(v => v === 'true').default('false'),
+  MINIO_BUCKET: z.string().default('caller-recordings'),
 });
 
 export const env = envSchema.parse(process.env);

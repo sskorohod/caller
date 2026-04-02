@@ -72,6 +72,7 @@ const SECTIONS = [
   { id: 'api-keys',   labelKey: 'settings.apiKeys',   icon: IconKey },
   { id: 'oauth',      labelKey: 'settings.oauth', icon: IconOAuth },
   { id: 'compliance', labelKey: 'settings.compliance', icon: IconShield },
+  { id: 'storage',    labelKey: 'settings.storage',    icon: IconBuildingOffice },
   { id: 'team',       labelKey: 'settings.team',       icon: IconTeam },
 ] as const;
 
@@ -1338,6 +1339,67 @@ function OAuthAppsSection() {
   );
 }
 
+function StorageSection() {
+  const t = useT();
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ connected: boolean; error?: string | null } | null>(null);
+
+  async function handleTest() {
+    setTesting(true);
+    setResult(null);
+    try {
+      const res = await api.post<{ connected: boolean; error?: string | null }>('/workspaces/test-storage', {});
+      setResult(res);
+    } catch (e: any) {
+      setResult({ connected: false, error: e.message });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-semibold text-[#0f172a]">{t('settings.storage') || 'Recording Storage'}</h3>
+        <p className="text-xs text-[#94a3b8] mt-1">Configure where call recordings are stored. Set MinIO/S3 environment variables on the server.</p>
+      </div>
+
+      <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-5 space-y-3">
+        <p className="text-xs font-semibold text-[#475569] uppercase tracking-wide">MinIO / S3 Configuration</p>
+        <p className="text-sm text-[#64748b]">
+          Recording storage is configured via environment variables on the server. Set these in your <code className="text-xs bg-white px-1.5 py-0.5 rounded border">.env</code> file:
+        </p>
+        <div className="bg-white rounded-lg border border-[#e2e8f0] p-4 font-mono text-xs text-[#475569] space-y-1">
+          <div>MINIO_ENDPOINT=minio.example.com</div>
+          <div>MINIO_PORT=9000</div>
+          <div>MINIO_ACCESS_KEY=your-access-key</div>
+          <div>MINIO_SECRET_KEY=your-secret-key</div>
+          <div>MINIO_USE_SSL=false</div>
+          <div>MINIO_BUCKET=caller-recordings</div>
+        </div>
+        <p className="text-xs text-[#94a3b8]">
+          If not configured, recordings are stored as Twilio URLs (external). With MinIO, recordings are downloaded from Twilio and stored on your own server.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleTest}
+          disabled={testing}
+          className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60"
+        >
+          {testing ? 'Testing...' : 'Test Connection'}
+        </button>
+        {result && (
+          <span className={`text-xs font-medium ${result.connected ? 'text-[#059669]' : 'text-red-500'}`}>
+            {result.connected ? 'Connected to MinIO' : (result.error || 'Connection failed')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | null; onUpdated: (w: Workspace) => void }) {
   const t = useT();
   const [recording, setRecording] = useState(workspace?.call_recording_disclosure ?? true);
@@ -1691,6 +1753,7 @@ export default function SettingsPage() {
         {activeSection === 'api-keys'   && <ApiKeysSection />}
         {activeSection === 'oauth'      && <OAuthAppsSection />}
         {activeSection === 'compliance' && <ComplianceSection workspace={workspace} onUpdated={handleWorkspaceUpdate} />}
+        {activeSection === 'storage'    && <StorageSection />}
         {activeSection === 'team'       && <TeamSection />}
       </div>
     </div>

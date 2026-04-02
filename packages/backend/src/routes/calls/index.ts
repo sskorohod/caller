@@ -255,6 +255,32 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     return { call, session, events };
   });
 
+  // GET /api/calls/:id/recording — resolve recording URL (MinIO presigned or Twilio redirect)
+  app.get('/:id/recording', {
+    preHandler: [authenticateUser],
+  }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const session = await callService.getAiSession(id);
+
+    if (!session?.recording_url) {
+      reply.status(404).send({ error: 'No recording available' });
+      return;
+    }
+
+    const url = session.recording_url;
+
+    if (url.startsWith('minio://')) {
+      const key = url.replace('minio://', '');
+      const { getPresignedUrl } = await import('../../services/recording-storage.service.js');
+      const presigned = await getPresignedUrl(key);
+      reply.redirect(presigned);
+      return;
+    }
+
+    // Twilio URL — redirect directly
+    reply.redirect(url);
+  });
+
   // DELETE /api/calls/:id
   app.delete('/:id', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],

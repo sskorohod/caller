@@ -154,6 +154,18 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
     return { ok: true };
   });
+
+  // POST /api/workspaces/test-storage — test MinIO connection
+  app.post('/test-storage', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async () => {
+    const { testConnection, isMinioConfigured } = await import('../../services/recording-storage.service.js');
+    if (!isMinioConfigured()) {
+      return { connected: false, error: 'MinIO is not configured. Set MINIO_* environment variables.' };
+    }
+    const ok = await testConnection();
+    return { connected: ok, error: ok ? null : 'Could not connect to MinIO' };
+  });
 };
 
 export default workspaceRoutes;

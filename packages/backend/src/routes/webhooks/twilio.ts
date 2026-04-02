@@ -229,8 +229,26 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       .where(eq(aiCallSessions.call_id, call.id));
 
     if (session) {
-      const recordingUrl = `${body.RecordingUrl}.mp3`;
       const durationSeconds = body.RecordingDuration ? parseInt(body.RecordingDuration, 10) : null;
+
+      // Try to store in MinIO, fall back to Twilio URL
+      let recordingUrl = `${body.RecordingUrl}.mp3`;
+      try {
+        const { storeRecording, isMinioConfigured } = await import('../../services/recording-storage.service.js');
+        if (isMinioConfigured()) {
+          const minioKey = await storeRecording({
+            twilioRecordingUrl: body.RecordingUrl,
+            callSid: body.CallSid,
+            recordingSid: body.RecordingSid,
+            workspaceId: call.workspace_id,
+          });
+          if (minioKey) {
+            recordingUrl = `minio://${minioKey}`; // Store as minio:// scheme
+          }
+        }
+      } catch (err) {
+        // MinIO failed — keep Twilio URL
+      }
 
       await db.update(aiCallSessions)
         .set({
