@@ -37,6 +37,7 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private isStopped = false;
   private currentAgentTranscript = '';
   private currentInstructions = '';
+  private pendingHangup = false;
 
   constructor(config: GrokRealtimeConfig) {
     super();
@@ -244,6 +245,12 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     const transcript = msg.transcript as string;
     if (!transcript?.trim()) return;
 
+    // If caller speaks after end_call was triggered, cancel hangup — they want to continue
+    if (this.pendingHangup) {
+      logger.info({ callId: this.config.call.id }, 'Caller spoke after end_call — cancelling hangup');
+      this.pendingHangup = false;
+    }
+
     this.turnCount++;
     logger.info({ callId: this.config.call.id, turn: this.turnCount, text: transcript }, 'Caller utterance (Grok)');
 
@@ -299,26 +306,31 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     const callId = item.call_id as string;
 
     if (functionName === 'end_call') {
-      logger.info({ callId: this.config.call.id }, 'Grok called end_call — hanging up');
+      logger.info({ callId: this.config.call.id }, 'Grok called end_call — waiting for goodbye to finish');
 
-      // Send function result back to Grok
+      // Send function result back — tell Grok to say goodbye first
       this.sendGrok({
         type: 'conversation.item.create',
         item: {
           type: 'function_call_output',
           call_id: callId,
-          output: JSON.stringify({ status: 'call_ended' }),
+          output: JSON.stringify({ status: 'say_goodbye_first', instruction: 'Say your goodbye phrase now, then the call will end.' }),
         },
       });
+      this.sendGrok({ type: 'response.create' });
 
-      // Wait 2 seconds for goodbye audio to finish playing, then hang up
+      // Wait 6 seconds for:
+      // 1. Grok to finish saying goodbye (~3s)
+      // 2. Caller to potentially respond (~3s)
+      // If caller speaks, Grok will respond naturally (VAD still active)
+      // After 6s, hang up regardless
+      this.pendingHangup = true;
       setTimeout(() => {
+        if (!this.pendingHangup || this.isStopped) return;
+        logger.info({ callId: this.config.call.id }, 'Hanging up after goodbye delay');
         this.stop('agent_ended_call');
-        // Close the Twilio WebSocket to actually hang up the call
-        try {
-          this.config.twilioWs.close();
-        } catch { /* ignore */ }
-      }, 2000);
+        try { this.config.twilioWs.close(); } catch { /* ignore */ }
+      }, 6000);
     }
   }
 
