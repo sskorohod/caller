@@ -125,7 +125,7 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         break;
 
       default:
-        logger.debug({ callId: this.config.call.id, type }, 'Unhandled Grok event');
+        logger.info({ callId: this.config.call.id, type }, 'Grok event');
         break;
     }
   }
@@ -159,6 +159,7 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
    * On session.updated, trigger the greeting by creating a response.
    */
   private onSessionUpdated(): void {
+    this.sessionReady = true;
     logger.info({ callId: this.config.call.id }, 'Grok session updated, triggering greeting');
 
     const greeting = this.config.agentProfile.greeting_message;
@@ -257,8 +258,16 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   /**
    * Send incoming Twilio audio to Grok Realtime.
    */
+  private audioPacketCount = 0;
+  private sessionReady = false;
+
   sendAudio(payload: string): void {
-    if (this.isStopped) return;
+    if (this.isStopped || !this.sessionReady) return;
+
+    this.audioPacketCount++;
+    if (this.audioPacketCount === 1 || this.audioPacketCount % 500 === 0) {
+      logger.info({ callId: this.config.call.id, packets: this.audioPacketCount, grokState: this.grokWs?.readyState }, 'Audio packets sent to Grok');
+    }
 
     this.sendGrok({
       type: 'input_audio_buffer.append',
