@@ -16,6 +16,7 @@ export interface GrokRealtimeConfig {
   systemPrompt: string;
   callerContext?: string;
   apiKey: string;
+  timezone?: string;
 }
 
 interface ConversationTurn {
@@ -147,7 +148,19 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       ? '\n\nIMPORTANT: Detect the language the caller is speaking and respond in the same language. Switch languages mid-conversation if the caller switches.'
       : `\n\nIMPORTANT: Always respond in ${lang === 'ru' ? 'Russian' : lang === 'es' ? 'Spanish' : lang === 'de' ? 'German' : lang === 'fr' ? 'French' : 'English'}.`;
 
+    // Add current date/time in workspace timezone
+    const tz = this.config.timezone || 'America/Los_Angeles';
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+    const currentTime = formatter.format(now);
+
     let instructions = this.config.systemPrompt + langInstruction;
+    instructions += `\n\nCURRENT DATE/TIME: ${currentTime} (${tz})`;
+
     if (this.config.callerContext) {
       instructions += `\n\nContext about this caller:\n${this.config.callerContext}`;
     }

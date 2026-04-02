@@ -306,6 +306,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     const systemPrompt = buildSystemPrompt(agentProfile, promptPacks);
     const callerContext = await loadCallerContext(call.workspace_id, call.from_number);
 
+    // Load workspace timezone
+    const workspace = await workspaceService.getWorkspace(call.workspace_id);
+    const timezone = workspace?.timezone || 'America/Los_Angeles';
+
     // --- Grok Realtime path: skip STT/TTS/LLM when both voice and LLM are xAI ---
     const useGrokRealtime =
       agentProfile.voice_provider === 'xai' && agentProfile.llm_provider === 'xai';
@@ -324,6 +328,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         systemPrompt,
         callerContext,
         apiKey,
+        timezone,
       });
 
       // Audio forwarding handled in main socket.on('message') handler
