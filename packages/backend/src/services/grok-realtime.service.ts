@@ -151,13 +151,15 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       instructions += `\n\nContext about this caller:\n${this.config.callerContext}`;
     }
 
-    instructions += `\n\nCALL ENDING RULES:\n` +
-      `- When the caller says goodbye (пока, до свидания, всё спасибо, bye, thanks that's all, etc.) — ` +
-      `say a brief polite goodbye and then call the end_call function to hang up.\n` +
-      `- When an operator instructs you to end the call — politely wrap up the conversation, ` +
-      `say goodbye, and call end_call.\n` +
-      `- Do NOT keep talking after the caller has clearly ended the conversation.\n` +
-      `- Always be polite and brief when ending — one short farewell sentence, then end_call.`;
+    instructions += `\n\nPHONE CONVERSATION RULES:\n` +
+      `- This is a PHONE call. Keep responses SHORT — 1-2 sentences max. Be concise and natural.\n` +
+      `- Do NOT write long paragraphs. People can't read on a phone call — they listen.\n` +
+      `- Sound natural, like a real person on a phone, not a chatbot.\n\n` +
+      `CALL ENDING RULES:\n` +
+      `- Only call end_call when the caller EXPLICITLY says goodbye: "пока", "до свидания", "bye", "that's all goodbye".\n` +
+      `- Do NOT end the call just because the caller said "спасибо" or "thanks" — that's just politeness, not goodbye.\n` +
+      `- When an operator instructs you to end the call — politely wrap up and then call end_call.\n` +
+      `- When ending: ONE short farewell sentence, then end_call. Do not keep talking after.`;
 
     this.currentInstructions = instructions;
 
@@ -268,19 +270,19 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
    * On response.done, save the accumulated agent transcript.
    */
   private onResponseDone(): void {
-    if (this.currentAgentTranscript.trim()) {
-      this.conversationHistory.push({
-        speaker: 'agent',
-        text: this.currentAgentTranscript.trim(),
-        timestamp: new Date().toISOString(),
-      });
+    const text = this.currentAgentTranscript.trim();
+    if (text) {
+      // Deduplicate: skip if identical to last agent response
+      const lastAgent = [...this.conversationHistory].reverse().find(t => t.speaker === 'agent');
+      if (lastAgent && lastAgent.text === text) {
+        logger.debug({ callId: this.config.call.id }, 'Skipping duplicate agent response');
+        this.currentAgentTranscript = '';
+        return;
+      }
 
-      logger.info(
-        { callId: this.config.call.id, text: this.currentAgentTranscript.trim() },
-        'Agent response (Grok)',
-      );
-
-      this.emit('transcript', { speaker: 'agent', text: this.currentAgentTranscript.trim(), timestamp: new Date().toISOString(), isFinal: true });
+      this.conversationHistory.push({ speaker: 'agent', text, timestamp: new Date().toISOString() });
+      logger.info({ callId: this.config.call.id, text }, 'Agent response (Grok)');
+      this.emit('transcript', { speaker: 'agent', text, timestamp: new Date().toISOString(), isFinal: true });
     }
 
     this.currentAgentTranscript = '';

@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
+import { useTheme } from '@/lib/theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ interface ApiKey {
 
 const SECTIONS = [
   { id: 'general',    labelKey: 'settings.general',    icon: IconBuildingOffice },
+  { id: 'appearance', labelKey: 'settings.appearance', icon: IconPalette },
   { id: 'providers',  labelKey: 'settings.providers',  icon: IconPuzzle },
   { id: 'api-keys',   labelKey: 'settings.apiKeys',   icon: IconKey },
   { id: 'oauth',      labelKey: 'settings.oauth', icon: IconOAuth },
@@ -220,6 +222,14 @@ function IconEyeOff({ className }: { className?: string }) {
   );
 }
 
+function IconPalette({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
+    </svg>
+  );
+}
+
 // ─── Input component ──────────────────────────────────────────────────────────
 
 function Field({
@@ -236,30 +246,30 @@ function Field({
   const isSecret = type === 'password';
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{label}</label>
       <div className="relative">
         <input
           type={isSecret && !show ? 'password' : 'text'}
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a]
-                     placeholder:text-[#cbd5e1] bg-white
-                     focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]
+          className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)]
+                     placeholder:text-[var(--th-text-muted)] bg-[var(--th-input)]
+                     focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]
                      transition-colors pr-10"
         />
         {isSecret && (
           <button
             type="button"
             onClick={() => setShow(s => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#475569] transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] transition-colors"
             aria-label={show ? 'Hide value' : 'Show value'}
           >
             {show ? <IconEyeOff className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
           </button>
         )}
       </div>
-      {hint && <p className="text-xs text-[#94a3b8]">{hint}</p>}
+      {hint && <p className="text-xs text-[var(--th-text-muted)]">{hint}</p>}
     </div>
   );
 }
@@ -272,11 +282,11 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${checked ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+        className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${checked ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
       >
         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
       </button>
-      <span className="text-sm text-[#334155]">{label}</span>
+      <span className="text-sm text-[var(--th-text-dark)]">{label}</span>
     </label>
   );
 }
@@ -284,14 +294,14 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 function SaveBar({ saving, saved, error, onSave }: { saving: boolean; saved: boolean; error: string; onSave: () => void }) {
   const t = useT();
   return (
-    <div className="flex items-center justify-between mt-6 pt-5 border-t border-[#f1f5f9]">
-      <span className="text-xs text-[#94a3b8]">
-        {error ? <span className="text-red-500">{error}</span> : saved ? <span className="text-[#059669] flex items-center gap-1"><IconCheck className="w-3.5 h-3.5" />{t('settings.saved')}</span> : null}
+    <div className="flex items-center justify-between mt-6 pt-5 border-t border-[var(--th-border-light)]">
+      <span className="text-xs text-[var(--th-text-muted)]">
+        {error ? <span className="text-red-500">{error}</span> : saved ? <span className="text-[var(--th-success-text)] flex items-center gap-1"><IconCheck className="w-3.5 h-3.5" />{t('settings.saved')}</span> : null}
       </span>
       <button
         onClick={onSave}
         disabled={saving}
-        className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
+        className="px-4 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
       >
         {saving ? t('settings.saving') : t('settings.saveChanges')}
       </button>
@@ -340,17 +350,17 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
   }
 
   return (
-    <div className="bg-white rounded-xl border border-[#e2e8f0] p-6 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
-      <h3 className="text-sm font-semibold text-[#0f172a] mb-5">{t('settings.workspaceSettings')}</h3>
+    <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-6 shadow-[0_1px_3px_var(--th-shadow)]">
+      <h3 className="text-sm font-semibold text-[var(--th-text)] mb-5">{t('settings.workspaceSettings')}</h3>
       <div className="space-y-4">
         <Field label={t('settings.workspaceName')} value={name} onChange={setName} placeholder="My Company" />
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.industry')}</label>
+            <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('settings.industry')}</label>
             <select
               value={industry}
               onChange={e => setIndustry(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
             >
               <option value="">{t('settings.selectIndustry')}</option>
               <option value="appliance_repair">Appliance Repair</option>
@@ -363,11 +373,11 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.timezone')}</label>
+            <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('settings.timezone')}</label>
             <select
               value={timezone}
               onChange={e => setTimezone(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
             >
               <option value="">{t('settings.selectTimezone')}</option>
               <option value="America/New_York">Eastern (ET)</option>
@@ -382,21 +392,94 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
           </div>
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.defaultConversationOwner')}</label>
+          <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('settings.defaultConversationOwner')}</label>
           <select
             value={convOwner}
             onChange={e => setConvOwner(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
           >
             <option value="internal">{t('settings.internalAgent')}</option>
             <option value="external">{t('settings.externalAgent')}</option>
           </select>
-          <p className="text-xs text-[#94a3b8]">
+          <p className="text-xs text-[var(--th-text-muted)]">
             {t('settings.convOwnerHint')}
           </p>
         </div>
       </div>
       <SaveBar saving={saving} saved={saved} error={error} onSave={save} />
+    </div>
+  );
+}
+
+function AppearanceSection() {
+  const t = useT();
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('settings.appearance') || 'Appearance'}</h3>
+        <p className="text-xs text-[var(--th-text-muted)] mt-1">
+          {t('settings.appearanceHint') || 'Choose how the dashboard looks. Select a theme that suits your preference.'}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          onClick={() => setTheme('light')}
+          className={`relative p-5 rounded-xl border-2 transition-all text-left ${
+            theme === 'light'
+              ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] shadow-sm'
+              : 'border-[var(--th-border)] bg-[var(--th-card)] hover:border-[var(--th-primary-muted)]'
+          }`}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
+              <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-[var(--th-text)]">Light</span>
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-2 w-full rounded bg-gray-200" />
+            <div className="h-2 w-3/4 rounded bg-gray-100" />
+            <div className="h-2 w-1/2 rounded bg-gray-100" />
+          </div>
+          {theme === 'light' && (
+            <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-[var(--th-primary)] flex items-center justify-center">
+              <IconCheck className="w-3 h-3 text-white" />
+            </div>
+          )}
+        </button>
+
+        <button
+          onClick={() => setTheme('dark')}
+          className={`relative p-5 rounded-xl border-2 transition-all text-left ${
+            theme === 'dark'
+              ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] shadow-sm'
+              : 'border-[var(--th-border)] bg-[var(--th-card)] hover:border-[var(--th-primary-muted)]'
+          }`}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center">
+              <svg className="w-4 h-4 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-[var(--th-text)]">Dark</span>
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-2 w-full rounded bg-gray-700" />
+            <div className="h-2 w-3/4 rounded bg-gray-800" />
+            <div className="h-2 w-1/2 rounded bg-gray-800" />
+          </div>
+          {theme === 'dark' && (
+            <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-[var(--th-primary)] flex items-center justify-center">
+              <IconCheck className="w-3 h-3 text-white" />
+            </div>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -455,21 +538,21 @@ function ProviderCard({
   const isConnected = !!existingProvider;
 
   return (
-    <div className="bg-white rounded-xl border border-[#e2e8f0] p-5 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+    <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 shadow-[0_1px_3px_var(--th-shadow)]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold ${meta.color}`}>
             {meta.label.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <div className="text-sm font-semibold text-[#0f172a]">{meta.label}</div>
+            <div className="text-sm font-semibold text-[var(--th-text)]">{meta.label}</div>
             {isConnected ? (
-              <div className="flex items-center gap-1 text-xs text-[#059669]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+              <div className="flex items-center gap-1 text-xs text-[var(--th-success-text)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--th-success-icon)]" />
                 Connected · {fmtDate(existingProvider.updated_at)}
               </div>
             ) : (
-              <div className="text-xs text-[#94a3b8]">{t('settings.notConfigured')}</div>
+              <div className="text-xs text-[var(--th-text-muted)]">{t('settings.notConfigured')}</div>
             )}
           </div>
         </div>
@@ -477,12 +560,12 @@ function ProviderCard({
           confirmDelete ? (
             <div className="flex items-center gap-2">
               <button onClick={handleDeleteConfirm} disabled={deleting} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{deleting ? t('settings.removing') : t('settings.confirm')}</button>
-              <button onClick={() => setConfirmDelete(false)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
+              <button onClick={() => setConfirmDelete(false)} className="text-xs text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] font-medium transition-colors">{t('common.cancel')}</button>
             </div>
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="p-1.5 hover:bg-red-50 rounded-lg text-[#94a3b8] hover:text-red-500 transition-colors"
+              className="p-1.5 hover:bg-red-50 rounded-lg text-[var(--th-text-muted)] hover:text-red-500 transition-colors"
               aria-label="Remove credentials"
             >
               <IconTrash className="w-4 h-4" />
@@ -504,16 +587,16 @@ function ProviderCard({
         ))}
       </div>
 
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#f1f5f9]">
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--th-border-light)]">
         <span className="text-xs">
           {error ? <span className="text-red-500">{error}</span>
-            : saved ? <span className="text-[#059669] flex items-center gap-1"><IconCheck className="w-3 h-3" />Saved</span>
+            : saved ? <span className="text-[var(--th-success-text)] flex items-center gap-1"><IconCheck className="w-3 h-3" />Saved</span>
             : null}
         </span>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
+          className="px-3.5 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
         >
           {saving ? t('settings.saving') : isConnected ? t('settings.update') : t('settings.saveConnect')}
         </button>
@@ -656,7 +739,7 @@ function TwilioCard({
   const activeNumbers = new Set(connections.map(c => c.phone_number));
 
   return (
-    <div className="bg-white rounded-xl border border-[#e2e8f0] p-5 col-span-2 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+    <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 col-span-2 shadow-[0_1px_3px_var(--th-shadow)]">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -664,26 +747,26 @@ function TwilioCard({
             TW
           </div>
           <div>
-            <div className="text-sm font-semibold text-[#0f172a]">Twilio</div>
+            <div className="text-sm font-semibold text-[var(--th-text)]">Twilio</div>
             {isConnected ? (
-              <div className="flex items-center gap-1.5 text-xs text-[#059669]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+              <div className="flex items-center gap-1.5 text-xs text-[var(--th-success-text)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--th-success-icon)]" />
                 Connected · {phones.length} number{phones.length !== 1 ? 's' : ''} in account
               </div>
             ) : (
-              <div className="text-xs text-[#94a3b8]">Not configured</div>
+              <div className="text-xs text-[var(--th-text-muted)]">Not configured</div>
             )}
           </div>
         </div>
         {isConnected && (
           confirmDisconnect ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[#94a3b8]">All connections will stop.</span>
+              <span className="text-xs text-[var(--th-text-muted)]">All connections will stop.</span>
               <button onClick={handleDisconnectConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
-              <button onClick={() => setConfirmDisconnect(false)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+              <button onClick={() => setConfirmDisconnect(false)} className="text-xs text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] font-medium transition-colors">Cancel</button>
             </div>
           ) : (
-            <button onClick={() => setConfirmDisconnect(true)} className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium">
+            <button onClick={() => setConfirmDisconnect(true)} className="text-xs text-[var(--th-text-muted)] hover:text-red-500 transition-colors font-medium">
               Disconnect
             </button>
           )
@@ -710,12 +793,12 @@ function TwilioCard({
       <div className="flex items-center justify-between mt-3">
         <span className="text-xs">
           {error && <span className="text-red-500">{error}</span>}
-          {saved && <span className="text-[#059669] flex items-center gap-1"><IconCheck className="w-3 h-3" />Connected successfully</span>}
+          {saved && <span className="text-[var(--th-success-text)] flex items-center gap-1"><IconCheck className="w-3 h-3" />Connected successfully</span>}
         </span>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
+          className="px-3.5 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
         >
           {saving ? 'Connecting…' : isConnected ? 'Update Credentials' : 'Connect Twilio'}
         </button>
@@ -723,28 +806,28 @@ function TwilioCard({
 
       {/* Phone numbers list */}
       {isConnected && (
-        <div className="mt-5 pt-5 border-t border-[#f1f5f9]">
+        <div className="mt-5 pt-5 border-t border-[var(--th-border-light)]">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-[#475569] uppercase tracking-wide">
+            <p className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
               Phone Numbers
             </p>
-            <button onClick={loadPhones} className="text-xs text-[#6366f1] hover:text-[#4f46e5]">
+            <button onClick={loadPhones} className="text-xs text-[var(--th-primary-text)] hover:text-[var(--th-primary-hover)]">
               Refresh
             </button>
           </div>
 
           {loadingPhones ? (
             <div className="space-y-2">
-              {[1, 2].map(i => <div key={i} className="h-12 bg-[#f8fafc] rounded-xl animate-pulse" />)}
+              {[1, 2].map(i => <div key={i} className="h-12 bg-[var(--th-skeleton)] rounded-xl animate-pulse" />)}
             </div>
           ) : phones.length === 0 ? (
-            <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-xl border border-dashed border-[#e2e8f0]">
-              <svg className="w-5 h-5 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="flex items-center gap-3 p-4 bg-[var(--th-surface)] rounded-xl border border-dashed border-[var(--th-border)]">
+              <svg className="w-5 h-5 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
               </svg>
               <div>
-                <p className="text-sm font-medium text-[#475569]">No phone numbers in this account</p>
-                <p className="text-xs text-[#94a3b8]">Buy a number in the Twilio Console first</p>
+                <p className="text-sm font-medium text-[var(--th-text-secondary)]">No phone numbers in this account</p>
+                <p className="text-xs text-[var(--th-text-muted)]">Buy a number in the Twilio Console first</p>
               </div>
             </div>
           ) : (
@@ -757,25 +840,25 @@ function TwilioCard({
                   <div
                     className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
                       isActive
-                        ? 'bg-[#f0fdf4] border-[#bbf7d0]'
-                        : 'bg-[#f8fafc] border-[#e2e8f0] hover:border-[#c7d2fe]'
+                        ? 'bg-[var(--th-success-bg)] border-[var(--th-success-border)]'
+                        : 'bg-[var(--th-surface)] border-[var(--th-border)] hover:border-[var(--th-primary-muted)]'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       {isActive ? (
-                        <div className="w-7 h-7 bg-[#dcfce7] rounded-full flex items-center justify-center shrink-0">
-                          <IconCheck className="w-3.5 h-3.5 text-[#16a34a]" />
+                        <div className="w-7 h-7 bg-[var(--th-success-bg-strong)] rounded-full flex items-center justify-center shrink-0">
+                          <IconCheck className="w-3.5 h-3.5 text-[var(--th-success-dark)]" />
                         </div>
                       ) : (
-                        <div className="w-7 h-7 bg-[#f1f5f9] rounded-full flex items-center justify-center shrink-0">
-                          <svg className="w-3.5 h-3.5 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <div className="w-7 h-7 bg-[var(--th-surface)] rounded-full flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372..." />
                           </svg>
                         </div>
                       )}
                       <div>
-                        <div className="text-sm font-semibold text-[#0f172a]">{phone.phone_number}</div>
-                        <div className="text-xs text-[#94a3b8]">{phone.friendly_name !== phone.phone_number ? phone.friendly_name : 'Voice enabled'}</div>
+                        <div className="text-sm font-semibold text-[var(--th-text)]">{phone.phone_number}</div>
+                        <div className="text-xs text-[var(--th-text-muted)]">{phone.friendly_name !== phone.phone_number ? phone.friendly_name : 'Voice enabled'}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -784,12 +867,12 @@ function TwilioCard({
                           {confirmDeactivate?.id === conn?.id ? (
                             <div className="flex items-center gap-2">
                               <button onClick={handleDeactivateConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
-                              <button onClick={() => setConfirmDeactivate(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">Cancel</button>
+                              <button onClick={() => setConfirmDeactivate(null)} className="text-xs text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] font-medium transition-colors">Cancel</button>
                             </div>
                           ) : (
                             <button
                               onClick={() => conn && setConfirmDeactivate(conn)}
-                              className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors"
+                              className="text-xs text-[var(--th-text-muted)] hover:text-red-500 transition-colors"
                             >
                               Remove
                             </button>
@@ -799,7 +882,7 @@ function TwilioCard({
                         <button
                           onClick={() => handleActivate(phone)}
                           disabled={activating === phone.phone_number}
-                          className="px-3 py-1.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50"
+                          className="px-3 py-1.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50"
                         >
                           {activating === phone.phone_number ? '…' : 'Use this number'}
                         </button>
@@ -808,12 +891,12 @@ function TwilioCard({
                   </div>
                   {/* Agent assignment + AI toggle for active numbers */}
                   {isActive && conn && (
-                    <div className="flex items-center gap-3 mt-2 ml-10 pl-4 border-l-2 border-[#e2e8f0]">
+                    <div className="flex items-center gap-3 mt-2 ml-10 pl-4 border-l-2 border-[var(--th-border)]">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-[#94a3b8] uppercase font-semibold">AI</span>
+                        <span className="text-[10px] text-[var(--th-text-muted)] uppercase font-semibold">AI</span>
                         <button
                           onClick={() => updateConnection(conn.id, { ai_answering_enabled: !conn.ai_answering_enabled })}
-                          className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${conn.ai_answering_enabled ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+                          className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${conn.ai_answering_enabled ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
                           aria-label="Toggle AI answering"
                         >
                           <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${conn.ai_answering_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
@@ -822,7 +905,7 @@ function TwilioCard({
                       <select
                         value={conn.default_agent_profile_id ?? ''}
                         onChange={e => updateConnection(conn.id, { default_agent_profile_id: e.target.value || null })}
-                        className="text-xs px-2 py-1 rounded-lg border border-[#e2e8f0] bg-white text-[#0f172a]"
+                        className="text-xs px-2 py-1 rounded-lg border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)]"
                       >
                         <option value="">No agent</option>
                         {phoneAgents.map(a => (
@@ -858,8 +941,8 @@ function ProvidersSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-[#0f172a]">{t('settings.providerCredentials')}</h3>
-        <p className="text-xs text-[#94a3b8] mt-1">
+        <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('settings.providerCredentials')}</h3>
+        <p className="text-xs text-[var(--th-text-muted)] mt-1">
           {t('settings.providerCredentials')}
         </p>
       </div>
@@ -943,14 +1026,14 @@ function ApiKeysSection() {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-[#0f172a]">MCP API Keys</h3>
-          <p className="text-xs text-[#94a3b8] mt-1">
+          <h3 className="text-sm font-semibold text-[var(--th-text)]">MCP API Keys</h3>
+          <p className="text-xs text-[var(--th-text-muted)] mt-1">
             Allow external AI agents (Claude, ChatGPT) to make calls on behalf of your workspace.
           </p>
         </div>
         <button
           onClick={() => { setModal(true); setNewKey(null); }}
-          className="shrink-0 px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[#6366f1]/30"
+          className="shrink-0 px-3.5 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[var(--th-shadow-primary)]"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -959,49 +1042,49 @@ function ApiKeysSection() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+      <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
         {loading ? (
           <div className="p-5 space-y-3 animate-pulse">
-            {[1, 2].map(i => <div key={i} className="h-12 bg-[#f8fafc] rounded-lg" />)}
+            {[1, 2].map(i => <div key={i} className="h-12 bg-[var(--th-skeleton)] rounded-lg" />)}
           </div>
         ) : activeKeys.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14">
-            <div className="w-11 h-11 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-3">
-              <IconKey className="w-5 h-5 text-[#94a3b8]" />
+            <div className="w-11 h-11 bg-[var(--th-surface)] rounded-xl flex items-center justify-center mb-3">
+              <IconKey className="w-5 h-5 text-[var(--th-text-muted)]" />
             </div>
-            <p className="text-sm font-medium text-[#475569]">{t('settings.noApiKeys')}</p>
-            <p className="text-xs text-[#94a3b8] mt-1">{t('settings.noApiKeys')}</p>
+            <p className="text-sm font-medium text-[var(--th-text-secondary)]">{t('settings.noApiKeys')}</p>
+            <p className="text-xs text-[var(--th-text-muted)] mt-1">{t('settings.noApiKeys')}</p>
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+            <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-border)]">
               <tr>
                 {['Name', 'Prefix', 'Last Used', 'Created', ''].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f1f5f9]">
+            <tbody className="divide-y divide-[var(--th-border-light)]">
               {activeKeys.map(k => (
-                <tr key={k.id} className="hover:bg-[#fafbfc] transition-colors">
-                  <td className="px-5 py-3.5 text-sm font-medium text-[#0f172a]">{k.name}</td>
+                <tr key={k.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
+                  <td className="px-5 py-3.5 text-sm font-medium text-[var(--th-text)]">{k.name}</td>
                   <td className="px-5 py-3.5">
-                    <code className="text-xs bg-[#f1f5f9] text-[#475569] px-2 py-0.5 rounded-md font-mono">{k.key_prefix}…</code>
+                    <code className="text-xs bg-[var(--th-surface)] text-[var(--th-text-secondary)] px-2 py-0.5 rounded-md font-mono">{k.key_prefix}…</code>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-[#94a3b8]">
+                  <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)]">
                     {k.last_used_at ? fmtDate(k.last_used_at) : t('settings.never')}
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(k.created_at)}</td>
+                  <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)]">{fmtDate(k.created_at)}</td>
                   <td className="px-5 py-3.5">
                     {revokeTarget?.id === k.id ? (
                       <div className="flex items-center gap-2">
                         <button onClick={revokeKeyConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{t('settings.confirm')}</button>
-                        <button onClick={() => setRevokeTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
+                        <button onClick={() => setRevokeTarget(null)} className="text-xs text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] font-medium transition-colors">{t('common.cancel')}</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setRevokeTarget({ id: k.id, name: k.name })}
-                        className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
+                        className="text-xs text-[var(--th-text-muted)] hover:text-red-500 transition-colors font-medium"
                       >
                         {t('settings.revoke')}
                       </button>
@@ -1014,16 +1097,16 @@ function ApiKeysSection() {
         )}
 
         {revokedKeys.length > 0 && (
-          <div className="border-t border-[#f1f5f9] px-5 py-3">
-            <p className="text-xs text-[#94a3b8]">{revokedKeys.length} revoked key{revokedKeys.length > 1 ? 's' : ''} hidden</p>
+          <div className="border-t border-[var(--th-border-light)] px-5 py-3">
+            <p className="text-xs text-[var(--th-text-muted)]">{revokedKeys.length} revoked key{revokedKeys.length > 1 ? 's' : ''} hidden</p>
           </div>
         )}
       </div>
 
       {/* Usage tip */}
-      <div className="bg-[#fafbff] border border-[#e0e7ff] rounded-xl p-4">
-        <p className="text-xs font-semibold text-[#4338ca] mb-2">Using with Claude Desktop</p>
-        <pre className="text-xs text-[#475569] bg-white border border-[#e2e8f0] rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">{`{
+      <div className="bg-[var(--th-card-hover)] border border-[var(--th-primary-bg-hover)] rounded-xl p-4">
+        <p className="text-xs font-semibold text-[var(--th-primary-text)] mb-2">Using with Claude Desktop</p>
+        <pre className="text-xs text-[var(--th-text-secondary)] bg-[var(--th-card)] border border-[var(--th-border)] rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">{`{
   "mcpServers": {
     "caller": {
       "command": "npx",
@@ -1039,12 +1122,12 @@ function ApiKeysSection() {
 
       {/* Create modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setNewKey(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{t('settings.createApiKey')}</h2>
-              <button onClick={() => { setModal(false); setNewKey(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setNewKey(null); }}>
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+              <h2 className="text-base font-semibold text-[var(--th-text)]">{t('settings.createApiKey')}</h2>
+              <button onClick={() => { setModal(false); setNewKey(null); }} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1052,38 +1135,38 @@ function ApiKeysSection() {
 
             {newKey ? (
               <div className="px-6 py-6 space-y-4">
-                <div className="flex items-center gap-3 p-4 bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl">
-                  <div className="w-8 h-8 bg-[#dcfce7] rounded-lg flex items-center justify-center shrink-0">
-                    <IconCheck className="w-4 h-4 text-[#16a34a]" />
+                <div className="flex items-center gap-3 p-4 bg-[var(--th-success-bg)] border border-[var(--th-success-border)] rounded-xl">
+                  <div className="w-8 h-8 bg-[var(--th-success-bg-strong)] rounded-lg flex items-center justify-center shrink-0">
+                    <IconCheck className="w-4 h-4 text-[var(--th-success-dark)]" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-[#15803d]">Key created: {newKey.name}</p>
-                    <p className="text-xs text-[#16a34a] mt-0.5">Copy it now — it won't be shown again.</p>
+                    <p className="text-sm font-semibold text-[var(--th-success-dark)]">Key created: {newKey.name}</p>
+                    <p className="text-xs text-[var(--th-success-dark)] mt-0.5">Copy it now — it won't be shown again.</p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">Your API Key</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">Your API Key</label>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 px-3 py-2.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-xs font-mono text-[#0f172a] break-all select-all">
+                    <code className="flex-1 px-3 py-2.5 bg-[var(--th-surface)] border border-[var(--th-border)] rounded-lg text-xs font-mono text-[var(--th-text)] break-all select-all">
                       {newKey.key}
                     </code>
                     <button
                       onClick={() => copyKey(newKey.key)}
-                      className="shrink-0 p-2.5 border border-[#e2e8f0] hover:bg-[#f1f5f9] rounded-lg transition-colors"
+                      className="shrink-0 p-2.5 border border-[var(--th-border)] hover:bg-[var(--th-surface)] rounded-lg transition-colors"
                       aria-label="Copy API key"
                     >
-                      {copied ? <IconCheck className="w-4 h-4 text-[#059669]" /> : <IconCopy className="w-4 h-4 text-[#94a3b8]" />}
+                      {copied ? <IconCheck className="w-4 h-4 text-[var(--th-success-text)]" /> : <IconCopy className="w-4 h-4 text-[var(--th-text-muted)]" />}
                     </button>
                   </div>
                 </div>
-                <button onClick={() => { setModal(false); setNewKey(null); }} className="w-full py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all">
+                <button onClick={() => { setModal(false); setNewKey(null); }} className="w-full py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all">
                   Done
                 </button>
               </div>
             ) : (
               <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.keyName')}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('settings.keyName')}</label>
                   <input
                     autoFocus
                     type="text"
@@ -1091,15 +1174,15 @@ function ApiKeysSection() {
                     onChange={e => setKeyName(e.target.value)}
                     placeholder={t('settings.keyNamePlaceholder')}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                   />
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <div className="flex justify-end gap-3 pt-1">
-                  <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">
+                  <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">
                     {t('common.cancel')}
                   </button>
-                  <button type="submit" disabled={creating || !keyName.trim()} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
+                  <button type="submit" disabled={creating || !keyName.trim()} className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
                     {creating ? t('settings.generating') : t('settings.generate')}
                   </button>
                 </div>
@@ -1175,14 +1258,14 @@ function OAuthAppsSection() {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-[#0f172a]">OAuth 2.0 Applications</h3>
-          <p className="text-xs text-[#94a3b8] mt-1">
+          <h3 className="text-sm font-semibold text-[var(--th-text)]">OAuth 2.0 Applications</h3>
+          <p className="text-xs text-[var(--th-text-muted)] mt-1">
             Register apps (ChatGPT GPT Actions, custom integrations) to connect via OAuth.
           </p>
         </div>
         <button
           onClick={() => { setModal(true); setNewClient(null); }}
-          className="shrink-0 px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[#6366f1]/30"
+          className="shrink-0 px-3.5 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[var(--th-shadow-primary)]"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -1192,64 +1275,64 @@ function OAuthAppsSection() {
       </div>
 
       {/* Endpoints reference */}
-      <div className="bg-[#fafbff] border border-[#e0e7ff] rounded-xl p-4 space-y-2">
-        <p className="text-xs font-semibold text-[#4338ca]">OAuth 2.0 Endpoints (for ChatGPT GPT Actions)</p>
+      <div className="bg-[var(--th-card-hover)] border border-[var(--th-primary-bg-hover)] rounded-xl p-4 space-y-2">
+        <p className="text-xs font-semibold text-[var(--th-primary-text)]">OAuth 2.0 Endpoints (for ChatGPT GPT Actions)</p>
         {[
           { label: 'Authorization URL', value: `${origin}/oauth/authorize` },
           { label: 'Token URL', value: `${origin}/api/oauth/token` },
           { label: 'Scope', value: '(leave empty)' },
         ].map(row => (
           <div key={row.label} className="flex items-center gap-3">
-            <span className="text-[11px] text-[#6366f1] font-medium w-36 shrink-0">{row.label}</span>
-            <code className="text-xs text-[#334155] font-mono bg-white border border-[#e2e8f0] px-2 py-0.5 rounded">{row.value}</code>
+            <span className="text-[11px] text-[var(--th-primary-text)] font-medium w-36 shrink-0">{row.label}</span>
+            <code className="text-xs text-[var(--th-text-dark)] font-mono bg-[var(--th-card)] border border-[var(--th-border)] px-2 py-0.5 rounded">{row.value}</code>
           </div>
         ))}
       </div>
 
       {/* Clients table */}
-      <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+      <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
         {loading ? (
           <div className="p-5 space-y-3 animate-pulse">
-            {[1, 2].map(i => <div key={i} className="h-12 bg-[#f8fafc] rounded-lg" />)}
+            {[1, 2].map(i => <div key={i} className="h-12 bg-[var(--th-skeleton)] rounded-lg" />)}
           </div>
         ) : clients.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14">
-            <div className="w-11 h-11 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-3">
-              <IconOAuth className="w-5 h-5 text-[#94a3b8]" />
+            <div className="w-11 h-11 bg-[var(--th-surface)] rounded-xl flex items-center justify-center mb-3">
+              <IconOAuth className="w-5 h-5 text-[var(--th-text-muted)]" />
             </div>
-            <p className="text-sm font-medium text-[#475569]">{t('settings.noOAuthApps')}</p>
-            <p className="text-xs text-[#94a3b8] mt-1">{t('settings.noOAuthApps')}</p>
+            <p className="text-sm font-medium text-[var(--th-text-secondary)]">{t('settings.noOAuthApps')}</p>
+            <p className="text-xs text-[var(--th-text-muted)] mt-1">{t('settings.noOAuthApps')}</p>
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+            <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-border)]">
               <tr>
                 {['App Name', 'Client ID', 'Redirect URIs', 'Created', ''].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f1f5f9]">
+            <tbody className="divide-y divide-[var(--th-border-light)]">
               {clients.map(c => (
-                <tr key={c.id} className="hover:bg-[#fafbfc] transition-colors">
-                  <td className="px-5 py-3.5 text-sm font-medium text-[#0f172a]">{c.name}</td>
+                <tr key={c.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
+                  <td className="px-5 py-3.5 text-sm font-medium text-[var(--th-text)]">{c.name}</td>
                   <td className="px-5 py-3.5">
-                    <code className="text-xs bg-[#f1f5f9] text-[#475569] px-2 py-0.5 rounded-md font-mono">{c.client_id}</code>
+                    <code className="text-xs bg-[var(--th-surface)] text-[var(--th-text-secondary)] px-2 py-0.5 rounded-md font-mono">{c.client_id}</code>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-[#64748b] max-w-[200px]">
+                  <td className="px-5 py-3.5 text-xs text-[var(--th-text-muted)] max-w-[200px]">
                     {c.redirect_uris.map(u => <div key={u} className="truncate">{u}</div>)}
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(c.created_at)}</td>
+                  <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)]">{fmtDate(c.created_at)}</td>
                   <td className="px-5 py-3.5">
                     {deleteTarget?.id === c.id ? (
                       <div className="flex items-center gap-2">
                         <button onClick={deleteClientConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{t('settings.confirm')}</button>
-                        <button onClick={() => setDeleteTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
+                        <button onClick={() => setDeleteTarget(null)} className="text-xs text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] font-medium transition-colors">{t('common.cancel')}</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
-                        className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
+                        className="text-xs text-[var(--th-text-muted)] hover:text-red-500 transition-colors font-medium"
                       >
                         {t('common.delete')}
                       </button>
@@ -1264,14 +1347,14 @@ function OAuthAppsSection() {
 
       {/* Register modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setNewClient(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setModal(false); setNewClient(null); }}>
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+              <h2 className="text-base font-semibold text-[var(--th-text)]">
                 {newClient ? t('settings.createOAuth') : t('settings.newOAuthApp')}
               </h2>
-              <button onClick={() => { setModal(false); setNewClient(null); }} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <button onClick={() => { setModal(false); setNewClient(null); }} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1279,11 +1362,11 @@ function OAuthAppsSection() {
 
             {newClient ? (
               <div className="px-6 py-5 space-y-4">
-                <div className="flex items-start gap-3 p-4 bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl">
-                  <IconCheck className="w-4 h-4 text-[#16a34a] shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 p-4 bg-[var(--th-success-bg)] border border-[var(--th-success-border)] rounded-xl">
+                  <IconCheck className="w-4 h-4 text-[var(--th-success-dark)] shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-semibold text-[#15803d]">{newClient.name} registered</p>
-                    <p className="text-xs text-[#16a34a] mt-0.5">Save the client secret — it won't be shown again.</p>
+                    <p className="text-sm font-semibold text-[var(--th-success-dark)]">{newClient.name} registered</p>
+                    <p className="text-xs text-[var(--th-success-dark)] mt-0.5">Save the client secret — it won't be shown again.</p>
                   </div>
                 </div>
                 {[
@@ -1291,50 +1374,50 @@ function OAuthAppsSection() {
                   { label: 'Client Secret', value: newClient.client_secret, copied: copiedSecret, onCopy: () => copy(newClient.client_secret, setCopiedSecret) },
                 ].map(row => (
                   <div key={row.label} className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{row.label}</label>
+                    <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{row.label}</label>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 px-3 py-2.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-xs font-mono text-[#0f172a] break-all select-all">
+                      <code className="flex-1 px-3 py-2.5 bg-[var(--th-surface)] border border-[var(--th-border)] rounded-lg text-xs font-mono text-[var(--th-text)] break-all select-all">
                         {row.value}
                       </code>
-                      <button onClick={row.onCopy} className="shrink-0 p-2.5 border border-[#e2e8f0] hover:bg-[#f1f5f9] rounded-lg transition-colors" aria-label={`Copy ${row.label}`}>
-                        {row.copied ? <IconCheck className="w-4 h-4 text-[#059669]" /> : <IconCopy className="w-4 h-4 text-[#94a3b8]" />}
+                      <button onClick={row.onCopy} className="shrink-0 p-2.5 border border-[var(--th-border)] hover:bg-[var(--th-surface)] rounded-lg transition-colors" aria-label={`Copy ${row.label}`}>
+                        {row.copied ? <IconCheck className="w-4 h-4 text-[var(--th-success-text)]" /> : <IconCopy className="w-4 h-4 text-[var(--th-text-muted)]" />}
                       </button>
                     </div>
                   </div>
                 ))}
-                <button onClick={() => { setModal(false); setNewClient(null); }} className="w-full py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all mt-2">
+                <button onClick={() => { setModal(false); setNewClient(null); }} className="w-full py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all mt-2">
                   Done
                 </button>
               </div>
             ) : (
               <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.appName')}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('settings.appName')}</label>
                   <input
                     autoFocus
                     value={name}
                     onChange={e => setName(e.target.value)}
                     placeholder={t('settings.appNamePlaceholder')}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('settings.redirectUris')}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('settings.redirectUris')}</label>
                   <textarea
                     rows={3}
                     value={uris}
                     onChange={e => setUris(e.target.value)}
                     placeholder={'https://chat.openai.com/aip/oauth/callback\nhttps://...'}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] resize-none focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] font-mono"
                   />
-                  <p className="text-xs text-[#94a3b8]">One URL per line. For ChatGPT: <code className="font-mono">https://chat.openai.com/aip/oauth/callback</code></p>
+                  <p className="text-xs text-[var(--th-text-muted)]">One URL per line. For ChatGPT: <code className="font-mono">https://chat.openai.com/aip/oauth/callback</code></p>
                 </div>
                 {createError && <p className="text-sm text-red-500">{createError}</p>}
                 <div className="flex justify-end gap-3 pt-1">
-                  <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg">{t('common.cancel')}</button>
-                  <button type="submit" disabled={creating || !name.trim()} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg disabled:opacity-60">
+                  <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg">{t('common.cancel')}</button>
+                  <button type="submit" disabled={creating || !name.trim()} className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg disabled:opacity-60">
                     {creating ? t('settings.creating') : t('settings.createOAuth')}
                   </button>
                 </div>
@@ -1368,16 +1451,16 @@ function StorageSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-semibold text-[#0f172a]">{t('settings.storage') || 'Recording Storage'}</h3>
-        <p className="text-xs text-[#94a3b8] mt-1">Configure where call recordings are stored. Set MinIO/S3 environment variables on the server.</p>
+        <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('settings.storage') || 'Recording Storage'}</h3>
+        <p className="text-xs text-[var(--th-text-muted)] mt-1">Configure where call recordings are stored. Set MinIO/S3 environment variables on the server.</p>
       </div>
 
-      <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-5 space-y-3">
-        <p className="text-xs font-semibold text-[#475569] uppercase tracking-wide">MinIO / S3 Configuration</p>
-        <p className="text-sm text-[#64748b]">
-          Recording storage is configured via environment variables on the server. Set these in your <code className="text-xs bg-white px-1.5 py-0.5 rounded border">.env</code> file:
+      <div className="bg-[var(--th-surface)] border border-[var(--th-border)] rounded-xl p-5 space-y-3">
+        <p className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">MinIO / S3 Configuration</p>
+        <p className="text-sm text-[var(--th-text-muted)]">
+          Recording storage is configured via environment variables on the server. Set these in your <code className="text-xs bg-[var(--th-card)] px-1.5 py-0.5 rounded border">.env</code> file:
         </p>
-        <div className="bg-white rounded-lg border border-[#e2e8f0] p-4 font-mono text-xs text-[#475569] space-y-1">
+        <div className="bg-[var(--th-card)] rounded-lg border border-[var(--th-border)] p-4 font-mono text-xs text-[var(--th-text-secondary)] space-y-1">
           <div>MINIO_ENDPOINT=minio.example.com</div>
           <div>MINIO_PORT=9000</div>
           <div>MINIO_ACCESS_KEY=your-access-key</div>
@@ -1385,7 +1468,7 @@ function StorageSection() {
           <div>MINIO_USE_SSL=false</div>
           <div>MINIO_BUCKET=caller-recordings</div>
         </div>
-        <p className="text-xs text-[#94a3b8]">
+        <p className="text-xs text-[var(--th-text-muted)]">
           If not configured, recordings are stored as Twilio URLs (external). With MinIO, recordings are downloaded from Twilio and stored on your own server.
         </p>
       </div>
@@ -1394,12 +1477,12 @@ function StorageSection() {
         <button
           onClick={handleTest}
           disabled={testing}
-          className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60"
+          className="px-4 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60"
         >
           {testing ? 'Testing...' : 'Test Connection'}
         </button>
         {result && (
-          <span className={`text-xs font-medium ${result.connected ? 'text-[#059669]' : 'text-red-500'}`}>
+          <span className={`text-xs font-medium ${result.connected ? 'text-[var(--th-success-text)]' : 'text-red-500'}`}>
             {result.connected ? 'Connected to MinIO' : (result.error || 'Connection failed')}
           </span>
         )}
@@ -1443,13 +1526,13 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-[#0f172a]">{t('settings.complianceSettings')}</h3>
-        <p className="text-xs text-[#94a3b8] mt-1">
+        <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('settings.complianceSettings')}</h3>
+        <p className="text-xs text-[var(--th-text-muted)] mt-1">
           Configure required disclosures for call recording and AI identity laws.
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-[#e2e8f0] p-6 shadow-[0_1px_3px_rgba(0,0,0,.04)] space-y-5">
+      <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-6 shadow-[0_1px_3px_var(--th-shadow)] space-y-5">
         <div className="flex items-start gap-4">
           <button
             type="button"
@@ -1457,13 +1540,13 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
             aria-checked={recording}
             aria-label="Toggle call recording disclosure"
             onClick={() => setRecording(v => !v)}
-            className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${recording ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+            className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${recording ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
           >
             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${recording ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
           <div>
-            <div className="text-sm font-medium text-[#0f172a]">{t('settings.callRecordingDisclosure')}</div>
-            <div className="text-xs text-[#94a3b8] mt-0.5">
+            <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.callRecordingDisclosure')}</div>
+            <div className="text-xs text-[var(--th-text-muted)] mt-0.5">
               {t('settings.callRecordingHint')}
             </div>
           </div>
@@ -1476,23 +1559,23 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
             aria-checked={aiDisclosure}
             aria-label="Toggle AI identity disclosure"
             onClick={() => setAiDisclosure(v => !v)}
-            className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${aiDisclosure ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+            className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${aiDisclosure ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
           >
             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${aiDisclosure ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
           <div>
-            <div className="text-sm font-medium text-[#0f172a]">{t('settings.aiDisclosure')}</div>
-            <div className="text-xs text-[#94a3b8] mt-0.5">
+            <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.aiDisclosure')}</div>
+            <div className="text-xs text-[var(--th-text-muted)] mt-0.5">
               {t('settings.aiDisclosureHint')}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 p-3 bg-[#fffbeb] border border-[#fde68a] rounded-lg">
+        <div className="flex items-center gap-3 p-3 bg-[var(--th-warning-bg)] border border-[var(--th-warning-border)] rounded-lg">
           <svg className="w-4 h-4 text-[#d97706] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
-          <p className="text-xs text-[#92400e]">
+          <p className="text-xs text-[var(--th-warning-text)]">
             We recommend keeping both disclosures enabled. Disabling them may expose you to legal liability depending on your jurisdiction.
           </p>
         </div>
@@ -1569,12 +1652,12 @@ function TeamSection() {
 
   function roleBadge(role: string) {
     const map: Record<string, string> = {
-      owner: 'bg-[#fef3c7] text-[#92400e]',
-      admin: 'bg-[#eef2ff] text-[#6366f1]',
-      operator: 'bg-[#f0fdf4] text-[#16a34a]',
-      analyst: 'bg-[#f1f5f9] text-[#475569]',
+      owner: 'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)]',
+      admin: 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]',
+      operator: 'bg-[var(--th-success-bg)] text-[var(--th-success-dark)]',
+      analyst: 'bg-[var(--th-surface)] text-[var(--th-text-secondary)]',
     };
-    return map[role] ?? 'bg-[#f1f5f9] text-[#475569]';
+    return map[role] ?? 'bg-[var(--th-surface)] text-[var(--th-text-secondary)]';
   }
 
   function roleLabel(role: string) {
@@ -1586,12 +1669,12 @@ function TeamSection() {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-[#0f172a]">{t('team.title')}</h3>
-          <p className="text-xs text-[#94a3b8] mt-1">{t('team.subtitle')}</p>
+          <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('team.title')}</h3>
+          <p className="text-xs text-[var(--th-text-muted)] mt-1">{t('team.subtitle')}</p>
         </div>
         <button
           onClick={() => { setModal(true); setError(''); }}
-          className="shrink-0 px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[#6366f1]/30"
+          className="shrink-0 px-3.5 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[var(--th-shadow-primary)]"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -1600,48 +1683,48 @@ function TeamSection() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+      <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
         {loading ? (
           <div className="p-5 space-y-3 animate-pulse">
-            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-[#f8fafc] rounded-lg" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-[var(--th-skeleton)] rounded-lg" />)}
           </div>
         ) : members.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14">
-            <div className="w-11 h-11 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-3">
-              <IconTeam className="w-5 h-5 text-[#94a3b8]" />
+            <div className="w-11 h-11 bg-[var(--th-surface)] rounded-xl flex items-center justify-center mb-3">
+              <IconTeam className="w-5 h-5 text-[var(--th-text-muted)]" />
             </div>
-            <p className="text-sm font-medium text-[#475569]">{t('team.noMembers')}</p>
+            <p className="text-sm font-medium text-[var(--th-text-secondary)]">{t('team.noMembers')}</p>
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+            <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-border)]">
               <tr>
                 {[t('team.email'), t('team.role'), t('team.joined'), t('team.actions')].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f1f5f9]">
+            <tbody className="divide-y divide-[var(--th-border-light)]">
               {members.map(m => (
-                <tr key={m.id} className="hover:bg-[#fafbfc] transition-colors">
-                  <td className="px-5 py-3.5 text-sm font-medium text-[#0f172a]">{m.email ?? m.user_id}</td>
+                <tr key={m.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
+                  <td className="px-5 py-3.5 text-sm font-medium text-[var(--th-text)]">{m.email ?? m.user_id}</td>
                   <td className="px-5 py-3.5">
                     <span className={`inline-flex text-xs px-2.5 py-0.5 rounded-full font-medium ${roleBadge(m.role)}`}>
                       {roleLabel(m.role)}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(m.created_at)}</td>
+                  <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)]">{fmtDate(m.created_at)}</td>
                   <td className="px-5 py-3.5">
                     {m.role !== 'owner' && (
                       removeTarget?.id === m.id ? (
                         <div className="flex items-center gap-2">
                           <button onClick={handleRemoveConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{t('settings.confirm')}</button>
-                          <button onClick={() => setRemoveTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
+                          <button onClick={() => setRemoveTarget(null)} className="text-xs text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] font-medium transition-colors">{t('common.cancel')}</button>
                         </div>
                       ) : (
                         <button
                           onClick={() => setRemoveTarget(m)}
-                          className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
+                          className="text-xs text-[var(--th-text-muted)] hover:text-red-500 transition-colors font-medium"
                         >
                           {t('team.removeMember')}
                         </button>
@@ -1657,20 +1740,20 @@ function TeamSection() {
 
       {/* Invite modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{t('team.inviteModal')}</h2>
-              <button onClick={() => setModal(false)} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModal(false)}>
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+              <h2 className="text-base font-semibold text-[var(--th-text)]">{t('team.inviteModal')}</h2>
+              <button onClick={() => setModal(false)} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleInvite} className="px-6 py-5 space-y-4">
-              <p className="text-xs text-[#94a3b8]">{t('team.inviteDesc')}</p>
+              <p className="text-xs text-[var(--th-text-muted)]">{t('team.inviteDesc')}</p>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('team.email')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('team.email')}</label>
                 <input
                   autoFocus
                   type="email"
@@ -1678,15 +1761,15 @@ function TeamSection() {
                   onChange={e => setInviteEmail(e.target.value)}
                   placeholder="colleague@company.com"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('team.role')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('team.role')}</label>
                 <select
                   value={inviteRole}
                   onChange={e => setInviteRole(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                 >
                   <option value="admin">{t('team.admin')}</option>
                   <option value="operator">{t('team.operator')}</option>
@@ -1695,10 +1778,10 @@ function TeamSection() {
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">
+                <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">
                   {t('common.cancel')}
                 </button>
-                <button type="submit" disabled={sending || !inviteEmail.trim()} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
+                <button type="submit" disabled={sending || !inviteEmail.trim()} className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
                   {sending ? t('team.sending') : t('team.inviteMember')}
                 </button>
               </div>
@@ -1732,7 +1815,7 @@ export default function SettingsPage() {
       {/* Left nav (vertical on desktop, horizontal scroll on mobile) */}
       <div className="md:w-52 shrink-0">
         <nav className="md:space-y-0.5 md:sticky md:top-0 flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1 md:gap-0 pb-2 md:pb-0">
-          <p className="hidden md:block text-[10px] font-semibold text-[#94a3b8] uppercase tracking-widest px-3 mb-2">{t('settings.title')}</p>
+          <p className="hidden md:block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-widest px-3 mb-2">{t('settings.title')}</p>
           {SECTIONS.map(s => {
             const Icon = s.icon;
             const active = activeSection === s.id;
@@ -1742,8 +1825,8 @@ export default function SettingsPage() {
                 onClick={() => setActiveSection(s.id)}
                 className={`flex items-center gap-2 md:gap-3 px-3 py-2 md:py-2.5 rounded-lg text-sm whitespace-nowrap transition-colors shrink-0 md:w-full md:text-left ${
                   active
-                    ? 'bg-[#eef2ff] text-[#6366f1] font-medium'
-                    : 'text-[#475569] hover:bg-[#f1f5f9] hover:text-[#0f172a]'
+                    ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] font-medium'
+                    : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] hover:text-[var(--th-text)]'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -1757,6 +1840,7 @@ export default function SettingsPage() {
       {/* Content */}
       <div className="flex-1 min-w-0 pb-8">
         {activeSection === 'general'    && <GeneralSection workspace={workspace} onUpdated={handleWorkspaceUpdate} />}
+        {activeSection === 'appearance' && <AppearanceSection />}
         {activeSection === 'providers'  && <ProvidersSection />}
         {activeSection === 'api-keys'   && <ApiKeysSection />}
         {activeSection === 'oauth'      && <OAuthAppsSection />}

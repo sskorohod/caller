@@ -62,9 +62,18 @@ interface CallerHistory {
   memory_facts?: string[];
 }
 
+interface SkillPack {
+  id: string;
+  name: string;
+  intent: string;
+  conversation_rules: string;
+}
+
 interface AgentProfile {
   id: string;
   name: string;
+  display_name?: string;
+  skill_packs?: SkillPack[];
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -97,6 +106,12 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled:   'bg-gray-100 text-gray-500',
   no_answer:   'bg-orange-100 text-orange-600',
 };
+
+const TONE_PRESETS = [
+  { label: '\u{1F91D} Formal', instruction: 'Switch your communication style to formal and professional. Use polite language, avoid slang.' },
+  { label: '\u{1F60A} Friendly', instruction: 'Switch your communication style to warm and friendly. Be casual, use humor where appropriate.' },
+  { label: '\u{26A1} Urgent', instruction: 'Switch to urgent mode. Be direct, concise, focus on solving the problem quickly.' },
+];
 
 const LANGUAGES = [
   { value: 'original', labelKey: 'live.original' },
@@ -138,6 +153,9 @@ export default function LiveCallPage() {
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
+  // Agent skill packs
+  const [agentSkills, setAgentSkills] = useState<SkillPack[]>([]);
+
   // Takeover
   const [showTakeover, setShowTakeover] = useState(false);
   const [takeoverPhone, setTakeoverPhone] = useState('');
@@ -154,10 +172,13 @@ export default function LiveCallPage() {
         if (r.session?.transcript && Array.isArray(r.session.transcript)) {
           setTranscript(normalizeTranscript(r.session.transcript));
         }
-        // Load agent name
+        // Load agent name + skill packs
         if (r.call.agent_profile_id) {
           api.get<AgentProfile>(`/agents/${r.call.agent_profile_id}`)
-            .then(a => setAgentName(a.name))
+            .then(a => {
+              setAgentName(a.display_name || a.name);
+              setAgentSkills(a.skill_packs || []);
+            })
             .catch(() => {});
         }
         // Load caller history
@@ -339,16 +360,16 @@ export default function LiveCallPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!callData) {
     return (
-      <div className="p-8 text-center text-[#64748b]">
+      <div className="p-8 text-center text-[var(--th-text-secondary)]">
         Call not found.
-        <button onClick={() => router.push('/dashboard/calls')} className="ml-2 text-[#6366f1] hover:underline">
+        <button onClick={() => router.push('/dashboard/calls')} className="ml-2 text-[var(--th-primary-text)] hover:underline">
           {t('live.back')}
         </button>
       </div>
@@ -363,13 +384,13 @@ export default function LiveCallPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push('/dashboard/calls')}
-          className="p-2 rounded-lg hover:bg-[#f1f5f9] text-[#64748b] hover:text-[#0f172a] transition-colors"
+          className="p-2 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
         </button>
-        <h1 className="text-xl font-bold text-[#0f172a]">{t('live.title')}</h1>
+        <h1 className="text-xl font-bold text-[var(--th-text)]">{t('live.title')}</h1>
         <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_COLORS[callData.status] ?? 'bg-gray-100 text-gray-500'}`}>
           {callData.status === 'ringing' ? t('live.waiting') : callData.status}
         </span>
@@ -401,13 +422,13 @@ export default function LiveCallPage() {
         <div className="w-full lg:w-2/5 space-y-4">
 
           {/* Caller card */}
-          <div className="bg-white rounded-xl border border-[#e2e8f0] p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-[#94a3b8] uppercase tracking-wide">{t('live.callerInfo')}</h2>
-            <div className="text-2xl font-bold text-[#0f172a]">{fromNumber}</div>
+          <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
+            <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.callerInfo')}</h2>
+            <div className="text-2xl font-bold text-[var(--th-text)]">{fromNumber}</div>
             {agentName && (
-              <div className="flex items-center gap-1.5 text-sm text-[#64748b]">
+              <div className="flex items-center gap-1.5 text-sm text-[var(--th-text-secondary)]">
                 <span>{t('realtime.agent')}:</span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#6366f1]/10 text-[#6366f1] text-xs font-medium">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--th-primary)]/10 text-[var(--th-primary-text)] text-xs font-medium">
                   {agentName}
                 </span>
               </div>
@@ -416,12 +437,12 @@ export default function LiveCallPage() {
 
           {/* Memory facts */}
           {memoryFacts.length > 0 && (
-            <div className="bg-white rounded-xl border border-[#e2e8f0] p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-[#94a3b8] uppercase tracking-wide">{t('live.memoryFacts')}</h2>
+            <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.memoryFacts')}</h2>
               <ul className="space-y-1.5">
                 {memoryFacts.map((fact, i) => (
-                  <li key={i} className="text-sm text-[#334155] flex items-start gap-2">
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#6366f1] shrink-0" />
+                  <li key={i} className="text-sm text-[var(--th-text-dark)] flex items-start gap-2">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--th-primary)] shrink-0" />
                     <span>{fact}</span>
                   </li>
                 ))}
@@ -430,46 +451,46 @@ export default function LiveCallPage() {
           )}
 
           {/* Call history accordion */}
-          <div className="bg-white rounded-xl border border-[#e2e8f0] p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-[#94a3b8] uppercase tracking-wide">{t('live.callHistory')}</h2>
+          <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
+            <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.callHistory')}</h2>
             {callerHistory.length === 0 ? (
-              <p className="text-sm text-[#94a3b8]">{t('live.noHistory')}</p>
+              <p className="text-sm text-[var(--th-text-muted)]">{t('live.noHistory')}</p>
             ) : (
               <div className="space-y-2">
                 {callerHistory.slice(0, 10).map(pastCall => (
-                  <div key={pastCall.id} className="border border-[#f1f5f9] rounded-lg overflow-hidden">
+                  <div key={pastCall.id} className="border border-[var(--th-border-light)] rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleExpandCall(pastCall.id)}
-                      className="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-[#f8fafc] transition-colors"
+                      className="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-[var(--th-skeleton)] transition-colors"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs text-[#64748b] shrink-0">{fmtDate(pastCall.created_at)}</span>
-                        <span className="text-xs text-[#94a3b8]">{fmtDuration(pastCall.duration_seconds)}</span>
+                        <span className="text-xs text-[var(--th-text-secondary)] shrink-0">{fmtDate(pastCall.created_at)}</span>
+                        <span className="text-xs text-[var(--th-text-muted)]">{fmtDuration(pastCall.duration_seconds)}</span>
                       </div>
                       <svg
-                        className={`w-4 h-4 text-[#94a3b8] shrink-0 transition-transform ${expandedCall === pastCall.id ? 'rotate-180' : ''}`}
+                        className={`w-4 h-4 text-[var(--th-text-muted)] shrink-0 transition-transform ${expandedCall === pastCall.id ? 'rotate-180' : ''}`}
                         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                       </svg>
                     </button>
                     {pastCall.summary && (
-                      <div className="px-3 pb-2 text-xs text-[#64748b] line-clamp-2">{pastCall.summary}</div>
+                      <div className="px-3 pb-2 text-xs text-[var(--th-text-secondary)] line-clamp-2">{pastCall.summary}</div>
                     )}
                     {expandedCall === pastCall.id && (
-                      <div className="px-3 pb-3 border-t border-[#f1f5f9]">
+                      <div className="px-3 pb-3 border-t border-[var(--th-border-light)]">
                         {expandedTranscript === null ? (
-                          <div className="py-2 text-xs text-[#94a3b8]">{t('common.loading')}</div>
+                          <div className="py-2 text-xs text-[var(--th-text-muted)]">{t('common.loading')}</div>
                         ) : expandedTranscript.length === 0 ? (
-                          <div className="py-2 text-xs text-[#94a3b8]">No transcript</div>
+                          <div className="py-2 text-xs text-[var(--th-text-muted)]">No transcript</div>
                         ) : (
                           <div className="py-2 space-y-1.5 max-h-48 overflow-y-auto">
                             {expandedTranscript.map((entry, i) => (
                               <div key={i} className="text-xs">
-                                <span className={`font-medium ${entry.role === 'agent' ? 'text-[#6366f1]' : 'text-[#334155]'}`}>
+                                <span className={`font-medium ${entry.role === 'agent' ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-text-dark)]'}`}>
                                   {entry.role === 'agent' ? 'Agent' : 'Caller'}:
                                 </span>{' '}
-                                <span className="text-[#475569]">{entry.content}</span>
+                                <span className="text-[var(--th-text-secondary)]">{entry.content}</span>
                               </div>
                             ))}
                           </div>
@@ -484,17 +505,17 @@ export default function LiveCallPage() {
         </div>
 
         {/* ─── Right Column: Live Transcript (60%) ──────────────────────── */}
-        <div className="w-full lg:w-3/5 flex flex-col bg-white rounded-xl border border-[#e2e8f0] overflow-hidden" style={{ minHeight: '500px' }}>
+        <div className="w-full lg:w-3/5 flex flex-col bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden" style={{ minHeight: '500px' }}>
 
           {/* Transcript header */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-[#f1f5f9]">
-            <h2 className="text-sm font-semibold text-[#94a3b8] uppercase tracking-wide">{t('live.liveTranscript')}</h2>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--th-border-light)]">
+            <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.liveTranscript')}</h2>
             <div className="flex items-center gap-2">
-              <label className="text-xs text-[#64748b]">{t('live.language')}:</label>
+              <label className="text-xs text-[var(--th-text-secondary)]">{t('live.language')}:</label>
               <select
                 value={language}
                 onChange={e => setLanguage(e.target.value)}
-                className="text-xs border border-[#e2e8f0] rounded-lg px-2 py-1 text-[#334155] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                className="text-xs border border-[var(--th-border)] rounded-lg px-2 py-1 text-[var(--th-text-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
               >
                 {LANGUAGES.map(lang => (
                   <option key={lang.value} value={lang.value}>
@@ -508,9 +529,9 @@ export default function LiveCallPage() {
           {/* Transcript body */}
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: 'calc(100vh - 320px)' }}>
             {callData.status === 'ringing' && transcript.length === 0 && (
-              <div className="flex items-center justify-center h-full text-sm text-[#94a3b8]">
+              <div className="flex items-center justify-center h-full text-sm text-[var(--th-text-muted)]">
                 <div className="text-center space-y-2">
-                  <div className="w-10 h-10 mx-auto border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin" />
+                  <div className="w-10 h-10 mx-auto border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
                   <div>{t('live.waiting')}</div>
                 </div>
               </div>
@@ -538,18 +559,18 @@ export default function LiveCallPage() {
                   <div
                     className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                       isAgent
-                        ? 'bg-[#6366f1] text-white rounded-br-md'
-                        : 'bg-[#f1f5f9] text-[#0f172a] rounded-bl-md'
+                        ? 'bg-[var(--th-primary)] text-white rounded-br-md'
+                        : 'bg-[var(--th-surface)] text-[var(--th-text)] rounded-bl-md'
                     }`}
                   >
                     <div className="text-sm leading-relaxed">{displayText}</div>
                     {language !== 'original' && entry.translated && (
-                      <div className={`text-xs mt-1 ${isAgent ? 'text-white/60' : 'text-[#94a3b8]'}`}>
+                      <div className={`text-xs mt-1 ${isAgent ? 'text-white/60' : 'text-[var(--th-text-muted)]'}`}>
                         {entry.content}
                       </div>
                     )}
                     {entry.timestamp && (
-                      <div className={`text-[10px] mt-1 ${isAgent ? 'text-white/50' : 'text-[#94a3b8]'}`}>
+                      <div className={`text-[10px] mt-1 ${isAgent ? 'text-white/50' : 'text-[var(--th-text-muted)]'}`}>
                         {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </div>
                     )}
@@ -562,27 +583,66 @@ export default function LiveCallPage() {
 
           {/* Call ended banner */}
           {!isActive && callData.status !== 'initiated' && (
-            <div className="px-5 py-3 border-t border-[#f1f5f9] bg-[#f8fafc]">
+            <div className="px-5 py-3 border-t border-[var(--th-border-light)] bg-[var(--th-skeleton)]">
               <div className="flex items-center justify-center gap-2 text-sm">
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[callData.status] ?? 'bg-gray-100 text-gray-500'}`}>
                   {t('live.callEnded')}
                 </span>
                 {callData.duration_seconds && (
-                  <span className="text-[#64748b] text-xs">{fmtDuration(callData.duration_seconds)}</span>
+                  <span className="text-[var(--th-text-secondary)] text-xs">{fmtDuration(callData.duration_seconds)}</span>
                 )}
               </div>
             </div>
           )}
 
+          {/* Quick action buttons */}
+          {isActive && (
+            <div className="flex gap-2 overflow-x-auto px-4 py-2 border-t border-[var(--th-border-light)]">
+              {TONE_PRESETS.map(tone => (
+                <button
+                  key={tone.label}
+                  onClick={() => {
+                    socket?.emit('call:instruction', { call_id: callId, text: tone.instruction });
+                    toast.info(`Tone: ${tone.label}`);
+                  }}
+                  className="shrink-0 px-3 py-1.5 border border-[#6366f1]/30 rounded-lg text-xs font-medium text-[#6366f1] hover:bg-[#eef2ff] transition-colors"
+                >
+                  {tone.label}
+                </button>
+              ))}
+              {agentSkills.map(skill => (
+                <button
+                  key={skill.id}
+                  onClick={() => {
+                    socket?.emit('call:instruction', { call_id: callId, text: skill.conversation_rules || skill.intent });
+                    toast.info(`Sent: ${skill.name}`);
+                  }}
+                  className="shrink-0 px-3 py-1.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-xs font-medium text-[#475569] hover:bg-[#eef2ff] hover:border-[#c7d2fe] hover:text-[#6366f1] transition-colors"
+                  title={skill.intent}
+                >
+                  {skill.name}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  socket?.emit('call:instruction', { call_id: callId, text: 'Politely wrap up the conversation and end the call.' });
+                }}
+                className="shrink-0 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
+              >
+                {'\u{1F44B}'} {t('live.endCall')}
+              </button>
+            </div>
+          )}
+
           {/* Instruction input */}
           {isActive && (
-            <div className="px-4 py-3 border-t border-[#f1f5f9] flex items-center gap-2">
+            <div className="px-4 py-3 border-t border-[var(--th-border-light)] flex items-center gap-2">
               <button
                 onClick={toggleVoiceInput}
                 className={`p-2 rounded-lg transition-colors ${
                   listening
                     ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                    : 'hover:bg-[#f1f5f9] text-[#64748b] hover:text-[#0f172a]'
+                    : 'hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:text-[var(--th-text)]'
                 }`}
                 title={t('live.voiceInput')}
               >
@@ -596,12 +656,12 @@ export default function LiveCallPage() {
                 onChange={e => setInstruction(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && sendInstruction()}
                 placeholder={t('live.sendInstruction')}
-                className="flex-1 px-4 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                className="flex-1 px-4 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
               />
               <button
                 onClick={sendInstruction}
                 disabled={!instruction.trim()}
-                className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 bg-[var(--th-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--th-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {t('live.send')}
               </button>
@@ -613,21 +673,21 @@ export default function LiveCallPage() {
       {/* Takeover modal */}
       {showTakeover && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
-            <h3 className="text-lg font-bold text-[#0f172a]">{t('live.takeOver')}</h3>
-            <p className="text-sm text-[#64748b]">{t('live.takeOverDesc')}</p>
+          <div className="bg-[var(--th-card)] rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-lg font-bold text-[var(--th-text)]">{t('live.takeOver')}</h3>
+            <p className="text-sm text-[var(--th-text-secondary)]">{t('live.takeOverDesc')}</p>
             <input
               type="tel"
               value={takeoverPhone}
               onChange={e => setTakeoverPhone(e.target.value)}
               placeholder={t('live.phoneNumber')}
-              className="w-full px-4 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+              className="w-full px-4 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
               autoFocus
             />
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowTakeover(false)}
-                className="px-4 py-2 text-sm text-[#64748b] hover:text-[#0f172a] transition-colors"
+                className="px-4 py-2 text-sm text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-colors"
               >
                 {t('common.cancel')}
               </button>

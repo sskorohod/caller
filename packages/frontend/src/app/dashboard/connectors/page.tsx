@@ -34,7 +34,7 @@ const EMPTY_FORM: ConnectorForm = {
 };
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  http: { label: 'HTTP', color: 'bg-[#6366f1]/10 text-[#6366f1]' },
+  http: { label: 'HTTP', color: 'bg-[var(--th-primary)]/10 text-[var(--th-primary-text)]' },
   salesforce: { label: 'Salesforce', color: 'bg-[#00a1e0]/10 text-[#00a1e0]' },
   hubspot: { label: 'HubSpot', color: 'bg-[#ff7a59]/10 text-[#ff7a59]' },
   bitrix: { label: 'Bitrix24', color: 'bg-[#2fc6f6]/10 text-[#2fc6f6]' },
@@ -157,12 +157,12 @@ export default function ConnectorsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">{t('connectors.title')}</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">{t('connectors.subtitle')}</p>
+          <h2 className="text-xl font-bold text-[var(--th-text)]">{t('connectors.title')}</h2>
+          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('connectors.subtitle')}</p>
         </div>
         <button
           onClick={() => setModal(true)}
-          className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[#6366f1]/25 flex items-center gap-2"
+          className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -179,7 +179,7 @@ export default function ConnectorsPage() {
       ) : loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse space-y-3">
+            <div key={i} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 animate-pulse space-y-3">
               <div className="w-10 h-10 bg-slate-100 rounded-xl" />
               <div className="h-4 bg-slate-100 rounded w-2/3" />
               <div className="h-3 bg-slate-100 rounded w-1/2" />
@@ -187,15 +187,15 @@ export default function ConnectorsPage() {
           ))}
         </div>
       ) : connectors.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#e2e8f0] flex flex-col items-center justify-center py-20">
-          <div className="w-14 h-14 bg-[#eef2ff] rounded-2xl flex items-center justify-center mb-4">
-            <svg className="w-7 h-7 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] flex flex-col items-center justify-center py-20">
+          <div className="w-14 h-14 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center mb-4">
+            <svg className="w-7 h-7 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-[#475569]">{t('connectors.noConnectors')}</p>
-          <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('connectors.noConnectorsDesc')}</p>
-          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">
+          <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('connectors.noConnectors')}</p>
+          <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('connectors.noConnectorsDesc')}</p>
+          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[var(--th-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--th-primary-hover)] transition-colors">
             {t('connectors.createConnector')}
           </button>
         </div>
@@ -204,10 +204,10 @@ export default function ConnectorsPage() {
           {connectors.map(connector => {
             const typeMeta = TYPE_LABELS[connector.connector_type] ?? { label: connector.connector_type, color: 'bg-slate-100 text-slate-600' };
             return (
-              <div key={connector.id} className="bg-white rounded-xl border border-[#e2e8f0] p-5 hover:shadow-md transition-shadow group">
+              <div key={connector.id} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 hover:shadow-md transition-shadow group">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 bg-[#eef2ff] rounded-xl flex items-center justify-center">
-                    <svg className="w-5 h-5 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <div className="w-10 h-10 bg-[var(--th-primary-bg)] rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
                     </svg>
                   </div>
@@ -216,8 +216,8 @@ export default function ConnectorsPage() {
                       {typeMeta.label}
                     </span>
                     {connector.is_active ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ecfdf5] text-[#059669] text-[10px] font-medium">
-                        <span className="w-1 h-1 rounded-full bg-[#10b981]" />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--th-success-bg)] text-[var(--th-success-text)] text-[10px] font-medium">
+                        <span className="w-1 h-1 rounded-full bg-[var(--th-success-icon)]" />
                         {t('connectors.active')}
                       </span>
                     ) : (
@@ -227,19 +227,19 @@ export default function ConnectorsPage() {
                     )}
                   </div>
                 </div>
-                <h3 className="font-semibold text-[#0f172a] text-sm">{connector.name}</h3>
-                <p className="text-xs text-[#64748b] mt-1 truncate">
+                <h3 className="font-semibold text-[var(--th-text)] text-sm">{connector.name}</h3>
+                <p className="text-xs text-[var(--th-text-muted)] mt-1 truncate">
                   {(connector.config as Record<string, unknown>).base_url as string ?? 'No URL configured'}
                 </p>
                 {connector.last_synced_at && (
-                  <p className="text-[10px] text-[#94a3b8] mt-1.5">
+                  <p className="text-[10px] text-[var(--th-text-muted)] mt-1.5">
                     Last synced {new Date(connector.last_synced_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 )}
 
                 {/* Test result */}
                 {testResult && testResult.id === connector.id && (
-                  <div className={`mt-2 px-2.5 py-1.5 rounded-lg text-xs font-medium ${testResult.success ? 'bg-[#ecfdf5] text-[#059669]' : 'bg-red-50 text-red-600'}`}>
+                  <div className={`mt-2 px-2.5 py-1.5 rounded-lg text-xs font-medium ${testResult.success ? 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]' : 'bg-red-50 text-red-600'}`}>
                     {testResult.message}
                   </div>
                 )}
@@ -248,14 +248,14 @@ export default function ConnectorsPage() {
                   <button
                     onClick={() => handleTest(connector.id)}
                     disabled={testing === connector.id}
-                    className="text-[10px] font-medium text-[#6366f1] hover:text-[#4f46e5] disabled:opacity-50 transition-colors"
+                    className="text-[10px] font-medium text-[var(--th-primary-text)] hover:text-[var(--th-primary-hover)] disabled:opacity-50 transition-colors"
                   >
                     {testing === connector.id ? t('connectors.testing') : t('connectors.testConnection')}
                   </button>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => openEdit(connector)}
-                      className="p-1.5 rounded-lg hover:bg-[#f1f5f9] text-[#94a3b8] hover:text-[#6366f1] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-muted)] hover:text-[var(--th-primary-text)] transition-colors"
                       aria-label="Edit"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -264,7 +264,7 @@ export default function ConnectorsPage() {
                     </button>
                     <button
                       onClick={() => { setDeleteTarget(connector); setDeleteError(''); }}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-[#94a3b8] hover:text-red-500 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--th-text-muted)] hover:text-red-500 transition-colors"
                       aria-label="Delete"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -281,8 +281,8 @@ export default function ConnectorsPage() {
 
       {/* Delete Confirm Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 space-y-4">
               <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -290,12 +290,12 @@ export default function ConnectorsPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-[#0f172a]">{t('connectors.deleteConnector')}</h3>
-                <p className="text-sm text-[#64748b] mt-1">{t('connectors.deleteConfirm', { name: deleteTarget.name })}</p>
+                <h3 className="text-base font-semibold text-[var(--th-text)]">{t('connectors.deleteConnector')}</h3>
+                <p className="text-sm text-[var(--th-text-muted)] mt-1">{t('connectors.deleteConfirm', { name: deleteTarget.name })}</p>
               </div>
               {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
               <div className="flex justify-end gap-3">
-                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">{t('common.delete')}</button>
               </div>
             </div>
@@ -305,34 +305,34 @@ export default function ConnectorsPage() {
 
       {/* Create/Edit Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? t('connectors.editConnector') : t('connectors.newConnector')}</h2>
-              <button onClick={closeModal} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+              <h2 className="text-base font-semibold text-[var(--th-text)]">{editId ? t('connectors.editConnector') : t('connectors.newConnector')}</h2>
+              <button onClick={closeModal} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('connectors.name')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('connectors.name')}</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                   placeholder="HubSpot CRM"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('connectors.type')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('connectors.type')}</label>
                 <select
                   value={form.connector_type}
                   onChange={e => setForm(p => ({ ...p, connector_type: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors bg-[var(--th-input)]"
                 >
                   <option value="http">HTTP (Generic API)</option>
                   <option value="salesforce" disabled>Salesforce (coming soon)</option>
@@ -341,22 +341,22 @@ export default function ConnectorsPage() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('connectors.baseUrl')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('connectors.baseUrl')}</label>
                 <input
                   type="url"
                   value={form.base_url}
                   onChange={e => setForm(p => ({ ...p, base_url: e.target.value }))}
                   placeholder="https://api.hubspot.com/crm/v3"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('connectors.authType')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('connectors.authType')}</label>
                 <select
                   value={form.auth_type}
                   onChange={e => setForm(p => ({ ...p, auth_type: e.target.value as ConnectorForm['auth_type'] }))}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors bg-[var(--th-input)]"
                 >
                   <option value="bearer">Bearer Token</option>
                   <option value="basic">Basic Auth (user:pass)</option>
@@ -365,25 +365,25 @@ export default function ConnectorsPage() {
               </div>
               {form.auth_type === 'header' && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('connectors.headerName')}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('connectors.headerName')}</label>
                   <input
                     type="text"
                     value={form.auth_header}
                     onChange={e => setForm(p => ({ ...p, auth_header: e.target.value }))}
                     placeholder="X-Api-Key"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                   />
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('connectors.authValue')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('connectors.authValue')}</label>
                 <input
                   type="password"
                   value={form.auth_value}
                   onChange={e => setForm(p => ({ ...p, auth_value: e.target.value }))}
                   placeholder={form.auth_type === 'basic' ? 'user:password' : 'Token or API key'}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                 />
               </div>
 
@@ -392,11 +392,11 @@ export default function ConnectorsPage() {
               )}
 
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-all"
+                  className="px-5 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-all"
                 >
                   {saving ? t('connectors.saving') : editId ? t('connectors.saveChanges') : t('connectors.createConnector')}
                 </button>

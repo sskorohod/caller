@@ -38,13 +38,13 @@ function ProgressBar({ step }: { step: number }) {
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-[#6366f1]">
+        <span className="text-xs font-medium text-[var(--th-primary-text)]">
           {t('onboarding.step', { current: String(step), total: String(TOTAL_STEPS) })}
         </span>
       </div>
-      <div className="h-1.5 bg-[#e2e8f0] rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[var(--th-border)] rounded-full overflow-hidden">
         <div
-          className="h-full bg-[#6366f1] rounded-full transition-all duration-500"
+          className="h-full bg-[var(--th-primary)] rounded-full transition-all duration-500"
           style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
         />
       </div>
@@ -54,7 +54,7 @@ function ProgressBar({ step }: { step: number }) {
 
 function StepCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#e2e8f0] p-8 shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+    <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-border)] p-8 shadow-[0_1px_3px_var(--th-shadow)]">
       {children}
     </div>
   );
@@ -84,7 +84,7 @@ function NavButtons({
         {step > 1 && (
           <button
             onClick={onBack}
-            className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors"
+            className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors"
           >
             {t('common.back')}
           </button>
@@ -94,7 +94,7 @@ function NavButtons({
         {canSkip && onSkip && (
           <button
             onClick={onSkip}
-            className="px-4 py-2.5 text-sm text-[#94a3b8] hover:text-[#475569] transition-colors"
+            className="px-4 py-2.5 text-sm text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)] transition-colors"
           >
             {t('onboarding.skip')}
           </button>
@@ -102,7 +102,7 @@ function NavButtons({
         <button
           onClick={onNext}
           disabled={loading}
-          className="px-5 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
+          className="px-5 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 active:scale-[.98]"
         >
           {loading ? t('onboarding.saving') : nextLabel ?? t('onboarding.next')}
         </button>
@@ -126,15 +126,15 @@ function InputField({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a]
-                   placeholder:text-[#cbd5e1] bg-white
-                   focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]
+        className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)]
+                   placeholder:text-[var(--th-text-muted)] bg-[var(--th-input)]
+                   focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]
                    transition-colors"
       />
     </div>
@@ -253,16 +253,16 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2ff] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[var(--th-page)] to-[var(--th-primary-bg)] flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-[#6366f1] rounded-xl flex items-center justify-center shadow-lg shadow-[#6366f1]/30">
+          <div className="w-10 h-10 bg-[var(--th-primary)] rounded-xl flex items-center justify-center shadow-lg shadow-[var(--th-shadow-primary)]">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
             </svg>
           </div>
-          <span className="text-2xl font-bold text-[#0f172a] tracking-tight">Caller</span>
+          <span className="text-2xl font-bold text-[var(--th-text)] tracking-tight">Caller</span>
         </div>
 
         <ProgressBar step={step} />
@@ -270,8 +270,8 @@ export default function OnboardingPage() {
         {/* Step 1: Welcome */}
         {step === 1 && (
           <StepCard>
-            <h2 className="text-lg font-bold text-[#0f172a] mb-1">{t('onboarding.welcomeTitle')}</h2>
-            <p className="text-sm text-[#94a3b8] mb-6">{t('onboarding.welcomeDesc')}</p>
+            <h2 className="text-lg font-bold text-[var(--th-text)] mb-1">{t('onboarding.welcomeTitle')}</h2>
+            <p className="text-sm text-[var(--th-text-muted)] mb-6">{t('onboarding.welcomeDesc')}</p>
             <InputField
               label={t('onboarding.workspaceName')}
               value={wsName}
@@ -286,8 +286,8 @@ export default function OnboardingPage() {
         {/* Step 2: Twilio */}
         {step === 2 && (
           <StepCard>
-            <h2 className="text-lg font-bold text-[#0f172a] mb-1">{t('onboarding.connectTelephony')}</h2>
-            <p className="text-sm text-[#94a3b8] mb-6">{t('onboarding.connectTelephonyDesc')}</p>
+            <h2 className="text-lg font-bold text-[var(--th-text)] mb-1">{t('onboarding.connectTelephony')}</h2>
+            <p className="text-sm text-[var(--th-text-muted)] mb-6">{t('onboarding.connectTelephonyDesc')}</p>
             <div className="space-y-4">
               <InputField
                 label={t('onboarding.accountSid')}
@@ -318,11 +318,11 @@ export default function OnboardingPage() {
         {/* Step 3: AI Provider */}
         {step === 3 && (
           <StepCard>
-            <h2 className="text-lg font-bold text-[#0f172a] mb-1">{t('onboarding.addAiProvider')}</h2>
-            <p className="text-sm text-[#94a3b8] mb-6">{t('onboarding.addAiProviderDesc')}</p>
+            <h2 className="text-lg font-bold text-[var(--th-text)] mb-1">{t('onboarding.addAiProvider')}</h2>
+            <p className="text-sm text-[var(--th-text-muted)] mb-6">{t('onboarding.addAiProviderDesc')}</p>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                   {t('onboarding.selectProvider')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -332,8 +332,8 @@ export default function OnboardingPage() {
                       onClick={() => { setSelectedProvider(p.id); setProviderApiKey(''); }}
                       className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
                         selectedProvider === p.id
-                          ? 'border-[#6366f1] bg-[#eef2ff] text-[#6366f1]'
-                          : 'border-[#e2e8f0] text-[#475569] hover:border-[#c7d2fe]'
+                          ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]'
+                          : 'border-[var(--th-border)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)]'
                       }`}
                     >
                       {p.label.split(' ')[0]}
@@ -364,8 +364,8 @@ export default function OnboardingPage() {
         {/* Step 4: Create Agent */}
         {step === 4 && (
           <StepCard>
-            <h2 className="text-lg font-bold text-[#0f172a] mb-1">{t('onboarding.createFirstAgent')}</h2>
-            <p className="text-sm text-[#94a3b8] mb-6">{t('onboarding.createFirstAgentDesc')}</p>
+            <h2 className="text-lg font-bold text-[var(--th-text)] mb-1">{t('onboarding.createFirstAgent')}</h2>
+            <p className="text-sm text-[var(--th-text-muted)] mb-6">{t('onboarding.createFirstAgentDesc')}</p>
             <div className="space-y-4">
               <InputField
                 label={t('onboarding.agentName')}
@@ -375,13 +375,13 @@ export default function OnboardingPage() {
               />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                     {t('onboarding.voiceProvider')}
                   </label>
                   <select
                     value={voiceProvider}
                     onChange={e => setVoiceProvider(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                   >
                     {VOICE_PROVIDERS.map(v => (
                       <option key={v.id} value={v.id}>{v.label}</option>
@@ -389,13 +389,13 @@ export default function OnboardingPage() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                     {t('onboarding.voice')}
                   </label>
                   <select
                     value={voice}
                     onChange={e => setVoice(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                   >
                     {VOICES.map(v => (
                       <option key={v.id} value={v.id}>{v.label}</option>
@@ -404,13 +404,13 @@ export default function OnboardingPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                   {t('onboarding.llmModel')}
                 </label>
                 <select
                   value={llmModel}
                   onChange={e => setLlmModel(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                 >
                   {LLM_MODELS.map(m => (
                     <option key={m.id} value={m.id}>{m.label}</option>
@@ -434,16 +434,16 @@ export default function OnboardingPage() {
         {step === 5 && (
           <StepCard>
             <div className="text-center py-6">
-              <div className="w-16 h-16 bg-[#dcfce7] rounded-2xl flex items-center justify-center mx-auto mb-5">
-                <svg className="w-8 h-8 text-[#16a34a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-16 h-16 bg-[var(--th-success-bg)] rounded-2xl flex items-center justify-center mx-auto mb-5">
+                <svg className="w-8 h-8 text-[var(--th-success-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-[#0f172a] mb-2">{t('onboarding.doneTitle')}</h2>
-              <p className="text-sm text-[#94a3b8] mb-8">{t('onboarding.doneDesc')}</p>
+              <h2 className="text-xl font-bold text-[var(--th-text)] mb-2">{t('onboarding.doneTitle')}</h2>
+              <p className="text-sm text-[var(--th-text-muted)] mb-8">{t('onboarding.doneDesc')}</p>
               <button
                 onClick={() => router.push('/dashboard')}
-                className="px-6 py-3 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold rounded-xl text-sm transition-all active:scale-[.98] shadow-lg shadow-[#6366f1]/25"
+                className="px-6 py-3 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white font-semibold rounded-xl text-sm transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)]"
               >
                 {t('onboarding.goToDashboard')}
               </button>

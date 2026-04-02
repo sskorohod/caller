@@ -108,12 +108,12 @@ export default function PromptsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">{t('prompts.title')}</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">{t('prompts.subtitle')}</p>
+          <h2 className="text-xl font-bold text-[var(--th-text)]">{t('prompts.title')}</h2>
+          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('prompts.subtitle')}</p>
         </div>
         <button
           onClick={() => setModal(true)}
-          className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[#6366f1]/25 flex items-center gap-2"
+          className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -130,7 +130,7 @@ export default function PromptsPage() {
       ) : loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse space-y-3">
+            <div key={i} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 animate-pulse space-y-3">
               <div className="w-10 h-10 bg-slate-100 rounded-xl" />
               <div className="h-4 bg-slate-100 rounded w-2/3" />
               <div className="h-3 bg-slate-100 rounded w-1/2" />
@@ -138,52 +138,52 @@ export default function PromptsPage() {
           ))}
         </div>
       ) : packs.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#e2e8f0] flex flex-col items-center justify-center py-20">
-          <div className="w-14 h-14 bg-[#eef2ff] rounded-2xl flex items-center justify-center mb-4">
-            <svg className="w-7 h-7 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] flex flex-col items-center justify-center py-20">
+          <div className="w-14 h-14 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center mb-4">
+            <svg className="w-7 h-7 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-[#475569]">{t('prompts.noPacks')}</p>
-          <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('prompts.noPacksDesc')}</p>
-          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">
+          <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('prompts.noPacks')}</p>
+          <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('prompts.noPacksDesc')}</p>
+          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[var(--th-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--th-primary-hover)] transition-colors">
             {t('prompts.createPack')}
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {packs.map(pack => (
-            <div key={pack.id} className="bg-white rounded-xl border border-[#e2e8f0] p-5 hover:shadow-md transition-shadow group">
+            <div key={pack.id} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 hover:shadow-md transition-shadow group">
               <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-[#eef2ff] rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="w-10 h-10 bg-[var(--th-primary-bg)] rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                 </div>
                 {pack.is_active && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ecfdf5] text-[#059669] text-[10px] font-medium">
-                    <span className="w-1 h-1 rounded-full bg-[#10b981]" />
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--th-success-bg)] text-[var(--th-success-text)] text-[10px] font-medium">
+                    <span className="w-1 h-1 rounded-full bg-[var(--th-success-icon)]" />
                     Active
                   </span>
                 )}
               </div>
-              <h3 className="font-semibold text-[#0f172a] text-sm">{pack.name}</h3>
+              <h3 className="font-semibold text-[var(--th-text)] text-sm">{pack.name}</h3>
               {pack.description && (
-                <p className="text-xs text-[#64748b] mt-1 line-clamp-2">{pack.description}</p>
+                <p className="text-xs text-[var(--th-text-muted)] mt-1 line-clamp-2">{pack.description}</p>
               )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {pack.category && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#eef2ff] text-[#6366f1] font-medium">{pack.category}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] font-medium">{pack.category}</span>
                 )}
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <p className="text-[10px] text-[#94a3b8]">
+                <p className="text-[10px] text-[var(--th-text-muted)]">
                   Created {new Date(pack.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </p>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => openEdit(pack)}
-                    className="p-1.5 rounded-lg hover:bg-[#f1f5f9] text-[#94a3b8] hover:text-[#6366f1] transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-muted)] hover:text-[var(--th-primary-text)] transition-colors"
                     aria-label="Edit"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -192,7 +192,7 @@ export default function PromptsPage() {
                   </button>
                   <button
                     onClick={() => { setDeleteTarget(pack); setDeleteError(''); }}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-[#94a3b8] hover:text-red-500 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--th-text-muted)] hover:text-red-500 transition-colors"
                     aria-label="Delete"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -208,8 +208,8 @@ export default function PromptsPage() {
 
       {/* Delete Confirm Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 space-y-4">
               <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -217,12 +217,12 @@ export default function PromptsPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-[#0f172a]">{t('prompts.deletePack')}</h3>
-                <p className="text-sm text-[#64748b] mt-1">{t('prompts.deleteConfirm', { name: deleteTarget.name })}</p>
+                <h3 className="text-base font-semibold text-[var(--th-text)]">{t('prompts.deletePack')}</h3>
+                <p className="text-sm text-[var(--th-text-muted)] mt-1">{t('prompts.deleteConfirm', { name: deleteTarget.name })}</p>
               </div>
               {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
               <div className="flex justify-end gap-3">
-                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">{t('common.delete')}</button>
               </div>
             </div>
@@ -232,44 +232,44 @@ export default function PromptsPage() {
 
       {/* Create/Edit Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? t('prompts.editPack') : t('prompts.newPack')}</h2>
-              <button onClick={closeModal} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+              <h2 className="text-base font-semibold text-[var(--th-text)]">{editId ? t('prompts.editPack') : t('prompts.newPack')}</h2>
+              <button onClick={closeModal} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.name')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('prompts.name')}</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                   placeholder="Appointment Booking Prompt"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)] transition-colors"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.description')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('prompts.description')}</label>
                 <input
                   type="text"
                   value={form.description}
                   onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                   placeholder="Optional description of this prompt pack"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)] transition-colors"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.category')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('prompts.category')}</label>
                 <select
                   value={form.category}
                   onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)]"
                 >
                   <option value="">{t('prompts.noCategory')}</option>
                   {CATEGORIES.map(c => (
@@ -278,20 +278,20 @@ export default function PromptsPage() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('prompts.content')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('prompts.content')}</label>
                 <textarea
                   rows={6}
                   value={form.content}
                   onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
                   placeholder="Enter the prompt template content..."
                   required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] resize-none focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors font-mono"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)] transition-colors font-mono"
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
-                <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
                   {saving ? t('prompts.saving') : editId ? t('prompts.saveChanges') : t('prompts.createPack')}
                 </button>
               </div>

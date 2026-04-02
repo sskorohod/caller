@@ -80,8 +80,8 @@ export default function AuditPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-[#0f172a]">{t('audit.title')}</h2>
-        <p className="text-sm text-[#94a3b8] mt-0.5">{t('audit.subtitle')}</p>
+        <h2 className="text-xl font-bold text-[var(--th-text)]">{t('audit.title')}</h2>
+        <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('audit.subtitle')}</p>
       </div>
 
       {error && (
@@ -91,46 +91,46 @@ export default function AuditPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+      <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
         {/* Filters */}
-        <div className="px-5 py-4 border-b border-[#e2e8f0] flex items-center gap-3 flex-wrap">
+        <div className="px-5 py-4 border-b border-[var(--th-border)] flex items-center gap-3 flex-wrap">
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('audit.action')}</label>
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('audit.action')}</label>
             <input
               type="text"
               value={actionFilter}
               onChange={e => setActionFilter(e.target.value)}
               placeholder={t('audit.filterByAction')}
-              className="px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] bg-white"
+              className="px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] bg-[var(--th-input)]"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('audit.from')}</label>
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('audit.from')}</label>
             <input
               type="date"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+              className="px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('audit.to')}</label>
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('audit.to')}</label>
             <input
               type="date"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+              className="px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
             />
           </div>
           <div className="self-end">
             <button
               onClick={applyFilters}
-              className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-colors"
+              className="px-4 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-colors"
             >
               {t('calls.applyFilters')}
             </button>
           </div>
-          <div className="ml-auto self-end text-xs text-[#94a3b8]">{total} {t('audit.totalEntries')}</div>
+          <div className="ml-auto self-end text-xs text-[var(--th-text-muted)]">{total} {t('audit.totalEntries')}</div>
         </div>
 
         {/* Table */}
@@ -148,50 +148,50 @@ export default function AuditPage() {
           </div>
         ) : logs.length === 0 ? (
           <div className="flex flex-col items-center py-16">
-            <p className="text-sm text-[#475569] font-medium">{t('audit.noLogs')}</p>
-            <p className="text-xs text-[#94a3b8] mt-1">{t('audit.noLogsHint')}</p>
+            <p className="text-sm text-[var(--th-text-secondary)] font-medium">{t('audit.noLogs')}</p>
+            <p className="text-xs text-[var(--th-text-muted)] mt-1">{t('audit.noLogsHint')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
-              <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+              <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-border)]">
                 <tr>
                   {[t('audit.timestamp'), t('audit.userEmail'), t('audit.action'), t('audit.resourceType'), t('audit.resourceId'), t('audit.changes')].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f1f5f9]">
+              <tbody className="divide-y divide-[var(--th-border-light)]">
                 {logs.map(log => (
-                  <tr key={log.id} className="hover:bg-[#f8fafc] transition-colors">
-                    <td className="px-5 py-3.5 text-xs text-[#94a3b8] whitespace-nowrap">{fmtDate(log.created_at)}</td>
-                    <td className="px-5 py-3.5 text-sm text-[#0f172a]">{log.user_email ?? '\u2014'}</td>
+                  <tr key={log.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
+                    <td className="px-5 py-3.5 text-xs text-[var(--th-text-muted)] whitespace-nowrap">{fmtDate(log.created_at)}</td>
+                    <td className="px-5 py-3.5 text-sm text-[var(--th-text)]">{log.user_email ?? '\u2014'}</td>
                     <td className="px-5 py-3.5">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#eef2ff] text-[#6366f1]">
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]">
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-[#475569]">{log.resource_type}</td>
-                    <td className="px-5 py-3.5 text-xs text-[#94a3b8] font-mono">{log.resource_id ? log.resource_id.slice(0, 8) + '...' : '\u2014'}</td>
+                    <td className="px-5 py-3.5 text-sm text-[var(--th-text-secondary)]">{log.resource_type}</td>
+                    <td className="px-5 py-3.5 text-xs text-[var(--th-text-muted)] font-mono">{log.resource_id ? log.resource_id.slice(0, 8) + '...' : '\u2014'}</td>
                     <td className="px-5 py-3.5">
                       {log.changes && Object.keys(log.changes).length > 0 ? (
                         <button
                           onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                          className="text-xs text-[#6366f1] hover:text-[#4f46e5] font-medium"
+                          className="text-xs text-[var(--th-primary-text)] hover:text-[var(--th-primary-hover)] font-medium"
                         >
                           {expandedId === log.id ? t('audit.hideChanges') : t('audit.showChanges')}
                         </button>
                       ) : (
-                        <span className="text-xs text-[#94a3b8]">\u2014</span>
+                        <span className="text-xs text-[var(--th-text-muted)]">\u2014</span>
                       )}
                     </td>
                   </tr>
                 ))}
                 {/* Expanded JSON rows */}
                 {logs.map(log => expandedId === log.id && log.changes && Object.keys(log.changes).length > 0 ? (
-                  <tr key={`${log.id}-expanded`} className="bg-[#f8fafc]">
+                  <tr key={`${log.id}-expanded`} className="bg-[var(--th-surface)]">
                     <td colSpan={6} className="px-5 py-3">
-                      <pre className="text-xs text-[#475569] bg-white border border-[#e2e8f0] rounded-lg p-3 overflow-x-auto max-h-48">
+                      <pre className="text-xs text-[var(--th-text-secondary)] bg-[var(--th-card)] border border-[var(--th-border)] rounded-lg p-3 overflow-x-auto max-h-48">
                         {JSON.stringify(log.changes, null, 2)}
                       </pre>
                     </td>
@@ -209,7 +209,7 @@ export default function AuditPage() {
           <button
             onClick={() => loadLogs(offset)}
             disabled={loadingMore}
-            className="px-5 py-2.5 text-sm font-medium text-[#6366f1] hover:bg-[#eef2ff] border border-[#e2e8f0] rounded-xl transition-colors disabled:opacity-50"
+            className="px-5 py-2.5 text-sm font-medium text-[var(--th-primary-text)] hover:bg-[var(--th-primary-bg)] border border-[var(--th-border)] rounded-xl transition-colors disabled:opacity-50"
           >
             {loadingMore ? t('common.loading') : `${t('calls.loadMore')} (${total - offset} ${t('calls.remaining')})`}
           </button>

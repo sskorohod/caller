@@ -31,21 +31,21 @@ const ANIMATION_MS = 300;
 
 const TOAST_STYLES: Record<ToastType, { bg: string; border: string; text: string; icon: string }> = {
   success: {
-    bg: 'bg-[#f0fdf4]',
-    border: 'border-[#bbf7d0]',
-    text: 'text-[#15803d]',
+    bg: 'bg-[var(--th-success-bg)]',
+    border: 'border-[var(--th-success-bg)]',
+    text: 'text-[var(--th-success-text)]',
     icon: 'M4.5 12.75l6 6 9-13.5',
   },
   error: {
-    bg: 'bg-[#fef2f2]',
-    border: 'border-[#fecaca]',
-    text: 'text-[#dc2626]',
+    bg: 'bg-[var(--th-error-bg)]',
+    border: 'border-[var(--th-error-bg)]',
+    text: 'text-[var(--th-error-text)]',
     icon: 'M6 18L18 6M6 6l12 12',
   },
   info: {
-    bg: 'bg-[#eff6ff]',
-    border: 'border-[#bfdbfe]',
-    text: 'text-[#2563eb]',
+    bg: 'bg-[var(--th-primary-bg)]',
+    border: 'border-[var(--th-primary-bg)]',
+    text: 'text-[var(--th-primary-text)]',
     icon: 'M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z',
   },
 };

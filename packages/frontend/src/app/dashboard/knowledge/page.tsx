@@ -109,18 +109,18 @@ export default function KnowledgePage() {
       <div className="space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={goBack} className="p-2 hover:bg-[#f1f5f9] rounded-lg transition-colors" aria-label="Back">
-            <svg className="w-5 h-5 text-[#475569]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <button onClick={goBack} className="p-2 hover:bg-[var(--th-surface)] rounded-lg transition-colors" aria-label="Back">
+            <svg className="w-5 h-5 text-[var(--th-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-[#0f172a]">{selectedKB.name}</h2>
+            <h2 className="text-xl font-bold text-[var(--th-text)]">{selectedKB.name}</h2>
             {selectedKB.description && (
-              <p className="text-sm text-[#94a3b8] mt-0.5">{selectedKB.description}</p>
+              <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{selectedKB.description}</p>
             )}
           </div>
-          <button onClick={() => setDocModal(true)} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[#6366f1]/25 flex items-center gap-2">
+          <button onClick={() => setDocModal(true)} className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {t('knowledge.addDoc')}
           </button>
@@ -130,59 +130,59 @@ export default function KnowledgePage() {
         {docsLoading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse h-20" />
+              <div key={i} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 animate-pulse h-20" />
             ))}
           </div>
         ) : docs.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#e2e8f0] flex flex-col items-center py-20">
-            <div className="w-14 h-14 bg-[#eef2ff] rounded-2xl flex items-center justify-center mb-4">
-              <svg className="w-7 h-7 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] flex flex-col items-center py-20">
+            <div className="w-14 h-14 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center mb-4">
+              <svg className="w-7 h-7 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
             </div>
-            <p className="text-sm font-semibold text-[#475569]">{t('knowledge.noDocs')}</p>
-            <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('knowledge.noDocsDesc')}</p>
-            <button onClick={() => setDocModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">{t('knowledge.addDoc')}</button>
+            <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('knowledge.noDocs')}</p>
+            <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('knowledge.noDocsDesc')}</p>
+            <button onClick={() => setDocModal(true)} className="px-4 py-2 bg-[var(--th-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--th-primary-hover)] transition-colors">{t('knowledge.addDoc')}</button>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+          <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
             <table className="w-full">
-              <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+              <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-border)]">
                 <tr>
                   {[t('knowledge.docTitle'), t('knowledge.docType'), t('knowledge.created'), ''].map(h => (
-                    <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f1f5f9]">
+              <tbody className="divide-y divide-[var(--th-border-light)]">
                 {docs.map(doc => (
-                  <tr key={doc.id} className="hover:bg-[#f8fafc] transition-colors">
+                  <tr key={doc.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
                     <td className="px-6 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[#eef2ff] rounded-lg flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <div className="w-8 h-8 bg-[var(--th-primary-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                           </svg>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-[#0f172a]">{doc.title}</p>
-                          <p className="text-xs text-[#94a3b8] line-clamp-1 max-w-md">{doc.content.slice(0, 80)}{doc.content.length > 80 ? '...' : ''}</p>
+                          <p className="text-sm font-medium text-[var(--th-text)]">{doc.title}</p>
+                          <p className="text-xs text-[var(--th-text-muted)] line-clamp-1 max-w-md">{doc.content.slice(0, 80)}{doc.content.length > 80 ? '...' : ''}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="inline-flex text-xs px-2.5 py-0.5 rounded-full font-medium bg-[#eef2ff] text-[#6366f1]">
+                      <span className="inline-flex text-xs px-2.5 py-0.5 rounded-full font-medium bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]">
                         {doc.doc_type}
                       </span>
                     </td>
-                    <td className="px-6 py-3.5 text-sm text-[#94a3b8]">
+                    <td className="px-6 py-3.5 text-sm text-[var(--th-text-muted)]">
                       {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </td>
                     <td className="px-6 py-3.5 text-right">
                       <button
                         onClick={() => handleDeleteDoc(doc.id)}
                         disabled={deleting === doc.id}
-                        className="p-1.5 text-[#94a3b8] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="p-1.5 text-[var(--th-text-muted)] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         aria-label="Delete document"
                       >
                         {deleting === doc.id ? (
@@ -203,34 +203,34 @@ export default function KnowledgePage() {
 
         {/* Add Document Modal */}
         {docModal && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDocModal(false)} onKeyDown={e => e.key === 'Escape' && setDocModal(false)} role="dialog" aria-modal="true">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-                <h2 className="text-base font-semibold text-[#0f172a]">{t('knowledge.addDoc')}</h2>
-                <button onClick={() => setDocModal(false)} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                  <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDocModal(false)} onKeyDown={e => e.key === 'Escape' && setDocModal(false)} role="dialog" aria-modal="true">
+            <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+                <h2 className="text-base font-semibold text-[var(--th-text)]">{t('knowledge.addDoc')}</h2>
+                <button onClick={() => setDocModal(false)} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                  <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
               <form onSubmit={handleAddDoc} className="px-6 py-5 space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('knowledge.docTitle')}</label>
-                  <input value={docTitle} onChange={e => setDocTitle(e.target.value)} required placeholder="Getting Started Guide" className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]" />
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('knowledge.docTitle')}</label>
+                  <input value={docTitle} onChange={e => setDocTitle(e.target.value)} required placeholder="Getting Started Guide" className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('knowledge.docType')}</label>
-                  <select value={docType} onChange={e => setDocType(e.target.value)} className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] bg-white">
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('knowledge.docType')}</label>
+                  <select value={docType} onChange={e => setDocType(e.target.value)} className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)] bg-[var(--th-input)]">
                     {DOC_TYPES.map(t => (
                       <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('knowledge.docContent')}</label>
-                  <textarea rows={8} value={docContent} onChange={e => setDocContent(e.target.value)} required placeholder="Paste or write the document content here..." className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]" />
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('knowledge.docContent')}</label>
+                  <textarea rows={8} value={docContent} onChange={e => setDocContent(e.target.value)} required placeholder="Paste or write the document content here..." className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)]" />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => setDocModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg">{t('common.cancel')}</button>
-                  <button type="submit" disabled={docSaving} className="px-4 py-2.5 bg-[#6366f1] text-white text-sm font-semibold rounded-lg hover:bg-[#4f46e5] disabled:opacity-60">
+                  <button type="button" onClick={() => setDocModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg">{t('common.cancel')}</button>
+                  <button type="submit" disabled={docSaving} className="px-4 py-2.5 bg-[var(--th-primary)] text-white text-sm font-semibold rounded-lg hover:bg-[var(--th-primary-hover)] disabled:opacity-60">
                     {docSaving ? t('knowledge.adding') : t('knowledge.addDoc')}
                   </button>
                 </div>
@@ -247,10 +247,10 @@ export default function KnowledgePage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">{t('knowledge.title')}</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">{t('knowledge.subtitle')}</p>
+          <h2 className="text-xl font-bold text-[var(--th-text)]">{t('knowledge.title')}</h2>
+          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('knowledge.subtitle')}</p>
         </div>
-        <button onClick={() => setModal(true)} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[#6366f1]/25 flex items-center gap-2">
+        <button onClick={() => setModal(true)} className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           {t('knowledge.newKB')}
         </button>
@@ -259,34 +259,34 @@ export default function KnowledgePage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse h-32" />
+            <div key={i} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 animate-pulse h-32" />
           ))}
         </div>
       ) : bases.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#e2e8f0] flex flex-col items-center py-20">
-          <div className="w-14 h-14 bg-[#eef2ff] rounded-2xl flex items-center justify-center mb-4">
-            <svg className="w-7 h-7 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] flex flex-col items-center py-20">
+          <div className="w-14 h-14 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center mb-4">
+            <svg className="w-7 h-7 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-[#475569]">{t('knowledge.noBases')}</p>
-          <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('knowledge.noBasesDesc')}</p>
-          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">{t('knowledge.createKB')}</button>
+          <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('knowledge.noBases')}</p>
+          <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('knowledge.noBasesDesc')}</p>
+          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[var(--th-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--th-primary-hover)] transition-colors">{t('knowledge.createKB')}</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {bases.map(kb => (
-            <div key={kb.id} onClick={() => openKBDetail(kb)} className="bg-white rounded-xl border border-[#e2e8f0] p-5 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="w-10 h-10 bg-[#eef2ff] rounded-xl flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div key={kb.id} onClick={() => openKBDetail(kb)} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 hover:shadow-md transition-shadow cursor-pointer">
+              <div className="w-10 h-10 bg-[var(--th-primary-bg)] rounded-xl flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
               </div>
-              <h3 className="font-semibold text-[#0f172a] text-sm">{kb.name}</h3>
-              {kb.description && <p className="text-xs text-[#94a3b8] mt-1 line-clamp-2">{kb.description}</p>}
+              <h3 className="font-semibold text-[var(--th-text)] text-sm">{kb.name}</h3>
+              {kb.description && <p className="text-xs text-[var(--th-text-muted)] mt-1 line-clamp-2">{kb.description}</p>}
               <div className="mt-3 flex items-center gap-3">
-                <span className="text-xs text-[#6366f1] font-medium">{kb.document_count ?? 0} {t('knowledge.docs')}</span>
-                <span className="text-[10px] text-[#94a3b8]">
+                <span className="text-xs text-[var(--th-primary-text)] font-medium">{kb.document_count ?? 0} {t('knowledge.docs')}</span>
+                <span className="text-[10px] text-[var(--th-text-muted)]">
                   {new Date(kb.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
               </div>
@@ -296,26 +296,26 @@ export default function KnowledgePage() {
       )}
 
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModal(false)} onKeyDown={e => e.key === 'Escape' && setModal(false)} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{t('knowledge.newKB')}</h2>
-              <button onClick={() => setModal(false)} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModal(false)} onKeyDown={e => e.key === 'Escape' && setModal(false)} role="dialog" aria-modal="true">
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+              <h2 className="text-base font-semibold text-[var(--th-text)]">{t('knowledge.newKB')}</h2>
+              <button onClick={() => setModal(false)} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('knowledge.name')}</label>
-                <input value={name} onChange={e => setName(e.target.value)} required placeholder="Product FAQ" className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]" />
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('knowledge.name')}</label>
+                <input value={name} onChange={e => setName(e.target.value)} required placeholder="Product FAQ" className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)]" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('knowledge.description')}</label>
-                <textarea rows={2} value={desc} onChange={e => setDesc(e.target.value)} placeholder="What this knowledge base covers..." className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]" />
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('knowledge.description')}</label>
+                <textarea rows={2} value={desc} onChange={e => setDesc(e.target.value)} placeholder="What this knowledge base covers..." className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)]" />
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg">{t('common.cancel')}</button>
-                <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] text-white text-sm font-semibold rounded-lg hover:bg-[#4f46e5] disabled:opacity-60">
+                <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg">{t('common.cancel')}</button>
+                <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[var(--th-primary)] text-white text-sm font-semibold rounded-lg hover:bg-[var(--th-primary-hover)] disabled:opacity-60">
                   {saving ? t('knowledge.creating') : t('common.create')}
                 </button>
               </div>

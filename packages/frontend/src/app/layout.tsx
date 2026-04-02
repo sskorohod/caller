@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { I18nProvider } from '@/lib/i18n';
 import { ToastProvider } from '@/lib/toast';
+import { ThemeProvider } from '@/lib/theme';
 
 export const metadata: Metadata = {
   title: 'Caller — AI Phone Agent Platform',
@@ -13,11 +14,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <I18nProvider>
-          <ToastProvider>
-            <AuthProvider>{children}</AuthProvider>
-          </ToastProvider>
-        </I18nProvider>
+        <ThemeProvider>
+          <I18nProvider>
+            <ToastProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </ToastProvider>
+          </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

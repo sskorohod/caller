@@ -42,7 +42,7 @@ function LoginContent() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-[#6366f1] rounded-xl flex items-center justify-center shadow-lg shadow-[#6366f1]/30">
+          <div className="w-10 h-10 bg-[var(--th-primary)] rounded-xl flex items-center justify-center shadow-lg shadow-[var(--th-shadow-primary)]">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
             </svg>
@@ -51,13 +51,13 @@ function LoginContent() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-[var(--th-card)] rounded-2xl shadow-2xl overflow-hidden">
           {/* Tabs */}
-          <div className="flex border-b border-[#e2e8f0]">
+          <div className="flex border-b border-[var(--th-border)]">
             <button
               onClick={() => setTab('login')}
               className={`flex-1 py-4 text-sm font-semibold transition-colors ${
-                tab === 'login' ? 'text-[#6366f1] border-b-2 border-[#6366f1]' : 'text-[#94a3b8] hover:text-[#475569]'
+                tab === 'login' ? 'text-[var(--th-primary-text)] border-b-2 border-[var(--th-primary)]' : 'text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)]'
               }`}
             >
               {t('login.signIn')}
@@ -65,7 +65,7 @@ function LoginContent() {
             <button
               onClick={() => setTab('register')}
               className={`flex-1 py-4 text-sm font-semibold transition-colors ${
-                tab === 'register' ? 'text-[#6366f1] border-b-2 border-[#6366f1]' : 'text-[#94a3b8] hover:text-[#475569]'
+                tab === 'register' ? 'text-[var(--th-primary-text)] border-b-2 border-[var(--th-primary)]' : 'text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)]'
               }`}
             >
               {t('login.createAccount')}
@@ -75,7 +75,7 @@ function LoginContent() {
           <form onSubmit={handleSubmit} className="p-8 space-y-5">
             {tab === 'register' && (
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wide">
+                <label className="block text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                   {t('login.workspaceName')}
                 </label>
                 <input
@@ -84,13 +84,13 @@ function LoginContent() {
                   onChange={e => setWorkspaceName(e.target.value)}
                   required
                   placeholder="Acme Corp"
-                  className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                 />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                 {t('login.email')}
               </label>
               <input
@@ -99,12 +99,12 @@ function LoginContent() {
                 onChange={e => setEmail(e.target.value)}
                 required
                 placeholder="you@company.com"
-                className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                className="w-full px-4 py-3 rounded-xl border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                 {t('login.password')}
               </label>
               <input
@@ -114,7 +114,7 @@ function LoginContent() {
                 required
                 minLength={8}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                className="w-full px-4 py-3 rounded-xl border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
               />
             </div>
 
@@ -127,14 +127,14 @@ function LoginContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold rounded-xl text-sm transition-all active:scale-[.98] disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-[#6366f1]/25 mt-2"
+              className="w-full py-3.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white font-semibold rounded-xl text-sm transition-all active:scale-[.98] disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-[var(--th-shadow-primary)] mt-2"
             >
               {loading ? t('login.pleaseWait') : tab === 'login' ? t('login.signIn') : t('login.createAccount')}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-xs text-[#475569] mt-6">
+        <p className="text-center text-xs text-[var(--th-text-secondary)] mt-6">
           {t('login.copyright')} © {new Date().getFullYear()}
         </p>
       </div>
@@ -146,7 +146,7 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <LoginContent />

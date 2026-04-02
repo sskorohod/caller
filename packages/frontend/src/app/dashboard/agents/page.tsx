@@ -237,12 +237,12 @@ export default function AgentsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[#0f172a]">{t('agents.title')}</h2>
-          <p className="text-sm text-[#94a3b8] mt-0.5">{t('agents.subtitle')}</p>
+          <h2 className="text-xl font-bold text-[var(--th-text)]">{t('agents.title')}</h2>
+          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('agents.subtitle')}</p>
         </div>
         <button
           onClick={() => setModal(true)}
-          className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[#6366f1]/25 flex items-center gap-2"
+          className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -259,7 +259,7 @@ export default function AgentsPage() {
       ) : loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse space-y-3">
+            <div key={i} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 animate-pulse space-y-3">
               <div className="w-10 h-10 bg-slate-100 rounded-xl" />
               <div className="h-4 bg-slate-100 rounded w-2/3" />
               <div className="h-3 bg-slate-100 rounded w-1/2" />
@@ -267,52 +267,52 @@ export default function AgentsPage() {
           ))}
         </div>
       ) : agents.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#e2e8f0] flex flex-col items-center justify-center py-20">
-          <div className="w-14 h-14 bg-[#eef2ff] rounded-2xl flex items-center justify-center mb-4">
-            <svg className="w-7 h-7 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] flex flex-col items-center justify-center py-20">
+          <div className="w-14 h-14 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center mb-4">
+            <svg className="w-7 h-7 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-[#475569]">{t('agents.noAgents')}</p>
-          <p className="text-xs text-[#94a3b8] mt-1 mb-4">{t('agents.noAgentsDesc')}</p>
-          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">
+          <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('agents.noAgents')}</p>
+          <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('agents.noAgentsDesc')}</p>
+          <button onClick={() => setModal(true)} className="px-4 py-2 bg-[var(--th-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--th-primary-hover)] transition-colors">
             {t('agents.createAgent')}
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {agents.map(agent => (
-            <div key={agent.id} className="bg-white rounded-xl border border-[#e2e8f0] p-5 hover:shadow-md transition-shadow group">
+            <div key={agent.id} className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 hover:shadow-md transition-shadow group">
               <div className="flex items-start justify-between mb-4">
-                <div className="w-10 h-10 bg-[#eef2ff] rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-[#6366f1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="w-10 h-10 bg-[var(--th-primary-bg)] rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleActive(agent)}
-                    className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${agent.is_active ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+                    className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${agent.is_active ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
                     aria-label={agent.is_active ? 'Disable agent' : 'Enable agent'}
                   >
                     <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${agent.is_active ? 'translate-x-4' : 'translate-x-0'}`} />
                   </button>
                 </div>
               </div>
-              <h3 className="font-semibold text-[#0f172a] text-sm">{agent.name}</h3>
+              <h3 className="font-semibold text-[var(--th-text)] text-sm">{agent.name}</h3>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#eef2ff] text-[#6366f1] font-medium">{(agent as any).llm_model ?? agent.llm_provider ?? 'anthropic'}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[#64748b] font-medium">{agent.voice_provider ?? 'elevenlabs'}</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#f1f5f9] text-[#64748b] font-medium">{agent.language}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] font-medium">{(agent as any).llm_model ?? agent.llm_provider ?? 'anthropic'}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--th-surface)] text-[var(--th-text-secondary)] font-medium">{agent.voice_provider ?? 'elevenlabs'}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--th-surface)] text-[var(--th-text-secondary)] font-medium">{agent.language}</span>
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <p className="text-[10px] text-[#94a3b8]">
+                <p className="text-[10px] text-[var(--th-text-muted)]">
                   Created {new Date(agent.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </p>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => openEdit(agent)}
-                    className="p-1.5 rounded-lg hover:bg-[#f1f5f9] text-[#94a3b8] hover:text-[#6366f1] transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-muted)] hover:text-[var(--th-primary-text)] transition-colors"
                     aria-label="Edit"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -321,7 +321,7 @@ export default function AgentsPage() {
                   </button>
                   <button
                     onClick={() => { setDeleteTarget(agent); setDeleteError(''); }}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-[#94a3b8] hover:text-red-500 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--th-text-muted)] hover:text-red-500 transition-colors"
                     aria-label="Delete"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -337,8 +337,8 @@ export default function AgentsPage() {
 
       {/* Delete Confirm Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 space-y-4">
               <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -346,12 +346,12 @@ export default function AgentsPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-base font-semibold text-[#0f172a]">{t('agents.deleteAgent')}</h3>
-                <p className="text-sm text-[#64748b] mt-1">{t('agents.deleteConfirm', { name: deleteTarget.name })}</p>
+                <h3 className="text-base font-semibold text-[var(--th-text)]">{t('agents.deleteAgent')}</h3>
+                <p className="text-sm text-[var(--th-text-secondary)] mt-1">{t('agents.deleteConfirm', { name: deleteTarget.name })}</p>
               </div>
               {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
               <div className="flex justify-end gap-3">
-                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all">{t('common.delete')}</button>
               </div>
             </div>
@@ -361,12 +361,12 @@ export default function AgentsPage() {
 
       {/* Create Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
-              <h2 className="text-base font-semibold text-[#0f172a]">{editId ? t('agents.editAgent') : t('agents.newAIAgent')}</h2>
-              <button onClick={closeModal} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
+          <div className="bg-[var(--th-modal)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-border)]">
+              <h2 className="text-base font-semibold text-[var(--th-text)]">{editId ? t('agents.editAgent') : t('agents.newAIAgent')}</h2>
+              <button onClick={closeModal} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -376,23 +376,23 @@ export default function AgentsPage() {
                 { label: t('agents.agentName'), key: 'name', type: 'text', placeholder: 'Support Agent' },
               ].map(f => (
                 <div key={f.key} className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{f.label}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{f.label}</label>
                   <input
                     type={f.type}
                     value={(form as any)[f.key]}
                     onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                   />
                 </div>
               ))}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.language') || 'Language'}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.language') || 'Language'}</label>
                 <select
                   value={form.language}
                   onChange={e => setForm(p => ({ ...p, language: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                 >
                   <option value="auto">Auto-detect</option>
                   <option value="en">English</option>
@@ -404,14 +404,14 @@ export default function AgentsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.llmProvider')}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.llmProvider')}</label>
                   <select
                     value={form.llm_provider}
                     onChange={e => {
                       const provider = e.target.value;
                       setForm(p => ({ ...p, llm_provider: provider, llm_model: DEFAULT_MODELS[provider] ?? '' }));
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                   >
                     <option value="anthropic">Anthropic</option>
                     <option value="openai">OpenAI</option>
@@ -419,14 +419,14 @@ export default function AgentsPage() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.voiceProvider')}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.voiceProvider')}</label>
                   <select
                     value={form.voice_provider}
                     onChange={e => {
                       const vp = e.target.value;
                       setForm(p => ({ ...p, voice_provider: vp, voice_id: DEFAULT_VOICE[vp] ?? '' }));
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                   >
                     <option value="elevenlabs">ElevenLabs</option>
                     <option value="openai">OpenAI TTS</option>
@@ -435,11 +435,11 @@ export default function AgentsPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.model')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.model')}</label>
                 <select
                   value={form.llm_model}
                   onChange={e => setForm(p => ({ ...p, llm_model: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                 >
                   {(LLM_MODELS[form.llm_provider] ?? []).map(m => (
                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -448,7 +448,7 @@ export default function AgentsPage() {
               </div>
               {(VOICE_OPTIONS[form.voice_provider]?.length ?? 0) > 1 && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.voice')}</label>
+                  <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.voice')}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {(VOICE_OPTIONS[form.voice_provider] ?? []).map(v => (
                       <button
@@ -457,15 +457,15 @@ export default function AgentsPage() {
                         onClick={() => setForm(p => ({ ...p, voice_id: v.value }))}
                         className={`relative flex flex-col items-center gap-1 px-3 py-3 rounded-xl border-2 text-center transition-all ${
                           form.voice_id === v.value
-                            ? 'border-[#6366f1] bg-[#eef2ff] shadow-sm'
-                            : 'border-[#e2e8f0] bg-white hover:border-[#c7d2fe] hover:bg-[#f8fafc]'
+                            ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] shadow-sm'
+                            : 'border-[var(--th-border)] bg-[var(--th-card)] hover:border-[var(--th-primary-muted)] hover:bg-[var(--th-skeleton)]'
                         }`}
                       >
                         <span className="text-lg">{v.emoji}</span>
-                        <span className={`text-sm font-semibold ${form.voice_id === v.value ? 'text-[#6366f1]' : 'text-[#0f172a]'}`}>{v.label}</span>
-                        <span className="text-[10px] text-[#94a3b8] leading-tight">{v.desc}</span>
+                        <span className={`text-sm font-semibold ${form.voice_id === v.value ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-text)]'}`}>{v.label}</span>
+                        <span className="text-[10px] text-[var(--th-text-muted)] leading-tight">{v.desc}</span>
                         {form.voice_id === v.value && (
-                          <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-[#6366f1] rounded-full flex items-center justify-center">
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-[var(--th-primary)] rounded-full flex items-center justify-center">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                             </svg>
@@ -478,16 +478,16 @@ export default function AgentsPage() {
               )}
               {/* Pack Linking (edit mode) */}
               {editId && (
-                <div className="space-y-3 border-t border-[#e2e8f0] pt-4">
+                <div className="space-y-3 border-t border-[var(--th-border)] pt-4">
                   {packsLoading ? (
-                    <p className="text-xs text-[#94a3b8]">{t('agents.loadingPacks')}</p>
+                    <p className="text-xs text-[var(--th-text-muted)]">{t('agents.loadingPacks')}</p>
                   ) : (
                     <>
                       {/* Prompt Packs */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.promptPacks')}</label>
+                        <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.promptPacks')}</label>
                         {allPromptPacks.length === 0 ? (
-                          <p className="text-xs text-[#94a3b8]">{t('agents.noPromptPacks')}</p>
+                          <p className="text-xs text-[var(--th-text-muted)]">{t('agents.noPromptPacks')}</p>
                         ) : (
                           <div className="flex flex-wrap gap-2">
                             {allPromptPacks.map(pp => {
@@ -505,8 +505,8 @@ export default function AgentsPage() {
                                   }}
                                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                                     active
-                                      ? 'bg-[#6366f1] text-white border-[#6366f1]'
-                                      : 'bg-white text-[#475569] border-[#e2e8f0] hover:border-[#c7d2fe] hover:bg-[#f8fafc]'
+                                      ? 'bg-[var(--th-primary)] text-white border-[var(--th-primary)]'
+                                      : 'bg-[var(--th-card)] text-[var(--th-text-secondary)] border-[var(--th-border)] hover:border-[var(--th-primary-muted)] hover:bg-[var(--th-skeleton)]'
                                   }`}
                                 >
                                   {pp.name}
@@ -518,9 +518,9 @@ export default function AgentsPage() {
                       </div>
                       {/* Skill Packs */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.skillPacks')}</label>
+                        <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.skillPacks')}</label>
                         {allSkillPacks.length === 0 ? (
-                          <p className="text-xs text-[#94a3b8]">{t('agents.noSkillPacks')}</p>
+                          <p className="text-xs text-[var(--th-text-muted)]">{t('agents.noSkillPacks')}</p>
                         ) : (
                           <div className="flex flex-wrap gap-2">
                             {allSkillPacks.map(sp => {
@@ -538,8 +538,8 @@ export default function AgentsPage() {
                                   }}
                                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                                     active
-                                      ? 'bg-[#6366f1] text-white border-[#6366f1]'
-                                      : 'bg-white text-[#475569] border-[#e2e8f0] hover:border-[#c7d2fe] hover:bg-[#f8fafc]'
+                                      ? 'bg-[var(--th-primary)] text-white border-[var(--th-primary)]'
+                                      : 'bg-[var(--th-card)] text-[var(--th-text-secondary)] border-[var(--th-border)] hover:border-[var(--th-primary-muted)] hover:bg-[var(--th-skeleton)]'
                                   }`}
                                 >
                                   {sp.name}
@@ -555,29 +555,29 @@ export default function AgentsPage() {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.systemPrompt')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.systemPrompt')}</label>
                 <textarea
                   rows={3}
                   value={form.system_prompt}
                   onChange={e => setForm(p => ({ ...p, system_prompt: e.target.value }))}
                   placeholder="You are a helpful AI phone agent for..."
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] resize-none focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('agents.firstMessage')}</label>
+                <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.firstMessage')}</label>
                 <input
                   type="text"
                   value={form.first_message}
                   onChange={e => setForm(p => ({ ...p, first_message: e.target.value }))}
                   placeholder="Hello! How can I help you today?"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">{t('common.cancel')}</button>
-                <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
+                <button type="submit" disabled={saving} className="px-4 py-2.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
                   {saving ? t('agents.saving') : editId ? t('agents.saveChanges') : t('agents.createAgent')}
                 </button>
               </div>

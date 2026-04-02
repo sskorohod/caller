@@ -200,6 +200,11 @@ const en: Record<string, string> = {
 
   // Settings
   'settings.title': 'Settings',
+  'settings.appearance': 'Appearance',
+  'settings.theme': 'Theme',
+  'settings.themeLight': 'Light',
+  'settings.themeDark': 'Dark',
+  'settings.themeDesc': 'Choose the visual theme for the interface.',
   'settings.general': 'General',
   'settings.providers': 'Providers',
   'settings.apiKeys': 'API Keys',
@@ -434,6 +439,9 @@ const en: Record<string, string> = {
   'live.connecting': 'Connecting...',
   'live.connect': 'Connect',
   'live.operatorConnected': 'Operator connected',
+  'live.endCall': 'End Call',
+  'live.quickActions': 'Quick Actions',
+  'live.tone': 'Tone',
 };
 
 const ru: Record<string, string> = {
@@ -633,6 +641,11 @@ const ru: Record<string, string> = {
 
   // Settings
   'settings.title': 'Настройки',
+  'settings.appearance': 'Внешний вид',
+  'settings.theme': 'Тема',
+  'settings.themeLight': 'Светлая',
+  'settings.themeDark': 'Тёмная',
+  'settings.themeDesc': 'Выберите визуальную тему интерфейса.',
   'settings.general': 'Основные',
   'settings.providers': 'Провайдеры',
   'settings.apiKeys': 'API Ключи',
@@ -867,6 +880,9 @@ const ru: Record<string, string> = {
   'live.connecting': 'Подключение...',
   'live.connect': 'Подключить',
   'live.operatorConnected': 'Оператор подключён',
+  'live.endCall': 'Завершить',
+  'live.quickActions': 'Быстрые действия',
+  'live.tone': 'Тон',
 };
 
 // ─── Dictionaries map ────────────────────────────────────────────────────────

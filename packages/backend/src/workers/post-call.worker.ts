@@ -46,8 +46,15 @@ export function startPostCallWorker(): Worker {
         .join('\n');
 
       try {
-        // Get LLM provider (use workspace default or cheaper model)
-        const llm = await createLLMProvider(workspaceId, 'anthropic');
+        // Get LLM provider — try anthropic first, fall back to xai, then openai
+        let llm;
+        for (const provider of ['anthropic', 'xai', 'openai'] as const) {
+          try {
+            llm = await createLLMProvider(workspaceId, provider);
+            break;
+          } catch { /* try next */ }
+        }
+        if (!llm) throw new Error('No LLM provider configured for post-call analysis');
 
         // Generate summary + action items in one call
         const messages: LLMMessage[] = [
@@ -84,7 +91,10 @@ Respond in JSON format:
 
         let result: any = null;
 
-        await llm.generateStream(messages, 'claude-sonnet-4-5-20250514', 0.3, {
+        // Use appropriate model based on provider
+        const model = (llm as any).client?.baseURL?.includes('x.ai') ? 'grok-3-mini-fast'
+          : (llm as any).client?.apiKey ? 'gpt-4o-mini' : 'claude-sonnet-4-5-20250514';
+        await llm.generateStream(messages, model, 0.3, {
           onToken: () => {},
           onComplete: (response) => {
             try {
