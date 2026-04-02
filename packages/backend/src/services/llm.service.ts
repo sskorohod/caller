@@ -170,8 +170,8 @@ export async function createLLMProvider(
   }
 
   if (provider === 'xai') {
-    // xAI uses OpenAI-compatible API
-    return new OpenAILLM(creds.api_key);
+    // xAI uses OpenAI-compatible API at api.x.ai
+    return new OpenAILLM(creds.api_key, 'https://api.x.ai/v1');
   }
 
   return new OpenAILLM(creds.api_key);
