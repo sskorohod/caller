@@ -314,19 +314,28 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   }
 
   injectInstruction(text: string): void {
-    // Don't interrupt — update session instructions for the next natural response
-    // This makes the agent weave the instruction naturally into the conversation
-    this.currentInstructions += `\n\n[OPERATOR NOTE — weave this naturally into the conversation when appropriate. ` +
-      `Do NOT abruptly change topic. Finish your current thought first, then naturally incorporate this]: ${text}`;
-
+    // Add instruction as a system message in the conversation history.
+    // This does NOT interrupt the current response or reset context.
+    // The agent will see it and naturally incorporate it in the next turn.
+    // We do NOT use session.update (resets context) or response.cancel (interrupts).
     this.sendGrok({
-      type: 'session.update',
-      session: {
-        instructions: this.currentInstructions,
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'system',
+        content: [{
+          type: 'input_text',
+          text: `[Operator note for the AI agent — DO NOT greet again, DO NOT restart the conversation. ` +
+            `You are already mid-conversation. Continue naturally from where you left off. ` +
+            `When the moment is right, smoothly work this into the dialogue: ${text}]`,
+        }],
       },
     });
 
-    logger.info({ callId: this.config.call.id, instruction: text }, 'Instruction added to session (smooth mode)');
+    // Do NOT send response.create — let the natural conversation flow continue.
+    // The instruction will be picked up when the caller speaks next and Grok generates a response.
+
+    logger.info({ callId: this.config.call.id, instruction: text }, 'Instruction added to conversation (smooth mode)');
   }
 
   private sendGrok(msg: Record<string, unknown>): void {
