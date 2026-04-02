@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { useToast } from '@/lib/toast';
 
 interface Call {
   id: string;
@@ -12,6 +13,7 @@ interface Call {
   duration_seconds: number | null;
   summary: string | null;
   sentiment_score: number | null;
+  agent_profile_id: string | null;
   created_at: string;
 }
 
@@ -38,6 +40,27 @@ interface CallDetail {
   events: unknown[];
 }
 
+interface AgentOption {
+  id: string;
+  name: string;
+}
+
+interface AdvancedFilters {
+  dateFrom: string;
+  dateTo: string;
+  agentId: string;
+  sentimentPositive: boolean;
+  sentimentNeutral: boolean;
+  sentimentNegative: boolean;
+  minDuration: string;
+  maxDuration: string;
+}
+
+const EMPTY_FILTERS: AdvancedFilters = {
+  dateFrom: '', dateTo: '', agentId: '', sentimentPositive: false,
+  sentimentNeutral: false, sentimentNegative: false, minDuration: '', maxDuration: '',
+};
+
 const STATUS_COLORS: Record<string, string> = {
   completed:   'bg-green-100 text-green-700',
   failed:      'bg-red-100 text-red-700',
@@ -49,15 +72,28 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function fmtDuration(s: number | null) {
-  if (!s) return '—';
+  if (!s) return '\u2014';
   return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 }
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
 }
 
+function downloadFile(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function CallsPage() {
   const t = useT();
+  const toast = useToast();
   const LIMIT = 50;
   const [calls, setCalls]       = useState<Call[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -71,11 +107,46 @@ export default function CallsPage() {
   const [offset, setOffset]     = useState(0);
   const [total, setTotal]       = useState(0);
 
+  // Advanced filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [advFilters, setAdvFilters] = useState<AdvancedFilters>(EMPTY_FILTERS);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [exporting, setExporting] = useState(false);
+
+  // Load agents for filter dropdown
+  useEffect(() => {
+    api.get<AgentOption[]>('/agents')
+      .then(r => setAgents(Array.isArray(r) ? r : []))
+      .catch(() => {});
+  }, []);
+
+  function buildQueryParams(loadOffset = 0, limitOverride?: number) {
+    const params = new URLSearchParams();
+    params.set('limit', String(limitOverride ?? LIMIT));
+    params.set('offset', String(loadOffset));
+    if (filter !== 'all') {
+      if (filter === 'inbound' || filter === 'outbound') params.set('direction', filter);
+      else params.set('status', filter);
+    }
+    if (advFilters.dateFrom) params.set('from', new Date(advFilters.dateFrom).toISOString());
+    if (advFilters.dateTo) params.set('to', new Date(advFilters.dateTo + 'T23:59:59').toISOString());
+    if (advFilters.agentId) params.set('agent_profile_id', advFilters.agentId);
+    const sentiments: string[] = [];
+    if (advFilters.sentimentPositive) sentiments.push('positive');
+    if (advFilters.sentimentNeutral) sentiments.push('neutral');
+    if (advFilters.sentimentNegative) sentiments.push('negative');
+    if (sentiments.length > 0) params.set('sentiment', sentiments.join(','));
+    if (advFilters.minDuration) params.set('min_duration', advFilters.minDuration);
+    if (advFilters.maxDuration) params.set('max_duration', advFilters.maxDuration);
+    return params.toString();
+  }
+
   function loadCalls(loadOffset = 0) {
     setError('');
     const isLoadMore = loadOffset > 0;
     if (isLoadMore) setLoadingMore(true); else setLoading(true);
-    api.get<{ calls: Call[]; total: number }>(`/calls?limit=${LIMIT}&offset=${loadOffset}`)
+    const qs = buildQueryParams(loadOffset);
+    api.get<{ calls: Call[]; total: number }>(`/calls?${qs}`)
       .then(r => {
         const newCalls = r?.calls ?? [];
         const newTotal = r?.total ?? 0;
@@ -88,6 +159,12 @@ export default function CallsPage() {
   }
 
   useEffect(() => { loadCalls(); }, []);
+
+  // Re-load when filter or advFilters change
+  function applyFilters() {
+    setOffset(0);
+    loadCalls(0);
+  }
 
   const openDetail = useCallback((call: Call) => {
     setSelected(call);
@@ -104,11 +181,57 @@ export default function CallsPage() {
     setDetail(null);
   }, []);
 
+  // Client-side search filter (phone number)
   const filtered = calls.filter(c => {
     const matchSearch = !search || c.phone_number_to?.includes(search) || c.phone_number_from?.includes(search);
-    const matchFilter = filter === 'all' || c.direction === filter || c.status === filter;
-    return matchSearch && matchFilter;
+    return matchSearch;
   });
+
+  // ─── Export CSV ────────────────────────────────────────────────────────────
+  async function handleExportCSV() {
+    setExporting(true);
+    try {
+      const qs = buildQueryParams(0, 1000);
+      const res = await api.get<{ calls: Call[]; total: number }>(`/calls?${qs}`);
+      const rows = res?.calls ?? [];
+      if (rows.length === 0) {
+        toast.info(t('calls.noCallsToExport'));
+        return;
+      }
+      const headers = ['Date', 'Phone', 'Direction', 'Status', 'Duration', 'Agent', 'Summary'];
+      const agentMap = new Map(agents.map(a => [a.id, a.name]));
+      const csvRows = rows.map(c => [
+        new Date(c.created_at).toISOString(),
+        c.direction === 'outbound' ? (c.phone_number_to ?? '') : (c.phone_number_from ?? ''),
+        c.direction,
+        c.status,
+        fmtDuration(c.duration_seconds),
+        agentMap.get(c.agent_profile_id ?? '') ?? '',
+        `"${(c.summary ?? '').replace(/"/g, '""')}"`,
+      ].join(','));
+      const csv = [headers.join(','), ...csvRows].join('\n');
+      downloadFile(csv, `calls-export-${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+      toast.success(t('calls.exportSuccess', { count: String(rows.length) }));
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // ─── Download Transcript ──────────────────────────────────────────────────
+  function handleDownloadTranscript() {
+    if (!detail?.session?.transcript || detail.session.transcript.length === 0) return;
+    const lines = detail.session.transcript.map(entry => {
+      const speaker = entry.role === 'agent' ? 'Agent' : 'Caller';
+      const ts = entry.timestamp ? ` [${entry.timestamp}]` : '';
+      return `${speaker}${ts}: ${entry.content}`;
+    });
+    const phone = selected?.direction === 'outbound' ? selected?.phone_number_to : selected?.phone_number_from;
+    const filename = `transcript-${phone ?? 'call'}-${new Date(selected?.created_at ?? '').toISOString().slice(0,10)}.txt`;
+    downloadFile(lines.join('\n'), filename, 'text/plain');
+    toast.success(t('calls.transcriptDownloaded'));
+  }
 
   return (
     <div className="space-y-5">
@@ -127,7 +250,7 @@ export default function CallsPage() {
       )}
 
       <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
-        {/* Filters */}
+        {/* Search + Filter Bar */}
         <div className="px-5 py-4 border-b border-[#e2e8f0] flex items-center gap-3">
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -142,7 +265,7 @@ export default function CallsPage() {
           </div>
           <select
             value={filter}
-            onChange={e => setFilter(e.target.value)}
+            onChange={e => { setFilter(e.target.value); }}
             className="px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#475569] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] bg-white"
           >
             <option value="all">{t('calls.allCalls')}</option>
@@ -151,8 +274,132 @@ export default function CallsPage() {
             <option value="completed">{t('calls.completedFilter')}</option>
             <option value="failed">{t('calls.failedFilter')}</option>
           </select>
+
+          {/* Advanced Filters Toggle */}
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              showFilters ? 'border-[#6366f1] bg-[#eef2ff] text-[#6366f1]' : 'border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            {t('calls.advancedFilters')}
+          </button>
+
+          {/* Export CSV */}
+          <button
+            onClick={handleExportCSV}
+            disabled={exporting}
+            className="px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm font-medium text-[#475569] hover:bg-[#f8fafc] transition-colors flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            {exporting ? t('common.loading') : t('calls.exportCSV')}
+          </button>
+
           <div className="ml-auto text-xs text-[#94a3b8]">{filtered.length} {t('calls.results')}</div>
         </div>
+
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+          <div className="px-5 py-4 border-b border-[#e2e8f0] bg-[#f8fafc]">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Date Range */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('calls.dateFrom')}</label>
+                <input
+                  type="date"
+                  value={advFilters.dateFrom}
+                  onChange={e => setAdvFilters(p => ({ ...p, dateFrom: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('calls.dateTo')}</label>
+                <input
+                  type="date"
+                  value={advFilters.dateTo}
+                  onChange={e => setAdvFilters(p => ({ ...p, dateTo: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                />
+              </div>
+
+              {/* Agent */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('calls.filterAgent')}</label>
+                <select
+                  value={advFilters.agentId}
+                  onChange={e => setAdvFilters(p => ({ ...p, agentId: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                >
+                  <option value="">{t('calls.allAgents')}</option>
+                  {agents.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Duration */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('calls.duration')} (sec)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Min"
+                    value={advFilters.minDuration}
+                    onChange={e => setAdvFilters(p => ({ ...p, minDuration: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Max"
+                    value={advFilters.maxDuration}
+                    onChange={e => setAdvFilters(p => ({ ...p, maxDuration: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sentiment checkboxes + Apply */}
+            <div className="flex items-center gap-6 mt-3">
+              <span className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide">{t('calls.sentiment')}</span>
+              {(['positive', 'neutral', 'negative'] as const).map(s => {
+                const key = `sentiment${s.charAt(0).toUpperCase() + s.slice(1)}` as keyof AdvancedFilters;
+                return (
+                  <label key={s} className="flex items-center gap-1.5 text-sm text-[#475569] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={advFilters[key] as boolean}
+                      onChange={e => setAdvFilters(p => ({ ...p, [key]: e.target.checked }))}
+                      className="rounded border-[#e2e8f0] text-[#6366f1] focus:ring-[#6366f1]/20"
+                    />
+                    {t(`calls.sentiment_${s}`)}
+                  </label>
+                );
+              })}
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={() => { setAdvFilters(EMPTY_FILTERS); setTimeout(() => applyFilters(), 0); }}
+                  className="px-3 py-1.5 text-xs font-medium text-[#94a3b8] hover:text-[#475569] transition-colors"
+                >
+                  {t('calls.clearFilters')}
+                </button>
+                <button
+                  onClick={applyFilters}
+                  className="px-4 py-1.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-colors"
+                >
+                  {t('calls.applyFilters')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         {loading ? (
@@ -190,7 +437,7 @@ export default function CallsPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${call.direction === 'outbound' ? 'bg-[#eef2ff] text-[#6366f1]' : 'bg-[#f0fdf4] text-[#16a34a]'}`}>
-                        {call.direction === 'outbound' ? `↑ ${t('calls.outbound')}` : `↓ ${t('calls.inbound')}`}
+                        {call.direction === 'outbound' ? `\u2191 ${t('calls.outbound')}` : `\u2193 ${t('calls.inbound')}`}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
@@ -201,7 +448,7 @@ export default function CallsPage() {
                     <td className="px-5 py-3.5 text-sm text-[#475569]">{fmtDuration(call.duration_seconds)}</td>
                     <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(call.created_at)}</td>
                     <td className="px-5 py-3.5">
-                      <span className="text-xs text-[#6366f1] hover:text-[#4f46e5]">{t('calls.details')} →</span>
+                      <span className="text-xs text-[#6366f1] hover:text-[#4f46e5]">{t('calls.details')} \u2192</span>
                     </td>
                   </tr>
                 ))}
@@ -253,7 +500,7 @@ export default function CallsPage() {
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between items-center py-2 border-b border-[#f1f5f9] last:border-0">
                   <span className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{label}</span>
-                  <span className="text-sm text-[#0f172a] font-medium">{value || '—'}</span>
+                  <span className="text-sm text-[#0f172a] font-medium">{value || '\u2014'}</span>
                 </div>
               ))}
 
@@ -333,7 +580,20 @@ export default function CallsPage() {
 
                     {/* Transcript */}
                     <div className="rounded-xl bg-[#f8fafc] p-4">
-                      <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-3">{t('calls.transcript')}</p>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{t('calls.transcript')}</p>
+                        {session?.transcript && session.transcript.length > 0 && (
+                          <button
+                            onClick={handleDownloadTranscript}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#e2e8f0] text-xs font-medium text-[#475569] hover:bg-white transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            {t('calls.downloadTranscript')}
+                          </button>
+                        )}
+                      </div>
                       {!session?.transcript || session.transcript.length === 0 ? (
                         <p className="text-sm text-[#94a3b8] italic">{t('calls.noTranscript')}</p>
                       ) : (

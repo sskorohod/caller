@@ -28,7 +28,7 @@ function LoginContent() {
         login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
       } else {
         const res = await authApi.register({ email, password, workspace_name: workspaceName });
-        login(res.token, res.user, res.workspace, returnUrl ?? undefined);
+        login(res.token, res.user, res.workspace, '/onboarding');
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');

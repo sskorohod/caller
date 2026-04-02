@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useT } from '@/lib/i18n';
+import { useToast } from '@/lib/toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ const SECTIONS = [
   { id: 'api-keys',   labelKey: 'settings.apiKeys',   icon: IconKey },
   { id: 'oauth',      labelKey: 'settings.oauth', icon: IconOAuth },
   { id: 'compliance', labelKey: 'settings.compliance', icon: IconShield },
+  { id: 'team',       labelKey: 'settings.team',       icon: IconTeam },
 ] as const;
 
 type SectionId = typeof SECTIONS[number]['id'];
@@ -155,6 +157,13 @@ function IconOAuth({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+    </svg>
+  );
+}
+function IconTeam({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
     </svg>
   );
 }
@@ -386,6 +395,7 @@ function ProviderCard({
   onSaved: () => void;
 }) {
   const t = useT();
+  const toast = useToast();
   const meta = PROVIDER_META[providerKey];
   const [fields, setFields] = useState<Record<string, string>>(() =>
     Object.fromEntries(meta.fields.map(f => [f.key, '']))
@@ -403,6 +413,7 @@ function ProviderCard({
     try {
       await api.put(`/auth/providers/${providerKey}`, { credentials: fields });
       setSaved(true);
+      toast.success(t('toast.providerSaved'));
       setTimeout(() => setSaved(false), 2500);
       onSaved();
     } catch (e: any) {
@@ -503,6 +514,7 @@ function TwilioCard({
   onSaved: () => void;
 }) {
   const t = useT();
+  const toast = useToast();
   const [accountSid, setAccountSid] = useState('');
   const [authToken, setAuthToken]   = useState('');
   const [saving, setSaving]         = useState(false);
@@ -552,6 +564,7 @@ function TwilioCard({
         setError(res.verify_error);
       } else {
         setSaved(true);
+        toast.success(t('toast.providerSaved'));
         setAccountSid('');
         setAuthToken('');
         setPhones(res.phone_numbers ?? []);
@@ -1374,6 +1387,213 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
   );
 }
 
+// ─── Team Section ────────────────────────────────────────────────────────────
+
+interface TeamMember {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  role: string;
+  created_at: string;
+  email?: string;
+}
+
+function TeamSection() {
+  const t = useT();
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<string>('operator');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
+
+  const load = useCallback(() => {
+    api.get<TeamMember[]>('/workspaces/members')
+      .then(data => setMembers(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setSending(true);
+    setError('');
+    try {
+      await api.post('/workspaces/members/invite', {
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      });
+      setInviteEmail('');
+      setInviteRole('operator');
+      setModal(false);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleRemoveConfirm() {
+    if (!removeTarget) return;
+    try {
+      await api.delete(`/workspaces/members/${removeTarget.id}`);
+      setRemoveTarget(null);
+      load();
+    } catch (e: any) {
+      setError(e.message);
+      setRemoveTarget(null);
+    }
+  }
+
+  function roleBadge(role: string) {
+    const map: Record<string, string> = {
+      owner: 'bg-[#fef3c7] text-[#92400e]',
+      admin: 'bg-[#eef2ff] text-[#6366f1]',
+      operator: 'bg-[#f0fdf4] text-[#16a34a]',
+      analyst: 'bg-[#f1f5f9] text-[#475569]',
+    };
+    return map[role] ?? 'bg-[#f1f5f9] text-[#475569]';
+  }
+
+  function roleLabel(role: string) {
+    const key = `team.${role}` as string;
+    return t(key);
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-[#0f172a]">{t('team.title')}</h3>
+          <p className="text-xs text-[#94a3b8] mt-1">{t('team.subtitle')}</p>
+        </div>
+        <button
+          onClick={() => { setModal(true); setError(''); }}
+          className="shrink-0 px-3.5 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[#6366f1]/30"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          {t('team.inviteMember')}
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#e2e8f0] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,.04)]">
+        {loading ? (
+          <div className="p-5 space-y-3 animate-pulse">
+            {[1, 2, 3].map(i => <div key={i} className="h-12 bg-[#f8fafc] rounded-lg" />)}
+          </div>
+        ) : members.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-14">
+            <div className="w-11 h-11 bg-[#f1f5f9] rounded-xl flex items-center justify-center mb-3">
+              <IconTeam className="w-5 h-5 text-[#94a3b8]" />
+            </div>
+            <p className="text-sm font-medium text-[#475569]">{t('team.noMembers')}</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+              <tr>
+                {[t('team.email'), t('team.role'), t('team.joined'), t('team.actions')].map(h => (
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[#94a3b8] uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f1f5f9]">
+              {members.map(m => (
+                <tr key={m.id} className="hover:bg-[#fafbfc] transition-colors">
+                  <td className="px-5 py-3.5 text-sm font-medium text-[#0f172a]">{m.email ?? m.user_id}</td>
+                  <td className="px-5 py-3.5">
+                    <span className={`inline-flex text-xs px-2.5 py-0.5 rounded-full font-medium ${roleBadge(m.role)}`}>
+                      {roleLabel(m.role)}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-sm text-[#94a3b8]">{fmtDate(m.created_at)}</td>
+                  <td className="px-5 py-3.5">
+                    {m.role !== 'owner' && (
+                      removeTarget?.id === m.id ? (
+                        <div className="flex items-center gap-2">
+                          <button onClick={handleRemoveConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">{t('settings.confirm')}</button>
+                          <button onClick={() => setRemoveTarget(null)} className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium transition-colors">{t('common.cancel')}</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setRemoveTarget(m)}
+                          className="text-xs text-[#94a3b8] hover:text-red-500 transition-colors font-medium"
+                        >
+                          {t('team.removeMember')}
+                        </button>
+                      )
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Invite modal */}
+      {modal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#e2e8f0]">
+              <h2 className="text-base font-semibold text-[#0f172a]">{t('team.inviteModal')}</h2>
+              <button onClick={() => setModal(false)} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg" aria-label="Close">
+                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleInvite} className="px-6 py-5 space-y-4">
+              <p className="text-xs text-[#94a3b8]">{t('team.inviteDesc')}</p>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('team.email')}</label>
+                <input
+                  autoFocus
+                  type="email"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  placeholder="colleague@company.com"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1] transition-colors"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#475569] uppercase tracking-wide">{t('team.role')}</label>
+                <select
+                  value={inviteRole}
+                  onChange={e => setInviteRole(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] bg-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+                >
+                  <option value="admin">{t('team.admin')}</option>
+                  <option value="operator">{t('team.operator')}</option>
+                  <option value="analyst">{t('team.analyst')}</option>
+                </select>
+              </div>
+              {error && <p className="text-sm text-red-500">{error}</p>}
+              <div className="flex justify-end gap-3 pt-1">
+                <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[#475569] hover:bg-[#f1f5f9] rounded-lg transition-colors">
+                  {t('common.cancel')}
+                </button>
+                <button type="submit" disabled={sending || !inviteEmail.trim()} className="px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60">
+                  {sending ? t('team.sending') : t('team.inviteMember')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1425,6 +1645,7 @@ export default function SettingsPage() {
         {activeSection === 'api-keys'   && <ApiKeysSection />}
         {activeSection === 'oauth'      && <OAuthAppsSection />}
         {activeSection === 'compliance' && <ComplianceSection workspace={workspace} onUpdated={handleWorkspaceUpdate} />}
+        {activeSection === 'team'       && <TeamSection />}
       </div>
     </div>
   );

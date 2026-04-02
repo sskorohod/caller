@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, count } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, count, gte, lte, inArray } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { calls, aiCallSessions, callEvents } from '../db/schema.js';
 import { NotFoundError } from '../lib/errors.js';
@@ -92,6 +92,12 @@ export async function listCalls(
     direction?: string;
     status?: string;
     offset?: number;
+    from?: string;
+    to?: string;
+    agent_profile_id?: string;
+    sentiment?: string;
+    min_duration?: number;
+    max_duration?: number;
   },
 ): Promise<{ calls: Call[]; total: number }> {
   const limit = filters?.limit ?? 20;
@@ -101,6 +107,29 @@ export async function listCalls(
   const conditions = [eq(calls.workspace_id, workspaceId)];
   if (filters?.direction) conditions.push(eq(calls.direction, filters.direction));
   if (filters?.status) conditions.push(eq(calls.status, filters.status));
+  if (filters?.from) conditions.push(gte(calls.created_at, new Date(filters.from)));
+  if (filters?.to) conditions.push(lte(calls.created_at, new Date(filters.to)));
+  if (filters?.agent_profile_id) conditions.push(eq(calls.agent_profile_id, filters.agent_profile_id));
+  if (filters?.min_duration != null) conditions.push(gte(calls.duration_seconds, filters.min_duration));
+  if (filters?.max_duration != null) conditions.push(lte(calls.duration_seconds, filters.max_duration));
+
+  // Sentiment filter requires a join with ai_call_sessions
+  const sentimentValues = filters?.sentiment?.split(',').filter(Boolean) ?? [];
+  const needsSentimentFilter = sentimentValues.length > 0;
+
+  if (needsSentimentFilter) {
+    // Use subquery to get call IDs matching sentiment
+    const sentimentCallIds = db
+      .select({ call_id: aiCallSessions.call_id })
+      .from(aiCallSessions)
+      .where(
+        and(
+          eq(aiCallSessions.workspace_id, workspaceId),
+          inArray(aiCallSessions.sentiment, sentimentValues),
+        ),
+      );
+    conditions.push(inArray(calls.id, sentimentCallIds));
+  }
 
   const whereClause = and(...conditions);
 

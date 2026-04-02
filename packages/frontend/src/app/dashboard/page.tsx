@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useT } from '@/lib/i18n';
@@ -10,6 +11,9 @@ interface Stats {
   minutes_used: number;
   agents_count: number;
 }
+
+interface SimpleAgent { id: string; }
+interface SimpleProvider { provider: string; }
 
 interface RecentCall {
   id: string;
@@ -121,6 +125,20 @@ export default function OverviewPage() {
   const [weekCalls, setWeekCalls] = useState<RecentCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showSetupBanner, setShowSetupBanner] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      api.get<{ agents: SimpleAgent[] }>('/agents').catch(() => ({ agents: [] })),
+      api.get<SimpleProvider[]>('/auth/providers').catch(() => []),
+    ]).then(([agentsRes, providers]) => {
+      const agents = agentsRes?.agents ?? [];
+      const provArr = Array.isArray(providers) ? providers : [];
+      if (agents.length === 0 && provArr.length === 0) {
+        setShowSetupBanner(true);
+      }
+    });
+  }, []);
 
   function loadCalls() {
     setError('');
@@ -151,8 +169,28 @@ export default function OverviewPage() {
         <p className="text-sm text-[#94a3b8] mt-1">{t('dashboard.subtitle')}</p>
       </div>
 
+      {/* Setup Banner */}
+      {showSetupBanner && (
+        <div className="flex items-center justify-between px-5 py-4 bg-[#eef2ff] border border-[#c7d2fe] rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-[#6366f1] rounded-lg flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-[#3730a3]">{t('dashboard.setupBanner')}</p>
+          </div>
+          <Link
+            href="/onboarding"
+            className="px-4 py-2 bg-[#6366f1] hover:bg-[#4f46e5] text-white text-xs font-semibold rounded-lg transition-all active:scale-[.98] shrink-0"
+          >
+            {t('dashboard.completeSetup')}
+          </Link>
+        </div>
+      )}
+
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         <KpiCard label={t('dashboard.totalCalls')} value={String(totalCalls)} sub={t('dashboard.allTime')} color="bg-[#eef2ff]" />
         <KpiCard label={t('dashboard.activeNow')} value={String(activeCalls)} sub={t('dashboard.inProgress')} color="bg-[#dcfce7]" />
         <KpiCard label={t('dashboard.minutesUsed')} value={String(totalMinutes)} sub={t('dashboard.thisSession')} color="bg-[#fef3c7]" />

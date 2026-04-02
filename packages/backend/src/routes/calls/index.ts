@@ -22,10 +22,16 @@ const startCallSchema = z.object({
 });
 
 const listCallsSchema = z.object({
-  limit: z.coerce.number().min(1).max(100).optional(),
+  limit: z.coerce.number().min(1).max(1000).optional(),
   direction: z.enum(['inbound', 'outbound']).optional(),
   status: z.enum(['initiated', 'ringing', 'in_progress', 'completed', 'failed', 'canceled']).optional(),
   offset: z.coerce.number().min(0).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  agent_profile_id: z.string().uuid().optional(),
+  sentiment: z.string().optional(),
+  min_duration: z.coerce.number().min(0).optional(),
+  max_duration: z.coerce.number().min(0).optional(),
 });
 
 const callRoutes: FastifyPluginAsync = async (app) => {

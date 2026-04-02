@@ -257,7 +257,7 @@ export default function KnowledgePage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse h-32" />
           ))}
@@ -274,7 +274,7 @@ export default function KnowledgePage() {
           <button onClick={() => setModal(true)} className="px-4 py-2 bg-[#6366f1] text-white text-sm font-medium rounded-lg hover:bg-[#4f46e5] transition-colors">{t('knowledge.createKB')}</button>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {bases.map(kb => (
             <div key={kb.id} onClick={() => openKBDetail(kb)} className="bg-white rounded-xl border border-[#e2e8f0] p-5 hover:shadow-md transition-shadow cursor-pointer">
               <div className="w-10 h-10 bg-[#eef2ff] rounded-xl flex items-center justify-center mb-4">

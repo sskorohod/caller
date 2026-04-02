@@ -177,7 +177,7 @@ export default function ConnectorsPage() {
           <button onClick={loadConnectors} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">{t('common.retry')}</button>
         </div>
       ) : loading ? (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="bg-white rounded-xl border border-[#e2e8f0] p-5 animate-pulse space-y-3">
               <div className="w-10 h-10 bg-slate-100 rounded-xl" />
@@ -200,7 +200,7 @@ export default function ConnectorsPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {connectors.map(connector => {
             const typeMeta = TYPE_LABELS[connector.connector_type] ?? { label: connector.connector_type, color: 'bg-slate-100 text-slate-600' };
             return (
