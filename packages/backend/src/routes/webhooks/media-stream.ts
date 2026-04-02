@@ -11,7 +11,9 @@ import { createSTTProvider } from '../../services/stt.service.js';
 import { createTTSProvider } from '../../services/tts.service.js';
 import { createLLMProvider } from '../../services/llm.service.js';
 import { CallOrchestrator } from '../../services/call-orchestrator.js';
+import { GrokRealtimeOrchestrator } from '../../services/grok-realtime.service.js';
 import { sendBootstrapWebhook, ExternalAgentSession } from '../../services/external-handoff.service.js';
+import { getProviderCredential } from '../../services/provider.service.js';
 import { env } from '../../config/env.js';
 import { queuePostCallProcessing } from '../../workers/post-call.worker.js';
 import type { DeepgramSTT } from '../../services/stt.service.js';
@@ -31,7 +33,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     logger.info({ callId }, 'Twilio MediaStream WebSocket connected');
 
-    let orchestrator: CallOrchestrator | null = null;
+    let orchestrator: CallOrchestrator | GrokRealtimeOrchestrator | null = null;
     let externalSession: ExternalAgentSession | null = null;
     let streamSid: string | null = null;
 
@@ -272,14 +274,14 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     });
   }
 
-  /** Start the internal STT->LLM->TTS orchestrator */
+  /** Start the internal STT->LLM->TTS orchestrator (or Grok Realtime when both voice + LLM are xAI) */
   async function startInternalOrchestrator(
     call: any,
     agentProfile: any,
     callId: string,
     streamSid: string,
     twilioSocket: import('ws').WebSocket,
-  ): Promise<CallOrchestrator> {
+  ): Promise<CallOrchestrator | GrokRealtimeOrchestrator> {
     // Ensure conversation_owner_actual is set to internal
     await callService.updateCallStatus(callId, 'in_progress', {
       conversation_owner_actual: 'internal',
@@ -287,14 +289,51 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     const promptPacks = await agentService.getAgentPromptPacks(agentProfile.id);
     const systemPrompt = buildSystemPrompt(agentProfile, promptPacks);
+    const callerContext = await loadCallerContext(call.workspace_id, call.from_number);
 
+    // --- Grok Realtime path: skip STT/TTS/LLM when both voice and LLM are xAI ---
+    const useGrokRealtime =
+      agentProfile.voice_provider === 'xai' && agentProfile.llm_provider === 'xai';
+
+    if (useGrokRealtime) {
+      logger.info({ callId }, 'Using Grok Realtime (voice-to-voice) orchestrator');
+
+      const xaiCreds = await getProviderCredential(call.workspace_id, 'xai');
+      const apiKey = xaiCreds.api_key;
+
+      const grokOrchestrator = new GrokRealtimeOrchestrator({
+        call: call as any,
+        agentProfile: agentProfile as any,
+        twilioWs: twilioSocket,
+        streamSid,
+        systemPrompt,
+        callerContext,
+        apiKey,
+      });
+
+      // Forward Twilio audio directly to Grok (bypass STT)
+      twilioSocket.on('message', (data: Buffer) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.event === 'media') {
+            grokOrchestrator.sendAudio(msg.media.payload);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      });
+
+      wireOrchestratorEvents(grokOrchestrator, call, callId);
+      grokOrchestrator.start();
+      return grokOrchestrator;
+    }
+
+    // --- Standard STT -> LLM -> TTS pipeline ---
     const [stt, tts, llm] = await Promise.all([
       createSTTProvider(call.workspace_id, agentProfile.stt_provider as any),
       createTTSProvider(call.workspace_id, agentProfile.voice_provider as any, agentProfile.voice_id ?? undefined),
       createLLMProvider(call.workspace_id, agentProfile.llm_provider as any),
     ]);
-
-    const callerContext = await loadCallerContext(call.workspace_id, call.from_number);
 
     const orchestrator = new CallOrchestrator({
       call: call as any,
@@ -309,7 +348,18 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       callerContext,
     });
 
-    orchestrator.on('stopped', async (result) => {
+    wireOrchestratorEvents(orchestrator, call, callId);
+    orchestrator.start();
+    return orchestrator;
+  }
+
+  /** Wire up stopped/error event handlers shared by both orchestrator types */
+  function wireOrchestratorEvents(
+    orchestrator: CallOrchestrator | GrokRealtimeOrchestrator,
+    call: any,
+    callId: string,
+  ): void {
+    orchestrator.on('stopped', async (result: any) => {
       logger.info({ callId, reason: result.reason }, 'Orchestrator stopped');
       const session = await callService.getAiSession(callId);
       if (session) {
@@ -335,9 +385,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     orchestrator.on('error', (err) => {
       logger.error({ err, callId }, 'Orchestrator error');
     });
-
-    orchestrator.start();
-    return orchestrator;
   }
 };
 
