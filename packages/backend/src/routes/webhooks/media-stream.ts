@@ -93,6 +93,14 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           );
         }
 
+        if (msg.event === 'media' && msg.media?.payload) {
+          // Forward audio to Grok Realtime orchestrator
+          if (orchestrator && orchestrator instanceof GrokRealtimeOrchestrator) {
+            (orchestrator as GrokRealtimeOrchestrator).sendAudio(msg.media.payload);
+          }
+          // Standard CallOrchestrator receives audio via STT directly (wired in start())
+        }
+
         if (msg.event === 'stop') {
           if (orchestrator) orchestrator.stop('stream_stopped');
           if (externalSession) externalSession.sendCallEnded('stream_stopped');
@@ -311,18 +319,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         apiKey,
       });
 
-      // Forward Twilio audio directly to Grok (bypass STT)
-      twilioSocket.on('message', (data: Buffer) => {
-        try {
-          const msg = JSON.parse(data.toString());
-          if (msg.event === 'media') {
-            grokOrchestrator.sendAudio(msg.media.payload);
-          }
-        } catch {
-          // ignore parse errors
-        }
-      });
-
+      // Audio forwarding handled in main socket.on('message') handler
       wireOrchestratorEvents(grokOrchestrator, call, callId);
       grokOrchestrator.start();
       return grokOrchestrator;
