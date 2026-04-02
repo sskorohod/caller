@@ -4,6 +4,7 @@ import { authenticateUser, authenticateApiKey, requireRole } from '../../middlew
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
+import * as memoryService from '../../services/memory.service.js';
 import { ValidationError, AppError } from '../../lib/errors.js';
 import { env } from '../../config/env.js';
 import { db } from '../../config/db.js';
@@ -397,12 +398,24 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(calls.created_at))
       .limit(20);
 
-    return rows.map((r) => ({
-      ...r.call,
-      summary: r.summary,
-      sentiment: r.sentiment,
-      total_turns: r.total_turns,
-    }));
+    const profile = await memoryService.findOrCreateCallerProfile(request.auth.workspaceId, decoded);
+    const facts = await memoryService.getUnresolvedFacts(profile.id, 10);
+
+    return {
+      calls: rows.map((r) => ({
+        ...r.call,
+        summary: r.summary,
+        sentiment: r.sentiment,
+        total_turns: r.total_turns,
+      })),
+      memory_facts: facts.map((f: any) => f.content),
+      caller: {
+        name: profile.name,
+        company: profile.company,
+        total_calls: profile.total_calls,
+        last_call_at: profile.last_call_at,
+      },
+    };
   });
 
   // POST /api/calls/translate — translate text using workspace LLM provider

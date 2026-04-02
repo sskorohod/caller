@@ -482,13 +482,13 @@ export default function LiveCallPage() {
                         {expandedTranscript === null ? (
                           <div className="py-2 text-xs text-[var(--th-text-muted)]">{t('common.loading')}</div>
                         ) : expandedTranscript.length === 0 ? (
-                          <div className="py-2 text-xs text-[var(--th-text-muted)]">No transcript</div>
+                          <div className="py-2 text-xs text-[var(--th-text-muted)]">{t('calls.noTranscript')}</div>
                         ) : (
                           <div className="py-2 space-y-1.5 max-h-48 overflow-y-auto">
                             {expandedTranscript.map((entry, i) => (
                               <div key={i} className="text-xs">
                                 <span className={`font-medium ${entry.role === 'agent' ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-text-dark)]'}`}>
-                                  {entry.role === 'agent' ? 'Agent' : 'Caller'}:
+                                  {entry.role === 'agent' ? t('live.agentRole') : t('live.callerRole')}:
                                 </span>{' '}
                                 <span className="text-[var(--th-text-secondary)]">{entry.content}</span>
                               </div>

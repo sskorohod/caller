@@ -138,6 +138,12 @@ const en: Record<string, string> = {
   'calls.details': 'Details',
   'calls.loadingDetails': 'Loading details...',
   'calls.searchPhone': 'Search by phone number...',
+  'calls.from': 'From',
+  'calls.to': 'To',
+  'calls.deleteConfirm': 'Delete this call?',
+  'calls.deleted': 'Call deleted',
+  'calls.agentRole': 'Agent',
+  'calls.callerRole': 'Caller',
 
   // Knowledge
   'knowledge.title': 'Knowledge Bases',
@@ -466,6 +472,8 @@ const en: Record<string, string> = {
   'live.endCall': 'End Call',
   'live.quickActions': 'Quick Actions',
   'live.tone': 'Tone',
+  'live.agentRole': 'Agent',
+  'live.callerRole': 'Caller',
 };
 
 const ru: Record<string, string> = {
@@ -603,6 +611,12 @@ const ru: Record<string, string> = {
   'calls.details': 'Детали',
   'calls.loadingDetails': 'Загрузка деталей...',
   'calls.searchPhone': 'Поиск по номеру телефона...',
+  'calls.from': 'От',
+  'calls.to': 'Кому',
+  'calls.deleteConfirm': 'Удалить этот звонок?',
+  'calls.deleted': 'Звонок удалён',
+  'calls.agentRole': 'Агент',
+  'calls.callerRole': 'Звонящий',
 
   // Knowledge
   'knowledge.title': 'Базы знаний',
@@ -931,6 +945,8 @@ const ru: Record<string, string> = {
   'live.endCall': 'Завершить',
   'live.quickActions': 'Быстрые действия',
   'live.tone': 'Тон',
+  'live.agentRole': 'Агент',
+  'live.callerRole': 'Звонящий',
 };
 
 // ─── Dictionaries map ────────────────────────────────────────────────────────
