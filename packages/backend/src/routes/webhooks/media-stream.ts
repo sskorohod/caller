@@ -18,9 +18,16 @@ import { env } from '../../config/env.js';
 import { queuePostCallProcessing } from '../../workers/post-call.worker.js';
 import type { DeepgramSTT } from '../../services/stt.service.js';
 import type { Call } from '../../models/types.js';
+import { getIo } from '../../realtime/io.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'media-stream' });
+
+const activeOrchestrators = new Map<string, CallOrchestrator | GrokRealtimeOrchestrator>();
+
+export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRealtimeOrchestrator | undefined {
+  return activeOrchestrators.get(callId);
+}
 
 const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   await app.register(websocket);
@@ -356,7 +363,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     call: any,
     callId: string,
   ): void {
+    // Store orchestrator for live monitoring access
+    activeOrchestrators.set(callId, orchestrator);
+
+    // Forward transcript events to Socket.IO for live monitoring
+    orchestrator.on('transcript', (entry: { speaker: string; text: string; timestamp: string; isFinal: boolean }) => {
+      const io = getIo();
+      io?.to(`call:${callId}`).emit('call:transcript', { call_id: callId, ...entry });
+    });
+
     orchestrator.on('stopped', async (result: any) => {
+      activeOrchestrators.delete(callId);
       logger.info({ callId, reason: result.reason }, 'Orchestrator stopped');
       const session = await callService.getAiSession(callId);
       if (session) {

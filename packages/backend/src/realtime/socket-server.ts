@@ -63,6 +63,24 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     // Join workspace room
     socket.join(`workspace:${workspaceId}`);
 
+    // Live call monitoring: join a call-specific room
+    socket.on('call:join', ({ call_id }: { call_id: string }) => {
+      socket.join(`call:${call_id}`);
+    });
+
+    // Live call monitoring: send operator instruction to active call
+    socket.on('call:instruction', async ({ call_id, text }: { call_id: string; text: string }) => {
+      try {
+        const { getActiveOrchestrator } = await import('../routes/webhooks/media-stream.js');
+        const orch = getActiveOrchestrator(call_id);
+        if (orch && 'injectInstruction' in orch) {
+          (orch as any).injectInstruction(text);
+        }
+      } catch {
+        // Orchestrator not found or not active — ignore silently
+      }
+    });
+
     socket.on('disconnect', () => {
       // Cleanup handled automatically by socket.io
     });

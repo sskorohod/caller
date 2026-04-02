@@ -170,6 +170,8 @@ export class CallOrchestrator extends EventEmitter {
       timestamp: new Date().toISOString(),
     });
 
+    this.emit('transcript', { speaker: 'caller', text, timestamp: new Date().toISOString(), isFinal: true });
+
     // Add to LLM history
     this.llmMessages.push({ role: 'user', content: text });
 
@@ -260,6 +262,8 @@ export class CallOrchestrator extends EventEmitter {
 
           this.llmMessages.push({ role: 'assistant', content: fullResponse });
 
+          this.emit('transcript', { speaker: 'agent', text: fullResponse, timestamp: new Date().toISOString(), isFinal: true });
+
           await callService.addCallEvent({
             callId: this.config.call.id,
             workspaceId: this.config.call.workspace_id,
@@ -333,6 +337,14 @@ export class CallOrchestrator extends EventEmitter {
       totalTokensIn: this.totalTokensIn,
       totalTokensOut: this.totalTokensOut,
       avgLatencyMs: avgLatency,
+    });
+  }
+
+  injectInstruction(text: string): void {
+    // Inject as a system message so the next LLM call picks it up
+    this.llmMessages.push({
+      role: 'system',
+      content: `[Operator instruction - apply immediately]: ${text}`,
     });
   }
 

@@ -229,6 +229,8 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       text: transcript.trim(),
       timestamp: new Date().toISOString(),
     });
+
+    this.emit('transcript', { speaker: 'caller', text: transcript.trim(), timestamp: new Date().toISOString(), isFinal: true });
   }
 
   /**
@@ -256,6 +258,8 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         { callId: this.config.call.id, text: this.currentAgentTranscript.trim() },
         'Agent response (Grok)',
       );
+
+      this.emit('transcript', { speaker: 'agent', text: this.currentAgentTranscript.trim(), timestamp: new Date().toISOString(), isFinal: true });
     }
 
     this.currentAgentTranscript = '';
@@ -304,6 +308,18 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
 
   getTranscript(): ConversationTurn[] {
     return [...this.conversationHistory];
+  }
+
+  injectInstruction(text: string): void {
+    this.sendGrok({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'system',
+        content: [{ type: 'input_text', text: `[Operator instruction - apply immediately]: ${text}` }],
+      },
+    });
+    this.sendGrok({ type: 'response.create' });
   }
 
   private sendGrok(msg: Record<string, unknown>): void {

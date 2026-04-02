@@ -101,7 +101,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [requireRole('owner', 'admin')],
   }, async (request) => {
     const { provider } = z.object({
-      provider: z.enum(['twilio', 'openai', 'anthropic', 'elevenlabs', 'deepgram', 'xai']),
+      provider: z.enum(['twilio', 'openai', 'anthropic', 'elevenlabs', 'deepgram', 'xai', 'telegram']),
     }).parse(request.params);
 
     const body = z.object({
@@ -154,7 +154,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [requireRole('owner', 'admin')],
   }, async (request) => {
     const { provider } = z.object({
-      provider: z.enum(['twilio', 'openai', 'anthropic', 'elevenlabs', 'deepgram', 'xai']),
+      provider: z.enum(['twilio', 'openai', 'anthropic', 'elevenlabs', 'deepgram', 'xai', 'telegram']),
     }).parse(request.params);
 
     await providerService.deleteProviderCredential(request.auth.workspaceId, provider);

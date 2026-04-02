@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSocket } from '@/lib/socket';
 import { useT } from '@/lib/i18n';
 
@@ -34,6 +34,7 @@ const ANIMATION_MS = 300;
 export default function IncomingCallCard() {
   const { socket } = useSocket();
   const t = useT();
+  const router = useRouter();
   const [call, setCall] = useState<IncomingCallData | null>(null);
   const [removing, setRemoving] = useState(false);
 
@@ -161,13 +162,12 @@ export default function IncomingCallCard() {
 
         {/* Actions */}
         <div className="flex items-center gap-2 px-4 pb-4">
-          <Link
-            href="/dashboard/calls"
-            onClick={dismiss}
+          <button
+            onClick={() => { dismiss(); router.push(`/dashboard/calls/${call.call_id}/live`); }}
             className="flex-1 text-center px-3 py-2 rounded-lg bg-[#6366f1] text-white text-sm font-medium hover:bg-[#4f46e5] transition-colors"
           >
             {t('realtime.view')}
-          </Link>
+          </button>
           <button
             onClick={dismiss}
             className="flex-1 text-center px-3 py-2 rounded-lg border border-[#e2e8f0] text-[#475569] text-sm font-medium hover:bg-[#f1f5f9] transition-colors"

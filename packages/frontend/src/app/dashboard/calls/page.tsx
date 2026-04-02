@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
@@ -111,6 +112,7 @@ function downloadFile(content: string, filename: string, mime: string) {
 export default function CallsPage() {
   const t = useT();
   const toast = useToast();
+  const router = useRouter();
   const LIMIT = 50;
   const [calls, setCalls]       = useState<Call[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -184,6 +186,11 @@ export default function CallsPage() {
   }
 
   const openDetail = useCallback((call: Call) => {
+    // Route active calls to the live monitoring page
+    if (call.status === 'in_progress' || call.status === 'ringing') {
+      router.push(`/dashboard/calls/${call.id}/live`);
+      return;
+    }
     setSelected(call);
     setDetail(null);
     setDetailLoading(true);
@@ -197,7 +204,7 @@ export default function CallsPage() {
       })
       .catch(() => setDetail(null))
       .finally(() => setDetailLoading(false));
-  }, []);
+  }, [router]);
 
   const closeDetail = useCallback(() => {
     setSelected(null);

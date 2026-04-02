@@ -8,7 +8,8 @@ import { ValidationError, AppError } from '../../lib/errors.js';
 import { env } from '../../config/env.js';
 import { db } from '../../config/db.js';
 import { calls } from '../../db/schema.js';
-import { eq, and, sql, gte } from 'drizzle-orm';
+import { eq, and, or, sql, gte, desc } from 'drizzle-orm';
+import { aiCallSessions } from '../../db/schema.js';
 
 const startCallSchema = z.object({
   to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
@@ -279,6 +280,94 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
     // Twilio URL — redirect directly
     reply.redirect(url);
+  });
+
+  // GET /api/calls/by-phone/:phone — caller history by phone number
+  app.get('/by-phone/:phone', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { phone } = z.object({ phone: z.string().min(1) }).parse(request.params);
+    const decoded = decodeURIComponent(phone);
+
+    const rows = await db
+      .select({
+        call: calls,
+        summary: aiCallSessions.summary,
+        sentiment: aiCallSessions.sentiment,
+        total_turns: aiCallSessions.total_turns,
+      })
+      .from(calls)
+      .leftJoin(aiCallSessions, eq(aiCallSessions.call_id, calls.id))
+      .where(
+        and(
+          eq(calls.workspace_id, request.auth.workspaceId),
+          or(
+            eq(calls.from_number, decoded),
+            eq(calls.to_number, decoded),
+          ),
+        ),
+      )
+      .orderBy(desc(calls.created_at))
+      .limit(20);
+
+    return rows.map((r) => ({
+      ...r.call,
+      summary: r.summary,
+      sentiment: r.sentiment,
+      total_turns: r.total_turns,
+    }));
+  });
+
+  // POST /api/calls/translate — translate text using workspace LLM provider
+  app.post('/translate', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { text, target } = z.object({
+      text: z.string().min(1),
+      target: z.string().min(1),
+    }).parse(request.body);
+
+    const { getProviderCredential } = await import('../../services/provider.service.js');
+
+    // Try xAI first, fall back to openai
+    let apiKey: string;
+    let provider: 'xai' | 'openai' = 'xai';
+    try {
+      const creds = await getProviderCredential(request.auth.workspaceId, 'xai');
+      apiKey = creds.api_key;
+    } catch {
+      const creds = await getProviderCredential(request.auth.workspaceId, 'openai');
+      apiKey = creds.api_key;
+      provider = 'openai';
+    }
+
+    const baseUrl = provider === 'xai'
+      ? 'https://api.x.ai/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+    const model = provider === 'xai' ? 'grok-3-mini' : 'gpt-4o-mini';
+
+    const res = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: `You are a translator. Translate the following text to ${target}. Return ONLY the translated text, nothing else.` },
+          { role: 'user', content: text },
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new AppError(502, 'TRANSLATION_FAILED', 'Translation provider returned an error');
+    }
+
+    const data = await res.json() as { choices: { message: { content: string } }[] };
+    return { translated: data.choices[0]?.message?.content?.trim() ?? '' };
   });
 
   // DELETE /api/calls/:id

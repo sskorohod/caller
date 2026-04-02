@@ -411,6 +411,23 @@ const en: Record<string, string> = {
   'realtime.view': 'View',
   'realtime.dismiss': 'Dismiss',
   'realtime.unknownCaller': 'Unknown caller',
+
+  // Live call
+  'live.title': 'Live Call',
+  'live.callerInfo': 'Caller Info',
+  'live.callHistory': 'Call History',
+  'live.memoryFacts': 'Memory Notes',
+  'live.noHistory': 'No previous calls',
+  'live.liveTranscript': 'Live Transcript',
+  'live.language': 'Language',
+  'live.original': 'Original',
+  'live.sendInstruction': 'Send instruction to agent...',
+  'live.send': 'Send',
+  'live.callEnded': 'Call ended',
+  'live.waiting': 'Waiting for call to connect...',
+  'live.voiceInput': 'Voice input',
+  'live.instructionSent': 'Instruction sent',
+  'live.back': 'Back to calls',
 };
 
 const ru: Record<string, string> = {
@@ -821,6 +838,23 @@ const ru: Record<string, string> = {
   'realtime.view': 'Открыть',
   'realtime.dismiss': 'Закрыть',
   'realtime.unknownCaller': 'Неизвестный',
+
+  // Live call
+  'live.title': 'Звонок в реальном времени',
+  'live.callerInfo': 'Информация о звонящем',
+  'live.callHistory': 'История звонков',
+  'live.memoryFacts': 'Заметки из памяти',
+  'live.noHistory': 'Нет предыдущих звонков',
+  'live.liveTranscript': 'Транскрипт в реальном времени',
+  'live.language': 'Язык',
+  'live.original': 'Оригинал',
+  'live.sendInstruction': 'Отправить инструкцию агенту...',
+  'live.send': 'Отправить',
+  'live.callEnded': 'Звонок завершён',
+  'live.waiting': 'Ожидание подключения...',
+  'live.voiceInput': 'Голосовой ввод',
+  'live.instructionSent': 'Инструкция отправлена',
+  'live.back': 'Назад к звонкам',
 };
 
 // ─── Dictionaries map ────────────────────────────────────────────────────────
