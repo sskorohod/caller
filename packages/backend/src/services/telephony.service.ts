@@ -104,13 +104,6 @@ export function generateInboundTwiml(params: {
     twiml.say({ voice: 'Polly.Joanna' }, params.disclosureMessage);
   }
 
-  // Start recording
-  twiml.record({
-    recordingStatusCallback: `https://${env.API_DOMAIN}/webhooks/twilio/recording`,
-    recordingStatusCallbackMethod: 'POST',
-    trim: 'trim-silence',
-  });
-
   const connect = twiml.connect();
   connect.stream({
     url: params.streamUrl,
