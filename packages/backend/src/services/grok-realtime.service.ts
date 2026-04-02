@@ -325,9 +325,13 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         role: 'system',
         content: [{
           type: 'input_text',
-          text: `[Operator note for the AI agent — DO NOT greet again, DO NOT restart the conversation. ` +
-            `You are already mid-conversation. Continue naturally from where you left off. ` +
-            `When the moment is right, smoothly work this into the dialogue: ${text}]`,
+          text: `[OPERATOR INSTRUCTION — Rules for handling this:\n` +
+            `1. You are MID-CONVERSATION. Do NOT greet again. Do NOT restart.\n` +
+            `2. IMPORTANT: Unless the instruction explicitly says "keep trying", "convince", "persist", or "repeat until" — ` +
+            `treat it as a ONE-TIME action. Say it ONCE naturally, then move on. Do NOT repeat it in subsequent responses.\n` +
+            `3. Weave it smoothly into the current topic. Don't abruptly change subject.\n` +
+            `4. After you've done it once, consider this instruction COMPLETED and forget about it.\n\n` +
+            `Instruction: ${text}]`,
         }],
       },
     });
