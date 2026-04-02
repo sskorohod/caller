@@ -77,6 +77,7 @@ export function startPostCallWorker(): Worker {
 5. QA evaluation: score 0-10 and criteria breakdown
 
 IMPORTANT: Write ALL output (summary, action_items, extracted_facts, quality_flags, qa_criteria comments) in ${summaryLang}.
+CRITICAL: Do NOT localize or adapt proper nouns, brand names, institutions, or cultural references. Keep them exactly as mentioned in the conversation. For example: DMV stays DMV (not ГИБДД), Costco stays Costco, etc. Write in ${summaryLang} but preserve original terminology.
 
 Respond in JSON format:
 {
