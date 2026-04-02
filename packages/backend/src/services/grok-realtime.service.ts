@@ -156,7 +156,7 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
           output: { format: { type: 'audio/pcmu' } },
         },
         turn_detection: { type: 'server_vad' },
-        input_audio_transcription: { model: 'grok-2-latest' },
+        input_audio_transcription: { model: 'grok-3-mini' },
       },
     });
   }

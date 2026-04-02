@@ -369,6 +369,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     // Forward transcript events to Socket.IO for live monitoring
     orchestrator.on('transcript', (entry: { speaker: string; text: string; timestamp: string; isFinal: boolean }) => {
       const io = getIo();
+      logger.info({ callId, speaker: entry.speaker, text: entry.text?.slice(0, 50), hasIo: !!io }, 'Forwarding transcript to Socket.IO');
       io?.to(`call:${callId}`).emit('call:transcript', { call_id: callId, ...entry });
     });
 
