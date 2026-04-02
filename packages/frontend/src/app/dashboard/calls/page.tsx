@@ -15,7 +15,8 @@ interface Call {
   to_number: string;
   duration_seconds: number | null;
   summary: string | null;
-  sentiment_score: number | null;
+  sentiment: string | null;
+  qa_score: number | null;
   agent_profile_id: string | null;
   created_at: string;
 }
@@ -235,7 +236,7 @@ function FilterTabs({ value, onChange, t }: { value: string; onChange: (v: strin
 
 // ─── Call Row (card-style) ───────────────────────────────────────────────────
 
-function CallRow({ call, agentMap, onClick }: { call: Call; agentMap: Map<string, string>; onClick: () => void }) {
+function CallRow({ call, agentMap, onClick, expanded, onToggleExpand }: { call: Call; agentMap: Map<string, string>; onClick: () => void; expanded: boolean; onToggleExpand: () => void }) {
   const phone = call.direction === 'outbound' ? call.to_number : call.from_number;
   const agentName = call.agent_profile_id ? agentMap.get(call.agent_profile_id) : null;
 
@@ -290,9 +291,15 @@ function CallRow({ call, agentMap, onClick }: { call: Call; agentMap: Map<string
       {/* Duration */}
       <td className="px-5 py-3.5 text-sm tabular-nums text-[var(--th-text-secondary)]">{fmtDuration(call.duration_seconds)}</td>
 
-      {/* Summary preview */}
-      <td className="px-5 py-3.5 max-w-[200px]">
-        <p className="text-xs text-[var(--th-text-muted)] truncate">{call.summary || '—'}</p>
+      {/* Summary — expandable */}
+      <td className="px-5 py-3.5 max-w-[260px]" onClick={e => { e.stopPropagation(); if (call.summary) onToggleExpand(); }}>
+        {call.summary ? (
+          <p className={`text-[11px] text-[var(--th-text-muted)] leading-snug cursor-pointer hover:text-[var(--th-text-secondary)] transition-colors ${expanded ? '' : 'line-clamp-2'}`}>
+            {call.summary}
+          </p>
+        ) : (
+          <span className="text-[11px] text-[var(--th-text-muted)]">—</span>
+        )}
       </td>
 
       {/* Date */}
@@ -328,6 +335,7 @@ export default function CallsPage() {
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [expandedSummaries, setExpandedSummaries] = useState<Set<string>>(new Set());
 
   const [showFilters, setShowFilters] = useState(false);
   const [advFilters, setAdvFilters] = useState<AdvancedFilters>(EMPTY_FILTERS);
@@ -438,7 +446,7 @@ export default function CallsPage() {
   function handleDownloadTranscript() {
     if (!detail?.session?.transcript?.length) return;
     const lines = detail.session.transcript.map(e => {
-      const speaker = e.role === 'agent' ? 'Agent' : 'Caller';
+      const speaker = e.role === 'agent' ? t('calls.agentRole') : t('calls.callerRole');
       const ts = e.timestamp ? ` [${e.timestamp}]` : '';
       return `${speaker}${ts}: ${e.content}`;
     });
@@ -639,7 +647,13 @@ export default function CallsPage() {
               </thead>
               <tbody className="divide-y divide-[var(--th-border-light)]">
                 {filtered.map(call => (
-                  <CallRow key={call.id} call={call} agentMap={agentMap} onClick={() => openDetail(call)} />
+                  <CallRow key={call.id} call={call} agentMap={agentMap} onClick={() => openDetail(call)}
+                    expanded={expandedSummaries.has(call.id)}
+                    onToggleExpand={() => setExpandedSummaries(prev => {
+                      const next = new Set(prev);
+                      next.has(call.id) ? next.delete(call.id) : next.add(call.id);
+                      return next;
+                    })} />
                 ))}
               </tbody>
             </table>
@@ -673,10 +687,10 @@ export default function CallsPage() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={async () => {
-                    if (!confirm('Delete this call?')) return;
+                    if (!confirm(t('calls.deleteConfirm'))) return;
                     try {
                       await api.delete(`/calls/${selected.id}`);
-                      toast.success('Call deleted');
+                      toast.success(t('calls.deleted'));
                       closeDetail();
                       loadCalls();
                     } catch (e: any) { toast.error(e.message); }
@@ -701,7 +715,7 @@ export default function CallsPage() {
               {/* Phone cards */}
               <div className="flex gap-3">
                 <div className="flex-1 rounded-xl bg-[var(--th-surface)] border border-[var(--th-border)] p-3 text-center">
-                  <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase mb-0.5">From</p>
+                  <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase mb-0.5">{t('calls.from')}</p>
                   <p className="text-sm font-bold text-[var(--th-text)] tracking-wide">{selected.from_number || '—'}</p>
                 </div>
                 <div className="flex items-center">
@@ -712,7 +726,7 @@ export default function CallsPage() {
                   </span>
                 </div>
                 <div className="flex-1 rounded-xl bg-[var(--th-surface)] border border-[var(--th-border)] p-3 text-center">
-                  <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase mb-0.5">To</p>
+                  <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase mb-0.5">{t('calls.to')}</p>
                   <p className="text-sm font-bold text-[var(--th-text)] tracking-wide">{selected.to_number || '—'}</p>
                 </div>
               </div>
@@ -844,7 +858,7 @@ export default function CallsPage() {
                                 <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
                                   entry.role === 'agent' ? 'text-white/60' : 'text-[var(--th-text-muted)]'
                                 }`}>
-                                  {entry.role === 'agent' ? 'Agent' : 'Caller'}
+                                  {entry.role === 'agent' ? t('calls.agentRole') : t('calls.callerRole')}
                                   {entry.timestamp && <span className="ml-1.5 font-normal normal-case tracking-normal">{entry.timestamp}</span>}
                                 </p>
                                 <p className="text-sm leading-relaxed">{entry.content}</p>

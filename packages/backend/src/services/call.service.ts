@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, count, gte, lte, inArray } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, count, gte, lte, inArray, getTableColumns } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { calls, aiCallSessions, callEvents } from '../db/schema.js';
 import { NotFoundError } from '../lib/errors.js';
@@ -152,10 +152,16 @@ export async function listCalls(
 
   const total = countResult?.total ?? 0;
 
-  // Data query
+  // Data query with LEFT JOIN to get summary/sentiment from ai_call_sessions
   const rows = await db
-    .select()
+    .select({
+      ...getTableColumns(calls),
+      summary: aiCallSessions.summary,
+      sentiment: aiCallSessions.sentiment,
+      qa_score: aiCallSessions.qa_score,
+    })
     .from(calls)
+    .leftJoin(aiCallSessions, eq(aiCallSessions.call_id, calls.id))
     .where(whereClause)
     .orderBy(desc(calls.created_at))
     .limit(limit)
