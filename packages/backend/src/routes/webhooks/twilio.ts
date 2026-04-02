@@ -36,6 +36,19 @@ const recordingSchema = z.object({
 });
 
 const twilioRoutes: FastifyPluginAsync = async (app) => {
+  // Twilio sends application/x-www-form-urlencoded
+  app.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      try {
+        done(null, Object.fromEntries(new URLSearchParams(body as string).entries()));
+      } catch (e) {
+        done(e as Error, undefined);
+      }
+    },
+  );
+
   app.addHook('onRequest', validateTwilioSignature);
 
   app.post('/inbound', async (request, reply) => {
