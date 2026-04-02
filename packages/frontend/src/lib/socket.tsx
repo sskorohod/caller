@@ -16,16 +16,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || typeof window === 'undefined') return;
 
-    // Connect to backend Socket.IO (same origin, /socket.io path)
-    const s = io({
+    const s = io(window.location.origin, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      path: '/socket.io/',
     });
 
-    s.on('connect', () => setConnected(true));
-    s.on('disconnect', () => setConnected(false));
+    s.on('connect', () => { console.log('[Socket.IO] Connected'); setConnected(true); });
+    s.on('disconnect', (reason) => { console.log('[Socket.IO] Disconnected:', reason); setConnected(false); });
+    s.on('connect_error', (err) => { console.error('[Socket.IO] Error:', err.message); });
 
     setSocket(s);
     return () => { s.disconnect(); };
