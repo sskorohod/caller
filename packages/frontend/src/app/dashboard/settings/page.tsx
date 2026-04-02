@@ -632,6 +632,18 @@ function TwilioCard({
     }
   }
 
+  const [phoneAgents, setPhoneAgents] = useState<SimpleAgent[]>([]);
+  useEffect(() => {
+    api.get<SimpleAgent[]>('/agents').then(r => setPhoneAgents(Array.isArray(r) ? r : [])).catch(() => {});
+  }, []);
+
+  async function updateConnection(connId: string, updates: Record<string, unknown>) {
+    try {
+      await api.patch(`/telephony/connections/${connId}`, updates);
+      api.get<TelephonyConnection[]>('/telephony/connections').then(c => setConnections(Array.isArray(c) ? c : []));
+    } catch (e: any) { setError(e.message); }
+  }
+
   const activeNumbers = new Set(connections.map(c => c.phone_number));
 
   return (
@@ -732,8 +744,8 @@ function TwilioCard({
                 const isActive = activeNumbers.has(phone.phone_number);
                 const conn = connections.find(c => c.phone_number === phone.phone_number);
                 return (
+                  <div key={phone.sid} className="space-y-0">
                   <div
-                    key={phone.sid}
                     className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
                       isActive
                         ? 'bg-[#f0fdf4] border-[#bbf7d0]'
@@ -760,7 +772,6 @@ function TwilioCard({
                     <div className="flex items-center gap-2">
                       {isActive ? (
                         <>
-                          <span className="text-xs text-[#16a34a] font-medium">Active</span>
                           {confirmDeactivate?.id === conn?.id ? (
                             <div className="flex items-center gap-2">
                               <button onClick={handleDeactivateConfirm} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Confirm</button>
@@ -785,6 +796,32 @@ function TwilioCard({
                         </button>
                       )}
                     </div>
+                  </div>
+                  {/* Agent assignment + AI toggle for active numbers */}
+                  {isActive && conn && (
+                    <div className="flex items-center gap-3 mt-2 ml-10 pl-4 border-l-2 border-[#e2e8f0]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-[#94a3b8] uppercase font-semibold">AI</span>
+                        <button
+                          onClick={() => updateConnection(conn.id, { ai_answering_enabled: !conn.ai_answering_enabled })}
+                          className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${conn.ai_answering_enabled ? 'bg-[#6366f1]' : 'bg-[#e2e8f0]'}`}
+                          aria-label="Toggle AI answering"
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${conn.ai_answering_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                      <select
+                        value={conn.default_agent_profile_id ?? ''}
+                        onChange={e => updateConnection(conn.id, { default_agent_profile_id: e.target.value || null })}
+                        className="text-xs px-2 py-1 rounded-lg border border-[#e2e8f0] bg-white text-[#0f172a]"
+                      >
+                        <option value="">No agent</option>
+                        {phoneAgents.map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   </div>
                 );
               })}

@@ -8,8 +8,8 @@ interface Call {
   id: string;
   direction: 'inbound' | 'outbound';
   status: string;
-  phone_number_to: string;
-  phone_number_from: string;
+  from_number: string;
+  to_number: string;
   duration_seconds: number | null;
   summary: string | null;
   sentiment_score: number | null;
@@ -21,6 +21,23 @@ interface TranscriptEntry {
   role: 'agent' | 'caller';
   content: string;
   timestamp?: string;
+}
+
+/** Backend may return transcript entries with { speaker, text } instead of { role, content } */
+interface RawTranscriptEntry {
+  speaker?: string;
+  role?: string;
+  text?: string;
+  content?: string;
+  timestamp?: string;
+}
+
+function normalizeTranscript(raw: RawTranscriptEntry[]): TranscriptEntry[] {
+  return raw.map(entry => ({
+    role: (entry.role ?? entry.speaker ?? 'caller') as 'agent' | 'caller',
+    content: entry.content ?? entry.text ?? '',
+    timestamp: entry.timestamp,
+  }));
 }
 
 interface AiSession {
@@ -171,7 +188,13 @@ export default function CallsPage() {
     setDetail(null);
     setDetailLoading(true);
     api.get<CallDetail>(`/calls/${call.id}/detail`)
-      .then(r => setDetail(r))
+      .then(r => {
+        // Normalize transcript fields: backend may return { speaker, text } instead of { role, content }
+        if (r?.session?.transcript && Array.isArray(r.session.transcript)) {
+          r.session.transcript = normalizeTranscript(r.session.transcript as RawTranscriptEntry[]);
+        }
+        setDetail(r);
+      })
       .catch(() => setDetail(null))
       .finally(() => setDetailLoading(false));
   }, []);
@@ -183,7 +206,7 @@ export default function CallsPage() {
 
   // Client-side search filter (phone number)
   const filtered = calls.filter(c => {
-    const matchSearch = !search || c.phone_number_to?.includes(search) || c.phone_number_from?.includes(search);
+    const matchSearch = !search || c.to_number?.includes(search) || c.from_number?.includes(search);
     return matchSearch;
   });
 
@@ -202,7 +225,7 @@ export default function CallsPage() {
       const agentMap = new Map(agents.map(a => [a.id, a.name]));
       const csvRows = rows.map(c => [
         new Date(c.created_at).toISOString(),
-        c.direction === 'outbound' ? (c.phone_number_to ?? '') : (c.phone_number_from ?? ''),
+        c.direction === 'outbound' ? (c.to_number ?? '') : (c.from_number ?? ''),
         c.direction,
         c.status,
         fmtDuration(c.duration_seconds),
@@ -227,7 +250,7 @@ export default function CallsPage() {
       const ts = entry.timestamp ? ` [${entry.timestamp}]` : '';
       return `${speaker}${ts}: ${entry.content}`;
     });
-    const phone = selected?.direction === 'outbound' ? selected?.phone_number_to : selected?.phone_number_from;
+    const phone = selected?.direction === 'outbound' ? selected?.to_number : selected?.from_number;
     const filename = `transcript-${phone ?? 'call'}-${new Date(selected?.created_at ?? '').toISOString().slice(0,10)}.txt`;
     downloadFile(lines.join('\n'), filename, 'text/plain');
     toast.success(t('calls.transcriptDownloaded'));
@@ -433,7 +456,7 @@ export default function CallsPage() {
                 {filtered.map(call => (
                   <tr key={call.id} className="hover:bg-[#f8fafc] transition-colors cursor-pointer" onClick={() => openDetail(call)}>
                     <td className="px-5 py-3.5 text-sm font-medium text-[#0f172a]">
-                      {call.direction === 'outbound' ? call.phone_number_to : call.phone_number_from}
+                      {call.direction === 'outbound' ? call.to_number : call.from_number}
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${call.direction === 'outbound' ? 'bg-[#eef2ff] text-[#6366f1]' : 'bg-[#f0fdf4] text-[#16a34a]'}`}>
@@ -481,19 +504,53 @@ export default function CallsPage() {
                 <h2 className="text-base font-semibold text-[#0f172a]">{t('calls.callDetail')}</h2>
                 <p className="text-xs text-[#94a3b8] mt-0.5">{fmtDate(selected.created_at)}</p>
               </div>
-              <button onClick={closeDetail} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg transition-colors" aria-label="Close">
-                <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Delete this call?`)) return;
+                    try {
+                      await api.delete(`/calls/${selected.id}`);
+                      toast.success('Call deleted');
+                      closeDetail();
+                      loadCalls();
+                    } catch (e: any) { toast.error(e.message); }
+                  }}
+                  className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                  aria-label="Delete call"
+                >
+                  <svg className="w-4 h-4 text-[#94a3b8] hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                </button>
+                <button onClick={closeDetail} className="p-1.5 hover:bg-[#f1f5f9] rounded-lg transition-colors" aria-label="Close">
+                  <svg className="w-4 h-4 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Scrollable body */}
             <div className="px-6 py-5 space-y-5 overflow-y-auto">
+              {/* Phone numbers - prominent display */}
+              <div className="flex gap-4">
+                <div className="flex-1 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 text-center">
+                  <p className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide mb-1">From</p>
+                  <p className="text-base font-bold text-[#0f172a] tracking-wide">{selected.from_number || '\u2014'}</p>
+                </div>
+                <div className="flex items-center">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${selected.direction === 'outbound' ? 'bg-[#eef2ff] text-[#6366f1]' : 'bg-[#f0fdf4] text-[#16a34a]'}`}>
+                    {selected.direction === 'outbound' ? '\u2192' : '\u2190'}
+                  </span>
+                </div>
+                <div className="flex-1 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 text-center">
+                  <p className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-wide mb-1">To</p>
+                  <p className="text-base font-bold text-[#0f172a] tracking-wide">{selected.to_number || '\u2014'}</p>
+                </div>
+              </div>
+
               {/* Basic info */}
               {[
-                ['From', selected.phone_number_from],
-                ['To', selected.phone_number_to],
                 ['Direction', selected.direction],
                 ['Status', selected.status],
                 ['Duration', fmtDuration(selected.duration_seconds)],

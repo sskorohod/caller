@@ -62,6 +62,15 @@ export async function getCall(workspaceId: string, callId: string): Promise<Call
   return row as unknown as Call;
 }
 
+export async function deleteCall(workspaceId: string, callId: string): Promise<void> {
+  // Delete related records first
+  await db.delete(callEvents).where(eq(callEvents.call_id, callId));
+  await db.delete(aiCallSessions).where(eq(aiCallSessions.call_id, callId));
+  await db.delete(calls).where(
+    and(eq(calls.id, callId), eq(calls.workspace_id, workspaceId)),
+  );
+}
+
 export async function updateCallStatus(
   callId: string,
   status: CallStatus,

@@ -67,6 +67,48 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
+  // PATCH /api/telephony/connections/:id — update connection settings (agent, AI answering)
+  app.patch('/connections/:id', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      default_agent_profile_id: z.string().uuid().nullable().optional(),
+      ai_answering_enabled: z.boolean().optional(),
+      inbound_enabled: z.boolean().optional(),
+      outbound_enabled: z.boolean().optional(),
+      friendly_name: z.string().optional(),
+    }).parse(request.body);
+
+    const { db } = await import('../../config/db.js');
+    const { telephonyConnections } = await import('../../db/schema.js');
+    const { eq, and } = await import('drizzle-orm');
+
+    const updates: Record<string, unknown> = { updated_at: new Date() };
+    if (body.default_agent_profile_id !== undefined) updates.default_agent_profile_id = body.default_agent_profile_id;
+    if (body.ai_answering_enabled !== undefined) updates.ai_answering_enabled = body.ai_answering_enabled;
+    if (body.inbound_enabled !== undefined) updates.inbound_enabled = body.inbound_enabled;
+    if (body.outbound_enabled !== undefined) updates.outbound_enabled = body.outbound_enabled;
+    if (body.friendly_name !== undefined) updates.friendly_name = body.friendly_name;
+
+    const [updated] = await db
+      .update(telephonyConnections)
+      .set(updates)
+      .where(
+        and(
+          eq(telephonyConnections.id, id),
+          eq(telephonyConnections.workspace_id, request.auth.workspaceId),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new Error('Connection not found');
+    }
+
+    return updated;
+  });
+
   // DELETE /api/telephony/connections/:id
   app.delete('/connections/:id', {
     preHandler: [requireRole('owner', 'admin')],

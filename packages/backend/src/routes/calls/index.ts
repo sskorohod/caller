@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { authenticateUser, authenticateApiKey } from '../../middleware/auth.js';
+import { authenticateUser, authenticateApiKey, requireRole } from '../../middleware/auth.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
@@ -253,6 +253,15 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     ]);
 
     return { call, session, events };
+  });
+
+  // DELETE /api/calls/:id
+  app.delete('/:id', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    await callService.deleteCall(request.auth.workspaceId, id);
+    return { deleted: true };
   });
 };
 
