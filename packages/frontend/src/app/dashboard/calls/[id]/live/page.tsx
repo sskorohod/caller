@@ -108,9 +108,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const TONE_PRESETS = [
-  { label: '\u{1F91D} Formal', instruction: 'Switch your communication style to formal and professional. Use polite language, avoid slang.' },
-  { label: '\u{1F60A} Friendly', instruction: 'Switch your communication style to warm and friendly. Be casual, use humor where appropriate.' },
-  { label: '\u{26A1} Urgent', instruction: 'Switch to urgent mode. Be direct, concise, focus on solving the problem quickly.' },
+  { key: 'formal', emoji: '🤝', labelKey: 'live.toneFormal', instruction: 'Switch your communication style to formal and professional. Use polite language, avoid slang.' },
+  { key: 'friendly', emoji: '😊', labelKey: 'live.toneFriendly', instruction: 'Switch your communication style to warm and friendly. Be casual, use humor where appropriate.' },
+  { key: 'urgent', emoji: '⚡', labelKey: 'live.toneUrgent', instruction: 'Switch to urgent mode. Be direct, concise, focus on solving the problem quickly.' },
 ];
 
 const LANGUAGES = [
@@ -150,6 +150,7 @@ export default function LiveCallPage() {
 
   // Instruction input
   const [instruction, setInstruction] = useState('');
+  const [activeTone, setActiveTone] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
@@ -600,14 +601,20 @@ export default function LiveCallPage() {
             <div className="flex gap-2 overflow-x-auto px-4 py-2 border-t border-[var(--th-border-light)]">
               {TONE_PRESETS.map(tone => (
                 <button
-                  key={tone.label}
+                  key={tone.key}
                   onClick={() => {
                     socket?.emit('call:instruction', { call_id: callId, text: tone.instruction });
-                    toast.info(`Tone: ${tone.label}`);
+                    setActiveTone(tone.key);
+                    toast.success(`${tone.emoji} ${t(tone.labelKey)}`);
+                    setTimeout(() => setActiveTone(prev => prev === tone.key ? null : prev), 5000);
                   }}
-                  className="shrink-0 px-3 py-1.5 border border-[#6366f1]/30 rounded-lg text-xs font-medium text-[#6366f1] hover:bg-[#eef2ff] transition-colors"
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeTone === tone.key
+                      ? 'bg-[#6366f1] text-white border border-[#6366f1] shadow-sm'
+                      : 'border border-[#6366f1]/30 text-[#6366f1] hover:bg-[#eef2ff]'
+                  }`}
                 >
-                  {tone.label}
+                  {tone.emoji} {t(tone.labelKey)}
                 </button>
               ))}
               {agentSkills.map(skill => (
