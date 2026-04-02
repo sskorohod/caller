@@ -109,7 +109,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       eventData: { callerNumber, calledNumber, callSid },
     });
 
-    const streamUrl = `wss://${env.API_DOMAIN}/ws/media-stream/${call.id}`;
+    const streamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${call.id}`;
     const disclosure = workspace.call_recording_disclosure
       ? (agentProfile.language === 'ru'
         ? 'Этот звонок может быть записан для повышения качества обслуживания.'
