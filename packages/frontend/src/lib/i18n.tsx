@@ -407,6 +407,7 @@ const en: Record<string, string> = {
   'calls.sentiment_negative': 'Negative',
   'calls.clearFilters': 'Clear',
   'calls.applyFilters': 'Apply',
+  'calls.sentiment_mixed': 'Mixed',
 
   // Nav
   'nav.audit': 'Audit Log',
@@ -871,6 +872,7 @@ const ru: Record<string, string> = {
   'calls.sentiment_negative': 'Негативная',
   'calls.clearFilters': 'Сбросить',
   'calls.applyFilters': 'Применить',
+  'calls.sentiment_mixed': 'Смешанная',
 
   // Nav
   'nav.audit': 'Аудит',
