@@ -70,14 +70,17 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
 
     // Live call monitoring: send operator instruction to active call
     socket.on('call:instruction', async ({ call_id, text }: { call_id: string; text: string }) => {
+      console.log(`[Socket.IO] call:instruction received: call_id=${call_id}, text=${text?.slice(0, 50)}`);
       try {
         const { getActiveOrchestrator } = await import('../routes/webhooks/media-stream.js');
         const orch = getActiveOrchestrator(call_id);
+        console.log(`[Socket.IO] Orchestrator found: ${!!orch}, hasInject: ${'injectInstruction' in (orch || {})}`);
         if (orch && 'injectInstruction' in orch) {
           (orch as any).injectInstruction(text);
+          console.log(`[Socket.IO] Instruction injected successfully`);
         }
-      } catch {
-        // Orchestrator not found or not active — ignore silently
+      } catch (err) {
+        console.error(`[Socket.IO] Instruction error:`, err);
       }
     });
 
