@@ -89,6 +89,11 @@ await app.register(import('./routes/webhook-endpoints/index.js'), { prefix: '/ap
 await app.register(import('./routes/connectors/index.js'), { prefix: '/api/connectors' });
 await app.register(import('./routes/audit/index.js'), { prefix: '/api/audit-logs' });
 
+// Start post-call worker (BullMQ)
+import { startPostCallWorker } from './workers/post-call.worker.js';
+startPostCallWorker();
+app.log.info('Post-call worker started');
+
 // Start
 try {
   await app.listen({ port: env.PORT, host: env.HOST });

@@ -37,7 +37,14 @@ interface TelephonyConnection {
   friendly_name: string | null;
   inbound_enabled: boolean;
   outbound_enabled: boolean;
+  ai_answering_enabled: boolean;
+  default_agent_profile_id: string | null;
   created_at: string;
+}
+
+interface SimpleAgent {
+  id: string;
+  name: string;
 }
 
 interface OAuthClient {
@@ -527,6 +534,8 @@ function TwilioCard({
   const [activating, setActivating]       = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<TelephonyConnection | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+  const [updatingConn, setUpdatingConn] = useState<string | null>(null);
 
   const isConnected = existingProvider?.is_verified === true;
 
