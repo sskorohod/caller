@@ -123,6 +123,11 @@ export async function listTelephonyConnections(workspaceId: string): Promise<Tel
   return rows as unknown as TelephonyConnection[];
 }
 
+export async function updateActiveCall(workspaceId: string, callSid: string, twiml: string): Promise<void> {
+  const client = await getTwilioClient(workspaceId);
+  await client.calls(callSid).update({ twiml });
+}
+
 export async function createTelephonyConnection(params: {
   workspaceId: string;
   phoneNumber: string;

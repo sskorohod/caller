@@ -428,6 +428,12 @@ const en: Record<string, string> = {
   'live.voiceInput': 'Voice input',
   'live.instructionSent': 'Instruction sent',
   'live.back': 'Back to calls',
+  'live.takeOver': 'Take Over',
+  'live.takeOverDesc': 'Stop AI and connect to the call',
+  'live.phoneNumber': 'Your phone number',
+  'live.connecting': 'Connecting...',
+  'live.connect': 'Connect',
+  'live.operatorConnected': 'Operator connected',
 };
 
 const ru: Record<string, string> = {
@@ -855,6 +861,12 @@ const ru: Record<string, string> = {
   'live.voiceInput': 'Голосовой ввод',
   'live.instructionSent': 'Инструкция отправлена',
   'live.back': 'Назад к звонкам',
+  'live.takeOver': 'Взять трубку',
+  'live.takeOverDesc': 'Остановить AI и подключиться к звонку',
+  'live.phoneNumber': 'Ваш номер телефона',
+  'live.connecting': 'Подключение...',
+  'live.connect': 'Подключить',
+  'live.operatorConnected': 'Оператор подключён',
 };
 
 // ─── Dictionaries map ────────────────────────────────────────────────────────

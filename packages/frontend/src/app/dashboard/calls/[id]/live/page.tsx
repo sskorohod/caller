@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useSocket } from '@/lib/socket';
 import { useT } from '@/lib/i18n';
+import { useToast } from '@/lib/toast';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export default function LiveCallPage() {
   const router = useRouter();
   const t = useT();
   const { socket } = useSocket();
+  const toast = useToast();
   const callId = params.id as string;
 
   // Call data
@@ -135,6 +137,12 @@ export default function LiveCallPage() {
   const [instruction, setInstruction] = useState('');
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Takeover
+  const [showTakeover, setShowTakeover] = useState(false);
+  const [takeoverPhone, setTakeoverPhone] = useState('');
+  const [takeoverLoading, setTakeoverLoading] = useState(false);
+  const [operatorConnected, setOperatorConnected] = useState(false);
 
   // ─── Load call detail ───────────────────────────────────────────────────
 
@@ -185,12 +193,19 @@ export default function LiveCallPage() {
       setCallData(prev => prev ? { ...prev, status: data.status } : prev);
     };
 
+    const handleTakeoverStarted = (data: { call_id: string; mode: string }) => {
+      if (data.call_id !== callId) return;
+      setOperatorConnected(true);
+    };
+
     socket.on('call:transcript', handleTranscript);
     socket.on('call:status', handleStatus);
+    socket.on('call:takeover:started', handleTakeoverStarted);
 
     return () => {
       socket.off('call:transcript', handleTranscript);
       socket.off('call:status', handleStatus);
+      socket.off('call:takeover:started', handleTakeoverStarted);
     };
   }, [socket, callId]);
 
@@ -277,6 +292,22 @@ export default function LiveCallPage() {
     setListening(true);
   }, [listening]);
 
+  // ─── Takeover handler ───────────────────────────────────────────────────
+
+  const handleTakeover = useCallback(async () => {
+    if (!takeoverPhone.trim()) return;
+    setTakeoverLoading(true);
+    try {
+      await api.post(`/calls/${callId}/takeover`, { mode: 'phone', phone_number: takeoverPhone });
+      setShowTakeover(false);
+      toast.success(t('live.operatorConnected'));
+    } catch (e: any) {
+      toast.error(e.message || 'Takeover failed');
+    } finally {
+      setTakeoverLoading(false);
+    }
+  }, [takeoverPhone, callId, toast, t]);
+
   // ─── Expand past call transcript ────────────────────────────────────────
 
   const toggleExpandCall = useCallback((pastCallId: string) => {
@@ -347,6 +378,19 @@ export default function LiveCallPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
           </span>
+        )}
+        {operatorConnected && (
+          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700">
+            {t('live.operatorConnected')}
+          </span>
+        )}
+        {isActive && !operatorConnected && (
+          <button
+            onClick={() => setShowTakeover(true)}
+            className="ml-auto px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+          >
+            {t('live.takeOver')}
+          </button>
         )}
       </div>
 
@@ -565,6 +609,39 @@ export default function LiveCallPage() {
           )}
         </div>
       </div>
+
+      {/* Takeover modal */}
+      {showTakeover && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="text-lg font-bold text-[#0f172a]">{t('live.takeOver')}</h3>
+            <p className="text-sm text-[#64748b]">{t('live.takeOverDesc')}</p>
+            <input
+              type="tel"
+              value={takeoverPhone}
+              onChange={e => setTakeoverPhone(e.target.value)}
+              placeholder={t('live.phoneNumber')}
+              className="w-full px-4 py-2.5 rounded-lg border border-[#e2e8f0] text-sm text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+              autoFocus
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowTakeover(false)}
+                className="px-4 py-2 text-sm text-[#64748b] hover:text-[#0f172a] transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleTakeover}
+                disabled={!takeoverPhone.trim() || takeoverLoading}
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {takeoverLoading ? t('live.connecting') : t('live.connect')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSS animation */}
       <style>{`

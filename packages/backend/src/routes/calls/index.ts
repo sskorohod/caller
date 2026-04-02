@@ -370,6 +370,46 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     return { translated: data.choices[0]?.message?.content?.trim() ?? '' };
   });
 
+  // POST /api/calls/:id/takeover — stop AI and connect operator
+  app.post('/:id/takeover', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      mode: z.enum(['phone']),
+      phone_number: z.string().optional(),
+    }).parse(request.body);
+
+    // Get call from DB
+    const call = await callService.getCall(request.auth.workspaceId, id);
+    if (!call.twilio_call_sid) throw new ValidationError('No Twilio call SID');
+
+    // Stop AI orchestrator
+    const { getActiveOrchestrator } = await import('../../routes/webhooks/media-stream.js');
+    const orch = getActiveOrchestrator(id);
+    if (orch) orch.stop('operator_takeover');
+
+    // Get workspace outbound number for caller ID
+    const conn = await telephonyService.getOutboundConnection(request.auth.workspaceId);
+
+    // Generate TwiML to dial operator
+    const twiml = `<Response><Say>Connecting you to an operator.</Say><Dial callerId="${conn.phone_number}"><Number>${body.phone_number}</Number></Dial></Response>`;
+
+    await telephonyService.updateActiveCall(request.auth.workspaceId, call.twilio_call_sid, twiml);
+
+    // Update call status
+    await callService.updateCallStatus(id, 'in_progress', {
+      conversation_owner_actual: 'internal',
+      fallback_reason: 'operator_takeover',
+    } as any);
+
+    // Emit event
+    const io = (await import('../../realtime/io.js')).getIo();
+    io?.to(`call:${id}`).emit('call:takeover:started', { call_id: id, mode: 'phone' });
+
+    return { ok: true, mode: 'phone' };
+  });
+
   // DELETE /api/calls/:id
   app.delete('/:id', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
