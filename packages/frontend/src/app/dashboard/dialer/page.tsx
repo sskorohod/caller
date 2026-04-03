@@ -286,6 +286,7 @@ export default function DialerPage() {
   }, [hangup]);
 
   const handleNewCall = useCallback(() => {
+    hangup(); // ensure previous call is fully disconnected
     setCallState('idle');
     setCallId(null);
     setTranscript([]);
@@ -293,7 +294,7 @@ export default function DialerPage() {
     setDuration(0);
     setError(null);
     setTranslateTo('ru');
-  }, []);
+  }, [hangup]);
 
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60);
