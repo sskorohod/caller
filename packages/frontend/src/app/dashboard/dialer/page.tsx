@@ -446,22 +446,20 @@ export default function DialerPage() {
         </div>
 
         {/* Translation panel */}
-        {(callState === 'in_call' || callState === 'ended') && (
-          <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-surface)] p-4">
-            <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
-              {t('dialer.translateTo')}
-            </label>
-            <select
-              value={translateTo}
-              onChange={e => setTranslateTo(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
-            >
-              {TRANSLATE_LANGUAGES.map(l => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-surface)] p-4">
+          <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
+            {t('dialer.translateTo')}
+          </label>
+          <select
+            value={translateTo}
+            onChange={e => setTranslateTo(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+          >
+            {TRANSLATE_LANGUAGES.map(l => (
+              <option key={l.value} value={l.value}>{l.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Right: Transcript */}
