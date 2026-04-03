@@ -41,11 +41,6 @@ interface MissionDetail {
   messages: MissionMessage[];
 }
 
-interface SendMessageResponse {
-  message: MissionMessage;
-  ai_response: MissionMessage;
-}
-
 interface PlanAction {
   action: string;
   plan: {
@@ -186,14 +181,12 @@ export default function MissionChatPage() {
     setInput('');
 
     try {
-      const res = await api.post<SendMessageResponse>(`/missions/${missionId}/messages`, {
+      const res = await api.post<{ ai_response: string; mission: Mission }>(`/missions/${missionId}/messages`, {
         content: text,
       });
-      setMessages((prev) => {
-        const ids = new Set(prev.map((m) => m.id));
-        const newMsgs = [res.message, res.ai_response].filter((m) => !ids.has(m.id));
-        return [...prev, ...newMsgs];
-      });
+      // Messages are added via Socket.IO events from mission service
+      // Update mission state from response
+      if (res.mission) setMission(res.mission);
     } catch (e: any) {
       toast.error(e.message || t('common.error'));
       // Restore the input so user doesn't lose their message

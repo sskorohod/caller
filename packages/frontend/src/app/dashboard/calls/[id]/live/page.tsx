@@ -196,7 +196,7 @@ export default function LiveCallPage() {
         if (phone) {
           api.get<CallerHistory>(`/calls/by-phone/${encodeURIComponent(phone)}`)
             .then(h => {
-              setCallerHistory((h.calls ?? []).filter(c => c.id !== callId));
+              setCallerHistory((h.calls ?? []).filter(c => c && c.id !== callId));
               setMemoryFacts(h.memory_facts ?? []);
             })
             .catch(() => {});

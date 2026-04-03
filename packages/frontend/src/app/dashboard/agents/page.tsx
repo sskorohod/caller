@@ -106,7 +106,7 @@ export default function AgentsPage() {
     setLoadError('');
     api.get<{ agents: Agent[] }>('/agents')
       .then(async (r) => {
-        const list = r?.agents ?? [];
+        const list = (r?.agents ?? []).filter(Boolean);
         // Load skill packs for each agent in parallel
         const withPacks = await Promise.all(list.map(async (a) => {
           try {

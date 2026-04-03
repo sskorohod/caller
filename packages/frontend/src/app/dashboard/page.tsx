@@ -557,7 +557,7 @@ export default function OverviewPage() {
     Promise.all([
       api.get<DashboardStats>('/calls/stats').catch(() => null),
       api.get<{ calls: RecentCall[] }>('/calls?limit=6').then(r => r?.calls ?? []).catch(() => []),
-      api.get<{ agents: Agent[] }>('/agents').then(r => r?.agents ?? []).catch(() => []),
+      api.get<{ agents: Agent[] }>('/agents').then(r => (r?.agents ?? []).filter(Boolean)).catch(() => []),
       api.get<TelConnection[]>('/telephony/connections').catch(() => []),
     ]).then(([s, c, a, conn]) => {
       setStats(s);
