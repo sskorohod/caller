@@ -114,10 +114,12 @@ export default function DialerPage() {
           if (!data.isFinal && last.speaker === speaker && !last.isFinal) {
             return [...prev.slice(0, -1), { ...last, text: data.text, timestamp: data.timestamp }];
           }
-          // Append final text to last entry from same speaker if it has no translation yet
-          // This merges rapid isFinal segments ("Hi. How are" + "you?") into one bubble
-          if (data.isFinal && last.speaker === speaker && last.isFinal && !last.translated) {
-            return [...prev.slice(0, -1), { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp }];
+          // Merge consecutive isFinal from same speaker into one bubble (within 3s gap)
+          if (data.isFinal && last.speaker === speaker && last.isFinal) {
+            const gap = new Date(data.timestamp).getTime() - new Date(last.timestamp).getTime();
+            if (gap < 3000) {
+              return [...prev.slice(0, -1), { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp }];
+            }
           }
         }
         return [...prev, { speaker, text: data.text, timestamp: data.timestamp, isFinal: data.isFinal }];
@@ -134,24 +136,19 @@ export default function DialerPage() {
     const onTranslation = (data: { call_id: string; speaker: string; original: string; translated: string; timestamp: string }) => {
       if (data.call_id !== callId) return;
       setTranscript(prev => {
-        // Find matching transcript entry by original text content
+        // Find the last final entry from same speaker — append/set translation
         const idx = [...prev].reverse().findIndex(
-          e => e.speaker === data.speaker && e.isFinal && e.text === data.original
+          e => e.speaker === data.speaker && e.isFinal
         );
         if (idx >= 0) {
           const realIdx = prev.length - 1 - idx;
+          const entry = prev[realIdx];
           const updated = [...prev];
-          updated[realIdx] = { ...updated[realIdx], translated: data.translated };
-          return updated;
-        }
-        // Fallback: find last final entry from same speaker without translation
-        const idx2 = [...prev].reverse().findIndex(
-          e => e.speaker === data.speaker && e.isFinal && !e.translated
-        );
-        if (idx2 >= 0) {
-          const realIdx2 = prev.length - 1 - idx2;
-          const updated = [...prev];
-          updated[realIdx2] = { ...updated[realIdx2], translated: data.translated };
+          // Append to existing translation if already has one (instant mode sends multiple)
+          const newTranslated = entry.translated
+            ? entry.translated + ' ' + data.translated
+            : data.translated;
+          updated[realIdx] = { ...entry, translated: newTranslated };
           return updated;
         }
         return prev;
