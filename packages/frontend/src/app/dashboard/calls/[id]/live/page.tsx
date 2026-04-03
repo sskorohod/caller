@@ -418,9 +418,9 @@ export default function LiveCallPage() {
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-[calc(100vh-120px)]">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0 mb-4">
         <button
           onClick={() => router.push('/dashboard/calls')}
           className="p-2 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-colors"
@@ -454,11 +454,11 @@ export default function LiveCallPage() {
         )}
       </div>
 
-      {/* Two-column layout */}
-      <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
+      {/* Two-column layout — fills remaining height */}
+      <div className="flex flex-col lg:flex-row gap-4 min-h-0 flex-1">
 
         {/* ─── Left Column: Caller Info (40%) — scrollable ─────────────── */}
-        <div className="w-full lg:w-2/5 space-y-4 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto">
+        <div className="w-full lg:w-2/5 space-y-4 lg:overflow-y-auto min-h-0">
 
           {/* Caller card */}
           <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
@@ -543,8 +543,8 @@ export default function LiveCallPage() {
           </div>
         </div>
 
-        {/* ─── Right Column: Live Transcript (60%) — sticky ────────────── */}
-        <div className="w-full lg:w-3/5 flex flex-col bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden lg:sticky lg:top-4" style={{ height: 'calc(100vh - 120px)' }}>
+        {/* ─── Right Column: Live Transcript (60%) — fills height ─────── */}
+        <div className="w-full lg:w-3/5 flex flex-col bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden min-h-0 flex-1 lg:flex-none lg:h-full">
 
           {/* Transcript header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--th-border-light)]">
