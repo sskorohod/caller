@@ -6,6 +6,7 @@ import { useSocket } from '@/lib/socket';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
 import { useCallAudio, type AudioChannel } from '@/lib/use-call-audio';
+import { useTwilioDevice } from '@/lib/use-twilio-device';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -161,11 +162,15 @@ export default function LiveCallPage() {
   // Call audio listening
   const { isListening, channel: audioChannel, volume: audioVolume, startListening, stopListening, setChannel: setAudioChannel, setVolume: setAudioVolume } = useCallAudio(callId);
 
+  // Twilio Device for browser takeover
+  const { isReady: deviceReady, activeCall: twilioCall, isMuted, initDevice, hangup: twilioHangup, toggleMute } = useTwilioDevice();
+
   // Takeover
   const [showTakeover, setShowTakeover] = useState(false);
   const [takeoverPhone, setTakeoverPhone] = useState('');
   const [takeoverLoading, setTakeoverLoading] = useState(false);
   const [operatorConnected, setOperatorConnected] = useState(false);
+  const [takeoverMode, setTakeoverMode] = useState<'browser' | 'phone'>('browser');
 
   // ─── Load call detail ───────────────────────────────────────────────────
 
@@ -357,6 +362,23 @@ export default function LiveCallPage() {
   }, [listening, t]);
 
   // ─── Takeover handler ───────────────────────────────────────────────────
+
+  const handleBrowserTakeover = useCallback(async () => {
+    setTakeoverLoading(true);
+    try {
+      // Init Twilio Device first so it's ready to receive the incoming call
+      await initDevice();
+      // Stop audio listening to avoid echo
+      if (isListening) stopListening();
+      await api.post(`/calls/${callId}/takeover`, { mode: 'browser' });
+      setShowTakeover(false);
+      toast.success(t('live.operatorConnected'));
+    } catch (e: any) {
+      toast.error(e.message || 'Browser takeover failed');
+    } finally {
+      setTakeoverLoading(false);
+    }
+  }, [callId, initDevice, isListening, stopListening, toast, t]);
 
   const handleTakeover = useCallback(async () => {
     if (!takeoverPhone.trim()) return;
@@ -775,35 +797,80 @@ export default function LiveCallPage() {
         </div>
       </div>
 
+      {/* Browser call controls (when operator is on the line) */}
+      {twilioCall && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--th-card)] border border-[var(--th-border)] rounded-2xl shadow-2xl px-6 py-3 flex items-center gap-4">
+          <span className="flex items-center gap-2 text-sm font-medium text-[var(--th-success-text)]">
+            <span className="w-2 h-2 rounded-full bg-[var(--th-success-icon)] animate-pulse" />
+            You are live
+          </span>
+          <button
+            onClick={toggleMute}
+            className={`p-2 rounded-lg transition-colors ${isMuted ? 'bg-red-100 text-red-600' : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)]'}`}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {isMuted ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 19L17.591 17.591L5.409 5.409L4 4M12 18.75C8.136 18.75 5.25 15.864 5.25 12V10.5M18.75 10.5V12C18.75 12.847 18.601 13.659 18.327 14.411M12 15.75a3 3 0 01-2.818-1.932M12 15.75V4.5a3 3 0 013 3v3.75M12 18.75v3.75m-3.75 0h7.5" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              )}
+            </svg>
+          </button>
+          <button
+            onClick={twilioHangup}
+            className="p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 3.75L18 6m0 0l2.25 2.25M18 6l2.25-2.25M18 6l-2.25 2.25m1.5 13.5c-8.284 0-15-6.716-15-15" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Takeover modal */}
       {showTakeover && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-[var(--th-card)] rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowTakeover(false)}>
+          <div className="bg-[var(--th-card)] rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-[var(--th-text)]">{t('live.takeOver')}</h3>
-            <p className="text-sm text-[var(--th-text-secondary)]">{t('live.takeOverDesc')}</p>
-            <input
-              type="tel"
-              value={takeoverPhone}
-              onChange={e => setTakeoverPhone(e.target.value)}
-              placeholder={t('live.phoneNumber')}
-              className="w-full px-4 py-2.5 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
-              autoFocus
-            />
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowTakeover(false)}
-                className="px-4 py-2 text-sm text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-colors"
-              >
-                {t('common.cancel')}
-              </button>
+
+            {/* Browser takeover — primary */}
+            <button
+              onClick={handleBrowserTakeover}
+              disabled={takeoverLoading}
+              className="w-full px-4 py-3 bg-[var(--th-primary)] text-white text-sm font-semibold rounded-lg hover:bg-[var(--th-primary-hover)] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              </svg>
+              {takeoverLoading ? t('live.connecting') : 'Take Over (Browser)'}
+            </button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[var(--th-border)]" /></div>
+              <div className="relative flex justify-center text-xs"><span className="bg-[var(--th-card)] px-2 text-[var(--th-text-muted)]">or dial my phone</span></div>
+            </div>
+
+            {/* Phone takeover — secondary */}
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={takeoverPhone}
+                onChange={e => setTakeoverPhone(e.target.value)}
+                placeholder={t('live.phoneNumber')}
+                className="flex-1 px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20"
+              />
               <button
                 onClick={handleTakeover}
                 disabled={!takeoverPhone.trim() || takeoverLoading}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 border border-[var(--th-border)] text-sm font-medium text-[var(--th-text-secondary)] rounded-lg hover:bg-[var(--th-surface)] disabled:opacity-50 transition-colors"
               >
-                {takeoverLoading ? t('live.connecting') : t('live.connect')}
+                {t('live.connect')}
               </button>
             </div>
+
+            <button onClick={() => setShowTakeover(false)} className="w-full text-center text-sm text-[var(--th-text-muted)] hover:text-[var(--th-text)] py-1">
+              {t('common.cancel')}
+            </button>
           </div>
         </div>
       )}

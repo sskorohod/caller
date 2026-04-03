@@ -340,6 +340,42 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
 
     reply.status(200).send('OK');
   });
+
+  // POST /webhooks/twilio/voice-client — TwiML App webhook for browser-initiated calls
+  app.post('/voice-client', async (request, reply) => {
+    const body = request.body as Record<string, string>;
+    const to = body.To || body.to;
+    const callId = body.CallId || body.callId;
+
+    const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
+
+    if (to && to.startsWith('+')) {
+      // Outbound call from browser — get workspace caller ID
+      // Find workspace by the TwiML App (caller identity embeds workspace info via token)
+      const callerSid = body.AccountSid;
+      if (callerSid) {
+        // Use first outbound-enabled number as caller ID
+        const [conn] = await db.select().from(telephonyConnections)
+          .where(eq(telephonyConnections.outbound_enabled, true))
+          .limit(1);
+
+        if (conn) {
+          const connect = twiml.connect();
+          connect.stream({
+            url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId || 'browser'}`,
+            name: `browser-call-${callId || Date.now()}`,
+          });
+          twiml.dial({ callerId: conn.phone_number }, to);
+        } else {
+          twiml.say('No outbound number configured.');
+        }
+      }
+    } else {
+      twiml.say('Call not supported.');
+    }
+
+    reply.type('text/xml').send(twiml.toString());
+  });
 };
 
 export default twilioRoutes;

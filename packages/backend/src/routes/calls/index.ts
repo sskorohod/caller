@@ -478,13 +478,20 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     return { translated: data.choices[0]?.message?.content?.trim() ?? '' };
   });
 
+  // GET /api/calls/voice-token — Twilio AccessToken for browser calling
+  app.get('/voice-token', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    return telephonyService.generateVoiceToken(request.auth.workspaceId, request.auth.userId);
+  });
+
   // POST /api/calls/:id/takeover — stop AI and connect operator
   app.post('/:id/takeover', {
     preHandler: [authenticateUser],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
-      mode: z.enum(['phone']),
+      mode: z.enum(['phone', 'browser']),
       phone_number: z.string().optional(),
     }).parse(request.body);
 
@@ -500,8 +507,15 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     // Get workspace outbound number for caller ID
     const conn = await telephonyService.getOutboundConnection(request.auth.workspaceId);
 
-    // Generate TwiML to dial operator
-    const twiml = `<Response><Say>Connecting you to an operator.</Say><Dial callerId="${conn.phone_number}"><Number>${body.phone_number}</Number></Dial></Response>`;
+    let twiml: string;
+    if (body.mode === 'browser') {
+      // Browser takeover — dial Twilio Client identity
+      const identity = `operator_${request.auth.userId}`;
+      twiml = `<Response><Say>Connecting you to an operator.</Say><Dial callerId="${conn.phone_number}"><Client>${identity}</Client></Dial></Response>`;
+    } else {
+      // Phone takeover — dial phone number
+      twiml = `<Response><Say>Connecting you to an operator.</Say><Dial callerId="${conn.phone_number}"><Number>${body.phone_number}</Number></Dial></Response>`;
+    }
 
     await telephonyService.updateActiveCall(request.auth.workspaceId, call.twilio_call_sid, twiml);
 
@@ -513,9 +527,61 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
     // Emit event
     const io = (await import('../../realtime/io.js')).getIo();
-    io?.to(`call:${id}`).emit('call:takeover:started', { call_id: id, mode: 'phone' });
+    io?.to(`call:${id}`).emit('call:takeover:started', { call_id: id, mode: body.mode });
 
-    return { ok: true, mode: 'phone' };
+    return { ok: true, mode: body.mode };
+  });
+
+  // POST /api/calls/:id/translate/start — start live translation
+  app.post('/:id/translate/start', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      target_language: z.string().min(2).max(5),
+      mode: z.enum(['translate', 'copilot']).default('translate'),
+      my_language: z.string().optional(),
+      context: z.string().optional(),
+    }).parse(request.body);
+
+    const { getActiveTranslators } = await import('../../routes/webhooks/media-stream.js');
+    const translators = getActiveTranslators();
+
+    // Stop existing translator if running
+    const existing = translators.get(id);
+    if (existing) existing.stop();
+
+    const { LiveTranslator } = await import('../../services/live-translate.service.js');
+    const translator = new LiveTranslator({
+      callId: id,
+      workspaceId: request.auth.workspaceId,
+      targetLanguage: body.target_language,
+      mode: body.mode,
+      myLanguage: body.my_language,
+      context: body.context,
+    });
+
+    await translator.start();
+    translators.set(id, translator);
+
+    return { ok: true, mode: body.mode };
+  });
+
+  // POST /api/calls/:id/translate/stop — stop live translation
+  app.post('/:id/translate/stop', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    const { getActiveTranslators } = await import('../../routes/webhooks/media-stream.js');
+    const translators = getActiveTranslators();
+    const translator = translators.get(id);
+    if (translator) {
+      translator.stop();
+      translators.delete(id);
+    }
+
+    return { ok: true };
   });
 
   // DELETE /api/calls/:id
