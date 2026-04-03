@@ -279,18 +279,22 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           const track = msg.media.track as string | undefined; // 'inbound' | 'outbound' when both_tracks
 
           // --- Manual call: route audio to per-track STT ---
+          // Twilio <Start><Stream> track naming (from callee's perspective):
+          //   inbound  = audio arriving TO callee = operator's voice
+          //   outbound = audio leaving FROM callee = callee's voice
           const manualSession = activeManualSessions.get(callId);
           if (manualSession) {
-            if (track === 'outbound') {
+            if (track === 'inbound') {
+              // Operator's voice (arriving to callee)
               manualSession.operatorStt.sendAudio(audioBuffer);
             } else {
-              // 'inbound' or no track (default = callee audio)
+              // Callee's voice (outbound from callee, or default when no track)
               manualSession.calleeStt.sendAudio(audioBuffer);
             }
 
             // Forward to LiveTranslator (callee audio only)
             const translator = activeTranslators.get(callId);
-            if (translator && track !== 'outbound') {
+            if (translator && track !== 'inbound') {
               translator.feedAudio(audioBuffer);
             }
 
@@ -298,7 +302,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
             const io = getIo();
             if (io) {
               io.to(`call:${callId}:audio`).volatile.emit('call:audio', {
-                source: track === 'outbound' ? 'agent' : 'caller',
+                source: track === 'inbound' ? 'agent' : 'caller',
                 payload: msg.media.payload,
               });
             }

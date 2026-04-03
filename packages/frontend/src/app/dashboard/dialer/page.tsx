@@ -62,6 +62,7 @@ export default function DialerPage() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [duration, setDuration] = useState(0);
   const [translateTo, setTranslateTo] = useState('');
+  const [suggestions, setSuggestions] = useState<Array<{ text: string; translation: string }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -156,16 +157,23 @@ export default function DialerPage() {
       });
     };
 
+    const onSuggestions = (data: { call_id: string; suggestions: Array<{ text: string; translation: string }> }) => {
+      if (data.call_id !== callId) return;
+      setSuggestions(data.suggestions ?? []);
+    };
+
     socket.on('call:transcript', onTranscript);
     socket.on('call:status', onStatus);
     socket.on('call:translation', onTranslation);
     socket.on('call:speech-correction', onCorrection);
+    socket.on('call:copilot:suggestions', onSuggestions);
 
     return () => {
       socket.off('call:transcript', onTranscript);
       socket.off('call:status', onStatus);
       socket.off('call:translation', onTranslation);
       socket.off('call:speech-correction', onCorrection);
+      socket.off('call:copilot:suggestions', onSuggestions);
     };
   }, [socket, callId]);
 
@@ -180,7 +188,8 @@ export default function DialerPage() {
 
     api.post(`/calls/${callId}/translate/start`, {
       target_language: translateTo,
-      mode: 'translate',
+      mode: 'copilot',
+      my_language: sttLanguage === 'en' ? 'ru' : 'en',
       instant: true,
     }).catch(() => {});
 
@@ -251,6 +260,7 @@ export default function DialerPage() {
     setCallState('idle');
     setCallId(null);
     setTranscript([]);
+    setSuggestions([]);
     setDuration(0);
     setError(null);
     setTranslateTo('');
@@ -432,6 +442,28 @@ export default function DialerPage() {
             </span>
           )}
         </div>
+
+        {/* Copilot suggestions */}
+        {suggestions.length > 0 && callState === 'in_call' && (
+          <div className="px-4 py-2 border-b border-[var(--th-border)] bg-blue-50 dark:bg-blue-900/20">
+            <div className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">
+              Suggested responses
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => navigator.clipboard.writeText(s.text)}
+                  className="text-left px-2.5 py-1.5 rounded-lg bg-white dark:bg-[var(--th-bg)] border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 transition text-xs group"
+                  title="Click to copy"
+                >
+                  <span className="text-[var(--th-text)] font-medium">{s.text}</span>
+                  <span className="block text-[var(--th-text-secondary)] mt-0.5 text-[10px]">{s.translation}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {transcript.length === 0 ? (
