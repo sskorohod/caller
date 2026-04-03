@@ -316,6 +316,9 @@ export default function DialerPage() {
               disabled={isInCall}
               className="w-full px-3 py-2 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] disabled:opacity-50"
             >
+              {sttProvider === 'openai' && (
+                <option value="auto">Auto-detect</option>
+              )}
               {STT_LANGUAGES.map(l => (
                 <option key={l.value} value={l.value}>{l.label}</option>
               ))}

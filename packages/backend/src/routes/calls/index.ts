@@ -484,7 +484,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
   }, async (request, reply) => {
     const body = z.object({
       to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
-      stt_language: z.enum(['en', 'ru', 'es', 'de', 'fr']).optional().default('en'),
+      stt_language: z.enum(['auto', 'en', 'ru', 'es', 'de', 'fr']).optional().default('en'),
       stt_provider: z.enum(['deepgram', 'openai']).optional().default('deepgram'),
     }).parse(request.body);
 

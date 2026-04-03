@@ -146,7 +146,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           if (call.conversation_owner_requested === 'manual') {
             logger.info({ callId }, 'Manual call — starting dual STT for transcription');
             try {
-              const sttLanguage = (call.metadata as any)?.stt_language ?? 'en';
+              const rawLang = (call.metadata as any)?.stt_language ?? 'en';
+              const sttLanguage = rawLang === 'auto' ? undefined : rawLang;
               const sttProviderName = ((call.metadata as any)?.stt_provider ?? 'deepgram') as 'deepgram' | 'openai';
               logger.info({ callId, sttProviderName, sttLanguage }, 'Using STT provider');
 
