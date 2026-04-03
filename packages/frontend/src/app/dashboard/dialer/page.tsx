@@ -69,6 +69,8 @@ export default function DialerPage() {
   const [speakDirect, setSpeakDirect] = useState(false); // temporary bypass in voice translate mode
   const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'openai' | 'xai'>('openai');
   const [ttsTargetLang, setTtsTargetLang] = useState('en'); // language to translate operator's speech INTO
+  const [pttMode, setPttMode] = useState(true); // push-to-talk vs always-on
+  const [pttActive, setPttActive] = useState(false); // currently holding PTT button
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -270,10 +272,10 @@ export default function DialerPage() {
       call.on('ringing', () => setCallState('ringing'));
       call.on('accept', () => {
         if (voiceTranslate) {
-          // In voice translate mode, 'accept' means operator connected to stream,
-          // but callee hasn't answered yet. Show 'connecting' until callee answers.
           setCallState('connecting');
           if (socket) socket.emit('call:listen:start', { call_id: result.call_id });
+          // In PTT mode, start muted — operator must hold button to speak
+          if (pttMode) call.mute(true);
         } else {
           setCallState('in_call');
         }
@@ -491,18 +493,54 @@ export default function DialerPage() {
                   )}
                 </div>
 
-                {/* Speak directly toggle (voice translate mode only) */}
+                {/* Voice translate controls */}
                 {voiceTranslate && (
-                  <button
-                    onClick={() => setSpeakDirect(!speakDirect)}
-                    className={`w-full py-2 rounded-lg font-medium text-xs transition ${
-                      speakDirect
-                        ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700'
-                        : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
-                    }`}
-                  >
-                    {speakDirect ? 'Speaking directly (no translation)' : 'Voice translating your speech'}
-                  </button>
+                  <div className="space-y-2">
+                    {/* PTT mode toggle */}
+                    <div className="flex items-center justify-between px-2">
+                      <span className="text-[10px] text-[var(--th-text-secondary)]">
+                        {pttMode ? 'Push-to-talk' : 'Always listening'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setPttMode(!pttMode);
+                          if (activeCall) activeCall.mute(!pttMode); // mute when switching to PTT
+                        }}
+                        className="text-[10px] text-purple-600 dark:text-purple-400 underline"
+                      >
+                        {pttMode ? 'Switch to always-on' : 'Switch to PTT'}
+                      </button>
+                    </div>
+
+                    {/* PTT button (big, hold to speak) */}
+                    {pttMode ? (
+                      <button
+                        onMouseDown={() => { setPttActive(true); if (activeCall) activeCall.mute(false); }}
+                        onMouseUp={() => { setPttActive(false); if (activeCall) activeCall.mute(true); }}
+                        onMouseLeave={() => { if (pttActive) { setPttActive(false); if (activeCall) activeCall.mute(true); } }}
+                        onTouchStart={() => { setPttActive(true); if (activeCall) activeCall.mute(false); }}
+                        onTouchEnd={() => { setPttActive(false); if (activeCall) activeCall.mute(true); }}
+                        className={`w-full py-4 rounded-xl font-bold text-sm transition select-none ${
+                          pttActive
+                            ? 'bg-red-500 text-white shadow-lg scale-[1.02]'
+                            : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-2 border-purple-300 dark:border-purple-700'
+                        }`}
+                      >
+                        {pttActive ? 'SPEAKING...' : 'HOLD TO SPEAK'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setSpeakDirect(!speakDirect)}
+                        className={`w-full py-2 rounded-lg font-medium text-xs transition ${
+                          speakDirect
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700'
+                            : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
+                        }`}
+                      >
+                        {speakDirect ? 'Speaking directly (no translation)' : 'Voice translating your speech'}
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {/* Mute + Hangup */}
