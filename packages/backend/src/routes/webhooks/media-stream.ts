@@ -26,6 +26,30 @@ import pino from 'pino';
 
 const logger = pino({ name: 'media-stream' });
 
+/** Convert PCM 16-bit 24kHz to mulaw 8kHz (Twilio format) */
+function pcmToMulaw(pcmBuf: Buffer): Buffer {
+  // Downsample 24kHz → 8kHz (take every 3rd sample)
+  const samples16 = new Int16Array(pcmBuf.buffer, pcmBuf.byteOffset, pcmBuf.length / 2);
+  const downsampled = new Int16Array(Math.floor(samples16.length / 3));
+  for (let i = 0; i < downsampled.length; i++) {
+    downsampled[i] = samples16[i * 3];
+  }
+  // Encode to mulaw
+  const mulaw = Buffer.alloc(downsampled.length);
+  for (let i = 0; i < downsampled.length; i++) {
+    let sample = downsampled[i];
+    const sign = sample < 0 ? 0x80 : 0;
+    if (sample < 0) sample = -sample;
+    sample = Math.min(sample, 32635);
+    sample += 0x84;
+    let exponent = 7;
+    for (let expMask = 0x4000; (sample & expMask) === 0 && exponent > 0; exponent--, expMask >>= 1) {}
+    const mantissa = (sample >> (exponent + 3)) & 0x0F;
+    mulaw[i] = ~(sign | (exponent << 4) | mantissa) & 0xFF;
+  }
+  return mulaw;
+}
+
 const activeOrchestrators = new Map<string, CallOrchestrator | GrokRealtimeOrchestrator>();
 const activeTranslators = new Map<string, { feedAudio: (buf: Buffer) => void; stop: () => void; translateText?: (text: string) => void; flushTranslation?: () => void }>();
 
@@ -294,7 +318,21 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               }
 
               // TTS for translated speech (callee hears this)
-              const tts = await createTTSProvider(call.workspace_id, 'elevenlabs', ttsVoiceId);
+              // TTS: use selected provider or fallback chain
+              const preferredTts = meta.tts_provider as string | undefined;
+              let tts: import('../../services/tts.service.js').TTSProvider | null = null;
+              let ttsProviderUsed = 'elevenlabs';
+              const ttsOrder = preferredTts
+                ? [preferredTts as 'elevenlabs' | 'openai' | 'xai']
+                : (['elevenlabs', 'openai', 'xai'] as const);
+              for (const ttsProv of ttsOrder) {
+                try {
+                  tts = await createTTSProvider(call.workspace_id, ttsProv, ttsVoiceId ?? (ttsProv === 'openai' ? 'alloy' : undefined));
+                  ttsProviderUsed = ttsProv;
+                  break;
+                } catch { /* try next */ }
+              }
+              if (!tts) throw new Error('No TTS provider available');
 
               // Wire operator STT
               operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
@@ -350,8 +388,12 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       });
                     }
 
-                    // TTS → generate audio
-                    const audio = await tts.synthesize(translated);
+                    // TTS → generate audio (convert PCM to mulaw if needed)
+                    let audio = await tts.synthesize(translated);
+                    if (ttsProviderUsed !== 'elevenlabs') {
+                      // OpenAI/xAI return PCM 24kHz 16-bit — convert to mulaw 8kHz
+                      audio = pcmToMulaw(audio);
+                    }
 
                     // Inject TTS audio into callee stream
                     const calleeSid = activeVoiceTranslateSessions.get(callId)?.calleeStreamSid;

@@ -67,6 +67,7 @@ export default function DialerPage() {
   const [error, setError] = useState<string | null>(null);
   const [voiceTranslate, setVoiceTranslate] = useState(false);
   const [speakDirect, setSpeakDirect] = useState(false); // temporary bypass in voice translate mode
+  const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'openai' | 'xai'>('openai');
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -247,7 +248,8 @@ export default function DialerPage() {
           stt_language: sttLanguage,
           stt_provider: sttProvider,
           voice_translate: voiceTranslate,
-          translate_to_language: voiceTranslate ? sttLanguage : undefined, // callee's language = what operator's speech translates to
+          tts_provider: voiceTranslate ? ttsProvider : undefined,
+          translate_to_language: voiceTranslate ? sttLanguage : undefined,
         },
       );
 
@@ -394,9 +396,32 @@ export default function DialerPage() {
               </span>
             </button>
             {voiceTranslate && (
-              <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1 px-1">
-                Your voice will be translated and spoken to the callee via TTS
-              </p>
+              <div className="mt-2">
+                <div className="text-[10px] text-purple-600 dark:text-purple-400 mb-1.5 px-1">
+                  Your voice will be translated and spoken to the callee via TTS
+                </div>
+                <div className="flex gap-1.5">
+                  {([
+                    { value: 'openai' as const, label: 'OpenAI', desc: 'Alloy voice' },
+                    { value: 'elevenlabs' as const, label: 'ElevenLabs', desc: 'Premium voices' },
+                    { value: 'xai' as const, label: 'xAI', desc: 'Grok voice' },
+                  ]).map(p => (
+                    <button
+                      key={p.value}
+                      onClick={() => setTtsProvider(p.value)}
+                      disabled={isInCall}
+                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition disabled:opacity-50 ${
+                        ttsProvider === p.value
+                          ? 'border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 font-medium'
+                          : 'border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text-secondary)] hover:border-purple-400'
+                      }`}
+                    >
+                      <div className="font-medium">{p.label}</div>
+                      <div className="text-[10px] opacity-70">{p.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
