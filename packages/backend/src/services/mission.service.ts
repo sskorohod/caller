@@ -281,16 +281,16 @@ export async function executeMission(workspaceId: string, missionId: string): Pr
 
   // Create call record
   const call = await callService.createCall({
-    workspace_id: workspaceId,
+    workspaceId,
     direction: 'outbound',
-    from_number: conn.phone_number,
-    to_number: mission.target_phone,
-    status: 'initiated',
-    agent_profile_id: agentProfile.id,
-    goal: mission.goal,
-    goal_source: 'mission',
+    fromNumber: conn.phone_number,
+    toNumber: mission.target_phone!,
+    conversationOwnerRequested: 'internal',
+    agentProfileId: agentProfile.id,
+    goal: mission.goal ?? undefined,
+    goalSource: 'mission',
     context: mission.context as any,
-  } as any);
+  });
 
   // Build enhanced system prompt with mission context
   const missionBriefing = `\n\nMISSION BRIEFING:
@@ -300,11 +300,12 @@ Fallback: ${mission.fallback_action === 'connect_operator' ? 'If you cannot comp
 
   // Create AI session
   await callService.createAiSession({
-    call_id: call.id,
-    workspace_id: workspaceId,
-    agent_profile_id: agentProfile.id,
-    system_prompt_snapshot: (agentProfile.system_prompt ?? '') + missionBriefing,
-  } as any);
+    callId: call.id,
+    workspaceId,
+    agentProfileId: agentProfile.id,
+    promptSnapshot: (agentProfile.system_prompt ?? '') + missionBriefing,
+    conversationOwner: 'internal',
+  });
 
   // Initiate Twilio call
   const callSid = await telephonyService.initiateOutboundCall({
