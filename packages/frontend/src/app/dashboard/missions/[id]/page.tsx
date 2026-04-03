@@ -237,12 +237,17 @@ export default function MissionChatPage() {
   const isCallActive = mission?.status === 'calling' || mission?.status === 'in_progress';
   const inputDisabled = isCallActive || sending;
 
-  // Auto-redirect to live page when call starts
+  // Auto-redirect to live page only when status TRANSITIONS to calling (not on initial load)
+  const prevStatusRef = useRef<string | null>(null);
   useEffect(() => {
-    if (isCallActive && mission?.call_id) {
+    const prev = prevStatusRef.current;
+    const curr = mission?.status;
+    prevStatusRef.current = curr ?? null;
+    // Only redirect if status just changed to calling/in_progress (not on first load)
+    if (prev && prev !== curr && isCallActive && mission?.call_id) {
       router.push(`/dashboard/calls/${mission.call_id}/live`);
     }
-  }, [isCallActive, mission?.call_id, router]);
+  }, [mission?.status, mission?.call_id, isCallActive, router]);
 
   // ─── Loading ───────────────────────────────────────────────────────────
 
