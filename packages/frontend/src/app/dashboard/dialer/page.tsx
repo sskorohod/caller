@@ -133,6 +133,9 @@ export default function DialerPage() {
 
     const onStatus = (data: { call_id: string; status: string }) => {
       if (data.call_id !== callId) return;
+      if (data.status === 'in_progress') {
+        setCallState('in_call'); // callee answered
+      }
       if (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled') {
         setCallState('ended');
       }
@@ -265,10 +268,13 @@ export default function DialerPage() {
 
       call.on('ringing', () => setCallState('ringing'));
       call.on('accept', () => {
-        setCallState('in_call');
-        // In voice translate mode, start listening to callee audio via Socket.IO
-        if (voiceTranslate && socket) {
-          socket.emit('call:listen:start', { call_id: result.call_id });
+        if (voiceTranslate) {
+          // In voice translate mode, 'accept' means operator connected to stream,
+          // but callee hasn't answered yet. Show 'connecting' until callee answers.
+          setCallState('connecting');
+          if (socket) socket.emit('call:listen:start', { call_id: result.call_id });
+        } else {
+          setCallState('in_call');
         }
       });
       call.on('disconnect', () => setCallState('ended'));

@@ -70,6 +70,8 @@ interface VoiceTranslateSession {
   calleeSocket: import('ws').WebSocket | null;
   calleeStreamSid: string | null;
   calleeStt: import('../../services/stt.service.js').STTProvider | null;
+  calleeCallSid: string | null; // Twilio SID for callee call (to hang up)
+  workspaceId: string;
   transcript: Array<{ speaker: string; text: string; timestamp: string }>;
   sessionId?: string;
   tts: import('../../services/tts.service.js').TTSProvider;
@@ -207,6 +209,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               session.calleeStt.connect({ language: calleeLang === 'auto' ? undefined : calleeLang });
 
               logger.info({ callId, calleeStreamSid }, 'Callee leg stream started');
+
+              // Notify frontend that callee answered (for timer start)
+              if (io) {
+                io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'in_progress' });
+              }
             }
           }
 
@@ -446,6 +453,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 calleeSocket: null,
                 calleeStreamSid: null,
                 calleeStt: null,
+                calleeCallSid: twilioCallSid,
+                workspaceId: call.workspace_id,
                 transcript,
                 sessionId: aiSession?.id,
                 tts,
@@ -694,6 +703,12 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           if (vt) {
             vt.operatorStt.close();
             if (vt.calleeStt) vt.calleeStt.close();
+            // Hang up the callee call
+            if (vt.calleeCallSid) {
+              telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: Error) =>
+                logger.error({ err, callId }, 'Failed to hangup callee call'));
+            }
+            activeVoiceTranslateSessions.delete(callId);
           }
           const ms = activeManualSessions.get(callId);
           if (ms) ms.stop();
@@ -707,6 +722,16 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     socket.on('close', () => {
       logger.info({ callId }, 'Twilio MediaStream WebSocket closed');
+      // Cleanup voice translate session + hang up callee
+      const vt = activeVoiceTranslateSessions.get(callId);
+      if (vt) {
+        vt.operatorStt.close();
+        if (vt.calleeStt) vt.calleeStt.close();
+        if (vt.calleeCallSid) {
+          telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch(() => {});
+        }
+        activeVoiceTranslateSessions.delete(callId);
+      }
       const ms = activeManualSessions.get(callId);
       if (ms) ms.stop();
       if (orchestrator) orchestrator.stop('ws_closed');

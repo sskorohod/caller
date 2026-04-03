@@ -148,6 +148,11 @@ export async function updateActiveCall(workspaceId: string, callSid: string, twi
   await client.calls(callSid).update({ twiml });
 }
 
+export async function hangupCall(workspaceId: string, callSid: string): Promise<void> {
+  const client = await getTwilioClient(workspaceId);
+  await client.calls(callSid).update({ status: 'completed' });
+}
+
 export async function createTelephonyConnection(params: {
   workspaceId: string;
   phoneNumber: string;
