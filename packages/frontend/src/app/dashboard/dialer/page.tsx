@@ -521,11 +521,13 @@ export default function DialerPage() {
                     </span>
                     <span className="text-[10px] opacity-50">{formatTime(entry.timestamp)}</span>
                   </div>
-                  <p className="text-sm leading-relaxed">{entry.text}</p>
-                  {entry.translated && (
-                    <p className="text-xs mt-1 opacity-70 italic border-t border-white/20 pt-1">
-                      {entry.translated}
-                    </p>
+                  {entry.translated ? (
+                    <>
+                      <p className="text-sm leading-relaxed font-medium">{entry.translated}</p>
+                      <p className="text-xs mt-0.5 opacity-50 italic">{entry.text}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm leading-relaxed">{entry.text}</p>
                   )}
                   {entry.correction && (
                     <p className={`text-xs mt-1 border-t pt-1 ${
