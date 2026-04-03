@@ -24,6 +24,20 @@ const STT_LANGUAGES = [
   { value: 'fr', label: 'Français' },
 ];
 
+// Map timezone prefix to phone placeholder and default STT language
+function getRegionDefaults(timezone: string, languages: string[]): { placeholder: string; defaultSttLang: string } {
+  const tz = timezone.toLowerCase();
+  if (tz.startsWith('america/')) return { placeholder: '+1', defaultSttLang: languages.includes('es') ? 'es' : 'en' };
+  if (tz.startsWith('europe/moscow') || tz.startsWith('europe/samara') || tz.startsWith('asia/yekaterinburg') || tz.startsWith('asia/novosib') || tz.startsWith('asia/vladivostok'))
+    return { placeholder: '+7', defaultSttLang: 'ru' };
+  if (tz.startsWith('europe/berlin') || tz.startsWith('europe/vienna') || tz.startsWith('europe/zurich'))
+    return { placeholder: '+49', defaultSttLang: 'de' };
+  if (tz.startsWith('europe/paris')) return { placeholder: '+33', defaultSttLang: 'fr' };
+  if (tz.startsWith('europe/madrid')) return { placeholder: '+34', defaultSttLang: 'es' };
+  if (tz.startsWith('europe/london')) return { placeholder: '+44', defaultSttLang: 'en' };
+  return { placeholder: '+1', defaultSttLang: languages[0] || 'en' };
+}
+
 const TRANSLATE_LANGUAGES = [
   { value: '', label: 'Off' },
   { value: 'en', label: 'English' },
@@ -40,6 +54,7 @@ export default function DialerPage() {
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [sttLanguage, setSttLanguage] = useState('en');
+  const [phonePlaceholder, setPhonePlaceholder] = useState('+1');
   const [callState, setCallState] = useState<CallState>('idle');
   const [callId, setCallId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -50,6 +65,15 @@ export default function DialerPage() {
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callStartRef = useRef<number>(0);
+
+  // Load workspace settings to determine region defaults
+  useEffect(() => {
+    api.get<{ timezone?: string; languages?: string[] }>('/workspaces/current').then(ws => {
+      const { placeholder, defaultSttLang } = getRegionDefaults(ws.timezone || '', ws.languages || ['en']);
+      setPhonePlaceholder(placeholder);
+      setSttLanguage(defaultSttLang);
+    }).catch(() => {});
+  }, []);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -235,7 +259,7 @@ export default function DialerPage() {
               type="tel"
               value={phoneNumber}
               onChange={e => setPhoneNumber(e.target.value)}
-              placeholder="+1234567890"
+              placeholder={`${phonePlaceholder}...`}
               disabled={isInCall}
               className="w-full px-3 py-2.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-lg font-mono focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] disabled:opacity-50"
             />

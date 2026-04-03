@@ -33,7 +33,7 @@ const en: Record<string, string> = {
 
   // Dialer
   'dialer.title': 'Phone Dialer',
-  'dialer.phonePlaceholder': 'Enter phone number (+1...)',
+  'dialer.phonePlaceholder': 'Enter phone number',
   'dialer.sttLanguage': 'Their language',
   'dialer.call': 'Call',
   'dialer.hangup': 'Hang Up',
@@ -636,7 +636,7 @@ const ru: Record<string, string> = {
 
   // Dialer
   'dialer.title': 'Телефон',
-  'dialer.phonePlaceholder': 'Введите номер (+7...)',
+  'dialer.phonePlaceholder': 'Введите номер телефона',
   'dialer.sttLanguage': 'Язык собеседника',
   'dialer.call': 'Позвонить',
   'dialer.hangup': 'Завершить',
