@@ -25,6 +25,9 @@ import pino from 'pino';
 const logger = pino({ name: 'media-stream' });
 
 const activeOrchestrators = new Map<string, CallOrchestrator | GrokRealtimeOrchestrator>();
+const activeTranslators = new Map<string, { feedAudio: (buf: Buffer) => void; stop: () => void }>();
+
+export function getActiveTranslators() { return activeTranslators; }
 
 export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRealtimeOrchestrator | undefined {
   return activeOrchestrators.get(callId);
@@ -107,6 +110,21 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
             (orchestrator as GrokRealtimeOrchestrator).sendAudio(msg.media.payload);
           }
           // Standard CallOrchestrator receives audio via STT directly (wired in start())
+
+          // Forward caller audio to listen room for browser monitoring
+          const io = getIo();
+          if (io) {
+            io.to(`call:${callId}:audio`).volatile.emit('call:audio', {
+              source: 'caller',
+              payload: msg.media.payload,
+            });
+          }
+
+          // Forward to active LiveTranslator if running
+          const translator = activeTranslators.get(callId);
+          if (translator) {
+            translator.feedAudio(Buffer.from(msg.media.payload, 'base64'));
+          }
         }
 
         if (msg.event === 'stop') {
@@ -381,6 +399,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       const io = getIo();
       logger.info({ callId, speaker: entry.speaker, text: entry.text?.slice(0, 50), hasIo: !!io }, 'Forwarding transcript to Socket.IO');
       io?.to(`call:${callId}`).emit('call:transcript', { call_id: callId, ...entry });
+    });
+
+    // Forward agent TTS audio to browser listen room
+    orchestrator.on('agent_audio', (data: { payload: string }) => {
+      const io = getIo();
+      if (io) {
+        io.to(`call:${callId}:audio`).volatile.emit('call:audio', {
+          source: 'agent',
+          payload: data.payload,
+        });
+      }
     });
 
     orchestrator.on('skill_activated', (data: { intent: string }) => {

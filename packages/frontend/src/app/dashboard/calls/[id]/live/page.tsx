@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useSocket } from '@/lib/socket';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
+import { useCallAudio, type AudioChannel } from '@/lib/use-call-audio';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -156,6 +157,9 @@ export default function LiveCallPage() {
 
   // Agent skill packs
   const [agentSkills, setAgentSkills] = useState<SkillPack[]>([]);
+
+  // Call audio listening
+  const { isListening, channel: audioChannel, volume: audioVolume, startListening, stopListening, setChannel: setAudioChannel, setVolume: setAudioVolume } = useCallAudio(callId);
 
   // Takeover
   const [showTakeover, setShowTakeover] = useState(false);
@@ -444,13 +448,69 @@ export default function LiveCallPage() {
             {t('live.operatorConnected')}
           </span>
         )}
-        {isActive && !operatorConnected && (
-          <button
-            onClick={() => setShowTakeover(true)}
-            className="ml-auto px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
-          >
-            {t('live.takeOver')}
-          </button>
+        {isActive && (
+          <div className="ml-auto flex items-center gap-2">
+            {/* Listen button */}
+            <button
+              onClick={() => isListening ? stopListening() : startListening('both')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                isListening
+                  ? 'bg-[var(--th-primary)] text-white'
+                  : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-primary-bg)] hover:text-[var(--th-primary-text)]'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+              </svg>
+              {isListening ? 'Listening' : 'Listen'}
+              {isListening && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+            </button>
+
+            {/* Channel & volume (when listening) */}
+            {isListening && (
+              <>
+                <select
+                  value={audioChannel}
+                  onChange={e => setAudioChannel(e.target.value as AudioChannel)}
+                  className="text-xs border border-[var(--th-border)] rounded-lg px-2 py-1 text-[var(--th-text-dark)] bg-[var(--th-input)] focus:outline-none"
+                >
+                  <option value="both">Both</option>
+                  <option value="caller">Caller</option>
+                  <option value="agent">Agent</option>
+                </select>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={audioVolume}
+                  onChange={e => setAudioVolume(parseFloat(e.target.value))}
+                  className="w-16 h-1 accent-[var(--th-primary)]"
+                />
+              </>
+            )}
+
+            {/* Translate in new tab */}
+            <button
+              onClick={() => window.open(`/dashboard/calls/${callId}/translate`, '_blank')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-info-bg)] hover:text-[var(--th-info-text)] transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582" />
+              </svg>
+              Translate
+            </button>
+
+            {/* Take Over */}
+            {!operatorConnected && (
+              <button
+                onClick={() => setShowTakeover(true)}
+                className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+              >
+                {t('live.takeOver')}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

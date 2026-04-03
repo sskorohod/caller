@@ -313,6 +313,11 @@ export class CallOrchestrator extends EventEmitter {
       this.totalTtsCharacters += text.length;
       const audio = await tts.synthesize(text);
 
+      // Emit agent audio for browser listening
+      if (audio.length > 0) {
+        this.emit('agent_audio', { payload: audio.toString('base64') });
+      }
+
       if (!this.isStopped && this.isAgentSpeaking) {
         // Send audio to Twilio as base64 mulaw
         const payload = audio.toString('base64');

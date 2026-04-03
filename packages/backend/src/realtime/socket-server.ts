@@ -68,6 +68,29 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       socket.join(`call:${call_id}`);
     });
 
+    // Live call audio: join/leave audio room for listening
+    socket.on('call:listen:start', ({ call_id, channel }: { call_id: string; channel?: string }) => {
+      socket.join(`call:${call_id}:audio`);
+      socket.data.listenChannel = channel || 'both';
+    });
+
+    socket.on('call:listen:stop', ({ call_id }: { call_id: string }) => {
+      socket.leave(`call:${call_id}:audio`);
+    });
+
+    socket.on('call:listen:channel', ({ call_id, channel }: { call_id: string; channel: string }) => {
+      socket.data.listenChannel = channel;
+    });
+
+    // Live translation: join/leave translate room
+    socket.on('call:translate:join', ({ call_id }: { call_id: string }) => {
+      socket.join(`call:${call_id}:translate`);
+    });
+
+    socket.on('call:translate:leave', ({ call_id }: { call_id: string }) => {
+      socket.leave(`call:${call_id}:translate`);
+    });
+
     // Live call monitoring: send operator instruction to active call
     socket.on('call:instruction', async ({ call_id, text }: { call_id: string; text: string }) => {
       console.log(`[Socket.IO] call:instruction received: call_id=${call_id}, text=${text?.slice(0, 50)}`);
