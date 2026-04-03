@@ -68,6 +68,7 @@ export default function DialerPage() {
   const [voiceTranslate, setVoiceTranslate] = useState(false);
   const [speakDirect, setSpeakDirect] = useState(false); // temporary bypass in voice translate mode
   const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'openai' | 'xai'>('openai');
+  const [ttsTargetLang, setTtsTargetLang] = useState('en'); // language to translate operator's speech INTO
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -117,14 +118,14 @@ export default function DialerPage() {
           if (!data.isFinal && last.speaker === speaker && !last.isFinal) {
             return [...prev.slice(0, -1), { ...last, text: data.text, timestamp: data.timestamp }];
           }
-          // Merge consecutive entries from same speaker into one bubble
-          if (data.isFinal && last.speaker === speaker) {
-            const merged = last.isFinal
-              ? { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp }
-              : { ...last, text: data.text, timestamp: data.timestamp, isFinal: true };
-            // Reset translation — will be rebuilt from translations map
-            merged.translated = undefined;
-            return [...prev.slice(0, -1), merged];
+          // Merge consecutive isFinal from same speaker ONLY if:
+          // - no translation yet (phrase not complete)
+          // - within 2s gap
+          if (data.isFinal && last.speaker === speaker && last.isFinal && !last.translated) {
+            const gap = new Date(data.timestamp).getTime() - new Date(last.timestamp).getTime();
+            if (gap < 2000) {
+              return [...prev.slice(0, -1), { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp }];
+            }
           }
         }
         return [...prev, { speaker, text: data.text, timestamp: data.timestamp, isFinal: data.isFinal }];
@@ -252,7 +253,7 @@ export default function DialerPage() {
           stt_provider: sttProvider,
           voice_translate: voiceTranslate,
           tts_provider: voiceTranslate ? ttsProvider : undefined,
-          translate_to_language: voiceTranslate ? sttLanguage : undefined,
+          translate_to_language: voiceTranslate ? ttsTargetLang : undefined,
         },
       );
 
@@ -403,9 +404,26 @@ export default function DialerPage() {
               </span>
             </button>
             {voiceTranslate && (
-              <div className="mt-2">
-                <div className="text-[10px] text-purple-600 dark:text-purple-400 mb-1.5 px-1">
+              <div className="mt-2 space-y-2">
+                <div className="text-[10px] text-purple-600 dark:text-purple-400 px-1">
                   Your voice will be translated and spoken to the callee via TTS
+                </div>
+
+                {/* TTS target language */}
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--th-text-secondary)] mb-0.5 px-1">
+                    Translate my speech to
+                  </label>
+                  <select
+                    value={ttsTargetLang}
+                    onChange={e => setTtsTargetLang(e.target.value)}
+                    disabled={isInCall}
+                    className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs disabled:opacity-50"
+                  >
+                    {STT_LANGUAGES.map(l => (
+                      <option key={l.value} value={l.value}>{l.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex gap-1.5">
                   {([
