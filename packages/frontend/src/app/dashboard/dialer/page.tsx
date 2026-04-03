@@ -392,8 +392,8 @@ export default function DialerPage() {
               }`}
             >
               <span>{voiceTranslate ? 'Voice Translate ON' : 'Voice Translate'}</span>
-              <span className={`w-8 h-4 rounded-full transition-colors relative ${voiceTranslate ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${voiceTranslate ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              <span className={`inline-flex items-center w-9 h-5 rounded-full transition-colors shrink-0 ${voiceTranslate ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                <span className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${voiceTranslate ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
               </span>
             </button>
             {voiceTranslate && (
