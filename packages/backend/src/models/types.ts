@@ -2,7 +2,7 @@
 // Database entity types matching migrations/00001_foundation.sql
 // ============================================================
 
-export type ConversationOwner = 'internal' | 'external';
+export type ConversationOwner = 'internal' | 'external' | 'manual';
 export type WorkspacePlan = 'free' | 'starter' | 'growth' | 'business' | 'enterprise';
 export type MemberRole = 'owner' | 'admin' | 'operator' | 'analyst';
 export type CallDirection = 'inbound' | 'outbound';

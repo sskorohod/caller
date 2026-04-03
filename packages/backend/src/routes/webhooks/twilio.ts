@@ -350,25 +350,37 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
     const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
 
     if (to && to.startsWith('+')) {
-      // Outbound call from browser — get workspace caller ID
-      // Find workspace by the TwiML App (caller identity embeds workspace info via token)
-      const callerSid = body.AccountSid;
-      if (callerSid) {
-        // Use first outbound-enabled number as caller ID
+      // Resolve outbound number from call record (preferred) or fallback to first outbound connection
+      let callerNumber: string | null = null;
+      if (callId) {
+        const [call] = await db.select().from(calls).where(eq(calls.id, callId));
+        if (call) callerNumber = call.from_number;
+      }
+      if (!callerNumber) {
         const [conn] = await db.select().from(telephonyConnections)
           .where(eq(telephonyConnections.outbound_enabled, true))
           .limit(1);
+        if (conn) callerNumber = conn.phone_number;
+      }
 
-        if (conn) {
-          const connect = twiml.connect();
-          connect.stream({
-            url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId || 'browser'}`,
-            name: `browser-call-${callId || Date.now()}`,
-          });
-          twiml.dial({ callerId: conn.phone_number }, to);
-        } else {
-          twiml.say('No outbound number configured.');
-        }
+      if (callerNumber) {
+        // <Start><Stream> creates a non-blocking audio tap for transcription
+        // track="both_tracks" sends both inbound (callee) and outbound (operator) audio
+        const start = twiml.start();
+        start.stream({
+          url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId || 'browser'}`,
+          track: 'both_tracks' as any,
+          name: `browser-call-${callId || Date.now()}`,
+        });
+
+        // Status callback for call lifecycle
+        const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
+        twiml.dial({
+          callerId: callerNumber,
+          action: statusCallbackUrl,
+        }).number(to);
+      } else {
+        twiml.say('No outbound number configured.');
       }
     } else {
       twiml.say('Call not supported.');

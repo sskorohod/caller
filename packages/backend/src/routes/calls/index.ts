@@ -478,6 +478,48 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     return { translated: data.choices[0]?.message?.content?.trim() ?? '' };
   });
 
+  // POST /api/calls/dial — manual call from browser (no AI agent)
+  app.post('/dial', {
+    preHandler: [authenticateUser],
+  }, async (request, reply) => {
+    const body = z.object({
+      to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
+      stt_language: z.enum(['en', 'ru', 'es', 'de', 'fr']).optional().default('en'),
+    }).parse(request.body);
+
+    const connection = await telephonyService.getOutboundConnection(request.auth.workspaceId);
+
+    const call = await callService.createCall({
+      workspaceId: request.auth.workspaceId,
+      direction: 'outbound',
+      fromNumber: connection.phone_number,
+      toNumber: body.to,
+      telephonyConnectionId: connection.id,
+      conversationOwnerRequested: 'manual',
+      metadata: { stt_language: body.stt_language },
+    });
+
+    await callService.createAiSession({
+      callId: call.id,
+      workspaceId: request.auth.workspaceId,
+      conversationOwner: 'manual',
+    });
+
+    await callService.addCallEvent({
+      callId: call.id,
+      workspaceId: request.auth.workspaceId,
+      eventType: 'call_initiated',
+      eventData: { source: 'dialer', stt_language: body.stt_language },
+    });
+
+    reply.status(201);
+    return {
+      call_id: call.id,
+      from_number: connection.phone_number,
+      stt_language: body.stt_language,
+    };
+  });
+
   // GET /api/calls/voice-token — Twilio AccessToken for browser calling
   app.get('/voice-token', {
     preHandler: [authenticateUser],

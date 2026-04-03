@@ -28,6 +28,16 @@ const logger = pino({ name: 'media-stream' });
 const activeOrchestrators = new Map<string, CallOrchestrator | GrokRealtimeOrchestrator>();
 const activeTranslators = new Map<string, { feedAudio: (buf: Buffer) => void; stop: () => void }>();
 
+interface ManualSession {
+  calleeStt: DeepgramSTT;    // inbound track — person on the other end
+  operatorStt: DeepgramSTT;  // outbound track — operator in browser
+  transcript: Array<{ speaker: string; text: string; timestamp: string }>;
+  callId: string;
+  sessionId?: string;
+  stop: () => void;
+}
+const activeManualSessions = new Map<string, ManualSession>();
+
 export function getActiveTranslators() { return activeTranslators; }
 
 export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRealtimeOrchestrator | undefined {
@@ -66,6 +76,70 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           }
 
           await callService.updateCallStatus(callId, 'in_progress');
+
+          // --- Manual call path (no AI agent, just STT transcription) ---
+          if (call.conversation_owner_requested === 'manual') {
+            logger.info({ callId }, 'Manual call — starting dual STT for transcription');
+            try {
+              const sttLanguage = (call.metadata as any)?.stt_language === 'ru' ? 'ru' : ((call.metadata as any)?.stt_language ?? 'en-US');
+              const calleeStt = await createSTTProvider(call.workspace_id, 'deepgram') as DeepgramSTT;
+              const operatorStt = await createSTTProvider(call.workspace_id, 'deepgram') as DeepgramSTT;
+
+              const transcript: ManualSession['transcript'] = [];
+              const io = getIo();
+
+              // Get AI session ID for later transcript save
+              const aiSession = await callService.getAiSession(callId);
+
+              const wireSTT = (stt: DeepgramSTT, speaker: 'caller' | 'operator') => {
+                stt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                  if (io) {
+                    io.to(`call:${callId}`).emit('call:transcript', {
+                      call_id: callId,
+                      speaker,
+                      text: evt.text,
+                      timestamp: evt.timestamp,
+                      isFinal: evt.isFinal,
+                    });
+                  }
+                  if (evt.isFinal && evt.text.trim()) {
+                    transcript.push({ speaker, text: evt.text.trim(), timestamp: evt.timestamp });
+                  }
+                });
+              };
+
+              wireSTT(calleeStt, 'caller');
+              wireSTT(operatorStt, 'operator');
+
+              calleeStt.connect({ language: sttLanguage });
+              operatorStt.connect({ language: sttLanguage });
+
+              const manualSession: ManualSession = {
+                calleeStt,
+                operatorStt,
+                transcript,
+                callId,
+                sessionId: aiSession?.id,
+                stop: () => {
+                  calleeStt.close();
+                  operatorStt.close();
+                  // Save transcript
+                  if (manualSession.sessionId && transcript.length > 0) {
+                    callService.updateAiSession(manualSession.sessionId, {
+                      transcript: transcript as any,
+                      total_turns: transcript.length,
+                    } as any).catch(err => logger.error({ err, callId }, 'Failed to save manual call transcript'));
+                  }
+                  activeManualSessions.delete(callId);
+                },
+              };
+
+              activeManualSessions.set(callId, manualSession);
+            } catch (err) {
+              logger.error({ err, callId }, 'Failed to start manual call STT');
+            }
+            return; // Manual call — no orchestrator needed
+          }
 
           const agentProfile = call.agent_profile_id
             ? await agentService.getAgentProfile(call.workspace_id, call.agent_profile_id)
@@ -106,6 +180,37 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         }
 
         if (msg.event === 'media' && msg.media?.payload) {
+          const audioBuffer = Buffer.from(msg.media.payload, 'base64');
+          const track = msg.media.track as string | undefined; // 'inbound' | 'outbound' when both_tracks
+
+          // --- Manual call: route audio to per-track STT ---
+          const manualSession = activeManualSessions.get(callId);
+          if (manualSession) {
+            if (track === 'outbound') {
+              manualSession.operatorStt.sendAudio(audioBuffer);
+            } else {
+              // 'inbound' or no track (default = callee audio)
+              manualSession.calleeStt.sendAudio(audioBuffer);
+            }
+
+            // Forward to LiveTranslator (callee audio only)
+            const translator = activeTranslators.get(callId);
+            if (translator && track !== 'outbound') {
+              translator.feedAudio(audioBuffer);
+            }
+
+            // Broadcast audio for monitoring
+            const io = getIo();
+            if (io) {
+              io.to(`call:${callId}:audio`).volatile.emit('call:audio', {
+                source: track === 'outbound' ? 'agent' : 'caller',
+                payload: msg.media.payload,
+              });
+            }
+            return;
+          }
+
+          // --- AI orchestrator path ---
           // Forward audio to Grok Realtime orchestrator
           if (orchestrator && orchestrator instanceof GrokRealtimeOrchestrator) {
             (orchestrator as GrokRealtimeOrchestrator).sendAudio(msg.media.payload);
@@ -124,11 +229,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           // Forward to active LiveTranslator if running
           const translator = activeTranslators.get(callId);
           if (translator) {
-            translator.feedAudio(Buffer.from(msg.media.payload, 'base64'));
+            translator.feedAudio(audioBuffer);
           }
         }
 
         if (msg.event === 'stop') {
+          const ms = activeManualSessions.get(callId);
+          if (ms) ms.stop();
           if (orchestrator) orchestrator.stop('stream_stopped');
           if (externalSession) externalSession.sendCallEnded('stream_stopped');
         }
@@ -139,6 +246,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     socket.on('close', () => {
       logger.info({ callId }, 'Twilio MediaStream WebSocket closed');
+      const ms = activeManualSessions.get(callId);
+      if (ms) ms.stop();
       if (orchestrator) orchestrator.stop('ws_closed');
       if (externalSession) {
         externalSession.sendCallEnded('ws_closed');
