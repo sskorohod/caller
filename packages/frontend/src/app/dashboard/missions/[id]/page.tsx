@@ -214,6 +214,16 @@ export default function MissionChatPage() {
     setExecuting(true);
     try {
       await api.post(`/missions/${missionId}/execute`, {});
+      // Refetch mission to get call_id for redirect
+      const updated = await api.get<{ mission: Mission }>(`/missions/${missionId}`);
+      if (updated.mission) {
+        setMission(updated.mission);
+        // Redirect to live page immediately
+        if (updated.mission.call_id) {
+          router.push(`/dashboard/calls/${updated.mission.call_id}/live`);
+          return;
+        }
+      }
       toast.success(t('mission.callStarted'));
     } catch (e: any) {
       toast.error(e.message || t('common.error'));
@@ -226,6 +236,13 @@ export default function MissionChatPage() {
 
   const isCallActive = mission?.status === 'calling' || mission?.status === 'in_progress';
   const inputDisabled = isCallActive || sending;
+
+  // Auto-redirect to live page when call starts
+  useEffect(() => {
+    if (isCallActive && mission?.call_id) {
+      router.push(`/dashboard/calls/${mission.call_id}/live`);
+    }
+  }, [isCallActive, mission?.call_id, router]);
 
   // ─── Loading ───────────────────────────────────────────────────────────
 
