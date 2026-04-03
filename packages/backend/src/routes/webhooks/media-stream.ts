@@ -175,6 +175,12 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     transcript.push({ speaker, text: evt.text.trim(), timestamp: evt.timestamp });
                   }
                 });
+                stt.on('error', (err: Error) => {
+                  logger.error({ err, callId, speaker }, 'Manual call STT error');
+                });
+                stt.on('close', () => {
+                  logger.info({ callId, speaker }, 'Manual call STT closed');
+                });
               };
 
               wireSTT(calleeStt, 'caller');
