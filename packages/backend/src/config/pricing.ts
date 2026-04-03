@@ -7,14 +7,20 @@
 
 const LLM_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> = {
   // Anthropic
+  'claude-sonnet-4-6-20250827': { inputPer1M: 3, outputPer1M: 15 },
   'claude-sonnet-4-5-20250514': { inputPer1M: 3, outputPer1M: 15 },
-  'claude-sonnet-4-20250514': { inputPer1M: 3, outputPer1M: 15 },
+  'claude-opus-4-6-20250827': { inputPer1M: 15, outputPer1M: 75 },
+  'claude-opus-4-5-20250514': { inputPer1M: 15, outputPer1M: 75 },
+  'claude-haiku-4-5-20251001': { inputPer1M: 0.80, outputPer1M: 4.00 },
   'claude-haiku-3-5': { inputPer1M: 0.25, outputPer1M: 1.25 },
   // OpenAI
-  'gpt-4o-mini': { inputPer1M: 0.15, outputPer1M: 0.60 },
-  'gpt-4o': { inputPer1M: 2.50, outputPer1M: 10 },
+  'gpt-4.1': { inputPer1M: 2.00, outputPer1M: 8.00 },
   'gpt-4.1-mini': { inputPer1M: 0.40, outputPer1M: 1.60 },
   'gpt-4.1-nano': { inputPer1M: 0.10, outputPer1M: 0.40 },
+  'o3': { inputPer1M: 10.00, outputPer1M: 40.00 },
+  'o4-mini': { inputPer1M: 1.10, outputPer1M: 4.40 },
+  'gpt-4o': { inputPer1M: 2.50, outputPer1M: 10 },
+  'gpt-4o-mini': { inputPer1M: 0.15, outputPer1M: 0.60 },
   // xAI
   'grok-3-mini-fast': { inputPer1M: 0.30, outputPer1M: 0.50 },
   'grok-3-fast': { inputPer1M: 5, outputPer1M: 25 },

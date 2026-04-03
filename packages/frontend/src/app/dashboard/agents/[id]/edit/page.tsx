@@ -147,10 +147,13 @@ const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
     { value: 'claude-haiku-3-5', label: 'Claude Haiku 3.5' },
   ],
   openai: [
+    { value: 'gpt-4.1', label: 'GPT-4.1 (flagship, 1M ctx)' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini (fast)' },
+    { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano (cheapest)' },
+    { value: 'o3', label: 'o3 (reasoning)' },
+    { value: 'o4-mini', label: 'o4-mini (reasoning, fast)' },
     { value: 'gpt-4o', label: 'GPT-4o' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
   ],
   xai: [
     { value: 'grok-3', label: 'Grok 3' },
@@ -161,7 +164,7 @@ const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
 
 const DEFAULT_MODEL: Record<string, string> = {
   anthropic: 'claude-sonnet-4-5-20250514',
-  openai: 'gpt-4o',
+  openai: 'gpt-4.1-mini',
   xai: 'grok-3',
 };
 

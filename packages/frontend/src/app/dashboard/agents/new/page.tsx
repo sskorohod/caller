@@ -14,6 +14,11 @@ const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
     { value: 'claude-haiku-3-5', label: 'Claude Haiku 3.5' },
   ],
   openai: [
+    { value: 'gpt-4.1', label: 'GPT-4.1 (flagship, 1M ctx)' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini (fast)' },
+    { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano (cheapest)' },
+    { value: 'o3', label: 'o3 (reasoning)' },
+    { value: 'o4-mini', label: 'o4-mini (reasoning, fast)' },
     { value: 'gpt-4o', label: 'GPT-4o' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
   ],
