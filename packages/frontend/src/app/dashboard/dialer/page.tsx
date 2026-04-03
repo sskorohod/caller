@@ -65,6 +65,8 @@ export default function DialerPage() {
   const [translateTo, setTranslateTo] = useState('ru');
   const [suggestions, setSuggestions] = useState<Array<{ text: string; translation: string }>>([]);
   const [error, setError] = useState<string | null>(null);
+  const [voiceTranslate, setVoiceTranslate] = useState(false);
+  const [speakDirect, setSpeakDirect] = useState(false); // temporary bypass in voice translate mode
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -240,7 +242,13 @@ export default function DialerPage() {
       // 1. Create call record on backend
       const result = await api.post<{ call_id: string; from_number: string; stt_language: string }>(
         '/calls/dial',
-        { to: normalizedPhone, stt_language: sttLanguage, stt_provider: sttProvider },
+        {
+          to: normalizedPhone,
+          stt_language: sttLanguage,
+          stt_provider: sttProvider,
+          voice_translate: voiceTranslate,
+          translate_to_language: voiceTranslate ? sttLanguage : undefined, // callee's language = what operator's speech translates to
+        },
       );
 
       setCallId(result.call_id);
@@ -250,10 +258,17 @@ export default function DialerPage() {
         To: normalizedPhone,
         CallId: result.call_id,
         SttLanguage: sttLanguage,
+        VoiceTranslate: voiceTranslate ? 'true' : 'false',
       });
 
       call.on('ringing', () => setCallState('ringing'));
-      call.on('accept', () => setCallState('in_call'));
+      call.on('accept', () => {
+        setCallState('in_call');
+        // In voice translate mode, start listening to callee audio via Socket.IO
+        if (voiceTranslate && socket) {
+          socket.emit('call:listen:start', { call_id: result.call_id });
+        }
+      });
       call.on('disconnect', () => setCallState('ended'));
       call.on('cancel', () => setCallState('ended'));
       call.on('reject', () => { setCallState('ended'); setError('Call rejected'); });
@@ -261,7 +276,7 @@ export default function DialerPage() {
       setCallState('idle');
       setError(err.message || 'Failed to start call');
     }
-  }, [phoneNumber, sttLanguage, makeCall]);
+  }, [phoneNumber, sttLanguage, sttProvider, voiceTranslate, makeCall, socket]);
 
   const handleHangup = useCallback(() => {
     hangup();
@@ -362,6 +377,29 @@ export default function DialerPage() {
             </div>
           </div>
 
+          {/* Voice Translate toggle */}
+          <div className="mb-4">
+            <button
+              onClick={() => setVoiceTranslate(!voiceTranslate)}
+              disabled={isInCall}
+              className={`w-full px-3 py-2.5 rounded-lg border text-sm font-medium transition flex items-center justify-between disabled:opacity-50 ${
+                voiceTranslate
+                  ? 'border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
+                  : 'border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text-secondary)] hover:border-purple-400'
+              }`}
+            >
+              <span>{voiceTranslate ? 'Voice Translate ON' : 'Voice Translate'}</span>
+              <span className={`w-8 h-4 rounded-full transition-colors relative ${voiceTranslate ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${voiceTranslate ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </span>
+            </button>
+            {voiceTranslate && (
+              <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1 px-1">
+                Your voice will be translated and spoken to the callee via TTS
+              </p>
+            )}
+          </div>
+
           {/* Error */}
           {error && (
             <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
@@ -402,6 +440,20 @@ export default function DialerPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Speak directly toggle (voice translate mode only) */}
+                {voiceTranslate && (
+                  <button
+                    onClick={() => setSpeakDirect(!speakDirect)}
+                    className={`w-full py-2 rounded-lg font-medium text-xs transition ${
+                      speakDirect
+                        ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700'
+                        : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
+                    }`}
+                  >
+                    {speakDirect ? 'Speaking directly (no translation)' : 'Voice translating your speech'}
+                  </button>
+                )}
 
                 {/* Mute + Hangup */}
                 <div className="flex gap-2">

@@ -486,6 +486,9 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
       stt_language: z.enum(['auto', 'en', 'ru', 'es', 'de', 'fr']).optional().default('en'),
       stt_provider: z.enum(['deepgram', 'openai']).optional().default('deepgram'),
+      voice_translate: z.boolean().optional().default(false),
+      tts_voice_id: z.string().optional(),
+      translate_to_language: z.string().optional(), // language operator's speech gets translated to (for callee)
     }).parse(request.body);
 
     const connection = await telephonyService.getOutboundConnection(request.auth.workspaceId);
@@ -497,7 +500,13 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       toNumber: body.to,
       telephonyConnectionId: connection.id,
       conversationOwnerRequested: 'manual',
-      metadata: { stt_language: body.stt_language, stt_provider: body.stt_provider },
+      metadata: {
+        stt_language: body.stt_language,
+        stt_provider: body.stt_provider,
+        voice_translate: body.voice_translate,
+        tts_voice_id: body.tts_voice_id,
+        translate_to_language: body.translate_to_language,
+      },
     });
 
     await callService.createAiSession({

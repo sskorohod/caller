@@ -7,6 +7,7 @@ import { calls as callsTable, callerProfiles, callerMemoryFacts } from '../../db
 import * as callService from '../../services/call.service.js';
 import * as agentService from '../../services/agent.service.js';
 import * as workspaceService from '../../services/workspace.service.js';
+import * as telephonyService from '../../services/telephony.service.js';
 import { createSTTProvider } from '../../services/stt.service.js';
 import { createTTSProvider } from '../../services/tts.service.js';
 import { createLLMProvider } from '../../services/llm.service.js';
@@ -37,6 +38,20 @@ interface ManualSession {
   stop: () => void;
 }
 const activeManualSessions = new Map<string, ManualSession>();
+
+interface VoiceTranslateSession {
+  operatorSocket: import('ws').WebSocket;
+  operatorStreamSid: string;
+  operatorStt: import('../../services/stt.service.js').STTProvider;
+  calleeSocket: import('ws').WebSocket | null;
+  calleeStreamSid: string | null;
+  calleeStt: import('../../services/stt.service.js').STTProvider | null;
+  transcript: Array<{ speaker: string; text: string; timestamp: string }>;
+  sessionId?: string;
+  tts: import('../../services/tts.service.js').TTSProvider;
+  translationLlm: import('../../services/llm.service.js').LLMProvider | null;
+}
+const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 
 export function getActiveTranslators() { return activeTranslators; }
 
@@ -116,7 +131,116 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   const externalSessions = new Map<string, ExternalAgentSession>();
 
   app.get('/media-stream/:callId', { websocket: true }, async (socket, request) => {
-    const callId = z.string().uuid().parse((request.params as any).callId);
+    const rawCallId = (request.params as any).callId as string;
+    const isCalleeLeg = rawCallId.endsWith('-callee');
+    const callId = isCalleeLeg ? rawCallId.replace('-callee', '') : rawCallId;
+    z.string().uuid().parse(callId); // validate
+
+    // --- Callee leg for voice translate mode ---
+    if (isCalleeLeg) {
+      logger.info({ callId }, 'Voice translate callee leg WebSocket connected');
+      let calleeStreamSid: string | null = null;
+
+      socket.on('message', async (data: Buffer) => {
+        try {
+          const msg = JSON.parse(data.toString());
+
+          if (msg.event === 'start') {
+            calleeStreamSid = msg.start.streamSid;
+            const session = activeVoiceTranslateSessions.get(callId);
+            if (session) {
+              session.calleeSocket = socket as any;
+              session.calleeStreamSid = calleeStreamSid;
+
+              // Create callee STT for transcription
+              const [call] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
+              const meta = call?.metadata as any;
+              const calleeLang = meta?.translate_to_language ?? 'en';
+              const sttProviderName = (meta?.stt_provider ?? 'deepgram') as 'deepgram' | 'openai';
+
+              session.calleeStt = await createSTTProvider(call!.workspace_id, sttProviderName);
+              const io = getIo();
+
+              session.calleeStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                if (io) {
+                  io.to(`call:${callId}`).emit('call:transcript', {
+                    call_id: callId, speaker: 'caller', text: evt.text,
+                    timestamp: evt.timestamp, isFinal: evt.isFinal,
+                  });
+                }
+                if (evt.isFinal && evt.text.trim()) {
+                  session.transcript.push({ speaker: 'caller', text: evt.text.trim(), timestamp: evt.timestamp });
+                  // Feed to LiveTranslator for callee→operator translation
+                  const translator = activeTranslators.get(callId);
+                  if (translator?.translateText) translator.translateText(evt.text.trim());
+                }
+              });
+              session.calleeStt.on('utterance_end', () => {
+                const translator = activeTranslators.get(callId);
+                if (translator?.flushTranslation) translator.flushTranslation();
+              });
+              session.calleeStt.on('error', (err: Error) => logger.error({ err, callId }, 'Callee STT error'));
+              session.calleeStt.connect({ language: calleeLang === 'auto' ? undefined : calleeLang });
+
+              logger.info({ callId, calleeStreamSid }, 'Callee leg stream started');
+            }
+          }
+
+          if (msg.event === 'media' && msg.media?.payload) {
+            const audioBuffer = Buffer.from(msg.media.payload, 'base64');
+            const session = activeVoiceTranslateSessions.get(callId);
+            if (session) {
+              // Send callee audio to STT
+              if (session.calleeStt) session.calleeStt.sendAudio(audioBuffer);
+
+              // Forward callee audio to operator via Socket.IO (so operator can hear)
+              const io = getIo();
+              if (io) {
+                io.to(`call:${callId}:audio`).volatile.emit('call:audio', {
+                  source: 'caller',
+                  payload: msg.media.payload,
+                });
+              }
+
+              // Also forward callee audio to operator's Twilio stream (so they hear in browser)
+              if (session.operatorSocket && session.operatorStreamSid) {
+                session.operatorSocket.send(JSON.stringify({
+                  event: 'media',
+                  streamSid: session.operatorStreamSid,
+                  media: { payload: msg.media.payload },
+                }));
+              }
+            }
+          }
+
+          if (msg.event === 'stop') {
+            const session = activeVoiceTranslateSessions.get(callId);
+            if (session?.calleeStt) session.calleeStt.close();
+          }
+        } catch (err) {
+          logger.error({ err, callId }, 'Error in callee leg WebSocket');
+        }
+      });
+
+      socket.on('close', () => {
+        logger.info({ callId }, 'Voice translate callee leg WebSocket closed');
+        const session = activeVoiceTranslateSessions.get(callId);
+        if (session) {
+          if (session.calleeStt) session.calleeStt.close();
+          if (session.operatorStt) session.operatorStt.close();
+          // Save transcript
+          if (session.sessionId && session.transcript.length > 0) {
+            callService.updateAiSession(session.sessionId, {
+              transcript: session.transcript as any,
+              total_turns: session.transcript.length,
+            } as any).catch(err => logger.error({ err, callId }, 'Failed to save voice translate transcript'));
+          }
+          activeVoiceTranslateSessions.delete(callId);
+        }
+      });
+
+      return; // Don't fall through to main handler
+    }
 
     logger.info({ callId }, 'Twilio MediaStream WebSocket connected');
 
@@ -141,6 +265,159 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           }
 
           await callService.updateCallStatus(callId, 'in_progress');
+
+          // --- Voice translate mode (bidirectional: operator speaks one language, callee hears another) ---
+          if (call.conversation_owner_requested === 'manual' && (call.metadata as any)?.voice_translate) {
+            logger.info({ callId }, 'Voice translate mode — starting bidirectional translation');
+            try {
+              const meta = call.metadata as any;
+              const operatorLang = meta.stt_language ?? 'ru';
+              const calleeLang = meta.translate_to_language ?? 'en';
+              const ttsVoiceId = meta.tts_voice_id;
+              const sttProviderName = (meta.stt_provider ?? 'deepgram') as 'deepgram' | 'openai';
+              const io = getIo();
+
+              // STT for operator's voice (operator speaks in their language)
+              const operatorStt = await createSTTProvider(call.workspace_id, sttProviderName);
+              const transcript: ManualSession['transcript'] = [];
+              const aiSession = await callService.getAiSession(callId);
+
+              // LLM for translation
+              let translationLlm: import('../../services/llm.service.js').LLMProvider | null = null;
+              let translationProvider = 'openai';
+              for (const provider of ['openai', 'xai'] as const) {
+                try {
+                  translationLlm = await createLLMProvider(call.workspace_id, provider);
+                  translationProvider = provider;
+                  break;
+                } catch { /* try next */ }
+              }
+
+              // TTS for translated speech (callee hears this)
+              const tts = await createTTSProvider(call.workspace_id, 'elevenlabs', ttsVoiceId);
+
+              // Wire operator STT
+              operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                if (io) {
+                  io.to(`call:${callId}`).emit('call:transcript', {
+                    call_id: callId, speaker: 'operator', text: evt.text,
+                    timestamp: evt.timestamp, isFinal: evt.isFinal,
+                  });
+                }
+                if (evt.isFinal && evt.text.trim()) {
+                  transcript.push({ speaker: 'operator', text: evt.text.trim(), timestamp: evt.timestamp });
+                }
+              });
+              operatorStt.on('error', (err: Error) => logger.error({ err, callId }, 'Voice translate operator STT error'));
+
+              const translationModel = process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini';
+
+              // On operator utterance end → translate → TTS → inject to callee
+              let operatorAccum = '';
+              operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                if (evt.isFinal && evt.text.trim()) {
+                  operatorAccum += (operatorAccum ? ' ' : '') + evt.text.trim();
+                }
+              });
+              operatorStt.on('utterance_end', () => {
+                const text = operatorAccum.trim();
+                operatorAccum = '';
+                if (!text || !translationLlm) return;
+
+                // Pipeline: translate → TTS → inject
+                (async () => {
+                  try {
+                    // Translate
+                    const client = (translationLlm as any).client;
+                    const resp = await client.chat.completions.create({
+                      model: translationModel,
+                      temperature: 0.3,
+                      max_tokens: 150,
+                      stream: false,
+                      messages: [
+                        { role: 'system', content: `Translate to ${calleeLang}. Phone call. Be natural.\nOnly output the translation.` },
+                        { role: 'user', content: `"${text}"` },
+                      ],
+                    });
+                    const translated = resp.choices?.[0]?.message?.content?.trim();
+                    if (!translated) return;
+
+                    // Emit translation to UI
+                    if (io) {
+                      io.to(`call:${callId}:translate`).emit('call:translation', {
+                        call_id: callId, speaker: 'operator', original: text,
+                        translated, timestamp: new Date().toISOString(),
+                      });
+                    }
+
+                    // TTS → generate audio
+                    const audio = await tts.synthesize(translated);
+
+                    // Inject TTS audio into callee stream
+                    const calleeSid = activeVoiceTranslateSessions.get(callId)?.calleeStreamSid;
+                    const calleeWs = activeVoiceTranslateSessions.get(callId)?.calleeSocket;
+                    if (calleeWs && calleeSid && calleeWs.readyState === 1) {
+                      // Send audio in chunks of 640 bytes (80ms @ 8kHz mulaw)
+                      const chunkSize = 640;
+                      for (let i = 0; i < audio.length; i += chunkSize) {
+                        const chunk = audio.subarray(i, i + chunkSize);
+                        calleeWs.send(JSON.stringify({
+                          event: 'media',
+                          streamSid: calleeSid,
+                          media: { payload: chunk.toString('base64') },
+                        }));
+                      }
+                    }
+
+                    logger.info({ callId, original: text.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
+                  } catch (err) {
+                    logger.error({ err, callId }, 'Voice translate pipeline error');
+                  }
+                })();
+              });
+
+              operatorStt.connect({ language: operatorLang === 'auto' ? undefined : operatorLang });
+
+              // Initiate callee call via Twilio REST API
+              const calleeStreamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}-callee`;
+              const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
+
+              const twilioCallSid = await telephonyService.initiateOutboundCall({
+                workspaceId: call.workspace_id,
+                to: call.to_number,
+                from: call.from_number,
+                callId,
+                statusCallbackUrl,
+                streamUrl: calleeStreamUrl,
+              });
+
+              // Update call with twilio SID
+              await callService.updateCallStatus(callId, 'in_progress', {
+                twilio_call_sid: twilioCallSid,
+              } as any);
+
+              // Store session for callee WS to connect to
+              activeVoiceTranslateSessions.set(callId, {
+                operatorSocket: socket as any,
+                operatorStreamSid: streamSid!,
+                operatorStt,
+                calleeSocket: null,
+                calleeStreamSid: null,
+                calleeStt: null,
+                transcript,
+                sessionId: aiSession?.id,
+                tts,
+                translationLlm,
+              });
+
+              // Forward operator audio to STT
+              // (handled in media event below)
+
+            } catch (err) {
+              logger.error({ err, callId }, 'Failed to start voice translate mode');
+            }
+            return;
+          }
 
           // --- Manual call path (no AI agent, just STT transcription) ---
           if (call.conversation_owner_requested === 'manual') {
@@ -310,6 +587,14 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
           const track = msg.media.track as string | undefined; // 'inbound' | 'outbound' when both_tracks
 
+          // --- Voice translate mode: route operator audio to STT ---
+          const vtSession = activeVoiceTranslateSessions.get(callId);
+          if (vtSession) {
+            // In <Connect><Stream> mode, all audio is operator's voice (no track separation)
+            vtSession.operatorStt.sendAudio(audioBuffer);
+            return;
+          }
+
           // --- Manual call: route audio to per-track STT ---
           // Twilio <Start><Stream> track naming (from callee's perspective):
           //   inbound  = audio arriving TO callee = operator's voice
@@ -363,6 +648,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         }
 
         if (msg.event === 'stop') {
+          const vt = activeVoiceTranslateSessions.get(callId);
+          if (vt) {
+            vt.operatorStt.close();
+            if (vt.calleeStt) vt.calleeStt.close();
+          }
           const ms = activeManualSessions.get(callId);
           if (ms) ms.stop();
           if (orchestrator) orchestrator.stop('stream_stopped');
