@@ -181,10 +181,17 @@ export default function DialerPage() {
     setDuration(0);
     setCallState('connecting');
 
-    // Normalize phone number: ensure E.164 format with +
-    let normalizedPhone = phoneNumber.trim();
+    // Normalize phone number to E.164 format
+    let normalizedPhone = phoneNumber.trim().replace(/[\s\-\(\)]/g, '');
     if (!normalizedPhone.startsWith('+')) {
-      normalizedPhone = '+' + normalizedPhone;
+      // 10 digits without country code → prepend +1 (US)
+      if (/^\d{10}$/.test(normalizedPhone)) {
+        normalizedPhone = '+1' + normalizedPhone;
+      } else if (/^1\d{10}$/.test(normalizedPhone)) {
+        normalizedPhone = '+' + normalizedPhone;
+      } else {
+        normalizedPhone = '+' + normalizedPhone;
+      }
     }
 
     try {
