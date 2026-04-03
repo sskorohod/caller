@@ -456,6 +456,32 @@ export default function MissionChatPage() {
         >
           {t(`mission.status.${mission.status}`)}
         </span>
+
+        {/* Retry button for completed/failed/on_hold missions */}
+        {(mission.status === 'completed' || mission.status === 'failed' || mission.status === 'on_hold') && (
+          <button
+            onClick={async () => {
+              try {
+                await api.post(`/missions/${missionId}/retry`, {});
+                const updated = await api.get<{ mission: Mission }>(`/missions/${missionId}`);
+                if (updated.mission) {
+                  setMission(updated.mission);
+                  if (updated.mission.call_id) {
+                    router.push(`/dashboard/calls/${updated.mission.call_id}/live`);
+                  }
+                }
+              } catch (e: any) {
+                toast.error(e.message || t('common.error'));
+              }
+            }}
+            className="px-3 py-1.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+            </svg>
+            {t('missions.retry')}
+          </button>
+        )}
       </div>
 
       {/* Two-column layout */}
