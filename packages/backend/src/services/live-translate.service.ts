@@ -77,8 +77,8 @@ export class LiveTranslator {
       return;
     }
 
-    // Resolve LLM provider — xAI first (OpenAI may use slow OAuth proxy)
-    for (const provider of ['xai', 'openai'] as const) {
+    // Resolve LLM provider — OpenAI first (GPT-4o-mini fastest for translation)
+    for (const provider of ['openai', 'xai'] as const) {
       try {
         this.llm = await createLLMProvider(this.workspaceId, provider);
         this.llmProviderName = provider;
