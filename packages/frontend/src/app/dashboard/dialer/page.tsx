@@ -62,7 +62,7 @@ export default function DialerPage() {
   const [callId, setCallId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [duration, setDuration] = useState(0);
-  const [translateTo, setTranslateTo] = useState('');
+  const [translateTo, setTranslateTo] = useState('ru');
   const [suggestions, setSuggestions] = useState<Array<{ text: string; translation: string }>>([]);
   const [error, setError] = useState<string | null>(null);
 
