@@ -77,8 +77,8 @@ export class LiveTranslator {
       return;
     }
 
-    // Resolve LLM provider — fast models only for translation (xai → openai)
-    for (const provider of ['xai', 'openai'] as const) {
+    // Resolve LLM provider — OpenAI first (GPT-4o-mini is fastest for translation)
+    for (const provider of ['openai', 'xai'] as const) {
       try {
         this.llm = await createLLMProvider(this.workspaceId, provider);
         this.llmProviderName = provider;
@@ -209,8 +209,8 @@ export class LiveTranslator {
     const channel = `call:${this.callId}:translate`;
     const start = Date.now();
 
-    // Step 1: Translate
-    const translated = await this.runLLM(
+    // Step 1: Translate (non-streaming for speed — translation is short)
+    const translated = await this.runLLMFast(
       [
         {
           role: 'system',
@@ -219,6 +219,7 @@ export class LiveTranslator {
         { role: 'user', content: `"${original}"` },
       ],
       model,
+      150,
     );
 
     const latency = Date.now() - start;
@@ -314,6 +315,31 @@ export class LiveTranslator {
   /* ------------------------------------------------------------------ */
   /*  LLM helper                                                         */
   /* ------------------------------------------------------------------ */
+
+  /** Fast non-streaming LLM call for short translations. */
+  private async runLLMFast(messages: LLMMessage[], model: string, maxTokens: number = 150): Promise<string | null> {
+    if (!this.llm) return null;
+
+    try {
+      // Access the underlying OpenAI client for non-streaming call
+      const client = (this.llm as any).client;
+      if (client?.chat?.completions?.create) {
+        const response = await client.chat.completions.create({
+          model,
+          temperature: 0.3,
+          max_tokens: maxTokens,
+          stream: false,
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
+        });
+        return response.choices?.[0]?.message?.content?.trim() || null;
+      }
+    } catch (err) {
+      log.error({ err, callId: this.callId }, 'Fast LLM call failed, falling back to stream');
+    }
+
+    // Fallback to streaming
+    return this.runLLM(messages, model);
+  }
 
   private runLLM(messages: LLMMessage[], model: string): Promise<string | null> {
     return new Promise((resolve) => {
