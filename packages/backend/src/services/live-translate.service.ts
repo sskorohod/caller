@@ -13,6 +13,7 @@ interface LiveTranslatorOptions {
   myLanguage?: string;
   context?: string;
   instant?: boolean;
+  sourceLanguage?: string; // language of audio being transcribed (defaults to targetLanguage for backwards compat)
 }
 
 interface TranslationPayload {
@@ -54,6 +55,7 @@ export class LiveTranslator {
   private accumulatedText: string = '';
   private running: boolean = false;
   private instant: boolean = false;
+  private sourceLanguage: string;
 
   constructor(options: LiveTranslatorOptions) {
     this.callId = options.callId;
@@ -63,6 +65,7 @@ export class LiveTranslator {
     this.myLanguage = options.myLanguage ?? 'en';
     this.context = options.context ?? 'general phone call';
     this.instant = options.instant ?? false;
+    this.sourceLanguage = options.sourceLanguage ?? options.targetLanguage;
   }
 
   async start(): Promise<void> {
@@ -106,7 +109,7 @@ export class LiveTranslator {
       log.info({ callId: this.callId }, 'STT connection closed in live translator');
     });
 
-    this.stt.connect({ language: this.targetLanguage });
+    this.stt.connect({ language: this.sourceLanguage });
     this.running = true;
 
     log.info(

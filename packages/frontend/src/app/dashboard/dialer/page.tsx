@@ -188,8 +188,9 @@ export default function DialerPage() {
 
     api.post(`/calls/${callId}/translate/start`, {
       target_language: translateTo,
+      source_language: sttLanguage,
       mode: 'copilot',
-      my_language: sttLanguage === 'en' ? 'ru' : 'en',
+      my_language: translateTo,
       instant: true,
     }).catch(() => {});
 
