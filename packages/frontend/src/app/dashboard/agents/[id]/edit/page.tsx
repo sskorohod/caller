@@ -678,7 +678,7 @@ export default function AgentEditPage() {
         {/* Temperature */}
         <div>
           <label className="block text-sm font-medium text-[var(--th-text)] mb-1">
-            {t('agents.temperature')}: <span className="text-[var(--th-primary)]">{form.llm_temperature.toFixed(1)}</span>
+            {t('agents.temperature')}: <span className="text-[var(--th-primary)]">{Number(form.llm_temperature).toFixed(1)}</span>
           </label>
           <input
             type="range"
