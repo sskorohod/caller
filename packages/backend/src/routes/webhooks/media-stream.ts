@@ -46,7 +46,7 @@ export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRe
 
 const CORRECTION_MODELS: Record<string, string> = {
   xai: 'grok-3-mini-fast',
-  openai: 'gpt-4o-mini',
+  openai: process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini',
   anthropic: 'claude-sonnet-4-5-20250514',
 };
 

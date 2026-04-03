@@ -39,7 +39,7 @@ interface SuggestionsPayload {
 const MODEL_MAP: Record<string, string> = {
   anthropic: 'claude-sonnet-4-5-20250514',
   xai: 'grok-3-mini-fast',
-  openai: 'gpt-4o-mini',
+  openai: process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini',
 };
 
 export class LiveTranslator {
