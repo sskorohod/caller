@@ -51,6 +51,7 @@ export class CallOrchestrator extends EventEmitter {
   private totalTtsCharacters = 0;
   private sttAudioDurationMs = 0;
   private latencies: number[] = [];
+  private farewellSent = false;
   private fillerTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: CallOrchestratorConfig) {
@@ -163,6 +164,12 @@ export class CallOrchestrator extends EventEmitter {
 
   private async handleCallerUtterance(text: string): Promise<void> {
     if (this.isStopped) return;
+
+    // After agent said goodbye, don't process new utterances — call is ending
+    if (this.farewellSent) {
+      logger.info({ callId: this.config.call.id, text }, 'Ignoring caller utterance after farewell');
+      return;
+    }
 
     this.turnCount++;
     logger.info({ callId: this.config.call.id, turn: this.turnCount, text }, 'Caller utterance');
@@ -281,12 +288,19 @@ export class CallOrchestrator extends EventEmitter {
             },
           });
 
-          // Detect end-of-call marker [END_CALL]
-          if (fullResponse.includes('[END_CALL]')) {
-            logger.info({ callId: this.config.call.id }, 'Agent signaled end of call');
-            // Remove marker from spoken text (it was already sent via TTS sentence-by-sentence,
-            // but future utterances will be blocked by isStopped)
-            setTimeout(() => this.stop('agent_ended_call'), 2000); // 2s delay for TTS to finish
+          // Detect end-of-call: explicit [END_CALL] marker OR farewell heuristics
+          const hasEndMarker = fullResponse.includes('[END_CALL]');
+          const farewellPattern = /\b(пока|до свидания|goodbye|bye|bye-bye|всего доброго|до встречи|see you|take care)\b/i;
+          const hasFarewell = farewellPattern.test(fullResponse);
+
+          if (hasEndMarker || (hasFarewell && !this.farewellSent)) {
+            this.farewellSent = true;
+            logger.info({ callId: this.config.call.id, hasEndMarker, hasFarewell }, 'Agent farewell detected, ending call');
+            setTimeout(() => this.stop('agent_ended_call'), 3000); // 3s for TTS to finish
+          } else if (hasFarewell && this.farewellSent) {
+            // Agent said goodbye AGAIN — stop immediately, don't speak it
+            logger.warn({ callId: this.config.call.id }, 'Agent repeated farewell, stopping immediately');
+            this.stop('agent_repeated_farewell');
           }
 
           // Detect skill activation markers [ACTIVATE:skill_intent]
