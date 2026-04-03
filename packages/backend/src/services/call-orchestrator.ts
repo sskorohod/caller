@@ -281,6 +281,14 @@ export class CallOrchestrator extends EventEmitter {
             },
           });
 
+          // Detect end-of-call marker [END_CALL]
+          if (fullResponse.includes('[END_CALL]')) {
+            logger.info({ callId: this.config.call.id }, 'Agent signaled end of call');
+            // Remove marker from spoken text (it was already sent via TTS sentence-by-sentence,
+            // but future utterances will be blocked by isStopped)
+            setTimeout(() => this.stop('agent_ended_call'), 2000); // 2s delay for TTS to finish
+          }
+
           // Detect skill activation markers [ACTIVATE:skill_intent]
           const skillMatch = fullResponse.match(/\[ACTIVATE:(\w+)\]/);
           if (skillMatch) {
@@ -306,7 +314,10 @@ export class CallOrchestrator extends EventEmitter {
   }
 
   private async speakText(text: string): Promise<void> {
-    if (this.isStopped || !text.trim()) return;
+    // Strip control markers before speaking
+    const clean = text.replace(/\[END_CALL\]/g, '').replace(/\[ACTIVATE:\w+\]/g, '').trim();
+    if (this.isStopped || !clean) return;
+    text = clean;
 
     try {
       const { tts } = this.config;

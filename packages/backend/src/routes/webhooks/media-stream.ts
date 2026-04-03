@@ -527,7 +527,11 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
   }
   parts.push('Keep responses concise — this is a phone conversation, not a chat.');
   parts.push('Never use markdown, bullet points, or formatting. Speak naturally.');
-  parts.push('If you need to end the call, say goodbye politely.');
+  parts.push(`CALL ENDING RULES:
+- When the caller says goodbye ("bye", "пока", "до свидания", "всё, пока") — say ONE short farewell (max 5 words) and add [END_CALL] at the end.
+- When you have completed your goal/mission — say a brief closing and add [END_CALL].
+- NEVER say goodbye more than once. One farewell + [END_CALL]. That's it.
+- Do NOT repeat farewell phrases. If you already said goodbye, do NOT generate another response.`);
 
   return parts.join('\n\n');
 }
