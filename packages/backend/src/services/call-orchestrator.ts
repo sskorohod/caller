@@ -26,6 +26,7 @@ export interface CallOrchestratorConfig {
   language: string;
   systemPrompt: string;
   callerContext?: string; // memory/knowledge context
+  knowledgeSearch?: (query: string) => Promise<Array<{ chunk_text: string; similarity: number; document_title: string }>>;
 }
 
 interface ConversationTurn {
@@ -196,6 +197,27 @@ export class CallOrchestrator extends EventEmitter {
 
     // Start filler timer
     this.startFillerTimer();
+
+    // RAG: search knowledge bases for relevant context
+    if (this.config.knowledgeSearch) {
+      try {
+        const results = await this.config.knowledgeSearch(text);
+        if (results.length > 0) {
+          const ragContext = results
+            .filter(r => r.similarity > 0.3)
+            .map(r => `[${r.document_title}]: ${r.chunk_text}`)
+            .join('\n');
+          if (ragContext) {
+            this.llmMessages.push({
+              role: 'system',
+              content: `Relevant knowledge:\n${ragContext}`,
+            });
+          }
+        }
+      } catch (err) {
+        logger.warn({ err }, 'RAG search failed, continuing without knowledge');
+      }
+    }
 
     // Generate AI response
     await this.generateAndSpeak();

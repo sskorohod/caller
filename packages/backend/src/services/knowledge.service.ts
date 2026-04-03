@@ -30,14 +30,28 @@ export async function createKnowledgeBase(
   return created as unknown as KnowledgeBase;
 }
 
-export async function listKnowledgeBases(workspaceId: string): Promise<KnowledgeBase[]> {
-  const rows = await db
-    .select()
-    .from(knowledgeBases)
-    .where(eq(knowledgeBases.workspace_id, workspaceId))
-    .orderBy(desc(knowledgeBases.created_at));
+export async function listKnowledgeBases(workspaceId: string) {
+  const rows = await db.execute(sql`
+    SELECT kb.*, COUNT(kd.id)::int AS document_count
+    FROM knowledge_bases kb
+    LEFT JOIN knowledge_documents kd ON kd.knowledge_base_id = kb.id
+    WHERE kb.workspace_id = ${workspaceId}
+    GROUP BY kb.id
+    ORDER BY kb.created_at DESC
+  `);
 
-  return rows as unknown as KnowledgeBase[];
+  return (rows.rows ?? []) as unknown as Array<KnowledgeBase & { document_count: number }>;
+}
+
+export async function deleteKnowledgeBase(workspaceId: string, kbId: string): Promise<void> {
+  await db
+    .delete(knowledgeBases)
+    .where(
+      and(
+        eq(knowledgeBases.id, kbId),
+        eq(knowledgeBases.workspace_id, workspaceId),
+      ),
+    );
 }
 
 // ============================================================
@@ -88,6 +102,50 @@ export async function listDocuments(
     .orderBy(desc(knowledgeDocuments.created_at));
 
   return rows as unknown as KnowledgeDocument[];
+}
+
+export async function getDocument(workspaceId: string, documentId: string): Promise<KnowledgeDocument> {
+  const [doc] = await db
+    .select()
+    .from(knowledgeDocuments)
+    .where(
+      and(
+        eq(knowledgeDocuments.id, documentId),
+        eq(knowledgeDocuments.workspace_id, workspaceId),
+      ),
+    );
+
+  if (!doc) throw new NotFoundError('Document not found');
+  return doc as unknown as KnowledgeDocument;
+}
+
+export async function updateDocument(
+  workspaceId: string,
+  documentId: string,
+  updates: { title?: string; content?: string; doc_type?: string },
+): Promise<KnowledgeDocument> {
+  const [updated] = await db
+    .update(knowledgeDocuments)
+    .set({ ...updates, updated_at: new Date() })
+    .where(
+      and(
+        eq(knowledgeDocuments.id, documentId),
+        eq(knowledgeDocuments.workspace_id, workspaceId),
+      ),
+    )
+    .returning();
+
+  if (!updated) throw new NotFoundError('Document not found');
+
+  // Re-generate embeddings if content changed
+  if (updates.content) {
+    await db
+      .delete(knowledgeEmbeddings)
+      .where(eq(knowledgeEmbeddings.document_id, documentId));
+    await generateEmbeddings(documentId, workspaceId, updates.content);
+  }
+
+  return updated as unknown as KnowledgeDocument;
 }
 
 export async function deleteDocument(workspaceId: string, documentId: string): Promise<void> {
@@ -346,6 +404,55 @@ export async function searchKnowledge(
       FROM knowledge_embeddings ke
       JOIN knowledge_documents kd ON kd.id = ke.document_id
       WHERE ke.workspace_id = ${workspaceId}
+      ORDER BY ke.embedding <=> ${embeddingStr}::vector
+      LIMIT ${limit}
+    `);
+
+    return (rows.rows ?? []) as Array<{ chunk_text: string; similarity: number; document_title: string }>;
+  } catch {
+    return [];
+  }
+}
+
+export async function searchKnowledgeForAgent(
+  workspaceId: string,
+  agentProfileId: string,
+  query: string,
+  limit = 3,
+): Promise<Array<{ chunk_text: string; similarity: number; document_title: string }>> {
+  try {
+    const apiKey = await getOpenAIKey(workspaceId);
+
+    const res = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: query,
+      }),
+    });
+
+    if (!res.ok) return [];
+
+    const result = await res.json() as any;
+    const queryEmbedding = result.data?.[0]?.embedding;
+    if (!queryEmbedding) return [];
+
+    const embeddingStr = JSON.stringify(queryEmbedding);
+
+    const rows = await db.execute(sql`
+      SELECT
+        ke.chunk_text,
+        1 - (ke.embedding <=> ${embeddingStr}::vector) AS similarity,
+        kd.title AS document_title
+      FROM knowledge_embeddings ke
+      JOIN knowledge_documents kd ON kd.id = ke.document_id
+      JOIN agent_knowledge_bases akb ON akb.knowledge_base_id = kd.knowledge_base_id
+      WHERE ke.workspace_id = ${workspaceId}
+        AND akb.agent_profile_id = ${agentProfileId}
       ORDER BY ke.embedding <=> ${embeddingStr}::vector
       LIMIT ${limit}
     `);

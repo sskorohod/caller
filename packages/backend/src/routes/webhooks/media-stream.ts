@@ -14,6 +14,7 @@ import { CallOrchestrator } from '../../services/call-orchestrator.js';
 import { GrokRealtimeOrchestrator } from '../../services/grok-realtime.service.js';
 import { sendBootstrapWebhook, ExternalAgentSession } from '../../services/external-handoff.service.js';
 import { getProviderCredential } from '../../services/provider.service.js';
+import * as knowledgeService from '../../services/knowledge.service.js';
 import { env } from '../../config/env.js';
 import { queuePostCallProcessing } from '../../workers/post-call.worker.js';
 import { calculateLLMCost, calculateTTSCost, calculateSTTCost, calculateTelephonyCost } from '../../config/pricing.js';
@@ -321,12 +322,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       conversation_owner_actual: 'internal',
     } as any);
 
-    const [promptPacks, attachedSkills, allSkills] = await Promise.all([
+    const [promptPacks, attachedSkills, allSkills, attachedKBs] = await Promise.all([
       agentService.getAgentPromptPacks(agentProfile.id),
       agentService.getAgentSkillPacks(agentProfile.id),
       agentService.listSkillPacks(call.workspace_id),
+      agentService.getAgentKnowledgeBases(agentProfile.id),
     ]);
-    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call);
+    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call, attachedKBs);
     const callerContext = await loadCallerContext(call.workspace_id, call.from_number);
 
     // Load workspace timezone
@@ -378,6 +380,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       language: agentProfile.language,
       systemPrompt,
       callerContext,
+      knowledgeSearch: attachedKBs.length > 0
+        ? (query: string) => knowledgeService.searchKnowledgeForAgent(
+            call.workspace_id, agentProfile.id, query, 3,
+          )
+        : undefined,
     });
 
     wireOrchestratorEvents(orchestrator, call, callId);
@@ -480,7 +487,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   }
 };
 
-function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills: any[] = [], allSkills: any[] = [], call?: any): string {
+function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills: any[] = [], allSkills: any[] = [], call?: any, attachedKBs: any[] = []): string {
   const parts: string[] = [];
   parts.push(`You are ${agentProfile.display_name}, an AI phone agent.`);
   if (agentProfile.company_name) parts.push(`You represent ${agentProfile.company_name}.`);
@@ -518,6 +525,12 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
       `- ${s.intent}: ${s.description || s.name}`
     );
     parts.push(`OPTIONAL SKILLS (activate when the conversation requires it — say [ACTIVATE:skill_intent] to enable):\n${optParts.join('\n')}`);
+  }
+
+  // Knowledge bases
+  if (attachedKBs.length > 0) {
+    const kbNames = attachedKBs.map((kb: any) => kb.name).join(', ');
+    parts.push(`KNOWLEDGE BASES: You have access to these knowledge bases: ${kbNames}. Relevant excerpts will be provided during the conversation. Use them to give accurate, informed answers.`);
   }
 
   if (agentProfile.language === 'ru') {

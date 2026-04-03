@@ -29,6 +29,14 @@ interface AgentDetail {
   avatar_url: string | null;
   skill_packs?: { id: string; name: string; description?: string | null; intent?: string | null; priority: number }[];
   prompt_packs?: { id: string; name: string; description?: string | null; category?: string | null; priority: number }[];
+  knowledge_bases?: { id: string; name: string; description?: string | null }[];
+}
+
+interface KnowledgeBaseItem {
+  id: string;
+  name: string;
+  description: string | null;
+  document_count?: number;
 }
 
 interface SkillPack {
@@ -74,7 +82,7 @@ interface FormState {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-const SECTIONS = ['general', 'voice', 'llm', 'skills', 'prompts', 'advanced'] as const;
+const SECTIONS = ['general', 'voice', 'llm', 'skills', 'prompts', 'knowledge', 'advanced'] as const;
 type Section = (typeof SECTIONS)[number];
 
 const SECTION_ICONS: Record<Section, string> = {
@@ -83,6 +91,7 @@ const SECTION_ICONS: Record<Section, string> = {
   llm: '\ud83e\udde0',
   skills: '\u26a1',
   prompts: '\ud83d\udcdd',
+  knowledge: '\ud83d\udcda',
   advanced: '\ud83d\udd27',
 };
 
@@ -92,6 +101,7 @@ const SECTION_KEYS: Record<Section, string> = {
   llm: 'agents.llm',
   skills: 'agents.skills',
   prompts: 'agents.prompts',
+  knowledge: 'agents.knowledge',
   advanced: 'agents.advanced',
 };
 
@@ -226,6 +236,10 @@ export default function AgentEditPage() {
   const [skillSuggestions, setSkillSuggestions] = useState<SkillSuggestion[] | null>(null);
   const [suggestingSkills, setSuggestingSkills] = useState(false);
 
+  // Knowledge bases
+  const [allKBs, setAllKBs] = useState<KnowledgeBaseItem[]>([]);
+  const [selectedKBs, setSelectedKBs] = useState<Set<string>>(new Set());
+
   // Delete
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -243,10 +257,11 @@ export default function AgentEditPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [agent, skills, prompts] = await Promise.all([
+        const [agent, skills, prompts, kbs] = await Promise.all([
           api.get<AgentDetail>(`/agents/${id}`),
           api.get<{ skill_packs: SkillPack[] }>('/skill-packs').then(r => r.skill_packs ?? []).catch(() => [] as SkillPack[]),
           api.get<{ prompt_packs: PromptPack[] }>('/prompt-packs').then(r => r.prompt_packs ?? []).catch(() => [] as PromptPack[]),
+          api.get<{ knowledge_bases: KnowledgeBaseItem[] }>('/knowledge').then(r => r.knowledge_bases ?? []).catch(() => [] as KnowledgeBaseItem[]),
         ]);
 
         setForm({
@@ -270,8 +285,10 @@ export default function AgentEditPage() {
         setAvatarPreview(agent.avatar_url || '');
         setAllSkills(skills);
         setAllPrompts(prompts);
+        setAllKBs(kbs);
         setSelectedSkills(new Set((agent.skill_packs ?? []).map(s => s.id)));
         setSelectedPrompts(new Set((agent.prompt_packs ?? []).map(p => p.id)));
+        setSelectedKBs(new Set((agent.knowledge_bases ?? []).map(kb => kb.id)));
       } catch (err: any) {
         toast.error(err.message || 'Failed to load agent');
         router.push('/dashboard/agents');
@@ -314,25 +331,26 @@ export default function AgentEditPage() {
         avatar_url: form.avatar_url || null,
       });
 
-      // 2. Sync skill packs: delete all, then re-add selected
-      try {
-        await api.delete(`/agents/${id}/skill-packs`);
-        const skillPromises = Array.from(selectedSkills).map((spId, i) =>
-          api.post(`/agents/${id}/skill-packs`, { skill_pack_id: spId, priority: i })
-        );
-        await Promise.all(skillPromises);
-      } catch { /* skills sync optional */ }
+      // 2. Sync skill packs (atomic batch)
+      await api.put(`/agents/${id}/skill-packs`, {
+        skill_pack_ids: Array.from(selectedSkills),
+      });
 
-      // 3. Sync prompt packs: delete all, then re-add selected
-      try {
-        await api.delete(`/agents/${id}/prompt-packs`);
-        const promptPromises = Array.from(selectedPrompts).map((ppId, i) =>
-          api.post(`/agents/${id}/prompt-packs`, { prompt_pack_id: ppId, priority: i })
-        );
-        await Promise.all(promptPromises);
-      } catch { /* prompts sync optional */ }
+      // 3. Sync prompt packs (atomic batch)
+      await api.put(`/agents/${id}/prompt-packs`, {
+        prompt_pack_ids: Array.from(selectedPrompts),
+      });
 
-      // 4. Upload avatar if changed
+      // 4. Sync knowledge bases: delete all, then re-add selected
+      try {
+        await api.delete(`/agents/${id}/knowledge-bases`);
+        const kbPromises = Array.from(selectedKBs).map(kbId =>
+          api.post(`/agents/${id}/knowledge-bases`, { knowledge_base_id: kbId })
+        );
+        await Promise.all(kbPromises);
+      } catch { /* KB sync optional */ }
+
+      // 5. Upload avatar if changed
       if (avatarFile) {
         try {
           const token = typeof window !== 'undefined' ? localStorage.getItem('caller_token') : null;
@@ -838,6 +856,70 @@ export default function AgentEditPage() {
     );
   }
 
+  function renderKnowledge() {
+    function toggleKB(kbId: string) {
+      setSelectedKBs(prev => {
+        const next = new Set(prev);
+        if (next.has(kbId)) next.delete(kbId);
+        else next.add(kbId);
+        return next;
+      });
+    }
+
+    return (
+      <div className="space-y-4">
+        <label className="block text-sm font-medium text-[var(--th-text)]">{t('agents.knowledge')}</label>
+
+        {allKBs.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-[var(--th-text-muted)]">{t('agents.noKBs')}</p>
+            <a href="/dashboard/knowledge" className="text-sm text-[var(--th-primary)] hover:underline mt-2 inline-block">{t('knowledge.createKB')}</a>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {allKBs.map(kb => (
+              <div
+                key={kb.id}
+                className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                  selectedKBs.has(kb.id)
+                    ? 'bg-[var(--th-primary-bg)] border-[var(--th-primary)]'
+                    : 'bg-[var(--th-surface)] border-[var(--th-border)]'
+                }`}
+              >
+                <div className="flex-1 min-w-0 mr-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-[var(--th-text)]">{kb.name}</span>
+                    {kb.document_count != null && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-border)]">
+                        {kb.document_count} {t('knowledge.docs')}
+                      </span>
+                    )}
+                  </div>
+                  {kb.description && (
+                    <p className="text-xs text-[var(--th-text-muted)] mt-0.5 truncate">{kb.description}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleKB(kb.id)}
+                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
+                    selectedKBs.has(kb.id) ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      selectedKBs.has(kb.id) ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderAdvanced() {
     return (
       <div className="space-y-6">
@@ -897,6 +979,7 @@ export default function AgentEditPage() {
     llm: renderLLM,
     skills: renderSkills,
     prompts: renderPrompts,
+    knowledge: renderKnowledge,
     advanced: renderAdvanced,
   };
 

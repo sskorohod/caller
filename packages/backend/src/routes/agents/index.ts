@@ -60,12 +60,13 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Also load attached packs
-    const [promptPacks, skillPacks] = await Promise.all([
+    const [promptPacks, skillPacks, knowledgeBases] = await Promise.all([
       agentService.getAgentPromptPacks(id),
       agentService.getAgentSkillPacks(id),
+      agentService.getAgentKnowledgeBases(id),
     ]);
 
-    return { ...profile, avatar_url: avatarUrl, prompt_packs: promptPacks, skill_packs: skillPacks };
+    return { ...profile, avatar_url: avatarUrl, prompt_packs: promptPacks, skill_packs: skillPacks, knowledge_bases: knowledgeBases };
   });
 
   // POST /api/agents
@@ -136,12 +137,52 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     return { deleted: true };
   });
 
+  // DELETE /api/agents/:id/prompt-packs/:packId — detach single prompt pack
+  app.delete('/:id/prompt-packs/:packId', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id, packId } = z.object({ id: z.string().uuid(), packId: z.string().uuid() }).parse(request.params);
+    await agentService.detachPromptPack(id, packId);
+    return { deleted: true };
+  });
+
   // DELETE /api/agents/:id/skill-packs — detach all skill packs
   app.delete('/:id/skill-packs', {
     preHandler: [requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     await agentService.detachAllSkillPacks(id);
+    return { deleted: true };
+  });
+
+  // DELETE /api/agents/:id/skill-packs/:packId — detach single skill pack
+  app.delete('/:id/skill-packs/:packId', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id, packId } = z.object({ id: z.string().uuid(), packId: z.string().uuid() }).parse(request.params);
+    await agentService.detachSkillPack(id, packId);
+    return { deleted: true };
+  });
+
+  // POST /api/agents/:id/knowledge-bases — attach a knowledge base
+  app.post('/:id/knowledge-bases', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      knowledge_base_id: z.string().uuid(),
+    }).parse(request.body);
+
+    await agentService.attachKnowledgeBase(id, body.knowledge_base_id);
+    return { attached: true };
+  });
+
+  // DELETE /api/agents/:id/knowledge-bases — detach all knowledge bases
+  app.delete('/:id/knowledge-bases', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    await agentService.detachAllKnowledgeBases(id);
     return { deleted: true };
   });
 
@@ -171,6 +212,32 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
     await agentService.attachSkillPack(id, body.skill_pack_id, body.priority);
     return { attached: true };
+  });
+
+  // PUT /api/agents/:id/skill-packs — batch sync skill packs (atomic)
+  app.put('/:id/skill-packs', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      skill_pack_ids: z.array(z.string().uuid()),
+    }).parse(request.body);
+
+    await agentService.syncSkillPacks(request.auth.workspaceId, id, body.skill_pack_ids);
+    return { synced: true, count: body.skill_pack_ids.length };
+  });
+
+  // PUT /api/agents/:id/prompt-packs — batch sync prompt packs (atomic)
+  app.put('/:id/prompt-packs', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      prompt_pack_ids: z.array(z.string().uuid()),
+    }).parse(request.body);
+
+    await agentService.syncPromptPacks(request.auth.workspaceId, id, body.prompt_pack_ids);
+    return { synced: true, count: body.prompt_pack_ids.length };
   });
 
   // POST /api/agents/:id/avatar — upload avatar image

@@ -122,6 +122,8 @@ const en: Record<string, string> = {
   'agents.noSkills': 'No skills attached',
   'agents.prompts': 'Prompts',
   'agents.noPrompts': 'No prompts attached',
+  'agents.knowledge': 'Knowledge',
+  'agents.noKBs': 'No knowledge bases yet. Create one in the Knowledge section.',
   'agents.suggestSkills': 'AI Suggest',
   'agents.suggestLoading': 'Analyzing...',
   'agents.applySuggestions': 'Apply suggestions',
@@ -264,6 +266,11 @@ const en: Record<string, string> = {
   'knowledge.enhancing': 'AI is processing...',
   'knowledge.enhanced': 'Content enhanced!',
   'knowledge.suggestions': 'AI suggests adding:',
+  'knowledge.deleteKB': 'Delete',
+  'knowledge.deleteConfirm': 'Delete this knowledge base and all its documents?',
+  'knowledge.editDoc': 'Edit',
+  'knowledge.saveDoc': 'Save',
+  'knowledge.saving': 'Saving...',
 
   // Prompts
   'prompts.title': 'Prompt Packs',
@@ -697,6 +704,8 @@ const ru: Record<string, string> = {
   'agents.noSkills': 'Нет привязанных навыков',
   'agents.prompts': 'Промпты',
   'agents.noPrompts': 'Нет привязанных промптов',
+  'agents.knowledge': 'Знания',
+  'agents.noKBs': 'Баз знаний пока нет. Создайте в разделе Базы знаний.',
   'agents.suggestSkills': 'AI подбор',
   'agents.suggestLoading': 'Анализируем...',
   'agents.applySuggestions': 'Применить рекомендации',
@@ -839,6 +848,11 @@ const ru: Record<string, string> = {
   'knowledge.enhancing': 'ИИ обрабатывает...',
   'knowledge.enhanced': 'Текст улучшен!',
   'knowledge.suggestions': 'ИИ рекомендует дополнить:',
+  'knowledge.deleteKB': 'Удалить',
+  'knowledge.deleteConfirm': 'Удалить базу знаний и все документы?',
+  'knowledge.editDoc': 'Редактировать',
+  'knowledge.saveDoc': 'Сохранить',
+  'knowledge.saving': 'Сохранение...',
 
   // Prompts
   'prompts.title': 'Промпт-паки',

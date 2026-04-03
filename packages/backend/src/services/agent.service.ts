@@ -1,4 +1,4 @@
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import {
   agentProfiles,
@@ -6,9 +6,11 @@ import {
   skillPacks,
   agentPromptPacks,
   agentSkillPacks,
+  agentKnowledgeBases,
+  knowledgeBases,
 } from '../db/schema.js';
 import { NotFoundError } from '../lib/errors.js';
-import type { AgentProfile, PromptPack, SkillPack } from '../models/types.js';
+import type { AgentProfile, KnowledgeBase, PromptPack, SkillPack } from '../models/types.js';
 
 // ============================================================
 // Agent Profiles
@@ -318,6 +320,103 @@ export async function detachAllSkillPacks(agentProfileId: string): Promise<void>
     .where(eq(agentSkillPacks.agent_profile_id, agentProfileId));
 }
 
+export async function detachSkillPack(agentProfileId: string, skillPackId: string): Promise<void> {
+  await db
+    .delete(agentSkillPacks)
+    .where(and(
+      eq(agentSkillPacks.agent_profile_id, agentProfileId),
+      eq(agentSkillPacks.skill_pack_id, skillPackId),
+    ));
+}
+
+export async function detachPromptPack(agentProfileId: string, promptPackId: string): Promise<void> {
+  await db
+    .delete(agentPromptPacks)
+    .where(and(
+      eq(agentPromptPacks.agent_profile_id, agentProfileId),
+      eq(agentPromptPacks.prompt_pack_id, promptPackId),
+    ));
+}
+
+export async function syncSkillPacks(
+  workspaceId: string,
+  agentProfileId: string,
+  skillPackIds: string[],
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    // Verify agent belongs to workspace
+    const [agent] = await tx
+      .select({ id: agentProfiles.id })
+      .from(agentProfiles)
+      .where(and(eq(agentProfiles.id, agentProfileId), eq(agentProfiles.workspace_id, workspaceId)));
+    if (!agent) throw new NotFoundError('Agent not found in workspace');
+
+    // Verify all skill packs belong to same workspace
+    if (skillPackIds.length > 0) {
+      const validPacks = await tx
+        .select({ id: skillPacks.id })
+        .from(skillPacks)
+        .where(and(
+          inArray(skillPacks.id, skillPackIds),
+          eq(skillPacks.workspace_id, workspaceId),
+        ));
+      if (validPacks.length !== skillPackIds.length) {
+        throw new NotFoundError('Some skill packs not found in workspace');
+      }
+    }
+
+    // Delete existing and insert new in one transaction
+    await tx.delete(agentSkillPacks).where(eq(agentSkillPacks.agent_profile_id, agentProfileId));
+    if (skillPackIds.length > 0) {
+      await tx.insert(agentSkillPacks).values(
+        skillPackIds.map((id, i) => ({
+          agent_profile_id: agentProfileId,
+          skill_pack_id: id,
+          priority: i,
+        })),
+      );
+    }
+  });
+}
+
+export async function syncPromptPacks(
+  workspaceId: string,
+  agentProfileId: string,
+  promptPackIds: string[],
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [agent] = await tx
+      .select({ id: agentProfiles.id })
+      .from(agentProfiles)
+      .where(and(eq(agentProfiles.id, agentProfileId), eq(agentProfiles.workspace_id, workspaceId)));
+    if (!agent) throw new NotFoundError('Agent not found in workspace');
+
+    if (promptPackIds.length > 0) {
+      const validPacks = await tx
+        .select({ id: promptPacks.id })
+        .from(promptPacks)
+        .where(and(
+          inArray(promptPacks.id, promptPackIds),
+          eq(promptPacks.workspace_id, workspaceId),
+        ));
+      if (validPacks.length !== promptPackIds.length) {
+        throw new NotFoundError('Some prompt packs not found in workspace');
+      }
+    }
+
+    await tx.delete(agentPromptPacks).where(eq(agentPromptPacks.agent_profile_id, agentProfileId));
+    if (promptPackIds.length > 0) {
+      await tx.insert(agentPromptPacks).values(
+        promptPackIds.map((id, i) => ({
+          agent_profile_id: agentProfileId,
+          prompt_pack_id: id,
+          priority: i,
+        })),
+      );
+    }
+  });
+}
+
 export async function getAgentPromptPacks(agentProfileId: string): Promise<PromptPack[]> {
   const rows = await db
     .select({
@@ -367,4 +466,41 @@ export async function getAgentSkillPacks(agentProfileId: string): Promise<SkillP
     .orderBy(asc(agentSkillPacks.priority));
 
   return rows as unknown as SkillPack[];
+}
+
+// ============================================================
+// Agent ↔ Knowledge Base Associations
+// ============================================================
+
+export async function attachKnowledgeBase(agentProfileId: string, knowledgeBaseId: string): Promise<void> {
+  await db
+    .insert(agentKnowledgeBases)
+    .values({
+      agent_profile_id: agentProfileId,
+      knowledge_base_id: knowledgeBaseId,
+    })
+    .onConflictDoNothing();
+}
+
+export async function detachAllKnowledgeBases(agentProfileId: string): Promise<void> {
+  await db
+    .delete(agentKnowledgeBases)
+    .where(eq(agentKnowledgeBases.agent_profile_id, agentProfileId));
+}
+
+export async function getAgentKnowledgeBases(agentProfileId: string): Promise<KnowledgeBase[]> {
+  const rows = await db
+    .select({
+      id: knowledgeBases.id,
+      workspace_id: knowledgeBases.workspace_id,
+      name: knowledgeBases.name,
+      description: knowledgeBases.description,
+      created_at: knowledgeBases.created_at,
+      updated_at: knowledgeBases.updated_at,
+    })
+    .from(agentKnowledgeBases)
+    .innerJoin(knowledgeBases, eq(agentKnowledgeBases.knowledge_base_id, knowledgeBases.id))
+    .where(eq(agentKnowledgeBases.agent_profile_id, agentProfileId));
+
+  return rows as unknown as KnowledgeBase[];
 }

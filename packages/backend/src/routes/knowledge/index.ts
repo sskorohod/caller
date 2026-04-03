@@ -26,6 +26,15 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
     return kb;
   });
 
+  // DELETE /api/knowledge/:kbId
+  app.delete('/:kbId', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { kbId } = z.object({ kbId: z.string().uuid() }).parse(request.params);
+    await knowledgeService.deleteKnowledgeBase(request.auth.workspaceId, kbId);
+    return { deleted: true };
+  });
+
   // GET /api/knowledge/:kbId/documents
   app.get('/:kbId/documents', async (request) => {
     const { kbId } = z.object({ kbId: z.string().uuid() }).parse(request.params);
@@ -54,6 +63,26 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
 
     reply.status(201);
     return doc;
+  });
+
+  // GET /api/knowledge/documents/:docId
+  app.get('/documents/:docId', async (request) => {
+    const { docId } = z.object({ docId: z.string().uuid() }).parse(request.params);
+    return knowledgeService.getDocument(request.auth.workspaceId, docId);
+  });
+
+  // PATCH /api/knowledge/documents/:docId
+  app.patch('/documents/:docId', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { docId } = z.object({ docId: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      title: z.string().min(1).max(200).optional(),
+      content: z.string().min(1).optional(),
+      doc_type: z.enum(['document', 'faq', 'policy', 'pricing', 'troubleshooting']).optional(),
+    }).parse(request.body);
+
+    return knowledgeService.updateDocument(request.auth.workspaceId, docId, body);
   });
 
   // DELETE /api/knowledge/documents/:docId
