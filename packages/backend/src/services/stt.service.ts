@@ -35,6 +35,19 @@ export class DeepgramSTT extends EventEmitter {
       headers: { Authorization: `Token ${this.apiKey}` },
     });
 
+    this.ws.on('upgrade', (res: any) => {
+      // Connection succeeded
+    });
+
+    this.ws.on('unexpected-response', (_req: any, res: any) => {
+      let body = '';
+      res.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+      res.on('end', () => {
+        const errMsg = `Deepgram HTTP ${res.statusCode}: ${body.slice(0, 300)}`;
+        this.emit('error', new Error(errMsg));
+      });
+    });
+
     this.ws.on('open', () => this.emit('open'));
 
     this.ws.on('message', (data: Buffer) => {
