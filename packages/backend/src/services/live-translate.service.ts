@@ -77,8 +77,8 @@ export class LiveTranslator {
       return;
     }
 
-    // Resolve LLM provider (anthropic → xai → openai)
-    for (const provider of ['anthropic', 'xai', 'openai'] as const) {
+    // Resolve LLM provider — prefer fast models for translation (xai → openai → anthropic)
+    for (const provider of ['xai', 'openai', 'anthropic'] as const) {
       try {
         this.llm = await createLLMProvider(this.workspaceId, provider);
         this.llmProviderName = provider;
@@ -207,6 +207,7 @@ export class LiveTranslator {
 
     const model = MODEL_MAP[this.llmProviderName] ?? 'gpt-4o-mini';
     const channel = `call:${this.callId}:translate`;
+    const start = Date.now();
 
     // Step 1: Translate
     const translated = await this.runLLM(
@@ -219,6 +220,9 @@ export class LiveTranslator {
       ],
       model,
     );
+
+    const latency = Date.now() - start;
+    log.info({ callId: this.callId, provider: this.llmProviderName, model, latency, original: original.slice(0, 50) }, 'Translation LLM call');
 
     if (!translated) return;
 
