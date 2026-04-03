@@ -265,7 +265,7 @@ export default function DialerPage() {
     setSuggestions([]);
     setDuration(0);
     setError(null);
-    setTranslateTo('');
+    setTranslateTo('ru');
   }, []);
 
   const formatDuration = (s: number) => {
