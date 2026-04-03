@@ -27,7 +27,8 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/agents
   app.get('/', async (request) => {
-    return agentService.listAgentProfiles(request.auth.workspaceId);
+    const agents = await agentService.listAgentProfiles(request.auth.workspaceId);
+    return { agents };
   });
 
   // GET /api/agents/:id

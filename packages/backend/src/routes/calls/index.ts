@@ -266,6 +266,10 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       // Cost & quality (last 30 days)
       db.select({
         total_cost: sql<string>`coalesce(sum(cost_total), 0)::text`,
+        cost_llm: sql<string>`coalesce(sum(cost_llm), 0)::text`,
+        cost_tts: sql<string>`coalesce(sum(cost_tts), 0)::text`,
+        cost_stt: sql<string>`coalesce(sum(cost_stt), 0)::text`,
+        cost_telephony: sql<string>`coalesce(sum(cost_telephony), 0)::text`,
         avg_qa: sql<string>`coalesce(avg(qa_score), 0)::text`,
         total_turns: sql<number>`coalesce(sum(total_turns), 0)::int`,
       }).from(aiCallSessions).where(and(eq(aiCallSessions.workspace_id, wid), gte(aiCallSessions.created_at, thirtyDaysAgo))),
@@ -305,6 +309,10 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       avg_duration_seconds: avgDurationRow[0]?.avg ?? 0,
       total_minutes_30d: avgDurationRow[0]?.total_minutes ?? 0,
       cost_total_30d: parseFloat(costRow[0]?.total_cost ?? '0'),
+      cost_llm_30d: parseFloat(costRow[0]?.cost_llm ?? '0'),
+      cost_tts_30d: parseFloat(costRow[0]?.cost_tts ?? '0'),
+      cost_stt_30d: parseFloat(costRow[0]?.cost_stt ?? '0'),
+      cost_telephony_30d: parseFloat(costRow[0]?.cost_telephony ?? '0'),
       avg_qa_score: parseFloat(parseFloat(costRow[0]?.avg_qa ?? '0').toFixed(1)),
       total_turns_30d: costRow[0]?.total_turns ?? 0,
       daily_calls: dailyRows,

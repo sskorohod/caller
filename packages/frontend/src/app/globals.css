@@ -78,6 +78,8 @@
   /* Code */
   --th-code-bg: #f1f5f9;
   --th-code-text: #475569;
+  /* Incoming call card (frosted glass) */
+  --th-call-card-bg: rgba(236,253,245,0.85);
   /* Modal overlay */
   --th-overlay: rgba(0,0,0,0.4);
   --th-modal: #ffffff;
@@ -155,6 +157,8 @@
   /* Code */
   --th-code-bg: #1c1c1f;
   --th-code-text: #a1a1a9;
+  /* Incoming call card (frosted glass) */
+  --th-call-card-bg: rgba(34,197,94,0.18);
   /* Modal overlay */
   --th-overlay: rgba(0,0,0,0.55);
   --th-modal: #1c1c1f;

@@ -116,8 +116,8 @@ export default function AgentsPage() {
 
   function loadAgents() {
     setLoadError('');
-    api.get<Agent[]>('/agents')
-      .then(r => setAgents(Array.isArray(r) ? r : []))
+    api.get<{ agents: Agent[] }>('/agents')
+      .then(r => setAgents(r?.agents ?? []))
       .catch((err: any) => setLoadError(err?.message ?? 'Failed to load agents'))
       .finally(() => setLoading(false));
   }

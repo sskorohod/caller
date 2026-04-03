@@ -48,6 +48,8 @@ export class CallOrchestrator extends EventEmitter {
   private turnCount = 0;
   private totalTokensIn = 0;
   private totalTokensOut = 0;
+  private totalTtsCharacters = 0;
+  private sttAudioDurationMs = 0;
   private latencies: number[] = [];
   private fillerTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -130,6 +132,8 @@ export class CallOrchestrator extends EventEmitter {
           // Forward audio to STT
           const audio = Buffer.from(msg.media.payload, 'base64');
           stt.sendAudio(audio);
+          // Each Twilio media chunk is 20ms of audio
+          this.sttAudioDurationMs += 20;
         }
 
         if (msg.event === 'stop') {
@@ -292,6 +296,7 @@ export class CallOrchestrator extends EventEmitter {
 
     try {
       const { tts } = this.config;
+      this.totalTtsCharacters += text.length;
       const audio = await tts.synthesize(text);
 
       if (!this.isStopped && this.isAgentSpeaking) {
@@ -336,7 +341,14 @@ export class CallOrchestrator extends EventEmitter {
       turnCount: this.turnCount,
       totalTokensIn: this.totalTokensIn,
       totalTokensOut: this.totalTokensOut,
+      totalTtsCharacters: this.totalTtsCharacters,
+      sttAudioDurationMs: this.sttAudioDurationMs,
       avgLatencyMs: avgLatency,
+      // Provider info for cost calculation
+      llmModel: this.config.agentProfile.llm_model,
+      llmProvider: this.config.agentProfile.llm_provider,
+      voiceProvider: this.config.agentProfile.voice_provider,
+      sttProvider: this.config.agentProfile.stt_provider,
     });
   }
 

@@ -352,9 +352,11 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
    * Send incoming Twilio audio to Grok Realtime.
    */
   private audioPacketCount = 0;
+  private audioChunksDurationMs = 0;
   private sessionReady = false;
 
   sendAudio(payload: string): void {
+    this.audioChunksDurationMs += 20; // Each Twilio media chunk is 20ms
     if (this.isStopped || !this.sessionReady) return;
 
     this.audioPacketCount++;
@@ -385,7 +387,14 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       turnCount: this.turnCount,
       totalTokensIn: 0,
       totalTokensOut: 0,
+      totalTtsCharacters: 0, // Grok realtime handles TTS internally
+      sttAudioDurationMs: this.audioChunksDurationMs,
       avgLatencyMs: null,
+      // Provider info for cost calculation
+      llmModel: 'grok-3-mini-fast',
+      llmProvider: 'xai',
+      voiceProvider: 'xai',
+      sttProvider: 'xai',
     });
   }
 

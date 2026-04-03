@@ -88,7 +88,7 @@ export default function IncomingCallCard() {
   return (
     <>
       <div
-        className={`fixed top-4 right-4 z-50 w-[380px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--th-success-bg)] bg-[var(--th-success-bg)] shadow-lg transition-all ${
+        className={`fixed top-4 right-4 z-50 w-[380px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--th-success-border)] bg-[var(--th-call-card-bg)] backdrop-blur-xl backdrop-saturate-150 shadow-lg transition-all ${
           removing
             ? 'opacity-0 translate-x-4'
             : 'opacity-100 translate-x-0 animate-[slideInCall_0.3s_ease-out]'

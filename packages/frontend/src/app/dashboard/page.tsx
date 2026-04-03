@@ -19,6 +19,10 @@ interface DashboardStats {
   avg_duration_seconds: number;
   total_minutes_30d: number;
   cost_total_30d: number;
+  cost_llm_30d: number;
+  cost_tts_30d: number;
+  cost_stt_30d: number;
+  cost_telephony_30d: number;
   avg_qa_score: number;
   total_turns_30d: number;
   daily_calls: { day: string; count: number }[];
@@ -118,6 +122,58 @@ function KpiCard({ label, value, sub, icon, trend }: {
         )}
       </div>
       {sub && <div className="text-xs text-[var(--th-text-muted)] mt-1.5">{sub}</div>}
+    </div>
+  );
+}
+
+// ─── Cost Breakdown ─────────────────────────────────────────────────────────
+
+function CostBreakdown({ total, llm, tts, stt, telephony, t }: {
+  total: number; llm: number; tts: number; stt: number; telephony: number; t: (k: string) => string;
+}) {
+  const categories = [
+    { key: 'llm', label: t('dashboard.costLlm'), value: llm, color: 'var(--th-primary)' },
+    { key: 'tts', label: t('dashboard.costTts'), value: tts, color: 'var(--th-success-icon)' },
+    { key: 'stt', label: t('dashboard.costStt'), value: stt, color: 'var(--th-warning-icon)' },
+    { key: 'telephony', label: t('dashboard.costTelephony'), value: telephony, color: 'var(--th-info-text)' },
+  ];
+  const maxVal = Math.max(...categories.map(c => c.value), 0.001);
+
+  return (
+    <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 shadow-[0_1px_3px_var(--th-shadow)]">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('dashboard.costBreakdown')}</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold text-[var(--th-text)]">{fmtCost(total)}</span>
+          <span className="text-xs text-[var(--th-text-muted)]">{t('dashboard.last30Days')}</span>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {categories.map(cat => {
+          const pct = total > 0 ? Math.round((cat.value / total) * 100) : 0;
+          const barWidth = Math.max((cat.value / maxVal) * 100, 0);
+          return (
+            <div key={cat.key}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat.color }} />
+                  <span className="text-xs font-medium text-[var(--th-text-secondary)]">{cat.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[var(--th-text)]">{fmtCost(cat.value)}</span>
+                  <span className="text-[10px] text-[var(--th-text-muted)] w-8 text-right">{pct}%</span>
+                </div>
+              </div>
+              <div className="h-1.5 rounded-full bg-[var(--th-surface)] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${barWidth}%`, background: cat.color }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -571,13 +627,6 @@ export default function OverviewPage() {
           trend={null}
         />
         <KpiCard
-          label={t('dashboard.costTotal')}
-          value={fmtCost(s?.cost_total_30d ?? 0)}
-          sub={t('dashboard.last30Days')}
-          icon={<IconDollar />}
-          trend={null}
-        />
-        <KpiCard
           label={t('dashboard.weekCalls')}
           value={String(s?.week_calls ?? 0)}
           sub={t('dashboard.last7Days')}
@@ -591,7 +640,24 @@ export default function OverviewPage() {
           icon={<IconSparkle />}
           trend={null}
         />
+        <KpiCard
+          label={t('dashboard.costTotal')}
+          value={fmtCost(s?.cost_total_30d ?? 0)}
+          sub={t('dashboard.last30Days')}
+          icon={<IconDollar />}
+          trend={null}
+        />
       </div>
+
+      {/* Cost Breakdown */}
+      <CostBreakdown
+        total={s?.cost_total_30d ?? 0}
+        llm={s?.cost_llm_30d ?? 0}
+        tts={s?.cost_tts_30d ?? 0}
+        stt={s?.cost_stt_30d ?? 0}
+        telephony={s?.cost_telephony_30d ?? 0}
+        t={t}
+      />
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

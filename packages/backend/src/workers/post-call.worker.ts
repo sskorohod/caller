@@ -4,9 +4,10 @@ import { createLLMProvider, type LLMMessage } from '../services/llm.service.js';
 import * as callService from '../services/call.service.js';
 import * as memoryService from '../services/memory.service.js';
 import { deliverWebhookEvent } from '../services/webhook.service.js';
+import { calculateLLMCost } from '../config/pricing.js';
 import { db } from '../config/db.js';
-import { qaEvaluations, calls, workspaces } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { qaEvaluations, calls, workspaces, aiCallSessions } from '../db/schema.js';
+import { eq, sql } from 'drizzle-orm';
 import pino from 'pino';
 
 const logger = pino({ name: 'post-call-worker' });
@@ -102,6 +103,8 @@ Respond in JSON format:
         ];
 
         let result: any = null;
+        let postCallTokensIn = 0;
+        let postCallTokensOut = 0;
 
         // Use appropriate model based on provider
         const model = (llm as any).client?.baseURL?.includes('x.ai') ? 'grok-3-mini-fast'
@@ -109,6 +112,8 @@ Respond in JSON format:
         await llm.generateStream(messages, model, 0.3, {
           onToken: () => {},
           onComplete: (response) => {
+            postCallTokensIn = response.tokensIn;
+            postCallTokensOut = response.tokensOut;
             try {
               // Extract JSON from response
               const jsonMatch = response.text.match(/\{[\s\S]*\}/);
@@ -136,6 +141,20 @@ Respond in JSON format:
           quality_flags: result.quality_flags ?? [],
           qa_score: qaScore != null ? String(qaScore) : null,
         } as any);
+
+        // Increment LLM cost with post-call analysis tokens
+        if (postCallTokensIn > 0 || postCallTokensOut > 0) {
+          const postCallCost = calculateLLMCost(model, postCallTokensIn, postCallTokensOut);
+          await db.update(aiCallSessions)
+            .set({
+              cost_llm: sql`(coalesce(cost_llm, 0) + ${postCallCost.toFixed(6)}::numeric)::numeric(10,6)`,
+              cost_total: sql`(coalesce(cost_total, 0) + ${postCallCost.toFixed(6)}::numeric)::numeric(10,6)`,
+              total_tokens_in: sql`coalesce(total_tokens_in, 0) + ${postCallTokensIn}`,
+              total_tokens_out: sql`coalesce(total_tokens_out, 0) + ${postCallTokensOut}`,
+            })
+            .where(eq(aiCallSessions.id, sessionId));
+          logger.info({ callId, postCallCost, postCallTokensIn, postCallTokensOut }, 'Post-call LLM cost added');
+        }
 
         // Insert QA evaluation
         if (qaScore != null) {

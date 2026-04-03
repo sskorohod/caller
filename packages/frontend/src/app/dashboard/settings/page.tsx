@@ -726,7 +726,7 @@ function TwilioCard({
 
   const [phoneAgents, setPhoneAgents] = useState<SimpleAgent[]>([]);
   useEffect(() => {
-    api.get<SimpleAgent[]>('/agents').then(r => setPhoneAgents(Array.isArray(r) ? r : [])).catch(() => {});
+    api.get<{ agents: SimpleAgent[] }>('/agents').then(r => setPhoneAgents(r?.agents ?? [])).catch(() => {});
   }, []);
 
   async function updateConnection(connId: string, updates: Record<string, unknown>) {

@@ -16,6 +16,7 @@ import { sendBootstrapWebhook, ExternalAgentSession } from '../../services/exter
 import { getProviderCredential } from '../../services/provider.service.js';
 import { env } from '../../config/env.js';
 import { queuePostCallProcessing } from '../../workers/post-call.worker.js';
+import { calculateLLMCost, calculateTTSCost, calculateSTTCost, calculateTelephonyCost } from '../../config/pricing.js';
 import type { DeepgramSTT } from '../../services/stt.service.js';
 import type { Call } from '../../models/types.js';
 import { getIo } from '../../realtime/io.js';
@@ -383,13 +384,40 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       logger.info({ callId, reason: result.reason }, 'Orchestrator stopped');
       const session = await callService.getAiSession(callId);
       if (session) {
+        // Calculate costs based on actual usage
+        const costLlm = calculateLLMCost(
+          result.llmModel ?? 'claude-sonnet-4-5-20250514',
+          result.totalTokensIn ?? 0,
+          result.totalTokensOut ?? 0,
+        );
+        const costTts = calculateTTSCost(
+          result.voiceProvider ?? 'elevenlabs',
+          result.totalTtsCharacters ?? 0,
+        );
+        const costStt = calculateSTTCost(
+          result.sttProvider ?? 'deepgram',
+          (result.sttAudioDurationMs ?? 0) / 60_000,
+        );
+        // Get call duration for telephony cost
+        const callRecord = await callService.getCall(call.workspace_id, callId);
+        const durationMin = (callRecord?.duration_seconds ?? 0) / 60;
+        const costTelephony = calculateTelephonyCost('twilio', durationMin);
+        const costTotal = costLlm + costTts + costStt + costTelephony;
+
         await callService.updateAiSession(session.id, {
           transcript: result.conversationHistory,
           total_turns: result.turnCount,
           total_tokens_in: result.totalTokensIn,
           total_tokens_out: result.totalTokensOut,
           avg_latency_ms: result.avgLatencyMs,
+          cost_llm: costLlm.toFixed(6),
+          cost_tts: costTts.toFixed(6),
+          cost_stt: costStt.toFixed(6),
+          cost_telephony: costTelephony.toFixed(6),
+          cost_total: costTotal.toFixed(6),
         } as any);
+
+        logger.info({ callId, costLlm, costTts, costStt, costTelephony, costTotal }, 'Call costs calculated');
 
         // Queue post-call processing (summary, sentiment, fact extraction, memory)
         queuePostCallProcessing({
