@@ -108,6 +108,7 @@ await app.register(import('./routes/telephony/index.js'), { prefix: '/api/teleph
 await app.register(import('./routes/webhook-endpoints/index.js'), { prefix: '/api/webhook-endpoints' });
 await app.register(import('./routes/connectors/index.js'), { prefix: '/api/connectors' });
 await app.register(import('./routes/audit/index.js'), { prefix: '/api/audit-logs' });
+await app.register(import('./routes/missions/index.js'), { prefix: '/api/missions' });
 
 // Start post-call worker (BullMQ)
 import { startPostCallWorker } from './workers/post-call.worker.js';

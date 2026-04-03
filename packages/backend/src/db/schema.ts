@@ -482,3 +482,45 @@ export const qaEvaluations = pgTable('qa_evaluations', {
 }, (t) => [
   index('idx_qa_evaluations_session').on(t.session_id),
 ]);
+
+// ============================================================
+// MISSIONS
+// ============================================================
+export const missions = pgTable('missions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  title: text('title'),
+  status: text('status').notNull().default('draft'),
+  agent_profile_id: uuid('agent_profile_id').references(() => agentProfiles.id),
+  target_phone: text('target_phone'),
+  goal: text('goal'),
+  context: jsonb('context').notNull().default({}),
+  fallback_action: text('fallback_action').notNull().default('report'),
+  call_id: uuid('call_id').references(() => calls.id),
+  outcome: jsonb('outcome'),
+  created_by: uuid('created_by').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  scheduled_at: timestamp('scheduled_at', { withTimezone: true }),
+  started_at: timestamp('started_at', { withTimezone: true }),
+  completed_at: timestamp('completed_at', { withTimezone: true }),
+  retry_count: integer('retry_count').notNull().default(0),
+  max_retries: integer('max_retries').notNull().default(3),
+  retry_at: timestamp('retry_at', { withTimezone: true }),
+  notification_sent: boolean('notification_sent').notNull().default(false),
+}, (t) => [
+  index('idx_missions_workspace').on(t.workspace_id),
+  index('idx_missions_status').on(t.workspace_id, t.status),
+]);
+
+export const missionMessages = pgTable('mission_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  mission_id: uuid('mission_id').notNull().references(() => missions.id, { onDelete: 'cascade' }),
+  sender_type: text('sender_type').notNull(),
+  content: text('content').notNull(),
+  message_type: text('message_type').notNull().default('chat'),
+  metadata: jsonb('metadata').notNull().default({}),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_mission_messages_mission').on(t.mission_id),
+]);

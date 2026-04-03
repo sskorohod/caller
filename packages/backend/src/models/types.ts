@@ -342,3 +342,42 @@ export interface QaEvaluation {
   evaluated_at: string;
   evaluated_by: string;
 }
+
+export type MissionStatus = 'draft' | 'ready' | 'scheduled' | 'calling' | 'in_progress' | 'on_hold' | 'completed' | 'failed' | 'cancelled';
+export type FallbackAction = 'connect_operator' | 'retry_later' | 'voicemail' | 'report' | 'wait_instructions';
+export type MissionMessageSender = 'user' | 'ai' | 'system';
+export type MissionMessageType = 'chat' | 'system' | 'suggestion' | 'call_update' | 'report';
+
+export interface Mission {
+  id: string;
+  workspace_id: string;
+  title: string | null;
+  status: MissionStatus;
+  agent_profile_id: string | null;
+  target_phone: string | null;
+  goal: string | null;
+  context: Record<string, unknown>;
+  fallback_action: FallbackAction;
+  call_id: string | null;
+  outcome: Record<string, unknown> | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  scheduled_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  retry_count: number;
+  max_retries: number;
+  retry_at: string | null;
+  notification_sent: boolean;
+}
+
+export interface MissionMessage {
+  id: string;
+  mission_id: string;
+  sender_type: MissionMessageSender;
+  content: string;
+  message_type: MissionMessageType;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}

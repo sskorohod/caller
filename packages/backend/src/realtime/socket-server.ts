@@ -91,6 +91,15 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       socket.leave(`call:${call_id}:translate`);
     });
 
+    // Mission chat: join/leave mission room
+    socket.on('mission:join', ({ mission_id }: { mission_id: string }) => {
+      socket.join(`mission:${mission_id}`);
+    });
+
+    socket.on('mission:leave', ({ mission_id }: { mission_id: string }) => {
+      socket.leave(`mission:${mission_id}`);
+    });
+
     // Live call monitoring: send operator instruction to active call
     socket.on('call:instruction', async ({ call_id, text }: { call_id: string; text: string }) => {
       console.log(`[Socket.IO] call:instruction received: call_id=${call_id}, text=${text?.slice(0, 50)}`);
