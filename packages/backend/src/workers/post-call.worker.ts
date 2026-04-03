@@ -6,8 +6,9 @@ import * as memoryService from '../services/memory.service.js';
 import { deliverWebhookEvent } from '../services/webhook.service.js';
 import { calculateLLMCost } from '../config/pricing.js';
 import { db } from '../config/db.js';
-import { qaEvaluations, calls, workspaces, aiCallSessions } from '../db/schema.js';
+import { qaEvaluations, calls, workspaces, aiCallSessions, missions, missionMessages } from '../db/schema.js';
 import { eq, sql } from 'drizzle-orm';
+import { getIo } from '../realtime/io.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'post-call-worker' });
@@ -216,6 +217,43 @@ Respond in JSON format:
             qaScore: qaScore,
           },
         });
+
+        // Update mission if this call belongs to one
+        try {
+          const [mission] = await db.select().from(missions).where(eq(missions.call_id, callId));
+          if (mission) {
+            await db.update(missions).set({
+              status: 'completed',
+              outcome: { summary: result.summary, action_items: result.action_items, sentiment: result.sentiment, qa_score: qaScore },
+              completed_at: new Date(),
+              updated_at: new Date(),
+            }).where(eq(missions.id, mission.id));
+
+            // Add report message to mission chat
+            const reportText = `✅ Call completed!\n${result.summary ?? 'No summary available.'}`;
+            await db.insert(missionMessages).values({
+              mission_id: mission.id,
+              sender_type: 'system',
+              content: reportText,
+              message_type: 'report',
+            });
+
+            // Emit to mission room
+            const io = getIo();
+            io?.to(`mission:${mission.id}`).emit('mission:status', { mission_id: mission.id, status: 'completed' });
+            io?.to(`mission:${mission.id}`).emit('mission:message', {
+              mission_id: mission.id,
+              sender_type: 'system',
+              content: reportText,
+              message_type: 'report',
+              created_at: new Date().toISOString(),
+            });
+
+            logger.info({ callId, missionId: mission.id }, 'Mission updated with call result');
+          }
+        } catch (missionErr) {
+          logger.error({ missionErr, callId }, 'Failed to update mission after call');
+        }
 
         // Deliver session.summary_ready webhook
         deliverWebhookEvent(workspaceId, 'session.summary_ready', {
