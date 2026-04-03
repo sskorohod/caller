@@ -177,6 +177,15 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 });
                 stt.on('error', (err: Error) => {
                   logger.error({ err, callId, speaker }, 'Manual call STT error');
+                  if (io) {
+                    io.to(`call:${callId}`).emit('call:transcript', {
+                      call_id: callId,
+                      speaker: 'system',
+                      text: `STT error (${speaker}): ${err.message || 'connection failed'}`,
+                      timestamp: new Date().toISOString(),
+                      isFinal: true,
+                    });
+                  }
                 });
                 stt.on('close', () => {
                   logger.info({ callId, speaker }, 'Manual call STT closed');
