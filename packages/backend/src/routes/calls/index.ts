@@ -596,6 +596,10 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     const existing = translators.get(id);
     if (existing) existing.stop();
 
+    // Check if this is a manual call — skip STT since calleeStt feeds text directly
+    const call = await callService.getCall(request.auth.workspaceId, id);
+    const isManualCall = call.conversation_owner_requested === 'manual';
+
     const { LiveTranslator } = await import('../../services/live-translate.service.js');
     const translator = new LiveTranslator({
       callId: id,
@@ -606,6 +610,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       context: body.context,
       instant: body.instant,
       sourceLanguage: body.source_language,
+      skipStt: isManualCall,
     });
 
     await translator.start();

@@ -14,6 +14,7 @@ interface LiveTranslatorOptions {
   context?: string;
   instant?: boolean;
   sourceLanguage?: string; // language of audio being transcribed (defaults to targetLanguage for backwards compat)
+  skipStt?: boolean; // when true, don't create STT — text will be fed via translateText()
 }
 
 interface TranslationPayload {
@@ -56,6 +57,7 @@ export class LiveTranslator {
   private running: boolean = false;
   private instant: boolean = false;
   private sourceLanguage: string;
+  private skipStt: boolean = false;
 
   constructor(options: LiveTranslatorOptions) {
     this.callId = options.callId;
@@ -66,6 +68,7 @@ export class LiveTranslator {
     this.context = options.context ?? 'general phone call';
     this.instant = options.instant ?? false;
     this.sourceLanguage = options.sourceLanguage ?? options.targetLanguage;
+    this.skipStt = options.skipStt ?? false;
   }
 
   async start(): Promise<void> {
@@ -89,33 +92,59 @@ export class LiveTranslator {
       throw new Error('No LLM provider available for live translation');
     }
 
-    // Create STT instance
-    this.stt = await createSTTProvider(this.workspaceId, 'deepgram');
+    // Skip STT creation if text will be fed directly via translateText()
+    if (!this.skipStt) {
+      this.stt = await createSTTProvider(this.workspaceId, 'deepgram');
 
-    // Set up event listeners before connecting
-    this.stt.on('transcript', (event: TranscriptEvent) => {
-      this.handleTranscript(event);
-    });
+      this.stt.on('transcript', (event: TranscriptEvent) => {
+        this.handleTranscript(event);
+      });
 
-    this.stt.on('utterance_end', () => {
-      this.handleUtteranceEnd();
-    });
+      this.stt.on('utterance_end', () => {
+        this.handleUtteranceEnd();
+      });
 
-    this.stt.on('error', (err: Error) => {
-      log.error({ err, callId: this.callId }, 'STT error in live translator');
-    });
+      this.stt.on('error', (err: Error) => {
+        log.error({ err, callId: this.callId }, 'STT error in live translator');
+      });
 
-    this.stt.on('close', () => {
-      log.info({ callId: this.callId }, 'STT connection closed in live translator');
-    });
+      this.stt.on('close', () => {
+        log.info({ callId: this.callId }, 'STT connection closed in live translator');
+      });
 
-    this.stt.connect({ language: this.sourceLanguage });
+      this.stt.connect({ language: this.sourceLanguage });
+    }
+
     this.running = true;
 
     log.info(
-      { callId: this.callId, mode: this.mode, targetLanguage: this.targetLanguage },
+      { callId: this.callId, mode: this.mode, targetLanguage: this.targetLanguage, skipStt: this.skipStt },
       'LiveTranslator started',
     );
+  }
+
+  /** Feed already-transcribed text directly (bypasses internal STT). */
+  translateText(text: string): void {
+    if (!this.running || !text.trim()) return;
+
+    if (this.instant) {
+      this.translateAndEmit(text.trim()).catch((err) => {
+        log.error({ err, callId: this.callId }, 'Instant translation error');
+      });
+    } else {
+      this.accumulatedText += (this.accumulatedText ? ' ' : '') + text.trim();
+    }
+  }
+
+  /** Flush accumulated text for translation (call on utterance_end). */
+  flushTranslation(): void {
+    const text = this.accumulatedText.trim();
+    this.accumulatedText = '';
+    if (!text) return;
+
+    this.translateAndEmit(text).catch((err) => {
+      log.error({ err, callId: this.callId }, 'Translation pipeline error');
+    });
   }
 
   feedAudio(buffer: Buffer): void {

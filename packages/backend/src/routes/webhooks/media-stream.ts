@@ -26,7 +26,7 @@ import pino from 'pino';
 const logger = pino({ name: 'media-stream' });
 
 const activeOrchestrators = new Map<string, CallOrchestrator | GrokRealtimeOrchestrator>();
-const activeTranslators = new Map<string, { feedAudio: (buf: Buffer) => void; stop: () => void }>();
+const activeTranslators = new Map<string, { feedAudio: (buf: Buffer) => void; stop: () => void; translateText?: (text: string) => void; flushTranslation?: () => void }>();
 
 interface ManualSession {
   calleeStt: import('../../services/stt.service.js').STTProvider;    // outbound track — person on the other end
@@ -179,6 +179,19 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               wireSTT(calleeStt, 'caller');
               wireSTT(operatorStt, 'operator');
 
+              // Wire calleeStt transcripts directly to LiveTranslator (if active)
+              // This bypasses the duplicate STT in LiveTranslator for ~500ms speedup
+              calleeStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                if (evt.isFinal && evt.text.trim()) {
+                  const translator = activeTranslators.get(callId);
+                  if (translator?.translateText) translator.translateText(evt.text.trim());
+                }
+              });
+              calleeStt.on('utterance_end', () => {
+                const translator = activeTranslators.get(callId);
+                if (translator?.flushTranslation) translator.flushTranslation();
+              });
+
               // Resolve LLM for speech correction (prefer fast/cheap models)
               let correctionLlm: import('../../services/llm.service.js').LLMProvider | null = null;
               let correctionProvider = 'openai';
@@ -295,11 +308,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               manualSession.calleeStt.sendAudio(audioBuffer);
             }
 
-            // Forward to LiveTranslator (callee audio only)
-            const translator = activeTranslators.get(callId);
-            if (translator && track !== 'inbound') {
-              translator.feedAudio(audioBuffer);
-            }
+            // Note: LiveTranslator for manual calls uses skipStt mode —
+            // text is fed directly via translateText() from calleeStt transcript events.
+            // No need to feedAudio() here.
 
             // Broadcast audio for monitoring
             const io = getIo();
