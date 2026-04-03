@@ -8,7 +8,8 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/knowledge
   app.get('/', async (request) => {
-    return knowledgeService.listKnowledgeBases(request.auth.workspaceId);
+    const rows = await knowledgeService.listKnowledgeBases(request.auth.workspaceId);
+    return { knowledge_bases: rows };
   });
 
   // POST /api/knowledge
@@ -28,7 +29,8 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/knowledge/:kbId/documents
   app.get('/:kbId/documents', async (request) => {
     const { kbId } = z.object({ kbId: z.string().uuid() }).parse(request.params);
-    return knowledgeService.listDocuments(request.auth.workspaceId, kbId);
+    const rows = await knowledgeService.listDocuments(request.auth.workspaceId, kbId);
+    return { documents: rows };
   });
 
   // POST /api/knowledge/:kbId/documents
@@ -61,6 +63,18 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
     const { docId } = z.object({ docId: z.string().uuid() }).parse(request.params);
     await knowledgeService.deleteDocument(request.auth.workspaceId, docId);
     return { deleted: true };
+  });
+
+  // POST /api/knowledge/enhance — AI-assisted content formatting
+  app.post('/enhance', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const body = z.object({
+      content: z.string().min(1).max(50000),
+      doc_type: z.enum(['document', 'faq', 'policy', 'pricing', 'troubleshooting']).optional(),
+    }).parse(request.body);
+
+    return knowledgeService.enhanceContent(request.auth.workspaceId, body.content, body.doc_type);
   });
 
   // POST /api/knowledge/search

@@ -102,6 +102,129 @@ export async function deleteDocument(workspaceId: string, documentId: string): P
 }
 
 // ============================================================
+// AI Content Enhancement
+// ============================================================
+
+export async function enhanceContent(
+  workspaceId: string,
+  content: string,
+  docType?: string,
+): Promise<{ enhanced_content: string; suggestions: string[] }> {
+  // Try Anthropic first, fall back to OpenAI
+  let apiKey: string;
+  let provider: 'anthropic' | 'openai' = 'anthropic';
+
+  try {
+    const [row] = await db
+      .select({ credential_data: providerCredentials.credential_data })
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.workspace_id, workspaceId),
+          eq(providerCredentials.provider, 'anthropic'),
+        ),
+      );
+    if (!row) throw new Error('no anthropic');
+    apiKey = JSON.parse(decrypt(row.credential_data)).api_key;
+  } catch {
+    const [row] = await db
+      .select({ credential_data: providerCredentials.credential_data })
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.workspace_id, workspaceId),
+          eq(providerCredentials.provider, 'openai'),
+        ),
+      );
+    if (!row) throw new Error('No LLM credentials configured. Add Anthropic or OpenAI API key in Settings.');
+    apiKey = JSON.parse(decrypt(row.credential_data)).api_key;
+    provider = 'openai';
+  }
+
+  const typeHint = docType ? `Тип документа: ${docType}.` : '';
+  const systemPrompt = `Ты — ассистент для форматирования баз знаний AI-голосовых агентов. Пользователь введёт сырой текст для базы знаний. Твоя задача:
+
+1. Структурировать и отформатировать текст — разбить на логичные секции, добавить заголовки, списки где уместно
+2. Исправить грамматические и стилистические ошибки
+3. Убрать дублирование информации
+4. Сделать текст понятным для AI-агента, который будет его использовать при звонках
+5. Если в тексте есть пробелы в информации, в конце добавь раздел "Рекомендуется дополнить:" со списком вопросов/данных, которые стоит добавить
+
+${typeHint}
+
+Ответь СТРОГО в формате JSON (без markdown code-блоков):
+{"enhanced_content": "отформатированный текст", "suggestions": ["вопрос 1", "вопрос 2"]}
+
+Если всё полно и дополнять нечего, suggestions должен быть пустым массивом.`;
+
+  if (provider === 'anthropic') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content }],
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      logger.error({ status: res.status, err }, 'Anthropic enhance failed');
+      throw new Error('AI enhancement failed');
+    }
+
+    const result = await res.json() as any;
+    const text = result.content?.[0]?.text ?? '';
+    return parseEnhanceResponse(text);
+  }
+
+  // OpenAI fallback
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content },
+      ],
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    logger.error({ status: res.status, err }, 'OpenAI enhance failed');
+    throw new Error('AI enhancement failed');
+  }
+
+  const result = await res.json() as any;
+  const text = result.choices?.[0]?.message?.content ?? '';
+  return parseEnhanceResponse(text);
+}
+
+function parseEnhanceResponse(text: string): { enhanced_content: string; suggestions: string[] } {
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      enhanced_content: parsed.enhanced_content ?? text,
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+    };
+  } catch {
+    return { enhanced_content: text, suggestions: [] };
+  }
+}
+
+// ============================================================
 // Embedding Generation
 // ============================================================
 

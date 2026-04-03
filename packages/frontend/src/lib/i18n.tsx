@@ -260,6 +260,10 @@ const en: Record<string, string> = {
   'knowledge.adding': 'Adding...',
   'knowledge.created': 'Created',
   'knowledge.docs': 'docs',
+  'knowledge.enhance': 'Enhance with AI',
+  'knowledge.enhancing': 'AI is processing...',
+  'knowledge.enhanced': 'Content enhanced!',
+  'knowledge.suggestions': 'AI suggests adding:',
 
   // Prompts
   'prompts.title': 'Prompt Packs',
@@ -831,6 +835,10 @@ const ru: Record<string, string> = {
   'knowledge.adding': 'Добавление...',
   'knowledge.created': 'Создано',
   'knowledge.docs': 'док.',
+  'knowledge.enhance': 'Улучшить с ИИ',
+  'knowledge.enhancing': 'ИИ обрабатывает...',
+  'knowledge.enhanced': 'Текст улучшен!',
+  'knowledge.suggestions': 'ИИ рекомендует дополнить:',
 
   // Prompts
   'prompts.title': 'Промпт-паки',
