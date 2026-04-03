@@ -77,8 +77,8 @@ export class LiveTranslator {
       return;
     }
 
-    // Resolve LLM provider — prefer fast models for translation (xai → openai → anthropic)
-    for (const provider of ['xai', 'openai', 'anthropic'] as const) {
+    // Resolve LLM provider — fast models only for translation (xai → openai)
+    for (const provider of ['xai', 'openai'] as const) {
       try {
         this.llm = await createLLMProvider(this.workspaceId, provider);
         this.llmProviderName = provider;
