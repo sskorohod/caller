@@ -157,18 +157,24 @@ export default function DialerPage() {
     setDuration(0);
     setCallState('connecting');
 
+    // Normalize phone number: ensure E.164 format with +
+    let normalizedPhone = phoneNumber.trim();
+    if (!normalizedPhone.startsWith('+')) {
+      normalizedPhone = '+' + normalizedPhone;
+    }
+
     try {
       // 1. Create call record on backend
       const result = await api.post<{ call_id: string; from_number: string; stt_language: string }>(
         '/calls/dial',
-        { to: phoneNumber.trim(), stt_language: sttLanguage },
+        { to: normalizedPhone, stt_language: sttLanguage },
       );
 
       setCallId(result.call_id);
 
       // 2. Initiate browser call via Twilio Voice SDK
       const call = await makeCall({
-        To: phoneNumber.trim(),
+        To: normalizedPhone,
         CallId: result.call_id,
         SttLanguage: sttLanguage,
       });
