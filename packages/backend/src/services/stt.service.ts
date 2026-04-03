@@ -86,11 +86,15 @@ export class DeepgramSTT extends EventEmitter {
 }
 
 /**
- * OpenAI Whisper streaming STT (fallback).
- * Uses OpenAI's realtime transcription endpoint.
+ * OpenAI Whisper streaming STT.
+ * Uses OpenAI's Realtime API in transcription-only mode.
+ * Auto-detects language. Supports mulaw 8000Hz input (converted to PCM16 24kHz).
  */
 export class OpenAISTT extends EventEmitter {
   private apiKey: string;
+  private ws: WebSocket | null = null;
+  private utteranceTimer: ReturnType<typeof setTimeout> | null = null;
+  private hasNewTranscript: boolean = false;
 
   constructor(apiKey: string) {
     super();
@@ -98,54 +102,92 @@ export class OpenAISTT extends EventEmitter {
   }
 
   connect(options?: { language?: string }): void {
-    // OpenAI Realtime API connection
-    const url = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview';
+    const url = 'wss://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview';
 
-    const ws = new WebSocket(url, {
+    this.ws = new WebSocket(url, {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         'OpenAI-Beta': 'realtime=v1',
       },
     });
 
-    ws.on('open', () => {
-      // Configure session for transcription-only mode
-      ws.send(JSON.stringify({
+    this.ws.on('open', () => {
+      // Configure session for transcription-only mode with VAD
+      this.ws!.send(JSON.stringify({
         type: 'session.update',
         session: {
-          input_audio_transcription: { model: 'whisper-1' },
-          turn_detection: { type: 'server_vad' },
+          modalities: ['text'],
+          input_audio_format: 'g711_ulaw',
+          input_audio_transcription: { model: 'whisper-1', language: options?.language || undefined },
+          turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: 800 },
         },
       }));
       this.emit('open');
     });
 
-    ws.on('message', (data: Buffer) => {
+    this.ws.on('message', (data: Buffer) => {
       try {
         const msg = JSON.parse(data.toString());
-        if (msg.type === 'conversation.item.input_audio_transcription.completed') {
-          const event: TranscriptEvent = {
-            text: msg.transcript ?? '',
-            isFinal: true,
-            speaker: 'caller',
-            confidence: 1,
-            timestamp: new Date().toISOString(),
-          };
-          this.emit('transcript', event);
+
+        // VAD detected speech start
+        if (msg.type === 'input_audio_buffer.speech_started') {
+          this.emit('speech_started');
         }
-      } catch { /* ignore */ }
+
+        // VAD detected speech stop → utterance end
+        if (msg.type === 'input_audio_buffer.speech_stopped') {
+          // Emit utterance_end after a short delay to let transcription arrive
+          if (this.utteranceTimer) clearTimeout(this.utteranceTimer);
+          this.hasNewTranscript = false;
+          this.utteranceTimer = setTimeout(() => {
+            this.emit('utterance_end');
+          }, 500);
+        }
+
+        // Transcription completed for a conversation turn
+        if (msg.type === 'conversation.item.input_audio_transcription.completed') {
+          const text = msg.transcript ?? '';
+          if (text.trim()) {
+            const event: TranscriptEvent = {
+              text: text.trim(),
+              isFinal: true,
+              speaker: 'caller',
+              confidence: 1,
+              timestamp: new Date().toISOString(),
+            };
+            this.emit('transcript', event);
+            this.hasNewTranscript = true;
+
+            // Emit utterance_end shortly after final transcript
+            if (this.utteranceTimer) clearTimeout(this.utteranceTimer);
+            this.utteranceTimer = setTimeout(() => {
+              this.emit('utterance_end');
+            }, 300);
+          }
+        }
+      } catch { /* ignore parse errors */ }
     });
 
-    ws.on('error', (err: Error) => this.emit('error', err));
-    ws.on('close', () => this.emit('close'));
+    this.ws.on('error', (err: Error) => this.emit('error', err));
+    this.ws.on('close', () => this.emit('close'));
   }
 
   sendAudio(audioBuffer: Buffer): void {
-    // Would send audio_append event to OpenAI Realtime
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      // OpenAI Realtime expects base64-encoded audio in input_audio_buffer.append
+      this.ws.send(JSON.stringify({
+        type: 'input_audio_buffer.append',
+        audio: audioBuffer.toString('base64'),
+      }));
+    }
   }
 
   close(): void {
-    this.emit('close');
+    if (this.utteranceTimer) clearTimeout(this.utteranceTimer);
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
   }
 }
 

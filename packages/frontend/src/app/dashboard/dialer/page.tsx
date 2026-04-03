@@ -56,6 +56,7 @@ export default function DialerPage() {
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [sttLanguage, setSttLanguage] = useState('en');
+  const [sttProvider, setSttProvider] = useState<'deepgram' | 'openai'>('deepgram');
   const [phonePlaceholder, setPhonePlaceholder] = useState('+1');
   const [callState, setCallState] = useState<CallState>('idle');
   const [callId, setCallId] = useState<string | null>(null);
@@ -229,7 +230,7 @@ export default function DialerPage() {
       // 1. Create call record on backend
       const result = await api.post<{ call_id: string; from_number: string; stt_language: string }>(
         '/calls/dial',
-        { to: normalizedPhone, stt_language: sttLanguage },
+        { to: normalizedPhone, stt_language: sttLanguage, stt_provider: sttProvider },
       );
 
       setCallId(result.call_id);
@@ -319,6 +320,33 @@ export default function DialerPage() {
                 <option key={l.value} value={l.value}>{l.label}</option>
               ))}
             </select>
+          </div>
+
+          {/* STT provider */}
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
+              STT Engine
+            </label>
+            <div className="flex gap-1.5">
+              {([
+                { value: 'deepgram' as const, label: 'Deepgram', desc: 'Fast, low cost' },
+                { value: 'openai' as const, label: 'Whisper', desc: 'Auto-detect lang' },
+              ]).map(p => (
+                <button
+                  key={p.value}
+                  onClick={() => setSttProvider(p.value)}
+                  disabled={isInCall}
+                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition disabled:opacity-50 ${
+                    sttProvider === p.value
+                      ? 'border-[var(--th-primary)] bg-[var(--th-primary)]/10 text-[var(--th-primary)] font-medium'
+                      : 'border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)]'
+                  }`}
+                >
+                  <div className="font-medium">{p.label}</div>
+                  <div className="text-[10px] opacity-70">{p.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Error */}

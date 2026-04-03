@@ -29,8 +29,8 @@ const activeOrchestrators = new Map<string, CallOrchestrator | GrokRealtimeOrche
 const activeTranslators = new Map<string, { feedAudio: (buf: Buffer) => void; stop: () => void }>();
 
 interface ManualSession {
-  calleeStt: DeepgramSTT;    // inbound track — person on the other end
-  operatorStt: DeepgramSTT;  // outbound track — operator in browser
+  calleeStt: import('../../services/stt.service.js').STTProvider;    // outbound track — person on the other end
+  operatorStt: import('../../services/stt.service.js').STTProvider;  // inbound track — operator in browser
   transcript: Array<{ speaker: string; text: string; timestamp: string }>;
   callId: string;
   sessionId?: string;
@@ -146,9 +146,12 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           if (call.conversation_owner_requested === 'manual') {
             logger.info({ callId }, 'Manual call — starting dual STT for transcription');
             try {
-              const sttLanguage = (call.metadata as any)?.stt_language === 'ru' ? 'ru' : ((call.metadata as any)?.stt_language ?? 'en-US');
-              const calleeStt = await createSTTProvider(call.workspace_id, 'deepgram') as DeepgramSTT;
-              const operatorStt = await createSTTProvider(call.workspace_id, 'deepgram') as DeepgramSTT;
+              const sttLanguage = (call.metadata as any)?.stt_language ?? 'en';
+              const sttProviderName = ((call.metadata as any)?.stt_provider ?? 'deepgram') as 'deepgram' | 'openai';
+              logger.info({ callId, sttProviderName, sttLanguage }, 'Using STT provider');
+
+              const calleeStt = await createSTTProvider(call.workspace_id, sttProviderName);
+              const operatorStt = await createSTTProvider(call.workspace_id, sttProviderName);
 
               const transcript: ManualSession['transcript'] = [];
               const io = getIo();
@@ -156,7 +159,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               // Get AI session ID for later transcript save
               const aiSession = await callService.getAiSession(callId);
 
-              const wireSTT = (stt: DeepgramSTT, speaker: 'caller' | 'operator') => {
+              const wireSTT = (stt: import('../../services/stt.service.js').STTProvider, speaker: 'caller' | 'operator') => {
                 stt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
                   if (io) {
                     io.to(`call:${callId}`).emit('call:transcript', {
