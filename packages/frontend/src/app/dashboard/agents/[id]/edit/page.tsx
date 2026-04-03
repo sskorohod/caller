@@ -855,13 +855,13 @@ export default function AgentEditPage() {
           <button
             type="button"
             onClick={() => set('memory_enabled', !form.memory_enabled)}
-            className={`relative w-10 h-5 rounded-full transition-colors ${
+            className={`relative w-10 h-6 rounded-full transition-colors ${
               form.memory_enabled ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'
             }`}
           >
             <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                form.memory_enabled ? 'translate-x-5' : 'translate-x-0.5'
+              className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                form.memory_enabled ? 'translate-x-4' : 'translate-x-0'
               }`}
             />
           </button>
@@ -873,13 +873,13 @@ export default function AgentEditPage() {
           <button
             type="button"
             onClick={() => set('is_default', !form.is_default)}
-            className={`relative w-10 h-5 rounded-full transition-colors ${
+            className={`relative w-10 h-6 rounded-full transition-colors ${
               form.is_default ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'
             }`}
           >
             <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                form.is_default ? 'translate-x-5' : 'translate-x-0.5'
+              className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                form.is_default ? 'translate-x-4' : 'translate-x-0'
               }`}
             />
           </button>
