@@ -326,7 +326,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       agentService.getAgentSkillPacks(agentProfile.id),
       agentService.listSkillPacks(call.workspace_id),
     ]);
-    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills);
+    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call);
     const callerContext = await loadCallerContext(call.workspace_id, call.from_number);
 
     // Load workspace timezone
@@ -480,12 +480,21 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   }
 };
 
-function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills: any[] = [], allSkills: any[] = []): string {
+function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills: any[] = [], allSkills: any[] = [], call?: any): string {
   const parts: string[] = [];
   parts.push(`You are ${agentProfile.display_name}, an AI phone agent.`);
   if (agentProfile.company_name) parts.push(`You represent ${agentProfile.company_name}.`);
   if (agentProfile.company_identity) parts.push(agentProfile.company_identity);
   if (agentProfile.system_prompt) parts.push(agentProfile.system_prompt);
+
+  // Mission briefing from call goal/context
+  if (call?.goal) {
+    const missionParts = [`MISSION BRIEFING:\nGoal: ${call.goal}`];
+    if (call.context && Object.keys(call.context).length > 0) {
+      missionParts.push(`Context data to use during the call: ${JSON.stringify(call.context)}`);
+    }
+    parts.push(missionParts.join('\n'));
+  }
 
   for (const pack of promptPacks) {
     if (pack.content) parts.push(`--- ${pack.name} ---\n${pack.content}`);
