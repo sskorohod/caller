@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import http from 'node:http';
 import { Server as SocketServer } from 'socket.io';
 import { env } from './config/env.js';
@@ -41,6 +42,11 @@ await app.register(cors, {
       cb(null, !origin || allowed.includes(origin));
     },
   credentials: true,
+});
+
+// Multipart file uploads (avatars, etc.)
+await app.register(multipart, {
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
 });
 
 // Rate limiting

@@ -281,6 +281,20 @@ export class CallOrchestrator extends EventEmitter {
             },
           });
 
+          // Detect skill activation markers [ACTIVATE:skill_intent]
+          const skillMatch = fullResponse.match(/\[ACTIVATE:(\w+)\]/);
+          if (skillMatch) {
+            const skillIntent = skillMatch[1];
+            logger.info({ callId: this.config.call.id, skillIntent }, 'Agent activated optional skill');
+            this.emit('skill_activated', { intent: skillIntent });
+            await callService.addCallEvent({
+              callId: this.config.call.id,
+              workspaceId: this.config.call.workspace_id,
+              eventType: 'skill_activated',
+              eventData: { intent: skillIntent },
+            });
+          }
+
           this.emit('agent_response', fullResponse);
         },
         onError: (err: Error) => {

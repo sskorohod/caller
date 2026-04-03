@@ -125,6 +125,8 @@ export const agentProfiles = pgTable('agent_profiles', {
   business_tags: text('business_tags').array().notNull().default(sql`'{}'`),
   memory_enabled: boolean('memory_enabled').notNull().default(true),
   memory_lookback_days: integer('memory_lookback_days').notNull().default(90),
+  avatar_url: text('avatar_url'),
+  description: text('description'),
   is_default: boolean('is_default').notNull().default(false),
   is_active: boolean('is_active').notNull().default(true),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

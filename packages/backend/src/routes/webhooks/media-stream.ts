@@ -303,8 +303,12 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       conversation_owner_actual: 'internal',
     } as any);
 
-    const promptPacks = await agentService.getAgentPromptPacks(agentProfile.id);
-    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks);
+    const [promptPacks, attachedSkills, allSkills] = await Promise.all([
+      agentService.getAgentPromptPacks(agentProfile.id),
+      agentService.getAgentSkillPacks(agentProfile.id),
+      agentService.listSkillPacks(call.workspace_id),
+    ]);
+    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills);
     const callerContext = await loadCallerContext(call.workspace_id, call.from_number);
 
     // Load workspace timezone
@@ -379,6 +383,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       io?.to(`call:${callId}`).emit('call:transcript', { call_id: callId, ...entry });
     });
 
+    orchestrator.on('skill_activated', (data: { intent: string }) => {
+      const io = getIo();
+      io?.to(`call:${callId}`).emit('call:transcript', {
+        call_id: callId,
+        speaker: 'system',
+        text: `[Skill activated: ${data.intent}]`,
+        timestamp: new Date().toISOString(),
+        isFinal: true,
+      });
+    });
+
     orchestrator.on('stopped', async (result: any) => {
       activeOrchestrators.delete(callId);
       logger.info({ callId, reason: result.reason }, 'Orchestrator stopped');
@@ -436,7 +451,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   }
 };
 
-function buildSystemPrompt(agentProfile: any, promptPacks: any[]): string {
+function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills: any[] = [], allSkills: any[] = []): string {
   const parts: string[] = [];
   parts.push(`You are ${agentProfile.display_name}, an AI phone agent.`);
   if (agentProfile.company_name) parts.push(`You represent ${agentProfile.company_name}.`);
@@ -445,6 +460,26 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[]): string {
 
   for (const pack of promptPacks) {
     if (pack.content) parts.push(`--- ${pack.name} ---\n${pack.content}`);
+  }
+
+  // Core skills (always active — full conversation rules)
+  if (attachedSkills.length > 0) {
+    const coreSkillParts = attachedSkills
+      .filter(s => s.conversation_rules)
+      .map(s => `[${s.name}]: ${s.conversation_rules}`);
+    if (coreSkillParts.length > 0) {
+      parts.push(`CORE SKILLS (always active):\n${coreSkillParts.join('\n')}`);
+    }
+  }
+
+  // Optional skills (available but not attached — agent can activate if needed)
+  const attachedIds = new Set(attachedSkills.map((s: any) => s.id));
+  const optionalSkills = allSkills.filter(s => !attachedIds.has(s.id) && s.is_active);
+  if (optionalSkills.length > 0) {
+    const optParts = optionalSkills.map(s =>
+      `- ${s.intent}: ${s.description || s.name}`
+    );
+    parts.push(`OPTIONAL SKILLS (activate when the conversation requires it — say [ACTIVATE:skill_intent] to enable):\n${optParts.join('\n')}`);
   }
 
   if (agentProfile.language === 'ru') {

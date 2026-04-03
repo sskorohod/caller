@@ -117,6 +117,8 @@ export interface AgentProfile {
   business_tags: string[];
   memory_enabled: boolean;
   memory_lookback_days: number;
+  avatar_url: string | null;
+  description: string | null;
   is_default: boolean;
   is_active: boolean;
   created_at: string;

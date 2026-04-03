@@ -110,6 +110,30 @@ server.tool(
   },
 );
 
+// Tool: list_agents
+server.tool(
+  'list_agents',
+  'List all AI phone agents in the workspace with their descriptions, skills, and configuration. Use this to find the right agent for a specific task.',
+  {},
+  async () => {
+    const result = await apiRequest('/api/agents') as { agents: any[] };
+    const agents = (result.agents ?? []).map((a: any) => ({
+      id: a.id,
+      name: a.name,
+      display_name: a.display_name,
+      description: a.description,
+      is_active: a.is_active,
+      language: a.language,
+      llm_model: a.llm_model,
+      voice_provider: a.voice_provider,
+    }));
+
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(agents, null, 2) }],
+    };
+  },
+);
+
 // Start server
 async function main() {
   const transport = new StdioServerTransport();

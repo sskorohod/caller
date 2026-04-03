@@ -3,10 +3,14 @@ import { z } from 'zod';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import * as agentService from '../../services/agent.service.js';
 import * as auditService from '../../services/audit.service.js';
+import * as uploadService from '../../services/upload.service.js';
+import { createLLMProvider } from '../../services/llm.service.js';
 
 const createAgentSchema = z.object({
   name: z.string().min(1).max(100),
   display_name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  avatar_url: z.string().optional(),
   company_name: z.string().optional(),
   company_identity: z.string().optional(),
   language: z.enum(['en', 'ru', 'es', 'de', 'fr', 'auto']).default('auto'),
@@ -28,7 +32,18 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/agents
   app.get('/', async (request) => {
     const agents = await agentService.listAgentProfiles(request.auth.workspaceId);
-    return { agents };
+
+    // Resolve presigned URLs for MinIO avatars
+    const resolved = await Promise.all(agents.map(async (a) => {
+      if (uploadService.isMinioPath(a.avatar_url)) {
+        try {
+          return { ...a, avatar_url: await uploadService.getAvatarUrl(a.avatar_url!) };
+        } catch { /* keep original */ }
+      }
+      return a;
+    }));
+
+    return { agents: resolved };
   });
 
   // GET /api/agents/:id
@@ -36,13 +51,21 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const profile = await agentService.getAgentProfile(request.auth.workspaceId, id);
 
+    // Generate presigned URL for MinIO avatars
+    let avatarUrl = profile.avatar_url;
+    if (uploadService.isMinioPath(avatarUrl)) {
+      try {
+        avatarUrl = await uploadService.getAvatarUrl(avatarUrl!);
+      } catch { /* keep original path */ }
+    }
+
     // Also load attached packs
     const [promptPacks, skillPacks] = await Promise.all([
       agentService.getAgentPromptPacks(id),
       agentService.getAgentSkillPacks(id),
     ]);
 
-    return { ...profile, prompt_packs: promptPacks, skill_packs: skillPacks };
+    return { ...profile, avatar_url: avatarUrl, prompt_packs: promptPacks, skill_packs: skillPacks };
   });
 
   // POST /api/agents
@@ -130,6 +153,123 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
     await agentService.attachSkillPack(id, body.skill_pack_id, body.priority);
     return { attached: true };
+  });
+
+  // POST /api/agents/:id/avatar — upload avatar image
+  app.post('/:id/avatar', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const workspaceId = request.auth.workspaceId;
+
+    const data = await request.file();
+    if (!data) {
+      reply.status(400);
+      return { error: 'No file uploaded' };
+    }
+
+    const buffer = await data.toBuffer();
+    const objectKey = await uploadService.uploadAvatar(workspaceId, id, buffer, data.mimetype);
+
+    // Delete old avatar if it was a MinIO upload
+    const profile = await agentService.getAgentProfile(workspaceId, id);
+    if (uploadService.isMinioPath(profile.avatar_url)) {
+      await uploadService.deleteAvatar(profile.avatar_url!);
+    }
+
+    await agentService.updateAgentProfile(workspaceId, id, { avatar_url: objectKey } as any);
+    const url = await uploadService.getAvatarUrl(objectKey);
+    return { avatar_url: url, object_key: objectKey };
+  });
+
+  // DELETE /api/agents/:id/avatar — remove avatar
+  app.delete('/:id/avatar', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const workspaceId = request.auth.workspaceId;
+
+    const profile = await agentService.getAgentProfile(workspaceId, id);
+    if (uploadService.isMinioPath(profile.avatar_url)) {
+      await uploadService.deleteAvatar(profile.avatar_url!);
+    }
+
+    await agentService.updateAgentProfile(workspaceId, id, { avatar_url: null } as any);
+    return { deleted: true };
+  });
+
+  // POST /api/agents/:id/suggest-skills — AI-powered skill recommendations
+  app.post('/:id/suggest-skills', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const workspaceId = request.auth.workspaceId;
+
+    const profile = await agentService.getAgentProfile(workspaceId, id);
+    const allSkills = await agentService.listSkillPacks(workspaceId);
+    const attachedSkills = await agentService.getAgentSkillPacks(id);
+    const attachedIds = new Set(attachedSkills.map(s => s.id));
+
+    if (allSkills.length === 0) {
+      return { suggestions: [] };
+    }
+
+    // Build prompt for skill suggestion
+    const skillsList = allSkills.map(s =>
+      `- ID: ${s.id}, Name: "${s.name}", Intent: "${s.intent}", Description: "${s.description ?? 'N/A'}"${attachedIds.has(s.id) ? ' [ALREADY ATTACHED]' : ''}`
+    ).join('\n');
+
+    const agentContext = [
+      profile.display_name && `Name: ${profile.display_name}`,
+      profile.description && `Description: ${profile.description}`,
+      profile.system_prompt && `System prompt: ${profile.system_prompt.slice(0, 500)}`,
+      profile.business_mode && `Business mode: ${profile.business_mode}`,
+      profile.company_name && `Company: ${profile.company_name}`,
+    ].filter(Boolean).join('\n');
+
+    // Get LLM provider
+    let llm;
+    for (const provider of ['anthropic', 'xai', 'openai'] as const) {
+      try {
+        llm = await createLLMProvider(workspaceId, provider);
+        break;
+      } catch { /* try next */ }
+    }
+    if (!llm) return { suggestions: [] };
+
+    let result: any[] = [];
+    const model = (llm as any).client?.baseURL?.includes('x.ai') ? 'grok-3-mini-fast'
+      : (llm as any).client?.apiKey ? 'gpt-4o-mini' : 'claude-sonnet-4-5-20250514';
+
+    await llm.generateStream(
+      [
+        {
+          role: 'system',
+          content: `You analyze an AI phone agent's configuration and recommend which skills to attach.
+Return a JSON array of recommendations. Only recommend skills that are NOT already attached.
+Each item: {"skill_pack_id": "uuid", "name": "skill name", "reason": "1-sentence explanation why this skill is useful for this agent"}
+If no skills are relevant, return an empty array [].`,
+        },
+        {
+          role: 'user',
+          content: `AGENT:\n${agentContext}\n\nAVAILABLE SKILLS:\n${skillsList}`,
+        },
+      ],
+      model,
+      0.3,
+      {
+        onToken: () => {},
+        onComplete: (response) => {
+          try {
+            const match = response.text.match(/\[[\s\S]*\]/);
+            if (match) result = JSON.parse(match[0]);
+          } catch { /* parse error */ }
+        },
+        onError: () => {},
+      },
+    );
+
+    return { suggestions: result };
   });
 };
 
