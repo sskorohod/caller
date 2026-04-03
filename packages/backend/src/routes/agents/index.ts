@@ -127,6 +127,24 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     return { deleted: true };
   });
 
+  // DELETE /api/agents/:id/prompt-packs — detach all prompt packs
+  app.delete('/:id/prompt-packs', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    await agentService.detachAllPromptPacks(id);
+    return { deleted: true };
+  });
+
+  // DELETE /api/agents/:id/skill-packs — detach all skill packs
+  app.delete('/:id/skill-packs', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    await agentService.detachAllSkillPacks(id);
+    return { deleted: true };
+  });
+
   // POST /api/agents/:id/prompt-packs
   app.post('/:id/prompt-packs', {
     preHandler: [requireRole('owner', 'admin')],

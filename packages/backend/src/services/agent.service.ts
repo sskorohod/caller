@@ -306,6 +306,18 @@ export async function attachSkillPack(agentProfileId: string, skillPackId: strin
     });
 }
 
+export async function detachAllPromptPacks(agentProfileId: string): Promise<void> {
+  await db
+    .delete(agentPromptPacks)
+    .where(eq(agentPromptPacks.agent_profile_id, agentProfileId));
+}
+
+export async function detachAllSkillPacks(agentProfileId: string): Promise<void> {
+  await db
+    .delete(agentSkillPacks)
+    .where(eq(agentSkillPacks.agent_profile_id, agentProfileId));
+}
+
 export async function getAgentPromptPacks(agentProfileId: string): Promise<PromptPack[]> {
   const rows = await db
     .select({
