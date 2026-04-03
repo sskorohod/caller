@@ -12,6 +12,7 @@ interface LiveTranslatorOptions {
   mode: 'translate' | 'copilot';
   myLanguage?: string;
   context?: string;
+  instant?: boolean;
 }
 
 interface TranslationPayload {
@@ -52,6 +53,7 @@ export class LiveTranslator {
   private llmProviderName: string = 'anthropic';
   private accumulatedText: string = '';
   private running: boolean = false;
+  private instant: boolean = false;
 
   constructor(options: LiveTranslatorOptions) {
     this.callId = options.callId;
@@ -60,6 +62,7 @@ export class LiveTranslator {
     this.mode = options.mode;
     this.myLanguage = options.myLanguage ?? 'en';
     this.context = options.context ?? 'general phone call';
+    this.instant = options.instant ?? false;
   }
 
   async start(): Promise<void> {
@@ -140,7 +143,15 @@ export class LiveTranslator {
 
   private handleTranscript(event: TranscriptEvent): void {
     if (!event.isFinal || !event.text.trim()) return;
-    this.accumulatedText += (this.accumulatedText ? ' ' : '') + event.text.trim();
+
+    if (this.instant) {
+      // Instant mode: translate each final segment immediately
+      this.translateAndEmit(event.text.trim()).catch((err) => {
+        log.error({ err, callId: this.callId }, 'Instant translation error');
+      });
+    } else {
+      this.accumulatedText += (this.accumulatedText ? ' ' : '') + event.text.trim();
+    }
   }
 
   private handleUtteranceEnd(): void {

@@ -584,6 +584,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       mode: z.enum(['translate', 'copilot']).default('translate'),
       my_language: z.string().optional(),
       context: z.string().optional(),
+      instant: z.boolean().optional(),
     }).parse(request.body);
 
     const { getActiveTranslators } = await import('../../routes/webhooks/media-stream.js');
@@ -601,6 +602,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       mode: body.mode,
       myLanguage: body.my_language,
       context: body.context,
+      instant: body.instant,
     });
 
     await translator.start();

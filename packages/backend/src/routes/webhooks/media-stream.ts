@@ -44,6 +44,71 @@ export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRe
   return activeOrchestrators.get(callId);
 }
 
+const CORRECTION_MODELS: Record<string, string> = {
+  xai: 'grok-3-mini-fast',
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-sonnet-4-5-20250514',
+};
+
+async function correctOperatorSpeech(
+  callId: string,
+  text: string,
+  llm: import('../../services/llm.service.js').LLMProvider,
+  providerName: string,
+): Promise<void> {
+  const model = CORRECTION_MODELS[providerName] ?? 'gpt-4o-mini';
+
+  const messages: import('../../services/llm.service.js').LLMMessage[] = [
+    {
+      role: 'system',
+      content: `You help correct English speech during phone calls. The user said something aloud.
+If the English is imperfect or unnatural, suggest a more natural way to say it.
+If it's already good natural English, return exactly: {"corrected":null}
+Return JSON only: {"corrected": "better version" | null, "explanation": "brief note"}`,
+    },
+    { role: 'user', content: `"${text}"` },
+  ];
+
+  let result = '';
+  await new Promise<void>((resolve) => {
+    llm.generateStream(messages, model, 0.3, {
+      onToken: (token: string) => { result += token; },
+      onComplete: () => resolve(),
+      onError: (err: Error) => {
+        logger.error({ err, callId }, 'Correction LLM error');
+        resolve();
+      },
+    });
+  });
+
+  if (!result.trim()) return;
+
+  let parsed: { corrected: string | null; explanation?: string };
+  try {
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return;
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    logger.warn({ callId, raw: result }, 'Failed to parse correction JSON');
+    return;
+  }
+
+  if (!parsed.corrected) return;
+
+  const io = getIo();
+  if (!io) return;
+
+  io.to(`call:${callId}`).emit('call:speech-correction', {
+    call_id: callId,
+    original: text,
+    corrected: parsed.corrected,
+    explanation: parsed.explanation ?? null,
+    timestamp: new Date().toISOString(),
+  });
+
+  logger.debug({ callId, original: text, corrected: parsed.corrected }, 'Speech correction emitted');
+}
+
 const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   await app.register(websocket);
 
@@ -110,6 +175,36 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
               wireSTT(calleeStt, 'caller');
               wireSTT(operatorStt, 'operator');
+
+              // Resolve LLM for speech correction (prefer fast/cheap models)
+              let correctionLlm: import('../../services/llm.service.js').LLMProvider | null = null;
+              let correctionProvider = 'openai';
+              for (const provider of ['xai', 'openai', 'anthropic'] as const) {
+                try {
+                  correctionLlm = await createLLMProvider(call.workspace_id, provider);
+                  correctionProvider = provider;
+                  break;
+                } catch { /* try next */ }
+              }
+
+              // Wire operator speech correction
+              if (correctionLlm) {
+                let operatorAccumulated = '';
+                operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                  if (evt.isFinal && evt.text.trim()) {
+                    operatorAccumulated += (operatorAccumulated ? ' ' : '') + evt.text.trim();
+                  }
+                });
+                operatorStt.on('utterance_end', () => {
+                  const text = operatorAccumulated.trim();
+                  operatorAccumulated = '';
+                  if (text && correctionLlm) {
+                    correctOperatorSpeech(callId, text, correctionLlm, correctionProvider).catch(err =>
+                      logger.error({ err, callId }, 'Speech correction error'),
+                    );
+                  }
+                });
+              }
 
               calleeStt.connect({ language: sttLanguage });
               operatorStt.connect({ language: sttLanguage });

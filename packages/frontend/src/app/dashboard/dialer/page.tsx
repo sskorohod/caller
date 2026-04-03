@@ -12,6 +12,8 @@ interface TranscriptEntry {
   timestamp: string;
   isFinal: boolean;
   translated?: string;
+  correction?: string;
+  correctionExplanation?: string;
 }
 
 type CallState = 'idle' | 'connecting' | 'ringing' | 'in_call' | 'ended';
@@ -138,14 +140,32 @@ export default function DialerPage() {
       });
     };
 
+    const onCorrection = (data: { call_id: string; original: string; corrected: string; explanation?: string }) => {
+      if (data.call_id !== callId) return;
+      setTranscript(prev => {
+        const idx = [...prev].reverse().findIndex(
+          e => e.speaker === 'operator' && e.isFinal
+        );
+        if (idx >= 0) {
+          const realIdx = prev.length - 1 - idx;
+          const updated = [...prev];
+          updated[realIdx] = { ...updated[realIdx], correction: data.corrected, correctionExplanation: data.explanation };
+          return updated;
+        }
+        return prev;
+      });
+    };
+
     socket.on('call:transcript', onTranscript);
     socket.on('call:status', onStatus);
     socket.on('call:translation', onTranslation);
+    socket.on('call:speech-correction', onCorrection);
 
     return () => {
       socket.off('call:transcript', onTranscript);
       socket.off('call:status', onStatus);
       socket.off('call:translation', onTranslation);
+      socket.off('call:speech-correction', onCorrection);
     };
   }, [socket, callId]);
 
@@ -161,6 +181,7 @@ export default function DialerPage() {
     api.post(`/calls/${callId}/translate/start`, {
       target_language: translateTo,
       mode: 'translate',
+      instant: true,
     }).catch(() => {});
 
     if (socket) {
@@ -442,6 +463,18 @@ export default function DialerPage() {
                   {entry.translated && (
                     <p className="text-xs mt-1 opacity-70 italic border-t border-white/20 pt-1">
                       {entry.translated}
+                    </p>
+                  )}
+                  {entry.correction && (
+                    <p className={`text-xs mt-1 border-t pt-1 ${
+                      entry.speaker === 'operator'
+                        ? 'border-white/20 text-amber-200'
+                        : 'border-[var(--th-border)] text-amber-600 dark:text-amber-400'
+                    }`}>
+                      <span className="font-medium">Better:</span> {entry.correction}
+                      {entry.correctionExplanation && (
+                        <span className="opacity-60 ml-1">({entry.correctionExplanation})</span>
+                      )}
                     </p>
                   )}
                 </div>
