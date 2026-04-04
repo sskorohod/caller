@@ -45,8 +45,8 @@ export default function SkillsPage() {
 
   function loadPacks() {
     setLoadError('');
-    api.get<SkillPack[]>('/skill-packs')
-      .then(r => setPacks(Array.isArray(r) ? r : []))
+    api.get<{ skill_packs: SkillPack[] }>('/skill-packs')
+      .then(r => setPacks(r.skill_packs ?? []))
       .catch((err: unknown) => setLoadError((err as Error)?.message ?? 'Failed to load skill packs'))
       .finally(() => setLoading(false));
   }

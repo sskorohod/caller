@@ -39,8 +39,8 @@ export default function PromptsPage() {
 
   function loadPacks() {
     setLoadError('');
-    api.get<PromptPack[]>('/prompt-packs')
-      .then(r => setPacks(Array.isArray(r) ? r : []))
+    api.get<{ prompt_packs: PromptPack[] }>('/prompt-packs')
+      .then(r => setPacks(r.prompt_packs ?? []))
       .catch((err: unknown) => setLoadError((err as Error)?.message ?? 'Failed to load prompt packs'))
       .finally(() => setLoading(false));
   }
