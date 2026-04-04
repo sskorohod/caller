@@ -506,11 +506,15 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
                     // Check if PTT is active — buffer audio for instant playback on release
                     const vtSessNow = activeVoiceTranslateSessions.get(callId);
-                    if (vtSessNow?.sequentialMode && vtSessNow.pttActive) {
-                      // Buffer pre-generated TTS audio for instant flush when PTT released
+                    if (vtSessNow?.sequentialMode) {
+                      // Always buffer in sequential mode
                       pttAudioBuffer.push(audio);
                       pttTranslatedTexts.push(translated);
-                      logger.info({ callId, original: textToTranslate.slice(0, 40), buffered: true }, 'TTS pre-buffered during PTT');
+                      logger.info({ callId, original: textToTranslate.slice(0, 40), pttActive: vtSessNow.pttActive }, 'TTS pre-buffered');
+                      // If PTT already released — flush immediately
+                      if (!vtSessNow.pttActive) {
+                        flushPttAudioBuffer();
+                      }
                     } else {
                       // Inject TTS audio into callee stream immediately
                       const calleeSid = vtSessNow?.calleeStreamSid;
