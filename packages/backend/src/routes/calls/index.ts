@@ -9,7 +9,7 @@ import { ValidationError, AppError } from '../../lib/errors.js';
 import { env } from '../../config/env.js';
 import { db } from '../../config/db.js';
 import { calls } from '../../db/schema.js';
-import { eq, and, or, sql, gte, desc } from 'drizzle-orm';
+import { eq, and, or, sql, gte, desc, inArray } from 'drizzle-orm';
 import { aiCallSessions, providerCredentials as providerCredsTable } from '../../db/schema.js';
 
 const startCallSchema = z.object({
@@ -413,7 +413,15 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser],
   }, async (request) => {
     const { phone } = z.object({ phone: z.string().min(1) }).parse(request.params);
-    const decoded = decodeURIComponent(phone);
+    const decoded = decodeURIComponent(phone).replace(/[\s\-\(\)]/g, '');
+
+    // Build phone variants for fuzzy matching (user may enter without +1 prefix)
+    const phoneVariants = [decoded];
+    if (!decoded.startsWith('+')) {
+      phoneVariants.push('+' + decoded);
+      if (/^\d{10}$/.test(decoded)) phoneVariants.push('+1' + decoded);
+      if (/^1\d{10}$/.test(decoded)) phoneVariants.push('+' + decoded);
+    }
 
     const rows = await db
       .select({
@@ -428,8 +436,8 @@ const callRoutes: FastifyPluginAsync = async (app) => {
         and(
           eq(calls.workspace_id, request.auth.workspaceId),
           or(
-            eq(calls.from_number, decoded),
-            eq(calls.to_number, decoded),
+            inArray(calls.from_number, phoneVariants),
+            inArray(calls.to_number, phoneVariants),
           ),
         ),
       )
