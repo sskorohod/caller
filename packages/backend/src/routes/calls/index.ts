@@ -10,7 +10,7 @@ import { env } from '../../config/env.js';
 import { db } from '../../config/db.js';
 import { calls } from '../../db/schema.js';
 import { eq, and, or, sql, gte, desc } from 'drizzle-orm';
-import { aiCallSessions } from '../../db/schema.js';
+import { aiCallSessions, providerCredentials as providerCredsTable } from '../../db/schema.js';
 
 const startCallSchema = z.object({
   to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
@@ -141,6 +141,36 @@ const callRoutes: FastifyPluginAsync = async (app) => {
         twilio_call_sid: twilioCallSid,
         twilio_status: 'queued',
       } as any);
+
+      // Telegram notification (fire-and-forget)
+      (async () => {
+        try {
+          const [telegramCreds] = await db
+            .select()
+            .from(providerCredsTable)
+            .where(and(
+              eq(providerCredsTable.workspace_id, request.auth.workspaceId),
+              eq(providerCredsTable.provider, 'telegram'),
+            ));
+          if (telegramCreds) {
+            const { sendCallNotification } = await import('../../services/telegram.service.js');
+            const { decrypt } = await import('../../lib/crypto.js');
+            const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+            const shareToken = await callService.createShareToken(call.id);
+            const monitorUrl = `https://${env.API_DOMAIN}/calls/${call.id}/monitor?token=${shareToken}`;
+            sendCallNotification(creds.bot_token, creds.chat_id, {
+              phone: body.to,
+              direction: 'outbound',
+              name: null,
+              company: null,
+              total_calls: 0,
+              agent_name: agentProfile?.display_name ?? agentProfile?.name ?? '',
+              recent_facts: [],
+              monitor_url: monitorUrl,
+            }).catch(() => {});
+          }
+        } catch { /* non-critical */ }
+      })();
 
       reply.status(201);
       return {
@@ -523,6 +553,36 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       eventType: 'call_initiated',
       eventData: { source: 'dialer', stt_language: body.stt_language },
     });
+
+    // Telegram notification for dialer calls (fire-and-forget)
+    (async () => {
+      try {
+        const [telegramCreds] = await db
+          .select()
+          .from(providerCredsTable)
+          .where(and(
+            eq(providerCredsTable.workspace_id, request.auth.workspaceId),
+            eq(providerCredsTable.provider, 'telegram'),
+          ));
+        if (telegramCreds) {
+          const { sendCallNotification } = await import('../../services/telegram.service.js');
+          const { decrypt } = await import('../../lib/crypto.js');
+          const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+          const shareToken = await callService.createShareToken(call.id);
+          const monitorUrl = `https://${env.API_DOMAIN}/calls/${call.id}/monitor?token=${shareToken}`;
+          sendCallNotification(creds.bot_token, creds.chat_id, {
+            phone: body.to,
+            direction: 'outbound',
+            name: null,
+            company: null,
+            total_calls: 0,
+            agent_name: '',
+            recent_facts: [],
+            monitor_url: monitorUrl,
+          }).catch(() => {});
+        }
+      } catch { /* non-critical */ }
+    })();
 
     reply.status(201);
     return {

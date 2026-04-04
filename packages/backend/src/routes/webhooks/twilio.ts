@@ -166,13 +166,18 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
 
         if (telegramCreds) {
           const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+          // Generate share token for monitor link
+          const shareToken = await callService.createShareToken(call.id);
+          const monitorUrl = `https://${env.API_DOMAIN}/calls/${call.id}/monitor?token=${shareToken}`;
           sendCallNotification(creds.bot_token, creds.chat_id, {
             phone: callerNumber,
+            direction: 'inbound',
             name: profile.name,
             company: profile.company,
             total_calls: profile.total_calls,
             agent_name: agentProfile.display_name,
             recent_facts: facts.map(f => f.content),
+            monitor_url: monitorUrl,
           }).catch(() => {});
         }
       } catch {

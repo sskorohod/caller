@@ -18,9 +18,27 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     path: '/socket.io',
   });
 
-  // JWT authentication middleware
+  // JWT authentication middleware (with share token fallback)
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
+    const shareToken = socket.handshake.auth?.shareToken as string | undefined;
+
+    // Share token auth — limited access for public monitoring
+    if (!token && shareToken) {
+      try {
+        const { getCallByShareToken } = await import('../services/call.service.js');
+        const result = await getCallByShareToken(shareToken);
+        if (result) {
+          socket.data.userId = 'monitor';
+          socket.data.workspaceId = result.workspaceId;
+          socket.data.role = 'monitor';
+          socket.data.shareCallId = result.callId;
+          return next();
+        }
+      } catch { /* fall through */ }
+      return next(new Error('Invalid share token'));
+    }
+
     if (!token) {
       return next(new Error('Authentication required'));
     }
