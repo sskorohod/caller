@@ -47,18 +47,25 @@ export async function storeRecording(params: {
   callSid: string;
   recordingSid: string;
   workspaceId: string;
+  twilioAccountSid?: string;
+  twilioAuthToken?: string;
 }): Promise<string | null> {
   if (!isMinioConfigured()) return null;
 
   try {
     await ensureBucket();
 
-    // Download from Twilio
+    // Download from Twilio (requires Basic Auth with AccountSid:AuthToken)
     const mp3Url = params.twilioRecordingUrl.endsWith('.mp3')
       ? params.twilioRecordingUrl
       : `${params.twilioRecordingUrl}.mp3`;
 
-    const response = await fetch(mp3Url);
+    const headers: Record<string, string> = {};
+    if (params.twilioAccountSid && params.twilioAuthToken) {
+      headers['Authorization'] = 'Basic ' + Buffer.from(`${params.twilioAccountSid}:${params.twilioAuthToken}`).toString('base64');
+    }
+
+    const response = await fetch(mp3Url, { headers });
     if (!response.ok) {
       throw new Error(`Failed to download recording: ${response.status}`);
     }

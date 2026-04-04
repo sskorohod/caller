@@ -826,7 +826,7 @@ export default function CallsPage() {
                     {session?.recording_url && (
                       <div className="rounded-xl bg-[var(--th-surface)] p-4">
                         <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-2">{t('calls.recording')}</p>
-                        <audio controls className="w-full rounded-lg" src={session.recording_url} />
+                        <audio controls className="w-full rounded-lg" src={`/api/calls/${selected!.id}/recording`} />
                       </div>
                     )}
 

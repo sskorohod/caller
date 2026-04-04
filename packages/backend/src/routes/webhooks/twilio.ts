@@ -307,11 +307,23 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       try {
         const { storeRecording, isMinioConfigured } = await import('../../services/recording-storage.service.js');
         if (isMinioConfigured()) {
+          // Get Twilio credentials for authenticated download
+          const { getTwilioCreds } = await import('../../services/telephony.service.js');
+          let twilioAccountSid: string | undefined;
+          let twilioAuthToken: string | undefined;
+          try {
+            const creds = await getTwilioCreds(call.workspace_id);
+            twilioAccountSid = creds.account_sid;
+            twilioAuthToken = creds.auth_token;
+          } catch { /* proceed without auth */ }
+
           const minioKey = await storeRecording({
             twilioRecordingUrl: body.RecordingUrl,
             callSid: body.CallSid,
             recordingSid: body.RecordingSid,
             workspaceId: call.workspace_id,
+            twilioAccountSid,
+            twilioAuthToken,
           });
           if (minioKey) {
             recordingUrl = `minio://${minioKey}`; // Store as minio:// scheme

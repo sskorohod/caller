@@ -18,7 +18,7 @@ interface TwilioCredentials {
   twiml_app_sid?: string;
 }
 
-async function getTwilioCreds(workspaceId: string): Promise<TwilioCredentials> {
+export async function getTwilioCreds(workspaceId: string): Promise<TwilioCredentials> {
   const [row] = await db
     .select({ credential_data: providerCredentials.credential_data })
     .from(providerCredentials)
