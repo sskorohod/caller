@@ -206,6 +206,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 calleeAccum = '';
                 if (!text) return;
 
+                logger.info({ callId, speaker: 'caller', text: text.slice(0, 50) }, 'Callee transcript emitted');
                 if (io) {
                   io.to(`call:${callId}`).emit('call:transcript', {
                     call_id: callId, speaker: 'caller', text,
