@@ -185,15 +185,29 @@ export default function DialerPage() {
       setTranscript(prev => {
         const speaker = data.speaker as TranscriptEntry['speaker'];
 
+        if (data.isFinal && prev.length > 0) {
+          // Merge: replace trailing segment entries from same speaker with one complete entry
+          // (streaming translations create per-segment entries; utterance_end sends the full text)
+          let mergeStart = prev.length;
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].speaker !== speaker) break;
+            mergeStart = i;
+          }
+          if (mergeStart < prev.length) {
+            // Combine translations from merged segments
+            const merged = prev.slice(mergeStart);
+            const combinedTranslation = merged.map(e => e.translated).filter(Boolean).join(' ') || undefined;
+            return [
+              ...prev.slice(0, mergeStart),
+              { speaker, text: data.text, translated: combinedTranslation, timestamp: data.timestamp, isFinal: true },
+            ];
+          }
+        }
+
         if (prev.length > 0) {
           const last = prev[prev.length - 1];
-          // Update interim from same speaker
           if (!data.isFinal && last.speaker === speaker && !last.isFinal) {
             return [...prev.slice(0, -1), { ...last, text: data.text, timestamp: data.timestamp }];
-          }
-          // Final replacing an interim from same speaker
-          if (data.isFinal && last.speaker === speaker && !last.isFinal) {
-            return [...prev.slice(0, -1), { speaker, text: data.text, timestamp: data.timestamp, isFinal: true }];
           }
         }
         return [...prev, { speaker, text: data.text, timestamp: data.timestamp, isFinal: data.isFinal }];
@@ -225,7 +239,7 @@ export default function DialerPage() {
       const ttsRate = (PRICING.tts as any)[ttsProvider] ?? PRICING.tts.openai;
       eventCostRef.current += (data.translated.length / 1000) * ttsRate + PRICING.llm_translation;
       setTranscript(prev => {
-        // Match by original text first, fallback to last untranslated isFinal from same speaker
+        // Try to match existing transcript entry
         const reversed = [...prev].reverse();
         let idx = reversed.findIndex(e => e.speaker === data.speaker && e.isFinal && e.text === data.original);
         if (idx < 0) {
@@ -237,7 +251,14 @@ export default function DialerPage() {
           updated[realIdx] = { ...prev[realIdx], translated: data.translated };
           return updated;
         }
-        return prev;
+        // No matching transcript yet (streaming mode) — create entry from translation
+        return [...prev, {
+          speaker: data.speaker as TranscriptEntry['speaker'],
+          text: data.original,
+          translated: data.translated,
+          timestamp: data.timestamp,
+          isFinal: true,
+        }];
       });
     };
 
