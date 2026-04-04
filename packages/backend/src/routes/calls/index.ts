@@ -707,6 +707,29 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
+  // POST /api/calls/:id/hangup — explicitly end a call (hang up callee in voice translate)
+  app.post('/:id/hangup', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    // Hang up callee call in voice translate session
+    const { getActiveVoiceTranslateSessions } = await import('../../routes/webhooks/media-stream.js');
+    const vt = getActiveVoiceTranslateSessions().get(id);
+    if (vt?.calleeCallSid) {
+      await telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch(() => {});
+    }
+
+    // Also try to complete via call record
+    const call = await callService.getCall(request.auth.workspaceId, id);
+    if (call.twilio_call_sid && call.status !== 'completed') {
+      await telephonyService.hangupCall(request.auth.workspaceId, call.twilio_call_sid).catch(() => {});
+    }
+
+    await callService.updateCallStatus(id, 'completed').catch(() => {});
+    return { ok: true };
+  });
+
   // DELETE /api/calls/:id
   app.delete('/:id', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],

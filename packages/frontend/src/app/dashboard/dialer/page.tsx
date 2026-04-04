@@ -372,6 +372,10 @@ export default function DialerPage() {
   }, [phoneNumber, sttLanguage, sttProvider, voiceTranslate, makeCall, socket]);
 
   const handleHangup = useCallback(() => {
+    // Explicitly hang up callee via API (don't rely only on WebSocket close)
+    if (callId) {
+      api.post(`/calls/${callId}/hangup`, {}).catch(() => {});
+    }
     hangup();
     setCallState('ended');
     // Refresh call history after call ends
@@ -381,9 +385,9 @@ export default function DialerPage() {
         api.get<{ calls: typeof callHistory }>(`/calls/by-phone/${encodeURIComponent(normalized)}`)
           .then(r => setCallHistory(r.calls ?? []))
           .catch(() => {});
-      }, 2000); // wait for post-call processing
+      }, 2000);
     }
-  }, [hangup, phoneNumber]);
+  }, [hangup, phoneNumber, callId]);
 
   const handleNewCall = useCallback(() => {
     hangup(); // ensure previous call is fully disconnected
