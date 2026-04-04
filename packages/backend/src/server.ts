@@ -6,6 +6,7 @@ import multipart from '@fastify/multipart';
 import http from 'node:http';
 import { Server as SocketServer } from 'socket.io';
 import { env } from './config/env.js';
+import { pool } from './config/db.js';
 import { AppError } from './lib/errors.js';
 import { initSocketServer } from './realtime/socket-server.js';
 
@@ -38,7 +39,8 @@ await app.register(cors, {
   origin: env.NODE_ENV === 'development'
     ? true
     : (origin, cb) => {
-      const allowed = [`https://${env.API_DOMAIN}`, `https://caller.n8nskorx.top`];
+      const extra = process.env.CORS_ORIGINS?.split(',').filter(Boolean) ?? [];
+      const allowed = [`https://${env.API_DOMAIN}`, ...extra];
       cb(null, !origin || allowed.includes(origin));
     },
   credentials: true,
@@ -112,8 +114,19 @@ await app.register(import('./routes/missions/index.js'), { prefix: '/api/mission
 
 // Start post-call worker (BullMQ)
 import { startPostCallWorker } from './workers/post-call.worker.js';
-startPostCallWorker();
+const postCallWorker = startPostCallWorker();
 app.log.info('Post-call worker started');
+
+// Graceful shutdown
+async function gracefulShutdown(signal: string) {
+  app.log.info(`${signal} received, shutting down...`);
+  await postCallWorker.close();
+  await app.close();
+  await pool.end();
+  process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Start
 try {

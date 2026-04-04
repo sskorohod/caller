@@ -1,5 +1,17 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
+export class ApiError extends Error {
+  status: number;
+  body: Record<string, unknown>;
+
+  constructor(status: number, body: Record<string, unknown>) {
+    super((body.message as string) || `Error ${status}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('caller_token');
@@ -34,9 +46,7 @@ async function request<T = unknown>(path: string, options: RequestInit = {}): Pr
       throw new Error('Session expired. Please log in again.');
     }
     const body = await res.json().catch(() => ({}));
-    const err = new Error((body as any).message || `Error ${res.status}`);
-    (err as any).status = res.status;
-    throw err;
+    throw new ApiError(res.status, body as Record<string, unknown>);
   }
 
   return res.json() as Promise<T>;

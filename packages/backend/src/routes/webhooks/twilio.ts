@@ -178,7 +178,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
             agent_name: agentProfile.display_name,
             recent_facts: facts.map(f => f.content),
             monitor_url: monitorUrl,
-          }).catch(() => {});
+          }).catch((err: unknown) => { app.log.warn({ err }, 'Telegram notification failed'); });
         }
       } catch {
         // Non-critical — don't fail the call
@@ -233,7 +233,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
 
     await callService.updateCallStatus(call.id, ourStatus as any, {
       twilio_status: callStatus,
-      duration_seconds: duration ? parseInt(duration, 10) : undefined,
+      duration_seconds: duration && /^\d+$/.test(duration) ? parseInt(duration, 10) : undefined,
     } as any);
 
     await callService.addCallEvent({
@@ -250,7 +250,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         call_id: call.id,
         status: ourStatus,
         twilio_status: callStatus,
-        duration_seconds: duration ? parseInt(duration, 10) : null,
+        duration_seconds: duration && /^\d+$/.test(duration) ? parseInt(duration, 10) : null,
       });
     }
 
@@ -260,21 +260,21 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         call_id: call.id,
         twilio_call_sid: callSid,
         status: ourStatus,
-      }).catch(() => {});
+      }).catch((err: unknown) => { app.log.warn({ err, callId: call.id }, 'Webhook delivery failed for call.started'); });
     } else if (ourStatus === 'completed') {
       deliverWebhookEvent(call.workspace_id, 'call.completed', {
         call_id: call.id,
         twilio_call_sid: callSid,
         status: ourStatus,
-        duration_seconds: duration ? parseInt(duration, 10) : null,
-      }).catch(() => {});
+        duration_seconds: duration && /^\d+$/.test(duration) ? parseInt(duration, 10) : null,
+      }).catch((err: unknown) => { app.log.warn({ err, callId: call.id }, 'Webhook delivery failed for call.completed'); });
     } else if (ourStatus === 'failed') {
       deliverWebhookEvent(call.workspace_id, 'call.failed', {
         call_id: call.id,
         twilio_call_sid: callSid,
         status: ourStatus,
         twilio_status: callStatus,
-      }).catch(() => {});
+      }).catch((err: unknown) => { app.log.warn({ err, callId: call.id }, 'Webhook delivery failed for call.failed'); });
     }
 
     reply.status(200).send('OK');

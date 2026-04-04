@@ -66,19 +66,21 @@ export async function getCall(workspaceId: string, callId: string): Promise<Call
 }
 
 export async function deleteCall(workspaceId: string, callId: string): Promise<void> {
-  // Delete related records first (order matters for FK constraints)
+  // Delete related records in a transaction (order matters for FK constraints)
   // Mission messages → missions → call events → ai sessions → share tokens → call
-  const missionRows = await db.select({ id: missions.id }).from(missions).where(eq(missions.call_id, callId));
-  for (const m of missionRows) {
-    await db.delete(missionMessages).where(eq(missionMessages.mission_id, m.id));
-  }
-  await db.delete(missions).where(eq(missions.call_id, callId));
-  await db.delete(callEvents).where(eq(callEvents.call_id, callId));
-  await db.delete(aiCallSessions).where(eq(aiCallSessions.call_id, callId));
-  await db.delete(callShareTokens).where(eq(callShareTokens.call_id, callId));
-  await db.delete(calls).where(
-    and(eq(calls.id, callId), eq(calls.workspace_id, workspaceId)),
-  );
+  await db.transaction(async (tx) => {
+    const missionRows = await tx.select({ id: missions.id }).from(missions).where(eq(missions.call_id, callId));
+    for (const m of missionRows) {
+      await tx.delete(missionMessages).where(eq(missionMessages.mission_id, m.id));
+    }
+    await tx.delete(missions).where(eq(missions.call_id, callId));
+    await tx.delete(callEvents).where(eq(callEvents.call_id, callId));
+    await tx.delete(aiCallSessions).where(eq(aiCallSessions.call_id, callId));
+    await tx.delete(callShareTokens).where(eq(callShareTokens.call_id, callId));
+    await tx.delete(calls).where(
+      and(eq(calls.id, callId), eq(calls.workspace_id, workspaceId)),
+    );
+  });
 }
 
 export async function updateCallStatus(
@@ -220,7 +222,8 @@ export async function updateAiSession(
   sessionId: string,
   updates: Partial<AiCallSession>,
 ): Promise<AiCallSession> {
-  const { id, call_id, workspace_id, created_at, ...safeUpdates } = updates as any;
+  // Strip immutable fields before update
+  const { id: _id, call_id: _cid, workspace_id: _wid, created_at: _cat, updated_at: _uat, ...safeUpdates } = updates as any;  // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const [updated] = await db
     .update(aiCallSessions)

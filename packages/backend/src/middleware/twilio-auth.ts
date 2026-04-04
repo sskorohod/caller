@@ -8,8 +8,22 @@ import { UnauthorizedError } from '../lib/errors.js';
  * Uses Twilio's X-Twilio-Signature header and the webhook auth token.
  */
 export async function validateTwilioSignature(request: FastifyRequest, reply: FastifyReply) {
-  // Twilio signature validation is incompatible with Cloudflare Tunnel
-  // (URL rewriting breaks HMAC). Security is provided by Cloudflare Tunnel itself.
-  // To re-enable: remove this return and set TWILIO_WEBHOOK_SECRET in .env
-  return;
+  // When TWILIO_WEBHOOK_SECRET is not set, skip validation
+  // (Cloudflare Tunnel rewrites URLs which breaks HMAC — tunnel itself provides security)
+  if (!env.TWILIO_WEBHOOK_SECRET) return;
+
+  const signature = request.headers['x-twilio-signature'] as string | undefined;
+  const url = `https://${env.API_DOMAIN}${request.url}`;
+  const params = (request.body as Record<string, string>) ?? {};
+
+  const isValid = twilio.validateRequest(
+    env.TWILIO_WEBHOOK_SECRET,
+    signature ?? '',
+    url,
+    params,
+  );
+
+  if (!isValid) {
+    throw new UnauthorizedError('Invalid Twilio signature');
+  }
 }

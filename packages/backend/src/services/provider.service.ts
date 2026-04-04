@@ -56,7 +56,7 @@ export async function listProviderCredentials(workspaceId: string): Promise<
   }).from(providerCredentials)
     .where(eq(providerCredentials.workspace_id, workspaceId));
 
-  return rows as any;
+  return rows as Array<{ provider: ProviderName; is_verified: boolean; verified_at: string | null }>;
 }
 
 export async function markProviderVerified(workspaceId: string, provider: ProviderName): Promise<void> {

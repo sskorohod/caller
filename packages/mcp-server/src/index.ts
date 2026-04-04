@@ -14,6 +14,7 @@ const server = new McpServer({
 async function apiRequest(path: string, options: RequestInit = {}) {
   const res = await fetch(`${PLATFORM_API_URL}${path}`, {
     ...options,
+    signal: AbortSignal.timeout(30_000),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${API_KEY}`,
@@ -136,6 +137,11 @@ server.tool(
 
 // Start server
 async function main() {
+  if (!API_KEY) {
+    console.error('CALLER_API_KEY environment variable is required');
+    process.exit(1);
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

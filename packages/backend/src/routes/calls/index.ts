@@ -167,7 +167,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
               agent_name: agentProfile?.display_name ?? agentProfile?.name ?? '',
               recent_facts: [],
               monitor_url: monitorUrl,
-            }).catch(() => {});
+            }).catch((err: unknown) => { request.log.warn({ err }, 'Telegram notification failed'); });
           }
         } catch { /* non-critical */ }
       })();
@@ -589,7 +589,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
             agent_name: '',
             recent_facts: [],
             monitor_url: monitorUrl,
-          }).catch(() => {});
+          }).catch((err: unknown) => { request.log.warn({ err }, 'Telegram notification failed'); });
         }
       } catch { /* non-critical */ }
     })();
@@ -727,16 +727,16 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     const { getActiveVoiceTranslateSessions } = await import('../../routes/webhooks/media-stream.js');
     const vt = getActiveVoiceTranslateSessions().get(id);
     if (vt?.calleeCallSid) {
-      await telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch(() => {});
+      await telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: unknown) => { request.log.warn({ err, callId: id }, 'Failed to hangup callee in VT session'); });
     }
 
     // Also try to complete via call record
     const call = await callService.getCall(request.auth.workspaceId, id);
     if (call.twilio_call_sid && call.status !== 'completed') {
-      await telephonyService.hangupCall(request.auth.workspaceId, call.twilio_call_sid).catch(() => {});
+      await telephonyService.hangupCall(request.auth.workspaceId, call.twilio_call_sid).catch((err: unknown) => { request.log.warn({ err, callId: id }, 'Failed to hangup Twilio call'); });
     }
 
-    await callService.updateCallStatus(id, 'completed').catch(() => {});
+    await callService.updateCallStatus(id, 'completed').catch((err: unknown) => { request.log.warn({ err, callId: id }, 'Failed to update call status to completed'); });
     return { ok: true };
   });
 

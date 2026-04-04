@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import * as workspaceService from '../../services/workspace.service.js';
 import * as auditService from '../../services/audit.service.js';
@@ -69,15 +69,14 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
   app.get('/members', async (request) => {
     const members = await workspaceService.getWorkspaceMembers(request.auth.workspaceId);
 
-    // Enrich with user email
-    const enriched = await Promise.all(
-      members.map(async (m) => {
-        const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, m.user_id));
-        return { ...m, email: user?.email ?? null };
-      }),
-    );
+    // Enrich with user email (single query instead of N+1)
+    const userIds = members.map((m) => m.user_id);
+    const emailRows = userIds.length > 0
+      ? await db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, userIds))
+      : [];
+    const emailMap = new Map(emailRows.map((u) => [u.id, u.email]));
 
-    return enriched;
+    return members.map((m) => ({ ...m, email: emailMap.get(m.user_id) ?? null }));
   });
 
   // POST /api/workspaces/members — add by user_id

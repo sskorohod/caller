@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/lib/socket';
 import { useT } from '@/lib/i18n';
@@ -37,6 +37,10 @@ export default function IncomingCallCard() {
   const router = useRouter();
   const [call, setCall] = useState<IncomingCallData | null>(null);
   const [removing, setRemoving] = useState(false);
+  const callRef = useRef<IncomingCallData | null>(null);
+
+  // Keep ref in sync with state so listeners always see current value
+  callRef.current = call;
 
   const dismiss = useCallback(() => {
     setRemoving(true);
@@ -46,7 +50,7 @@ export default function IncomingCallCard() {
     }, ANIMATION_MS);
   }, []);
 
-  // Listen for incoming calls
+  // Listen for incoming calls (stable deps — no re-registration on call change)
   useEffect(() => {
     if (!socket) return;
 
@@ -56,9 +60,9 @@ export default function IncomingCallCard() {
     };
 
     const handleStatus = (data: CallStatusData) => {
-      // Dismiss when call ends
       if (data.status === 'completed' || data.status === 'failed' || data.status === 'no-answer') {
-        if (call && data.call_id === call.call_id) {
+        const current = callRef.current;
+        if (current && data.call_id === current.call_id) {
           dismiss();
         }
       }
@@ -71,7 +75,7 @@ export default function IncomingCallCard() {
       socket.off('call:incoming', handleIncoming);
       socket.off('call:status', handleStatus);
     };
-  }, [socket, call, dismiss]);
+  }, [socket, dismiss]);
 
   // Auto-dismiss after 30 seconds
   useEffect(() => {

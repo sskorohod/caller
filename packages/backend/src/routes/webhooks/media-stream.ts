@@ -899,7 +899,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         }
 
         if (vt.calleeCallSid) {
-          telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch(() => {});
+          telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: unknown) => { logger.warn({ err, callId }, 'Failed to hangup callee'); });
         }
         activeVoiceTranslateSessions.delete(callId);
       }

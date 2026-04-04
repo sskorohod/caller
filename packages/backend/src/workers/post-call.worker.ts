@@ -263,7 +263,7 @@ Respond in JSON format:
           sentiment: result.sentiment,
           qa_score: qaScore,
           action_items: result.action_items ?? [],
-        }).catch(() => {});
+        }).catch((err: unknown) => { logger.warn({ err, callId }, 'Webhook delivery failed for session.summary_ready'); });
 
         logger.info({ callId }, 'Post-call analysis complete');
       } catch (err) {
