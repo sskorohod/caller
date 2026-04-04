@@ -78,15 +78,40 @@ export default function MonitorPage() {
 
     s.on('connect', () => {
       s.emit('call:join', { call_id: callId });
+      s.emit('call:translate:join', { call_id: callId });
     });
 
     s.on('call:transcript', (data: { call_id: string; speaker: string; text: string; timestamp: string }) => {
       if (data.call_id !== callId || !data.text) return;
-      setTranscript(prev => [...prev, {
-        role: (data.speaker === 'agent' ? 'agent' : data.speaker === 'system' ? 'system' : 'caller') as TranscriptEntry['role'],
-        content: data.text,
-        timestamp: data.timestamp,
-      }]);
+      const role = data.speaker === 'operator' ? 'agent' : data.speaker === 'system' ? 'system' : 'caller';
+      setTranscript(prev => {
+        // Skip if operator text already added via translation
+        if (role === 'agent' && prev.length > 0) {
+          const last = prev[prev.length - 1];
+          if (last.role === 'agent') return prev;
+        }
+        return [...prev, { role: role as TranscriptEntry['role'], content: data.text, timestamp: data.timestamp }];
+      });
+    });
+
+    // Operator translations (arrive before call:transcript in streaming mode)
+    s.on('call:translation', (data: { call_id: string; speaker: string; original: string; translated: string; timestamp: string }) => {
+      if (data.call_id !== callId) return;
+      setTranscript(prev => {
+        // Merge with last operator entry or create new
+        if (prev.length > 0) {
+          const last = prev[prev.length - 1];
+          if (last.role === 'agent') {
+            const updated = [...prev];
+            updated[prev.length - 1] = {
+              ...last,
+              content: last.content + ' ' + data.original,
+            };
+            return updated;
+          }
+        }
+        return [...prev, { role: 'agent' as TranscriptEntry['role'], content: data.original, timestamp: data.timestamp }];
+      });
     });
 
     s.on('call:status', (data: { call_id: string; status: string }) => {
