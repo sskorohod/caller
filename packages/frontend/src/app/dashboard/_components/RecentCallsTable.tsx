@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import type { RecentCall } from '../_lib/types';
-import { fmtDuration, fmtDate } from '../_lib/utils';
+import { fmtDuration, fmtDate, fmtCost } from '../_lib/utils';
 import { STATUS_COLORS, STATUS_LABELS } from '../_lib/constants';
 import { IconPhone } from '../_lib/icons';
 
@@ -33,7 +33,7 @@ export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[var(--th-border)]">
-                {[t('dashboard.phoneNumber'), t('dashboard.direction'), t('dashboard.status'), t('dashboard.duration'), t('dashboard.date')].map(h => (
+                {[t('dashboard.phoneNumber'), t('dashboard.direction'), t('dashboard.status'), t('dashboard.duration'), t('dashboard.cost'), t('dashboard.date')].map(h => (
                   <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{h}</th>
                 ))}
               </tr>
@@ -57,6 +57,7 @@ export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)] tabular-nums font-medium">{fmtDuration(call.duration_seconds)}</td>
+                  <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)] tabular-nums font-medium">{call.cost_total ? fmtCost(parseFloat(call.cost_total)) : '$0.00'}</td>
                   <td className="px-5 py-3 text-[13px] text-[var(--th-text-muted)]">{fmtDate(call.created_at)}</td>
                 </tr>
               ))}

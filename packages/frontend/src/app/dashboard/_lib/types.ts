@@ -27,6 +27,7 @@ export interface RecentCall {
   phone_number_to: string;
   phone_number_from: string;
   duration_seconds: number | null;
+  cost_total: string | null;
   created_at: string;
 }
 
