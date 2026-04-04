@@ -50,6 +50,7 @@ const en: Record<string, string> = {
   'dialer.transcript': 'Transcript',
   'dialer.translation': 'Translation',
   'dialer.translateTo': 'Translate to',
+  'dialer.voice': 'Voice',
   'dialer.noTranscript': 'Transcript will appear here when the call starts...',
   'dialer.duration': 'Duration',
 
@@ -655,6 +656,7 @@ const ru: Record<string, string> = {
   'dialer.transcript': 'Транскрипт',
   'dialer.translation': 'Перевод',
   'dialer.translateTo': 'Перевести на',
+  'dialer.voice': 'Голос',
   'dialer.noTranscript': 'Транскрипт появится когда начнётся звонок...',
   'dialer.duration': 'Длительность',
 

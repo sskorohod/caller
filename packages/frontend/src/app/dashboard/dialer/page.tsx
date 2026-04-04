@@ -49,6 +49,25 @@ const TRANSLATE_LANGUAGES = [
   { value: 'fr', label: 'Français' },
 ];
 
+const TTS_VOICES: Record<string, Array<{ value: string; label: string }>> = {
+  openai: [
+    { value: 'alloy', label: 'Alloy' },
+    { value: 'echo', label: 'Echo' },
+    { value: 'fable', label: 'Fable' },
+    { value: 'onyx', label: 'Onyx' },
+    { value: 'nova', label: 'Nova' },
+    { value: 'shimmer', label: 'Shimmer' },
+  ],
+  xai: [
+    { value: 'ara', label: 'Ara' },
+    { value: 'rex', label: 'Rex' },
+    { value: 'sal', label: 'Sal' },
+    { value: 'eve', label: 'Eve' },
+    { value: 'leo', label: 'Leo' },
+  ],
+  elevenlabs: [],
+};
+
 export default function DialerPage() {
   const t = useT();
   const { socket } = useSocket();
@@ -68,6 +87,7 @@ export default function DialerPage() {
   const [voiceTranslate, setVoiceTranslate] = useState(false);
   const [speakDirect, setSpeakDirect] = useState(false); // temporary bypass in voice translate mode
   const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'openai' | 'xai'>('openai');
+  const [ttsVoice, setTtsVoice] = useState('alloy'); // selected TTS voice
   const [ttsTargetLang, setTtsTargetLang] = useState('en'); // language to translate operator's speech INTO
   const [pttMode, setPttMode] = useState(true); // push-to-talk vs always-on
   const [pttActive, setPttActive] = useState(false); // currently holding PTT button
@@ -259,6 +279,7 @@ export default function DialerPage() {
           stt_provider: sttProvider,
           voice_translate: voiceTranslate,
           tts_provider: voiceTranslate ? ttsProvider : undefined,
+          tts_voice_id: voiceTranslate && ttsVoice ? ttsVoice : undefined,
           translate_to_language: voiceTranslate ? ttsTargetLang : undefined,
         },
       );
@@ -460,32 +481,44 @@ export default function DialerPage() {
                   {t('dialer.voiceTranslateHint')}
                 </div>
 
-                {/* TTS provider */}
-                <div>
-                  <label className="block text-[10px] font-medium text-[var(--th-text-secondary)] mb-0.5 px-1">
-                    TTS
-                  </label>
-                </div>
-                <div className="flex gap-1.5">
-                  {([
-                    { value: 'openai' as const, label: 'OpenAI', desc: 'Alloy voice' },
-                    { value: 'elevenlabs' as const, label: 'ElevenLabs', desc: 'Premium voices' },
-                    { value: 'xai' as const, label: 'xAI', desc: 'Grok voice' },
-                  ]).map(p => (
-                    <button
-                      key={p.value}
-                      onClick={() => setTtsProvider(p.value)}
+                {/* TTS provider + voice */}
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-medium text-[var(--th-text-secondary)] mb-0.5 px-1">
+                      TTS
+                    </label>
+                    <select
+                      value={ttsProvider}
+                      onChange={e => {
+                        const p = e.target.value as 'openai' | 'elevenlabs' | 'xai';
+                        setTtsProvider(p);
+                        setTtsVoice(TTS_VOICES[p]?.[0]?.value ?? '');
+                      }}
                       disabled={isInCall}
-                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition disabled:opacity-50 ${
-                        ttsProvider === p.value
-                          ? 'border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 font-medium'
-                          : 'border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text-secondary)] hover:border-purple-400'
-                      }`}
+                      className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs disabled:opacity-50"
                     >
-                      <div className="font-medium">{p.label}</div>
-                      <div className="text-[10px] opacity-70">{p.desc}</div>
-                    </button>
-                  ))}
+                      <option value="openai">OpenAI</option>
+                      <option value="xai">xAI (Grok)</option>
+                      <option value="elevenlabs">ElevenLabs</option>
+                    </select>
+                  </div>
+                  {TTS_VOICES[ttsProvider]?.length > 0 && (
+                    <div className="flex-1">
+                      <label className="block text-[10px] font-medium text-[var(--th-text-secondary)] mb-0.5 px-1">
+                        {t('dialer.voice')}
+                      </label>
+                      <select
+                        value={ttsVoice}
+                        onChange={e => setTtsVoice(e.target.value)}
+                        disabled={isInCall}
+                        className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs disabled:opacity-50"
+                      >
+                        {TTS_VOICES[ttsProvider].map(v => (
+                          <option key={v.value} value={v.value}>{v.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
