@@ -388,30 +388,13 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       }
 
       if (callerNumber) {
-        if (voiceTranslate) {
-          // Voice translate mode: bidirectional <Connect><Stream>
-          // Backend handles all audio routing — operator's voice gets translated
-          const connect = twiml.connect();
-          connect.stream({
-            url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId || 'browser'}`,
-            name: `translate-${callId || Date.now()}`,
-          });
-          // Backend will initiate the callee call separately via REST API
-        } else {
-          // Direct mode: one-way <Start><Stream> + <Dial>
-          const start = twiml.start();
-          start.stream({
-            url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId || 'browser'}`,
-            track: 'both_tracks' as any,
-            name: `browser-call-${callId || Date.now()}`,
-          });
-
-          const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
-          twiml.dial({
-            callerId: callerNumber,
-            action: statusCallbackUrl,
-          }).number(to);
-        }
+        // Always use <Connect><Stream> for dialer calls (supports mid-call translate toggle)
+        const connect = twiml.connect();
+        connect.stream({
+          url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId || 'browser'}`,
+          name: `call-${callId || Date.now()}`,
+        });
+        // Backend initiates callee call separately via REST API
       } else {
         twiml.say('No outbound number configured.');
       }

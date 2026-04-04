@@ -323,9 +323,9 @@ export default function DialerPage() {
     initDevice().catch(() => {});
   }, [initDevice]);
 
-  // Start translation
+  // Start translation (only if VT enabled)
   useEffect(() => {
-    if (!callId || !translateTo || callState !== 'in_call') return;
+    if (!callId || !translateTo || callState !== 'in_call' || !voiceTranslate) return;
 
     api.post(`/calls/${callId}/translate/start`, {
       target_language: translateTo,
@@ -599,9 +599,20 @@ export default function DialerPage() {
               onClick={() => {
                 const next = !voiceTranslate;
                 setVoiceTranslate(next);
-                if (next) { setTtsTargetLang(sttLanguage); setSttLanguage('ru'); }
+                if (next && !isInCall) { setTtsTargetLang(sttLanguage); setSttLanguage('ru'); }
+                // Mid-call toggle: notify backend
+                if (callId && socket) {
+                  socket.emit('call:translate:toggle', { call_id: callId, enabled: next });
+                  if (next) {
+                    // Also start translation service
+                    api.post(`/calls/${callId}/translate/start`, {
+                      target_language: translateTo, source_language: sttLanguage,
+                      mode: 'copilot', my_language: translateTo, instant: true,
+                    }).catch(() => {});
+                    socket.emit('call:translate:join', { call_id: callId });
+                  }
+                }
               }}
-              disabled={isInCall}
               className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium transition-all flex items-center justify-between disabled:opacity-40 ${
                 voiceTranslate
                   ? 'border-purple-500/40 bg-purple-500/10 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.1)]'

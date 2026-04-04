@@ -78,6 +78,7 @@ interface VoiceTranslateSession {
   translationLlm: import('../../services/llm.service.js').LLMProvider | null;
   pttActive: boolean;
   sequentialMode: boolean;
+  translationEnabled: boolean;
 }
 const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 
@@ -319,9 +320,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
           await callService.updateCallStatus(callId, 'in_progress');
 
-          // --- Voice translate mode (bidirectional: operator speaks one language, callee hears another) ---
-          if (call.conversation_owner_requested === 'manual' && (call.metadata as any)?.voice_translate) {
-            logger.info({ callId }, 'Voice translate mode — starting bidirectional translation');
+          // --- Dialer call: always use bidirectional <Connect><Stream> (supports mid-call translate toggle) ---
+          if (call.conversation_owner_requested === 'manual') {
+            const vtEnabled = !!(call.metadata as any)?.voice_translate;
+            logger.info({ callId, vtEnabled }, 'Dialer call — bidirectional stream mode');
             try {
               const meta = call.metadata as any;
               const operatorLang = meta.stt_language ?? 'ru';
@@ -378,7 +380,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 const segmentText = evt.text.trim();
                 operatorAccum += (operatorAccum ? ' ' : '') + segmentText;
 
-                if (!translationLlm) return;
+                // Check if translation is enabled (can be toggled mid-call)
+                const vtSessCheck = activeVoiceTranslateSessions.get(callId);
+                if (!translationLlm || !vtSessCheck?.translationEnabled) return;
 
                 // Always translate immediately — even during PTT (pre-buffer TTS audio)
                 const textToTranslate = segmentText;
@@ -566,6 +570,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 translationLlm,
                 pttActive: false,
                 sequentialMode: meta?.voice_translate_mode === 'sequential',
+                translationEnabled: vtEnabled,
               });
 
               // Forward operator audio to STT
@@ -751,7 +756,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           const vtSession = activeVoiceTranslateSessions.get(callId);
           if (vtSession) {
             // Sequential interpretation: forward operator's raw voice to callee when PTT is held
-            if (vtSession.sequentialMode && vtSession.pttActive
+            if (vtSession.translationEnabled && vtSession.sequentialMode && vtSession.pttActive
               && vtSession.calleeSocket && vtSession.calleeStreamSid
               && vtSession.calleeSocket.readyState === 1) {
               vtSession.calleeSocket.send(JSON.stringify({

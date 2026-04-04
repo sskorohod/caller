@@ -153,6 +153,18 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       } catch { /* ignore */ }
     });
 
+    // Toggle translation on/off mid-call
+    socket.on('call:translate:toggle', async ({ call_id, enabled }: { call_id: string; enabled: boolean }) => {
+      try {
+        const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
+        const session = getActiveVoiceTranslateSessions().get(call_id);
+        if (session) {
+          session.translationEnabled = enabled;
+          console.log(`[Socket.IO] Translation toggled: call=${call_id} enabled=${enabled}`);
+        }
+      } catch { /* ignore */ }
+    });
+
     // Mission chat: join/leave mission room
     socket.on('mission:join', ({ mission_id }: { mission_id: string }) => {
       socket.join(`mission:${mission_id}`);
