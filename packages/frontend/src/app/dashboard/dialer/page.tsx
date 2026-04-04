@@ -185,29 +185,25 @@ export default function DialerPage() {
       setTranscript(prev => {
         const speaker = data.speaker as TranscriptEntry['speaker'];
 
-        if (data.isFinal && prev.length > 0) {
-          // Merge: replace trailing segment entries from same speaker with one complete entry
-          // (streaming translations create per-segment entries; utterance_end sends the full text)
-          let mergeStart = prev.length;
-          for (let i = prev.length - 1; i >= 0; i--) {
-            if (prev[i].speaker !== speaker) break;
-            mergeStart = i;
-          }
-          if (mergeStart < prev.length) {
-            // Combine translations from merged segments
-            const merged = prev.slice(mergeStart);
-            const combinedTranslation = merged.map(e => e.translated).filter(Boolean).join(' ') || undefined;
-            return [
-              ...prev.slice(0, mergeStart),
-              { speaker, text: data.text, translated: combinedTranslation, timestamp: data.timestamp, isFinal: true },
-            ];
+        // For operator in voice translate: translations already created entries via onTranslation.
+        // utterance_end just confirms — skip if entries already exist with translations.
+        if (data.isFinal && speaker === 'operator' && prev.length > 0) {
+          const last = prev[prev.length - 1];
+          if (last.speaker === speaker && last.translated) {
+            // Already have translated entry — don't duplicate
+            return prev;
           }
         }
 
         if (prev.length > 0) {
           const last = prev[prev.length - 1];
+          // Update interim from same speaker
           if (!data.isFinal && last.speaker === speaker && !last.isFinal) {
             return [...prev.slice(0, -1), { ...last, text: data.text, timestamp: data.timestamp }];
+          }
+          // Final replacing an interim
+          if (data.isFinal && last.speaker === speaker && !last.isFinal) {
+            return [...prev.slice(0, -1), { speaker, text: data.text, timestamp: data.timestamp, isFinal: true }];
           }
         }
         return [...prev, { speaker, text: data.text, timestamp: data.timestamp, isFinal: data.isFinal }];
