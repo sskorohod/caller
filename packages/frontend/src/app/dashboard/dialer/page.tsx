@@ -235,21 +235,24 @@ export default function DialerPage() {
       const ttsRate = (PRICING.tts as any)[ttsProvider] ?? PRICING.tts.openai;
       eventCostRef.current += (data.translated.length / 1000) * ttsRate + PRICING.llm_translation;
       setTranscript(prev => {
-        // Try to match existing transcript entry
-        const reversed = [...prev].reverse();
-        let idx = reversed.findIndex(e => e.speaker === data.speaker && e.isFinal && e.text === data.original);
-        if (idx < 0) {
-          idx = reversed.findIndex(e => e.speaker === data.speaker && e.isFinal && !e.translated);
+        const speaker = data.speaker as TranscriptEntry['speaker'];
+        // If last entry is from same speaker — append (same PTT press = one bubble)
+        if (prev.length > 0) {
+          const last = prev[prev.length - 1];
+          if (last.speaker === speaker && last.isFinal) {
+            const updated = [...prev];
+            updated[prev.length - 1] = {
+              ...last,
+              text: last.text + ' ' + data.original,
+              translated: (last.translated ? last.translated + ' ' : '') + data.translated,
+              timestamp: data.timestamp,
+            };
+            return updated;
+          }
         }
-        if (idx >= 0) {
-          const realIdx = prev.length - 1 - idx;
-          const updated = [...prev];
-          updated[realIdx] = { ...prev[realIdx], translated: data.translated };
-          return updated;
-        }
-        // No matching transcript yet (streaming mode) — create entry from translation
+        // New bubble (different speaker or first message)
         return [...prev, {
-          speaker: data.speaker as TranscriptEntry['speaker'],
+          speaker,
           text: data.original,
           translated: data.translated,
           timestamp: data.timestamp,
