@@ -76,6 +76,8 @@ export function useTwilioDevice() {
 
   const makeCall = useCallback(async (params: Record<string, string>) => {
     const device = deviceRef.current || await initDevice();
+    // Disconnect any stale calls before starting a new one
+    device.disconnectAll();
     const call = await device.connect({ params });
     setActiveCall(call);
 
@@ -88,11 +90,16 @@ export function useTwilioDevice() {
   }, [initDevice]);
 
   const hangup = useCallback(() => {
+    // Disconnect active call if tracked
     if (activeCall) {
       activeCall.disconnect();
-      setActiveCall(null);
-      setIsMuted(false);
     }
+    // Also disconnect all calls on the device (handles stale connections)
+    if (deviceRef.current) {
+      deviceRef.current.disconnectAll();
+    }
+    setActiveCall(null);
+    setIsMuted(false);
   }, [activeCall]);
 
   const toggleMute = useCallback(() => {
