@@ -56,15 +56,15 @@ interface PlanAction {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  draft:       'bg-gray-100 text-gray-600',
-  ready:       'bg-blue-100 text-blue-700',
-  scheduled:   'bg-purple-100 text-purple-700',
-  calling:     'bg-yellow-100 text-yellow-700',
-  in_progress: 'bg-yellow-100 text-yellow-700',
-  on_hold:     'bg-orange-100 text-orange-600',
-  completed:   'bg-green-100 text-green-700',
-  failed:      'bg-red-100 text-red-700',
-  cancelled:   'bg-gray-100 text-gray-500',
+  draft:       'bg-[var(--th-surface)] text-[var(--th-text-muted)]',
+  ready:       'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]',
+  scheduled:   'bg-[var(--th-info-bg)] text-[var(--th-info-text)]',
+  calling:     'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)]',
+  in_progress: 'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)]',
+  on_hold:     'bg-[var(--th-error-bg)] text-[var(--th-error-text)]',
+  completed:   'bg-[var(--th-success-bg)] text-[var(--th-success-text)]',
+  failed:      'bg-[var(--th-error-bg)] text-[var(--th-error-text)]',
+  cancelled:   'bg-[var(--th-surface)] text-[var(--th-text-muted)]',
 };
 
 function fmtDate(iso: string) {
@@ -254,18 +254,21 @@ export default function MissionChatPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!mission) {
     return (
-      <div className="p-8 text-center text-[var(--th-text-secondary)]">
-        {t('mission.notFound')}
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <div className="w-14 h-14 bg-[var(--th-surface)] rounded-2xl flex items-center justify-center text-[var(--th-text-muted)]">
+          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /></svg>
+        </div>
+        <p className="text-sm font-medium text-[var(--th-text-secondary)]">{t('mission.notFound')}</p>
         <button
           onClick={() => router.push('/dashboard/missions')}
-          className="ml-2 text-[var(--th-primary)] hover:underline"
+          className="text-xs text-[var(--th-primary-text)] hover:underline font-medium"
         >
           {t('common.back')}
         </button>
@@ -283,13 +286,9 @@ export default function MissionChatPage() {
     if (msg.sender_type === 'system') {
       return (
         <div key={msg.id} className="flex justify-center my-2">
-          <div className="px-4 py-2 rounded-full text-sm bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-border)]">
+          <div className="px-4 py-1.5 rounded-full text-[10px] font-semibold bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-card-border-subtle)] flex items-center gap-1.5">
             {msg.message_type === 'call_update' && (
-              <span className="mr-1">
-                {msg.content.toLowerCase().includes('complete') || msg.content.toLowerCase().includes('success')
-                  ? '\u2705'
-                  : '\uD83D\uDCDE'}
-              </span>
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
             )}
             {msg.content}
           </div>
@@ -297,11 +296,11 @@ export default function MissionChatPage() {
       );
     }
 
-    // User messages — right-aligned primary bubble
+    // User messages — right-aligned gradient bubble
     if (msg.sender_type === 'user') {
       return (
         <div key={msg.id} className="flex justify-end my-2">
-          <div className="max-w-[75%] px-4 py-3 rounded-2xl rounded-br-sm bg-[var(--th-primary)] text-white text-sm leading-relaxed">
+          <div className="max-w-[75%] px-4 py-3 rounded-2xl rounded-br-sm bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 text-white text-sm leading-relaxed shadow-[0_1px_3px_var(--th-shadow)]">
             {msg.content}
           </div>
         </div>
@@ -316,13 +315,18 @@ export default function MissionChatPage() {
         msg.content.toLowerCase().includes('completed');
       return (
         <div key={msg.id} className="flex justify-start my-2">
-          <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-[var(--th-border)] overflow-hidden">
+          <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
             <div
-              className={`px-4 py-2 text-xs font-medium flex items-center gap-2 ${
-                isSuccess ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+              className={`px-4 py-2 text-[10px] font-semibold flex items-center gap-2 ${
+                isSuccess ? 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]' : 'bg-[var(--th-error-bg)] text-[var(--th-error-text)]'
               }`}
             >
-              <span>{isSuccess ? '\u2705' : '\u274C'}</span>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {isSuccess
+                  ? <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  : <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                }
+              </svg>
               <span>{isSuccess ? t('mission.callCompleted') : t('mission.callFailed')}</span>
             </div>
             <div className="px-4 py-3 bg-[var(--th-card)] text-sm text-[var(--th-text)] leading-relaxed whitespace-pre-wrap">
@@ -338,7 +342,7 @@ export default function MissionChatPage() {
       <div key={msg.id} className="flex justify-start my-2">
         <div className="max-w-[80%] space-y-2">
           {textContent && (
-            <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-[var(--th-surface)] text-sm text-[var(--th-text)] leading-relaxed border border-[var(--th-border)] whitespace-pre-wrap">
+            <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-[var(--th-surface)] text-sm text-[var(--th-text)] leading-relaxed border border-[var(--th-card-border-subtle)] whitespace-pre-wrap shadow-[0_1px_3px_var(--th-shadow)]">
               {textContent}
             </div>
           )}
@@ -353,37 +357,38 @@ export default function MissionChatPage() {
   function renderPlanCard(plan: PlanAction) {
     const p = plan.plan;
     return (
-      <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-card)] overflow-hidden">
-        <div className="px-4 py-3 bg-[var(--th-surface)] border-b border-[var(--th-border)]">
+      <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+        <div className="px-4 py-3 bg-[var(--th-surface)] border-b border-[var(--th-card-border-subtle)] flex items-center gap-2">
+          <svg className="w-4 h-4 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           <span className="text-sm font-semibold text-[var(--th-text)]">
             {t('mission.planReady')}
           </span>
         </div>
-        <div className="px-4 py-3 space-y-2 text-sm">
+        <div className="px-4 py-3 space-y-2.5 text-sm">
           {p.target_phone && (
-            <div className="flex items-start gap-2">
-              <span className="shrink-0">{'\uD83D\uDCDE'}</span>
+            <div className="flex items-center gap-2.5">
+              <svg className="w-4 h-4 text-[var(--th-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
               <span className="text-[var(--th-text-muted)]">{t('mission.phone')}:</span>
-              <span className="text-[var(--th-text)] font-medium">{p.target_phone}</span>
+              <span className="text-[var(--th-text)] font-medium tabular-nums">{p.target_phone}</span>
             </div>
           )}
           {p.goal && (
-            <div className="flex items-start gap-2">
-              <span className="shrink-0">{'\uD83C\uDFAF'}</span>
+            <div className="flex items-start gap-2.5">
+              <svg className="w-4 h-4 text-[var(--th-text-muted)] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /></svg>
               <span className="text-[var(--th-text-muted)]">{t('mission.goal')}:</span>
               <span className="text-[var(--th-text)]">{p.goal}</span>
             </div>
           )}
           {p.agent && (
-            <div className="flex items-start gap-2">
-              <span className="shrink-0">{'\uD83E\uDD16'}</span>
+            <div className="flex items-center gap-2.5">
+              <svg className="w-4 h-4 text-[var(--th-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
               <span className="text-[var(--th-text-muted)]">{t('mission.agent')}:</span>
               <span className="text-[var(--th-text)]">{p.agent}</span>
             </div>
           )}
           {p.context && Object.keys(p.context).length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="shrink-0">{'\uD83D\uDCCB'}</span>
+            <div className="flex items-start gap-2.5">
+              <svg className="w-4 h-4 text-[var(--th-text-muted)] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
               <span className="text-[var(--th-text-muted)]">{t('mission.context')}:</span>
               <div className="text-[var(--th-text)]">
                 {Object.entries(p.context).map(([k, v]) => (
@@ -396,25 +401,25 @@ export default function MissionChatPage() {
             </div>
           )}
           {p.scheduled_at && (
-            <div className="flex items-start gap-2">
-              <span className="shrink-0">{'\u23F0'}</span>
+            <div className="flex items-center gap-2.5">
+              <svg className="w-4 h-4 text-[var(--th-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span className="text-[var(--th-text-muted)]">{t('mission.scheduled')}:</span>
               <span className="text-[var(--th-text)]">{fmtDate(p.scheduled_at)}</span>
             </div>
           )}
           {p.fallback && (
-            <div className="flex items-start gap-2">
-              <span className="shrink-0">{'\uD83D\uDD04'}</span>
+            <div className="flex items-center gap-2.5">
+              <svg className="w-4 h-4 text-[var(--th-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" /></svg>
               <span className="text-[var(--th-text-muted)]">{t('mission.fallback')}:</span>
               <span className="text-[var(--th-text)]">{p.fallback}</span>
             </div>
           )}
         </div>
-        <div className="px-4 py-3 border-t border-[var(--th-border)] flex gap-2">
+        <div className="px-4 py-3 border-t border-[var(--th-card-border-subtle)] flex gap-2">
           <button
             onClick={executeMission}
             disabled={executing || isCallActive}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-[var(--th-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {executing ? t('common.loading') : t('mission.confirmAndCall')}
           </button>
@@ -422,7 +427,7 @@ export default function MissionChatPage() {
             <button
               onClick={executeMission}
               disabled={executing || isCallActive}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--th-border)] text-[var(--th-text)] hover:bg-[var(--th-surface)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-semibold rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text)] hover:bg-[var(--th-surface)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t('mission.schedule')}
             </button>
@@ -440,7 +445,7 @@ export default function MissionChatPage() {
       <div className="flex items-center gap-3 shrink-0 mb-4">
         <button
           onClick={() => router.push('/dashboard/missions')}
-          className="p-2 rounded-lg hover:bg-[var(--th-surface)] transition-colors text-[var(--th-text-secondary)]"
+          className="p-2 rounded-xl hover:bg-[var(--th-surface)] transition-all text-[var(--th-text-secondary)]"
           title={t('common.back')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,18 +454,25 @@ export default function MissionChatPage() {
         </button>
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-semibold text-[var(--th-text)] truncate">
+          <h1 className="text-lg font-bold text-[var(--th-text)] truncate">
             {mission.title || t('mission.untitled')}
           </h1>
         </div>
 
         <span
-          className={`px-3 py-1 text-xs font-medium rounded-full ${
-            STATUS_COLORS[mission.status] || 'bg-gray-100 text-gray-600'
+          className={`px-2.5 py-1 text-[10px] font-semibold rounded-full ${
+            STATUS_COLORS[mission.status] || 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
           }`}
         >
           {t(`mission.status.${mission.status}`)}
         </span>
+
+        {isCallActive && (
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+          </span>
+        )}
 
         {/* Retry button for completed/failed/on_hold missions */}
         {(mission.status === 'completed' || mission.status === 'failed' || mission.status === 'on_hold') && (
@@ -479,7 +491,7 @@ export default function MissionChatPage() {
                 toast.error(e.message || t('common.error'));
               }
             }}
-            className="px-3 py-1.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-[10px] font-semibold rounded-lg hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all flex items-center gap-1.5"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
@@ -494,10 +506,13 @@ export default function MissionChatPage() {
         {/* Left: Chat area */}
         <div className="flex flex-col flex-1 min-h-0 lg:min-w-0">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto rounded-xl border border-[var(--th-border)] bg-[var(--th-card)] p-4">
+          <div className="flex-1 overflow-y-auto rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-[var(--th-text-muted)] text-sm">
-                {t('mission.startConversation')}
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <div className="w-12 h-12 bg-[var(--th-surface)] rounded-2xl flex items-center justify-center text-[var(--th-text-muted)]">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+                </div>
+                <p className="text-sm text-[var(--th-text-muted)]">{t('mission.startConversation')}</p>
               </div>
             ) : (
               <div className="space-y-1">
@@ -510,7 +525,11 @@ export default function MissionChatPage() {
           {/* Input area */}
           <div className="mt-3 shrink-0">
             {isCallActive && (
-              <div className="mb-2 px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs text-center">
+              <div className="mb-2 px-3.5 py-2 rounded-xl bg-[var(--th-warning-bg)] border border-[var(--th-card-border-subtle)] text-[var(--th-warning-text)] text-[10px] font-semibold text-center flex items-center justify-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
                 {t('mission.callInProgress')}
               </div>
             )}
@@ -525,12 +544,12 @@ export default function MissionChatPage() {
                 placeholder={
                   isCallActive ? t('mission.chatDisabledDuringCall') : t('mission.typeMessage')
                 }
-                className="flex-1 px-4 py-3 rounded-xl border border-[var(--th-border)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+                className="flex-1 px-4 py-3 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               />
               <button
                 onClick={sendMessage}
                 disabled={inputDisabled || !input.trim()}
-                className="px-4 py-3 rounded-xl bg-[var(--th-primary)] text-white font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                className="px-4 py-3 rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold text-sm hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all shrink-0"
               >
                 {sending ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -550,20 +569,20 @@ export default function MissionChatPage() {
         </div>
 
         {/* Right: Mission Details sidebar */}
-        <div className="lg:w-80 shrink-0 overflow-y-auto rounded-xl border border-[var(--th-border)] bg-[var(--th-card)] p-4 space-y-5">
-          <h2 className="text-sm font-semibold text-[var(--th-text)] uppercase tracking-wide">
+        <div className="lg:w-80 shrink-0 overflow-y-auto rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 space-y-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+          <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
             {t('mission.details')}
           </h2>
 
           {/* Status */}
-          <div className="space-y-1">
-            <label className="text-xs text-[var(--th-text-muted)] font-medium">
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
               {t('mission.statusLabel')}
             </label>
             <div>
               <span
-                className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
-                  STATUS_COLORS[mission.status] || 'bg-gray-100 text-gray-600'
+                className={`inline-block px-2.5 py-1 text-[10px] font-semibold rounded-full ${
+                  STATUS_COLORS[mission.status] || 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
                 }`}
               >
                 {t(`mission.status.${mission.status}`)}
@@ -573,8 +592,8 @@ export default function MissionChatPage() {
 
           {/* Agent */}
           {mission.agent_profile_id && (
-            <div className="space-y-1">
-              <label className="text-xs text-[var(--th-text-muted)] font-medium">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
                 {t('mission.agent')}
               </label>
               <p className="text-sm text-[var(--th-text)]">{mission.agent_profile_id}</p>
@@ -583,37 +602,37 @@ export default function MissionChatPage() {
 
           {/* Phone */}
           {mission.target_phone && (
-            <div className="space-y-1">
-              <label className="text-xs text-[var(--th-text-muted)] font-medium">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
                 {t('mission.phone')}
               </label>
-              <p className="text-sm text-[var(--th-text)] font-mono">{mission.target_phone}</p>
+              <p className="text-sm text-[var(--th-text)] tabular-nums font-medium">{mission.target_phone}</p>
             </div>
           )}
 
           {/* Goal */}
           {mission.goal && (
-            <div className="space-y-1">
-              <label className="text-xs text-[var(--th-text-muted)] font-medium">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
                 {t('mission.goal')}
               </label>
-              <p className="text-sm text-[var(--th-text)]">{mission.goal}</p>
+              <p className="text-sm text-[var(--th-text)] leading-relaxed">{mission.goal}</p>
             </div>
           )}
 
           {/* Context */}
           {mission.context && Object.keys(mission.context).length > 0 && (
-            <div className="space-y-1">
-              <label className="text-xs text-[var(--th-text-muted)] font-medium">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
                 {t('mission.context')}
               </label>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {Object.entries(mission.context).map(([k, v]) => (
                   <div
                     key={k}
-                    className="flex items-start gap-2 text-sm px-3 py-2 rounded-lg bg-[var(--th-surface)]"
+                    className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]"
                   >
-                    <span className="text-[var(--th-text-muted)] shrink-0">{k}:</span>
+                    <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
                     <span className="text-[var(--th-text)] break-all">{String(v)}</span>
                   </div>
                 ))}
@@ -623,8 +642,8 @@ export default function MissionChatPage() {
 
           {/* Fallback */}
           {mission.fallback_action && (
-            <div className="space-y-1">
-              <label className="text-xs text-[var(--th-text-muted)] font-medium">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
                 {t('mission.fallback')}
               </label>
               <p className="text-sm text-[var(--th-text)]">{mission.fallback_action}</p>
@@ -633,8 +652,8 @@ export default function MissionChatPage() {
 
           {/* Scheduled */}
           {mission.scheduled_at && (
-            <div className="space-y-1">
-              <label className="text-xs text-[var(--th-text-muted)] font-medium">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
                 {t('mission.scheduled')}
               </label>
               <p className="text-sm text-[var(--th-text)]">{fmtDate(mission.scheduled_at)}</p>
@@ -645,34 +664,32 @@ export default function MissionChatPage() {
           {mission.call_id && isCallActive && (
             <button
               onClick={() => router.push(`/dashboard/calls/${mission.call_id}/live`)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--th-primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all"
             >
-              <span>{'\uD83D\uDCDE'}</span>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+              </span>
               {t('mission.liveCall')}
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           )}
 
           {/* Outcome */}
           {mission.outcome && Object.keys(mission.outcome).length > 0 && (
-            <div className="space-y-1">
-              <label className="text-xs text-[var(--th-text-muted)] font-medium">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
                 {t('mission.outcome')}
               </label>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {Object.entries(mission.outcome).map(([k, v]) => (
                   <div
                     key={k}
-                    className="flex items-start gap-2 text-sm px-3 py-2 rounded-lg bg-[var(--th-surface)]"
+                    className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]"
                   >
-                    <span className="text-[var(--th-text-muted)] shrink-0">{k}:</span>
+                    <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
                     <span className="text-[var(--th-text)] break-all">{String(v)}</span>
                   </div>
                 ))}
@@ -681,7 +698,7 @@ export default function MissionChatPage() {
           )}
 
           {/* Timestamps */}
-          <div className="pt-3 border-t border-[var(--th-border)] space-y-2">
+          <div className="pt-3 border-t border-[var(--th-card-border-subtle)] space-y-2">
             <div className="flex justify-between text-xs">
               <span className="text-[var(--th-text-muted)]">{t('mission.created')}</span>
               <span className="text-[var(--th-text-secondary)]">{fmtDate(mission.created_at)}</span>
