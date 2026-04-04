@@ -194,26 +194,31 @@ export function WeeklyChart({ dailyCalls, t }: WeeklyChartProps) {
                 />
               )}
 
-              {/* Tooltip */}
-              {isHovered && (
-                <g>
-                  <rect
-                    x={pt.x - 18} y={pt.y - 28}
-                    width={36} height={20}
-                    rx={6}
-                    fill="var(--th-text)"
-                  />
-                  <text
-                    x={pt.x} y={pt.y - 15}
-                    textAnchor="middle"
-                    fill="var(--th-page)"
-                    fontSize={11}
-                    fontWeight={700}
-                  >
-                    {day.count}
-                  </text>
-                </g>
-              )}
+              {/* Tooltip — flip below point when too close to top */}
+              {isHovered && (() => {
+                const flipBelow = pt.y < 32;
+                const tooltipY = flipBelow ? pt.y + 12 : pt.y - 28;
+                const textY = flipBelow ? pt.y + 25 : pt.y - 15;
+                return (
+                  <g>
+                    <rect
+                      x={pt.x - 22} y={tooltipY}
+                      width={44} height={22}
+                      rx={8}
+                      fill="var(--th-text)"
+                    />
+                    <text
+                      x={pt.x} y={textY}
+                      textAnchor="middle"
+                      fill="var(--th-page)"
+                      fontSize={11}
+                      fontWeight={700}
+                    >
+                      {day.count}
+                    </text>
+                  </g>
+                );
+              })()}
 
               {/* Day label */}
               <text
