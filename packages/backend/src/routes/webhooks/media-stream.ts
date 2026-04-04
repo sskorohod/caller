@@ -464,15 +464,18 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     const vtSession = activeVoiceTranslateSessions.get(callId);
                     const currentTts = vtSession?.tts ?? tts;
                     let audio: Buffer | null = null;
-                    let actualTtsProvider = ttsProviderUsed;
+                    // Detect current TTS provider dynamically (handles mid-call changes)
+                    const currentTtsName = (currentTts as any).constructor?.name;
+                    let actualTtsProvider = currentTtsName === 'ElevenLabsTTS' ? 'elevenlabs'
+                      : currentTtsName === 'XaiTTS' ? 'xai' : 'openai';
                     try {
                       audio = await currentTts.synthesize(translated);
                     } catch (ttsErr) {
-                      logger.warn({ err: ttsErr, callId, provider: ttsProviderUsed }, 'TTS synthesis failed, trying fallback');
-                      // Try fallback providers
-                      for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== ttsProviderUsed)) {
+                      logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
+                      // Try fallback providers (exclude xAI — returns 403)
+                      for (const fallback of (['openai', 'elevenlabs'] as const).filter(p => p !== actualTtsProvider)) {
                         try {
-                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, ttsVoiceId ?? (fallback === 'openai' ? 'alloy' : undefined));
+                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fallback === 'openai' ? 'alloy' : undefined);
                           audio = await fallbackTts.synthesize(translated);
                           actualTtsProvider = fallback;
                           logger.info({ callId, fallback }, 'TTS fallback succeeded');
@@ -484,10 +487,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       logger.error({ callId }, 'All TTS providers failed');
                       return;
                     }
-                    // ElevenLabs outputs mulaw directly; OpenAI/xAI output PCM that needs conversion
-                    const isElevenlabs = actualTtsProvider === 'elevenlabs' ||
-                      (currentTts as any).constructor?.name === 'ElevenLabsTTS';
-                    if (!isElevenlabs) {
+                    if (actualTtsProvider !== 'elevenlabs') {
                       audio = pcmToMulaw(audio);
                     }
 
