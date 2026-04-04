@@ -271,6 +271,22 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               total_turns: session.transcript.length,
             } as any).catch(err => logger.error({ err, callId }, 'Failed to save voice translate transcript'));
           }
+
+          // Notify frontend that callee disconnected
+          const io = getIo();
+          if (io) {
+            io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });
+          }
+
+          // Close operator WebSocket → Twilio ends <Connect><Stream> → operator call ends
+          if (session.operatorSocket && session.operatorSocket.readyState === 1) {
+            session.operatorSocket.close();
+          }
+
+          // Update call status in DB
+          callService.updateCallStatus(callId, 'completed').catch(err =>
+            logger.error({ err, callId }, 'Failed to update call status on callee disconnect'));
+
           activeVoiceTranslateSessions.delete(callId);
         }
       });
