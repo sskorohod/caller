@@ -462,7 +462,15 @@ export default function DialerPage() {
           {/* Voice Translate toggle */}
           <div className="mb-4">
             <button
-              onClick={() => setVoiceTranslate(!voiceTranslate)}
+              onClick={() => {
+                const next = !voiceTranslate;
+                setVoiceTranslate(next);
+                if (next) {
+                  // When enabling VT: operator language = ru, callee language = current sttLanguage
+                  setTtsTargetLang(sttLanguage);
+                  setSttLanguage('ru');
+                }
+              }}
               disabled={isInCall}
               className={`w-full px-3 py-2.5 rounded-lg border text-sm font-medium transition flex items-center justify-between disabled:opacity-50 ${
                 voiceTranslate
