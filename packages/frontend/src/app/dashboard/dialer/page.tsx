@@ -104,6 +104,8 @@ export default function DialerPage() {
   // Live cost counter
   const [callCost, setCallCost] = useState(0);
   const eventCostRef = useRef(0); // accumulated TTS + LLM costs from events
+  const pttPressCountRef = useRef(0); // incremented on each PTT press, used to split bubbles
+  const lastBubblePttRef = useRef(0); // pttPressCount when last operator bubble was created
 
   // Call history by phone number
   const [callHistory, setCallHistory] = useState<Array<{ id: string; created_at: string; duration_seconds: number | null; direction: string; status: string; summary?: string; total_turns?: number }>>([]);
@@ -236,8 +238,25 @@ export default function DialerPage() {
       eventCostRef.current += (data.translated.length / 1000) * ttsRate + PRICING.llm_translation;
       setTranscript(prev => {
         const speaker = data.speaker as TranscriptEntry['speaker'];
-        // If last entry is from same speaker — append (same PTT press = one bubble)
-        if (prev.length > 0) {
+        const currentPtt = pttPressCountRef.current;
+
+        // For operator: merge segments within SAME PTT press into one bubble
+        if (speaker === 'operator' && prev.length > 0 && currentPtt === lastBubblePttRef.current) {
+          const last = prev[prev.length - 1];
+          if (last.speaker === 'operator' && last.isFinal) {
+            const updated = [...prev];
+            updated[prev.length - 1] = {
+              ...last,
+              text: last.text + ' ' + data.original,
+              translated: (last.translated ? last.translated + ' ' : '') + data.translated,
+              timestamp: data.timestamp,
+            };
+            return updated;
+          }
+        }
+
+        // For callee: merge consecutive callee entries
+        if (speaker !== 'operator' && prev.length > 0) {
           const last = prev[prev.length - 1];
           if (last.speaker === speaker && last.isFinal) {
             const updated = [...prev];
@@ -250,7 +269,9 @@ export default function DialerPage() {
             return updated;
           }
         }
-        // New bubble (different speaker or first message)
+
+        // New bubble
+        lastBubblePttRef.current = currentPtt;
         return [...prev, {
           speaker,
           text: data.original,
@@ -710,6 +731,7 @@ export default function DialerPage() {
                       <button
                         onMouseDown={() => {
                           setPttActive(true);
+                          pttPressCountRef.current++;
                           if (activeCall) activeCall.mute(false);
                           if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: true });
                         }}
@@ -727,6 +749,7 @@ export default function DialerPage() {
                         }}
                         onTouchStart={() => {
                           setPttActive(true);
+                          pttPressCountRef.current++;
                           if (activeCall) activeCall.mute(false);
                           if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: true });
                         }}
