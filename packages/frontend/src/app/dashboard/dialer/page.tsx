@@ -106,8 +106,10 @@ export default function DialerPage() {
   const eventCostRef = useRef(0); // accumulated TTS + LLM costs from events
 
   // Call history by phone number
-  const [callHistory, setCallHistory] = useState<Array<{ id: string; created_at: string; duration_seconds: number | null; direction: string; status: string; summary?: string }>>([]);
+  const [callHistory, setCallHistory] = useState<Array<{ id: string; created_at: string; duration_seconds: number | null; direction: string; status: string; summary?: string; total_turns?: number }>>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [expandedHistoryCall, setExpandedHistoryCall] = useState<string | null>(null);
+  const [expandedTranscript, setExpandedTranscript] = useState<Array<{ role: string; content: string }> | null>(null);
 
   // Recent numbers (from localStorage)
   const [recentNumbers, setRecentNumbers] = useState<string[]>([]);
@@ -205,6 +207,15 @@ export default function DialerPage() {
       }
       if (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled') {
         setCallState('ended');
+        // Refresh call history
+        const normalized = phoneNumber.trim().replace(/[\s\-\(\)]/g, '');
+        if (normalized.length >= 7) {
+          setTimeout(() => {
+            api.get<{ calls: typeof callHistory }>(`/calls/by-phone/${encodeURIComponent(normalized)}`)
+              .then(r => setCallHistory(r.calls ?? []))
+              .catch(() => {});
+          }, 3000);
+        }
       }
     };
 
@@ -363,7 +374,16 @@ export default function DialerPage() {
   const handleHangup = useCallback(() => {
     hangup();
     setCallState('ended');
-  }, [hangup]);
+    // Refresh call history after call ends
+    const normalized = phoneNumber.trim().replace(/[\s\-\(\)]/g, '');
+    if (normalized.length >= 7) {
+      setTimeout(() => {
+        api.get<{ calls: typeof callHistory }>(`/calls/by-phone/${encodeURIComponent(normalized)}`)
+          .then(r => setCallHistory(r.calls ?? []))
+          .catch(() => {});
+      }, 2000); // wait for post-call processing
+    }
+  }, [hangup, phoneNumber]);
 
   const handleNewCall = useCallback(() => {
     hangup(); // ensure previous call is fully disconnected
@@ -729,32 +749,85 @@ export default function DialerPage() {
           </div>
         </div>
 
-        {/* Call history */}
+        {/* Call history with expandable transcripts */}
         {callHistory.length > 0 && (
           <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 shadow-[0_1px_3px_var(--th-shadow)]">
             <h3 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-2.5">
               {t('dialer.callHistory')} ({callHistory.length})
             </h3>
-            <div className="space-y-1 max-h-44 overflow-y-auto">
-              {callHistory.slice(0, 10).map(c => (
-                <div key={c.id} className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-[var(--th-surface)] text-xs transition-colors">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`shrink-0 text-sm ${c.direction === 'outbound' ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-success-text)]'}`}>
-                      {c.direction === 'outbound' ? '\u2197' : '\u2199'}
-                    </span>
-                    <span className="text-[var(--th-text-secondary)] shrink-0">
-                      {new Date(c.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                    </span>
-                    <span className="text-[var(--th-text-muted)] shrink-0 font-mono tabular-nums">
-                      {c.duration_seconds ? formatDuration(c.duration_seconds) : '--'}
-                    </span>
-                    {c.summary && <span className="text-[var(--th-text-secondary)] truncate">{c.summary}</span>}
-                  </div>
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    c.status === 'completed' ? 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]' :
-                    c.status === 'failed' ? 'bg-[var(--th-error-bg)] text-[var(--th-error-text)]' :
-                    'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
-                  }`}>{c.status}</span>
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              {callHistory.slice(0, 15).map(c => (
+                <div key={c.id} className="rounded-lg border border-[var(--th-border-light)] overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between px-2.5 py-2 hover:bg-[var(--th-surface)] text-xs transition-colors text-left"
+                    onClick={() => {
+                      if (expandedHistoryCall === c.id) {
+                        setExpandedHistoryCall(null);
+                        setExpandedTranscript(null);
+                      } else {
+                        setExpandedHistoryCall(c.id);
+                        setExpandedTranscript(null);
+                        api.get<{ session?: { transcript?: Array<{ speaker?: string; role?: string; text?: string; content?: string }> } }>(`/calls/${c.id}/detail`)
+                          .then(r => {
+                            const t = r.session?.transcript;
+                            if (t && Array.isArray(t)) {
+                              setExpandedTranscript(t.map(e => ({
+                                role: e.role ?? e.speaker ?? 'caller',
+                                content: e.content ?? e.text ?? '',
+                              })));
+                            } else {
+                              setExpandedTranscript([]);
+                            }
+                          })
+                          .catch(() => setExpandedTranscript([]));
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`shrink-0 text-sm ${c.direction === 'outbound' ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-success-text)]'}`}>
+                        {c.direction === 'outbound' ? '\u2197' : '\u2199'}
+                      </span>
+                      <span className="text-[var(--th-text-secondary)] shrink-0">
+                        {new Date(c.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className="text-[var(--th-text-muted)] shrink-0 font-mono tabular-nums">
+                        {c.duration_seconds ? formatDuration(c.duration_seconds) : '--'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                        c.status === 'completed' ? 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]' :
+                        c.status === 'failed' ? 'bg-[var(--th-error-bg)] text-[var(--th-error-text)]' :
+                        'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
+                      }`}>{c.status}</span>
+                      <svg className={`w-3.5 h-3.5 text-[var(--th-text-muted)] transition-transform ${expandedHistoryCall === c.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </div>
+                  </button>
+                  {c.summary && (
+                    <div className="px-2.5 pb-1.5 text-[11px] text-[var(--th-text-secondary)] leading-snug">{c.summary}</div>
+                  )}
+                  {expandedHistoryCall === c.id && (
+                    <div className="px-2.5 pb-2.5 border-t border-[var(--th-border-light)]">
+                      {expandedTranscript === null ? (
+                        <div className="py-2 text-[11px] text-[var(--th-text-muted)]">Loading...</div>
+                      ) : expandedTranscript.length === 0 ? (
+                        <div className="py-2 text-[11px] text-[var(--th-text-muted)]">No transcript</div>
+                      ) : (
+                        <div className="py-2 space-y-1 max-h-40 overflow-y-auto">
+                          {expandedTranscript.map((entry, i) => (
+                            <div key={i} className="text-[11px]">
+                              <span className={`font-semibold ${entry.role === 'agent' || entry.role === 'operator' ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-text-dark)]'}`}>
+                                {entry.role === 'agent' || entry.role === 'operator' ? t('dialer.you') : t('dialer.them')}:
+                              </span>{' '}
+                              <span className="text-[var(--th-text-secondary)]">{entry.content}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
