@@ -400,9 +400,29 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       });
                     }
 
-                    // TTS → generate audio (convert PCM to mulaw if needed)
-                    let audio = await tts.synthesize(translated);
-                    if (ttsProviderUsed !== 'elevenlabs') {
+                    // TTS → generate audio with runtime fallback
+                    let audio: Buffer | null = null;
+                    let actualTtsProvider = ttsProviderUsed;
+                    try {
+                      audio = await tts.synthesize(translated);
+                    } catch (ttsErr) {
+                      logger.warn({ err: ttsErr, callId, provider: ttsProviderUsed }, 'TTS synthesis failed, trying fallback');
+                      // Try fallback providers
+                      for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== ttsProviderUsed)) {
+                        try {
+                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, ttsVoiceId ?? (fallback === 'openai' ? 'alloy' : undefined));
+                          audio = await fallbackTts.synthesize(translated);
+                          actualTtsProvider = fallback;
+                          logger.info({ callId, fallback }, 'TTS fallback succeeded');
+                          break;
+                        } catch { /* try next */ }
+                      }
+                    }
+                    if (!audio) {
+                      logger.error({ callId }, 'All TTS providers failed');
+                      return;
+                    }
+                    if (actualTtsProvider !== 'elevenlabs') {
                       // OpenAI/xAI return PCM 24kHz 16-bit — convert to mulaw 8kHz
                       audio = pcmToMulaw(audio);
                     }
