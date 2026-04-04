@@ -183,14 +183,14 @@ export default function NewAgentPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-6 space-y-5">
+        <div className="flex-1 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] p-6 space-y-5">
           {section === 'general' && (
             <>
               {/* Avatar */}
               <div className="space-y-3">
                 <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.avatar')}</label>
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-[var(--th-surface)] flex items-center justify-center shrink-0 border-2 border-[var(--th-border)]">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-[var(--th-surface)] flex items-center justify-center shrink-0 border-2 border-[var(--th-card-border-subtle)]">
                     {displayAvatar ? (
                       <img src={displayAvatar} className="w-full h-full object-cover" alt="Avatar" />
                     ) : (
@@ -234,14 +234,14 @@ export default function NewAgentPage() {
                   value={form.description}
                   onChange={e => set('description', e.target.value)}
                   placeholder={t('agents.descriptionHint')}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-input-border)] bg-[var(--th-input)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label={t('agents.company')} value={form.company_name} onChange={v => set('company_name', v)} placeholder="Acme Corp" />
                 <div>
                   <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide mb-1.5 block">{t('agents.language')}</label>
-                  <select value={form.language} onChange={e => set('language', e.target.value)} className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-input-border)] bg-[var(--th-input)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]">
+                  <select value={form.language} onChange={e => set('language', e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]">
                     <option value="auto">Auto-detect</option>
                     <option value="en">English</option>
                     <option value="ru">Russian</option>
@@ -262,7 +262,7 @@ export default function NewAgentPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[{ v: 'elevenlabs', l: 'ElevenLabs' }, { v: 'openai', l: 'OpenAI TTS' }, { v: 'xai', l: 'xAI Grok' }].map(p => (
                     <button key={p.v} type="button" onClick={() => { set('voice_provider', p.v); set('voice_id', VOICE_OPTIONS[p.v]?.[0]?.value ?? ''); }}
-                      className={`px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${form.voice_provider === p.v ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-border)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary-muted)]'}`}>
+                      className={`px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${form.voice_provider === p.v ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)]'}`}>
                       {p.l}
                     </button>
                   ))}
@@ -273,7 +273,7 @@ export default function NewAgentPage() {
                 <div className="grid grid-cols-4 gap-2">
                   {(VOICE_OPTIONS[form.voice_provider] ?? []).map(v => (
                     <button key={v.value} type="button" onClick={() => set('voice_id', v.value)}
-                      className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${form.voice_id === v.value ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-border)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary-muted)]'}`}>
+                      className={`px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${form.voice_id === v.value ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)]'}`}>
                       {v.label}
                     </button>
                   ))}
@@ -289,7 +289,7 @@ export default function NewAgentPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[{ v: 'anthropic', l: 'Anthropic' }, { v: 'openai', l: 'OpenAI' }, { v: 'xai', l: 'xAI (Grok)' }].map(p => (
                     <button key={p.v} type="button" onClick={() => { set('llm_provider', p.v); set('llm_model', LLM_MODELS[p.v]?.[0]?.value ?? ''); }}
-                      className={`px-3 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${form.llm_provider === p.v ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-border)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary-muted)]'}`}>
+                      className={`px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${form.llm_provider === p.v ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)]'}`}>
                       {p.l}
                     </button>
                   ))}
@@ -297,7 +297,7 @@ export default function NewAgentPage() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide mb-1.5 block">{t('agents.llmModel')}</label>
-                <select value={form.llm_model} onChange={e => set('llm_model', e.target.value)} className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-input-border)] bg-[var(--th-input)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]">
+                <select value={form.llm_model} onChange={e => set('llm_model', e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]">
                   {(LLM_MODELS[form.llm_provider] ?? []).map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
@@ -308,7 +308,7 @@ export default function NewAgentPage() {
                   value={form.system_prompt}
                   onChange={e => set('system_prompt', e.target.value)}
                   placeholder="You are a helpful AI phone agent..."
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-input-border)] bg-[var(--th-input)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] font-mono"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] font-mono"
                 />
               </div>
             </>
@@ -337,7 +337,7 @@ function Field({ label, value, onChange, placeholder, required }: {
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         required={required}
-        className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--th-input-border)] bg-[var(--th-input)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
+        className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
       />
     </div>
   );

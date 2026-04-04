@@ -163,57 +163,50 @@ export default function TranslatePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin h-8 w-8 border-4 rounded-full"
-             style={{ borderColor: 'var(--th-border)', borderTopColor: 'var(--th-primary)' }} />
+        <div className="w-10 h-10 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  const selectCls = 'text-xs border border-[var(--th-card-border-subtle)] rounded-xl px-3 py-1.5 bg-[var(--th-card)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all appearance-none cursor-pointer disabled:opacity-40';
+
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]" style={{ color: 'var(--th-text)' }}>
+    <div className="flex flex-col h-[calc(100vh-64px)] text-[var(--th-text)]">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div
-        className="flex items-center justify-between gap-4 px-6 py-4 border-b shrink-0"
-        style={{ borderColor: 'var(--th-border)', background: 'var(--th-card)' }}
-      >
+      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow)] shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => router.push(`/dashboard/calls/${callId}/live`)}
-            className="flex items-center gap-1 text-sm font-medium opacity-70 hover:opacity-100 transition-opacity shrink-0"
+            className="flex items-center gap-1 text-sm font-medium text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-all shrink-0"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             {t('translate.back')}
           </button>
 
-          <div className="h-5 w-px shrink-0" style={{ background: 'var(--th-border)' }} />
+          <div className="h-5 w-px shrink-0 bg-[var(--th-card-border-subtle)]" />
 
           <div className="min-w-0">
-            <h1 className="text-base font-semibold truncate">
+            <h1 className="text-base font-bold truncate text-[var(--th-text)]">
               {t('translate.title')}
             </h1>
             {displayPhone && (
-              <p className="text-xs opacity-60 truncate">
+              <p className="text-xs text-[var(--th-text-muted)] truncate tabular-nums">
                 {t('translate.call')}: {displayPhone}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           {/* Target language selector */}
           <select
             value={targetLanguage}
             onChange={e => setTargetLanguage(e.target.value)}
             disabled={isActive}
-            className="text-sm rounded-lg px-3 py-1.5 border outline-none transition-colors disabled:opacity-50"
-            style={{
-              background: 'var(--th-card)',
-              borderColor: 'var(--th-border)',
-              color: 'var(--th-text)',
-            }}
+            className={selectCls}
           >
             {TARGET_LANGUAGES.map(lang => (
               <option key={lang.value} value={lang.value}>{lang.label}</option>
@@ -221,20 +214,17 @@ export default function TranslatePage() {
           </select>
 
           {/* Mode toggle */}
-          <div
-            className="flex rounded-lg overflow-hidden border"
-            style={{ borderColor: 'var(--th-border)' }}
-          >
+          <div className="flex p-0.5 bg-[var(--th-surface)] rounded-xl gap-0.5">
             {(['translate', 'copilot'] as const).map(m => (
               <button
                 key={m}
                 onClick={() => !isActive && setMode(m)}
                 disabled={isActive}
-                className="px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-                style={{
-                  background: mode === m ? 'var(--th-primary)' : 'var(--th-card)',
-                  color: mode === m ? '#fff' : 'var(--th-text)',
-                }}
+                className={`px-3 py-1.5 text-[10px] font-semibold rounded-lg transition-all disabled:opacity-40 ${
+                  mode === m
+                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                    : 'text-[var(--th-text-secondary)] hover:text-[var(--th-text)]'
+                }`}
               >
                 {m === 'translate'
                   ? t('translate.modeTranslate')
@@ -247,23 +237,15 @@ export default function TranslatePage() {
 
       {/* ── Copilot settings (visible only in copilot mode, before start) ── */}
       {mode === 'copilot' && !isActive && (
-        <div
-          className="flex items-center gap-4 px-6 py-3 border-b shrink-0"
-          style={{ borderColor: 'var(--th-border)', background: 'var(--th-card)' }}
-        >
+        <div className="flex items-center gap-4 px-6 py-3 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shrink-0">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium opacity-70">
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
               {t('translate.myLanguage')}
             </label>
             <select
               value={myLanguage}
               onChange={e => setMyLanguage(e.target.value)}
-              className="text-sm rounded-lg px-3 py-1.5 border outline-none"
-              style={{
-                background: 'var(--th-card)',
-                borderColor: 'var(--th-border)',
-                color: 'var(--th-text)',
-              }}
+              className={selectCls}
             >
               {MY_LANGUAGES.map(lang => (
                 <option key={lang.value} value={lang.value}>{lang.label}</option>
@@ -277,12 +259,7 @@ export default function TranslatePage() {
               value={context}
               onChange={e => setContext(e.target.value)}
               placeholder={t('translate.contextPlaceholder')}
-              className="w-full text-sm rounded-lg px-3 py-1.5 border outline-none transition-colors"
-              style={{
-                background: 'var(--th-card)',
-                borderColor: 'var(--th-border)',
-                color: 'var(--th-text)',
-              }}
+              className="w-full text-sm rounded-xl px-3.5 py-2 border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
             />
           </div>
         </div>
@@ -291,25 +268,22 @@ export default function TranslatePage() {
       {/* ── Entries list ─────────────────────────────────────────────────── */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
         {entries.length === 0 && !isActive && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 opacity-50">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <path d="M8 10h14l4 4h14v24H8V10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M18 26l4 4 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <p className="text-sm text-center max-w-xs">
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <div className="w-14 h-14 bg-[var(--th-surface)] rounded-2xl flex items-center justify-center text-[var(--th-text-muted)]">
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582" />
+              </svg>
+            </div>
+            <p className="text-sm text-[var(--th-text-muted)] text-center max-w-xs">
               {t('translate.emptyState')}
             </p>
           </div>
         )}
 
         {entries.length === 0 && isActive && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 opacity-50">
-            <div className="animate-pulse flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full" style={{ background: 'var(--th-primary)' }} />
-              <span className="h-2 w-2 rounded-full" style={{ background: 'var(--th-primary)', animationDelay: '150ms' }} />
-              <span className="h-2 w-2 rounded-full" style={{ background: 'var(--th-primary)', animationDelay: '300ms' }} />
-            </div>
-            <p className="text-sm">
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <div className="w-10 h-10 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-[var(--th-text-muted)]">
               {t('translate.listening')}
             </p>
           </div>
@@ -318,44 +292,35 @@ export default function TranslatePage() {
         {entries.map((entry, i) => (
           <div
             key={i}
-            className="rounded-xl px-4 py-3 border transition-colors"
-            style={{
-              borderColor: 'var(--th-border)',
-              background: 'var(--th-card)',
-            }}
+            className="rounded-2xl px-4 py-3 border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow)] transition-all"
           >
             {/* Speaker badge */}
             <div className="flex items-center gap-2 mb-1.5">
               <span
-                className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                style={{
-                  background: entry.speaker === 'caller'
-                    ? 'rgba(34,197,94,0.15)'
-                    : 'rgba(59,130,246,0.15)',
-                  color: entry.speaker === 'caller'
-                    ? 'rgb(34,197,94)'
-                    : 'rgb(59,130,246)',
-                }}
+                className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                  entry.speaker === 'caller'
+                    ? 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]'
+                    : 'bg-[var(--th-info-bg)] text-[var(--th-info-text)]'
+                }`}
               >
                 {entry.speaker === 'caller'
                   ? t('translate.speakerCaller')
                   : t('translate.speakerAgent')}
               </span>
               {entry.timestamp && (
-                <span className="text-[11px] opacity-40">
+                <span className="text-[10px] text-[var(--th-text-muted)] tabular-nums">
                   {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </span>
               )}
             </div>
 
             {/* Original text */}
-            <p className="text-xs opacity-50 leading-relaxed mb-0.5">
+            <p className="text-xs text-[var(--th-text-muted)] leading-relaxed mb-0.5">
               {entry.original}
             </p>
 
             {/* Translated text */}
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--th-text)' }}>
-              <span className="mr-1 opacity-60">&#128172;</span>
+            <p className="text-sm leading-relaxed text-[var(--th-text)]">
               {entry.translated}
             </p>
           </div>
@@ -364,12 +329,10 @@ export default function TranslatePage() {
 
       {/* ── Copilot suggestions ──────────────────────────────────────────── */}
       {mode === 'copilot' && isActive && suggestions.length > 0 && (
-        <div
-          className="border-t px-6 py-4 shrink-0"
-          style={{ borderColor: 'var(--th-border)', background: 'var(--th-card)' }}
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide mb-3 opacity-60">
-            &#128161; {t('translate.suggestedResponses')}
+        <div className="border-t border-[var(--th-card-border-subtle)] px-6 py-4 bg-[var(--th-card)] shrink-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)] mb-3 flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-[var(--th-warning-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
+            {t('translate.suggestedResponses')}
           </p>
 
           <div className="flex flex-col gap-2">
@@ -377,17 +340,13 @@ export default function TranslatePage() {
               <button
                 key={i}
                 onClick={() => copySuggestion(s.text)}
-                className="text-left rounded-lg px-4 py-3 border transition-all hover:scale-[1.01] active:scale-[0.99]"
-                style={{
-                  borderColor: 'var(--th-border)',
-                  background: 'var(--th-card)',
-                }}
+                className="text-left rounded-xl px-4 py-3 border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] hover:border-[var(--th-border)] hover:shadow-[0_2px_8px_var(--th-card-glow)] transition-all active:scale-[0.99]"
                 title={t('translate.clickToCopy')}
               >
-                <p className="text-sm font-medium leading-relaxed" style={{ color: 'var(--th-text)' }}>
+                <p className="text-sm font-medium leading-relaxed text-[var(--th-text)]">
                   &ldquo;{s.text}&rdquo;
                 </p>
-                <p className="text-xs opacity-50 mt-0.5 leading-relaxed">
+                <p className="text-xs text-[var(--th-text-muted)] mt-0.5 leading-relaxed">
                   {s.translation}
                 </p>
               </button>
@@ -397,23 +356,18 @@ export default function TranslatePage() {
       )}
 
       {/* ── Footer: Start / Stop ─────────────────────────────────────────── */}
-      <div
-        className="border-t px-6 py-4 shrink-0"
-        style={{ borderColor: 'var(--th-border)', background: 'var(--th-card)' }}
-      >
+      <div className="border-t border-[var(--th-card-border-subtle)] px-6 py-4 bg-[var(--th-card)] shrink-0">
         {!isActive ? (
           <button
             onClick={handleStart}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ background: 'var(--th-primary)' }}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
           >
             {t('translate.start')}
           </button>
         ) : (
           <button
             onClick={handleStop}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ background: 'rgb(239,68,68)' }}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-[0_4px_16px_rgba(239,68,68,0.3)] transition-all active:scale-[0.98]"
           >
             {t('translate.stop')}
           </button>
