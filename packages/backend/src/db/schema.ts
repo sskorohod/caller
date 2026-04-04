@@ -524,3 +524,16 @@ export const missionMessages = pgTable('mission_messages', {
 }, (t) => [
   index('idx_mission_messages_mission').on(t.mission_id),
 ]);
+
+// ─── Call Share Tokens ─────────────────────────────────────────────────────
+
+export const callShareTokens = pgTable('call_share_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  call_id: uuid('call_id').notNull().references(() => calls.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_share_tokens_token').on(t.token),
+  index('idx_share_tokens_call').on(t.call_id),
+]);

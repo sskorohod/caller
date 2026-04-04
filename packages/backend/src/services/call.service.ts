@@ -1,6 +1,7 @@
 import { eq, and, desc, asc, sql, count, gte, lte, inArray, getTableColumns } from 'drizzle-orm';
+import crypto from 'node:crypto';
 import { db } from '../config/db.js';
-import { calls, aiCallSessions, callEvents } from '../db/schema.js';
+import { calls, aiCallSessions, callEvents, callShareTokens } from '../db/schema.js';
 import { NotFoundError } from '../lib/errors.js';
 import type { Call, AiCallSession, CallEvent, ConversationOwner, CallStatus } from '../models/types.js';
 
@@ -256,4 +257,52 @@ export async function getCallEvents(callId: string): Promise<CallEvent[]> {
     .orderBy(asc(callEvents.created_at));
 
   return rows as unknown as CallEvent[];
+}
+
+// ============================================================
+// Share Tokens
+// ============================================================
+
+export async function createShareToken(callId: string, ttlHours = 24): Promise<string> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + ttlHours * 3600_000);
+
+  await db.insert(callShareTokens).values({
+    call_id: callId,
+    token,
+    expires_at: expiresAt,
+  });
+
+  return token;
+}
+
+export async function validateShareToken(callId: string, token: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: callShareTokens.id })
+    .from(callShareTokens)
+    .where(
+      and(
+        eq(callShareTokens.call_id, callId),
+        eq(callShareTokens.token, token),
+        gte(callShareTokens.expires_at, new Date()),
+      ),
+    );
+  return !!row;
+}
+
+export async function getCallByShareToken(token: string): Promise<{ callId: string; workspaceId: string } | null> {
+  const [row] = await db
+    .select({
+      callId: callShareTokens.call_id,
+      workspaceId: calls.workspace_id,
+    })
+    .from(callShareTokens)
+    .innerJoin(calls, eq(calls.id, callShareTokens.call_id))
+    .where(
+      and(
+        eq(callShareTokens.token, token),
+        gte(callShareTokens.expires_at, new Date()),
+      ),
+    );
+  return row ?? null;
 }

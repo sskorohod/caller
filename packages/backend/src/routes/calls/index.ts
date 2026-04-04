@@ -670,6 +670,31 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     }
     return { deleted };
   });
+
+  // GET /api/calls/:id/live-public?token=xxx — public access to live call data (no JWT required)
+  app.get('/:id/live-public', async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const { token } = z.object({ token: z.string().min(1) }).parse(request.query);
+
+    const valid = await callService.validateShareToken(id, token);
+    if (!valid) {
+      reply.status(403).send({ error: 'Invalid or expired share token' });
+      return;
+    }
+
+    const [call, session, events] = await Promise.all([
+      db.select().from(calls).where(eq(calls.id, id)).then(r => r[0]),
+      callService.getAiSession(id),
+      callService.getCallEvents(id),
+    ]);
+
+    if (!call) {
+      reply.status(404).send({ error: 'Call not found' });
+      return;
+    }
+
+    return { call, session, events };
+  });
 };
 
 export default callRoutes;

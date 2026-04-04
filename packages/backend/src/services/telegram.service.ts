@@ -1,10 +1,12 @@
 interface CallNotificationData {
   phone: string;
+  direction: 'inbound' | 'outbound';
   name: string | null;
   company: string | null;
   total_calls: number;
   agent_name: string;
   recent_facts: string[];
+  monitor_url?: string;
 }
 
 function escapeHtml(text: string): string {
@@ -16,12 +18,14 @@ function escapeHtml(text: string): string {
 
 function formatCallMessage(data: CallNotificationData): string {
   const lines: string[] = [];
-  lines.push('\u{1F4DE} <b>Incoming call</b>');
-  lines.push(`From: ${escapeHtml(data.phone)}`);
+  const emoji = data.direction === 'inbound' ? '\u{1F4DE}' : '\u{1F4F1}';
+  const label = data.direction === 'inbound' ? 'Incoming call' : 'Outgoing call';
+  lines.push(`${emoji} <b>${label}</b>`);
+  lines.push(`${data.direction === 'inbound' ? 'From' : 'To'}: ${escapeHtml(data.phone)}`);
   if (data.name) lines.push(`Name: ${escapeHtml(data.name)}`);
   if (data.company) lines.push(`Company: ${escapeHtml(data.company)}`);
-  lines.push(`Calls: ${data.total_calls}`);
-  lines.push(`Agent: ${escapeHtml(data.agent_name)}`);
+  if (data.total_calls > 1) lines.push(`Calls: ${data.total_calls}`);
+  if (data.agent_name) lines.push(`Agent: ${escapeHtml(data.agent_name)}`);
 
   if (data.recent_facts.length > 0) {
     lines.push('');
@@ -29,6 +33,11 @@ function formatCallMessage(data: CallNotificationData): string {
     for (const fact of data.recent_facts) {
       lines.push(`\u2022 ${escapeHtml(fact)}`);
     }
+  }
+
+  if (data.monitor_url) {
+    lines.push('');
+    lines.push(`\u{1F4F2} <a href="${escapeHtml(data.monitor_url)}">Live Monitor</a>`);
   }
 
   return lines.join('\n');
