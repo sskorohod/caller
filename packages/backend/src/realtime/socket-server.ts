@@ -132,9 +132,15 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     // PTT state for sequential interpretation mode
     socket.on('call:ptt:state', async ({ call_id, active }: { call_id: string; active: boolean }) => {
       try {
-        const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
+        const { getActiveVoiceTranslateSessions, flushPttAudio } = await import('../routes/webhooks/media-stream.js');
         const session = getActiveVoiceTranslateSessions().get(call_id);
-        if (session) session.pttActive = active;
+        if (session) {
+          session.pttActive = active;
+          // PTT released → flush pre-buffered TTS audio instantly
+          if (!active && session.sequentialMode) {
+            flushPttAudio(call_id);
+          }
+        }
       } catch { /* ignore */ }
     });
 

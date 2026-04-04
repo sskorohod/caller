@@ -84,6 +84,11 @@ const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 export function getActiveTranslators() { return activeTranslators; }
 export function getActiveVoiceTranslateSessions() { return activeVoiceTranslateSessions; }
 
+// PTT audio buffer flush callbacks (registered per call, called when PTT released)
+const pttFlushCallbacks = new Map<string, () => void>();
+export function registerPttFlush(callId: string, cb: () => void) { pttFlushCallbacks.set(callId, cb); }
+export function flushPttAudio(callId: string) { pttFlushCallbacks.get(callId)?.(); }
+
 export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRealtimeOrchestrator | undefined {
   return activeOrchestrators.get(callId);
 }
@@ -414,8 +419,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
               const translationModel = process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini';
 
-              // PTT-aware translation: buffer while button held, translate+TTS on release
-              let pttBuffer = ''; // accumulates text while PTT is held
+              // Pre-translate during PTT: translate+TTS each segment immediately, buffer audio
+              const pttAudioBuffer: Buffer[] = []; // pre-generated TTS audio chunks
+              let pttTranslatedTexts: string[] = []; // for UI display
 
               operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
                 if (!evt.isFinal || !evt.text.trim()) return;
@@ -424,16 +430,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
                 if (!translationLlm) return;
 
-                // Check PTT state — if button is held, buffer text for later
-                const vtSess = activeVoiceTranslateSessions.get(callId);
-                if (vtSess?.pttActive) {
-                  pttBuffer += (pttBuffer ? ' ' : '') + segmentText;
-                  return; // Don't translate yet — wait for button release
-                }
-
-                // PTT not active (or non-PTT mode) — translate immediately
-                const textToTranslate = pttBuffer ? pttBuffer + ' ' + segmentText : segmentText;
-                pttBuffer = '';
+                // Always translate immediately — even during PTT (pre-buffer TTS audio)
+                const textToTranslate = segmentText;
 
                 // Fire-and-forget: translate + TTS this segment immediately
                 (async () => {
@@ -495,102 +493,71 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       audio = pcmToMulaw(audio);
                     }
 
-                    // Inject TTS audio into callee stream
-                    const calleeSid = activeVoiceTranslateSessions.get(callId)?.calleeStreamSid;
-                    const calleeWs = activeVoiceTranslateSessions.get(callId)?.calleeSocket;
-                    if (calleeWs && calleeSid && calleeWs.readyState === 1) {
-                      // Send audio in chunks of 640 bytes (80ms @ 8kHz mulaw)
-                      const chunkSize = 640;
-                      for (let i = 0; i < audio.length; i += chunkSize) {
-                        const chunk = audio.subarray(i, i + chunkSize);
-                        calleeWs.send(JSON.stringify({
-                          event: 'media',
-                          streamSid: calleeSid,
-                          media: { payload: chunk.toString('base64') },
-                        }));
+                    // Check if PTT is active — buffer audio for instant playback on release
+                    const vtSessNow = activeVoiceTranslateSessions.get(callId);
+                    if (vtSessNow?.sequentialMode && vtSessNow.pttActive) {
+                      // Buffer pre-generated TTS audio for instant flush when PTT released
+                      pttAudioBuffer.push(audio);
+                      pttTranslatedTexts.push(translated);
+                      logger.info({ callId, original: textToTranslate.slice(0, 40), buffered: true }, 'TTS pre-buffered during PTT');
+                    } else {
+                      // Inject TTS audio into callee stream immediately
+                      const calleeSid = vtSessNow?.calleeStreamSid;
+                      const calleeWs = vtSessNow?.calleeSocket;
+                      if (calleeWs && calleeSid && calleeWs.readyState === 1) {
+                        const chunkSize = 640;
+                        for (let i = 0; i < audio.length; i += chunkSize) {
+                          const chunk = audio.subarray(i, i + chunkSize);
+                          calleeWs.send(JSON.stringify({
+                            event: 'media',
+                            streamSid: calleeSid,
+                            media: { payload: chunk.toString('base64') },
+                          }));
+                        }
                       }
+                      logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
                     }
-
-                    logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
                   } catch (err) {
                     logger.error({ err, callId }, 'Voice translate pipeline error');
                   }
                 })();
               });
 
-              // Emit complete utterance to transcript UI on utterance_end
-              // Also flush PTT buffer if button was just released
-              operatorStt.on('utterance_end', () => {
-                // Flush any remaining PTT buffer (button released, Deepgram detected silence)
+              // Flush pre-buffered TTS audio to callee (called when PTT released)
+              const flushPttAudioBuffer = () => {
+                if (pttAudioBuffer.length === 0) return;
                 const vtSess = activeVoiceTranslateSessions.get(callId);
-                if (pttBuffer && (!vtSess?.pttActive)) {
-                  const bufferedText = pttBuffer;
-                  pttBuffer = '';
-                  if (translationLlm) {
-                    (async () => {
-                      try {
-                        const client = (translationLlm as any).client;
-                        const resp = await client.chat.completions.create({
-                          model: translationModel,
-                          temperature: 0.3,
-                          max_tokens: 300,
-                          stream: false,
-                          messages: [
-                            { role: 'system', content: `Translate to ${calleeLang}. Phone call. Be natural.\nOnly output the translation.` },
-                            { role: 'user', content: `"${bufferedText}"` },
-                          ],
-                        });
-                        const translated = resp.choices?.[0]?.message?.content?.trim();
-                        if (!translated) return;
-
-                        if (io) {
-                          io.to(`call:${callId}:translate`).emit('call:translation', {
-                            call_id: callId, speaker: 'operator', original: bufferedText,
-                            translated, timestamp: new Date().toISOString(),
-                          });
-                        }
-
-                        const currentTts = vtSess?.tts ?? tts;
-                        let audio: Buffer | null = null;
-                        try {
-                          audio = await currentTts.synthesize(translated);
-                        } catch (ttsErr) {
-                          for (const fallback of (['openai', 'elevenlabs', 'xai'] as const)) {
-                            try {
-                              const fb = await createTTSProvider(call.workspace_id, fallback, undefined, calleeLang);
-                              audio = await fb.synthesize(translated);
-                              break;
-                            } catch { /* try next */ }
-                          }
-                        }
-                        if (!audio) return;
-
-                        const skipConversion = (currentTts as any).constructor?.name === 'ElevenLabsTTS' ||
-                          (currentTts as any).nativemulaw === true;
-                        if (!skipConversion) {
-                          audio = pcmToMulaw(audio);
-                        }
-
-                        const calleeWs2 = vtSess?.calleeSocket;
-                        const calleeSid2 = vtSess?.calleeStreamSid;
-                        if (calleeWs2 && calleeSid2 && calleeWs2.readyState === 1) {
-                          const chunkSize = 640;
-                          for (let i = 0; i < audio.length; i += chunkSize) {
-                            calleeWs2.send(JSON.stringify({
-                              event: 'media',
-                              streamSid: calleeSid2,
-                              media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
-                            }));
-                          }
-                        }
-                        logger.info({ callId, original: bufferedText.slice(0, 40), translated: translated.slice(0, 40) }, 'PTT buffer flushed: voice translation sent');
-                      } catch (err) {
-                        logger.error({ err, callId }, 'PTT buffer flush error');
-                      }
-                    })();
+                const calleeWs = vtSess?.calleeSocket;
+                const calleeSid = vtSess?.calleeStreamSid;
+                if (calleeWs && calleeSid && calleeWs.readyState === 1) {
+                  for (const audio of pttAudioBuffer) {
+                    const chunkSize = 640;
+                    for (let i = 0; i < audio.length; i += chunkSize) {
+                      calleeWs.send(JSON.stringify({
+                        event: 'media',
+                        streamSid: calleeSid,
+                        media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+                      }));
+                    }
                   }
+                  logger.info({ callId, chunks: pttAudioBuffer.length }, 'PTT audio buffer flushed instantly');
                 }
+                // Emit combined translation to UI
+                if (io && pttTranslatedTexts.length > 0) {
+                  io.to(`call:${callId}:translate`).emit('call:translation', {
+                    call_id: callId, speaker: 'operator',
+                    original: operatorAccum.trim(),
+                    translated: pttTranslatedTexts.join(' '),
+                    timestamp: new Date().toISOString(),
+                  });
+                }
+                pttAudioBuffer.length = 0;
+                pttTranslatedTexts.length = 0;
+              };
+              registerPttFlush(callId, flushPttAudioBuffer);
 
+              // Emit complete utterance to transcript UI on utterance_end
+              operatorStt.on('utterance_end', () => {
                 const text = operatorAccum.trim();
                 operatorAccum = '';
                 if (!text) return;
