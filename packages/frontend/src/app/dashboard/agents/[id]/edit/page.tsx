@@ -482,7 +482,7 @@ export default function AgentEditPage() {
       <div className="space-y-6">
         {/* Avatar */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-2">{t('agents.avatar')}</label>
+          <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">{t('agents.avatar')}</label>
           <div className="flex items-start gap-4">
             <div
               className="w-20 h-20 rounded-full bg-[var(--th-surface)] border-2 border-[var(--th-border)] overflow-hidden flex items-center justify-center flex-shrink-0"
@@ -535,58 +535,58 @@ export default function AgentEditPage() {
 
         {/* Display Name */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.displayName')} *</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.displayName')} *</label>
           <input
             type="text"
             value={form.display_name}
             onChange={e => set('display_name', e.target.value)}
             required
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
           />
         </div>
 
         {/* Handle */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.name')} *</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.name')} *</label>
           <input
             type="text"
             value={form.name}
             onChange={e => set('name', e.target.value)}
             required
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.description')}</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.description')}</label>
           <textarea
             value={form.description}
             onChange={e => set('description', e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] resize-none"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all resize-none"
           />
           <p className="text-xs text-[var(--th-text-muted)] mt-1">{t('agents.descriptionHint')}</p>
         </div>
 
         {/* Company */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.company')}</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.company')}</label>
           <input
             type="text"
             value={form.company_name}
             onChange={e => set('company_name', e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
           />
         </div>
 
         {/* Language */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.language')}</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.language')}</label>
           <select
             value={form.language}
             onChange={e => set('language', e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
           >
             {LANGUAGES.map(l => (
               <option key={l.value} value={l.value}>{l.label}</option>
@@ -596,12 +596,12 @@ export default function AgentEditPage() {
 
         {/* Greeting */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.greeting')}</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.greeting')}</label>
           <input
             type="text"
             value={form.greeting_message}
             onChange={e => set('greeting_message', e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
           />
         </div>
       </div>
@@ -613,7 +613,7 @@ export default function AgentEditPage() {
       <div className="space-y-6">
         {/* Voice Provider */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-2">{t('agents.voiceProvider')}</label>
+          <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">{t('agents.voiceProvider')}</label>
           <div className="grid grid-cols-3 gap-2">
             {VOICE_PROVIDERS.map(p => (
               <button
@@ -637,7 +637,7 @@ export default function AgentEditPage() {
 
         {/* Voice Selection */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-2">{t('agents.voiceId')}</label>
+          <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">{t('agents.voiceId')}</label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {(VOICE_OPTIONS[form.voice_provider] ?? []).map(v => (
               <button
@@ -646,8 +646,8 @@ export default function AgentEditPage() {
                 onClick={() => set('voice_id', v.value)}
                 className={`px-3 py-2.5 rounded-lg text-sm border transition-all text-left ${
                   form.voice_id === v.value
-                    ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] border-[var(--th-primary)]'
-                    : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-border)] hover:border-[var(--th-primary)]'
+                    ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] border-[var(--th-primary)] shadow-[0_0_0_1px_var(--th-primary)]'
+                    : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary)]'
                 }`}
               >
                 {v.label}
@@ -664,7 +664,7 @@ export default function AgentEditPage() {
       <div className="space-y-6">
         {/* LLM Provider */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-2">{t('agents.llmProvider')}</label>
+          <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">{t('agents.llmProvider')}</label>
           <div className="grid grid-cols-3 gap-2">
             {LLM_PROVIDERS_BASE.filter(p => p.value !== 'openai_proxy' || proxyAvailable).map(p => (
               <button
@@ -688,11 +688,11 @@ export default function AgentEditPage() {
 
         {/* Model */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.llmModel')}</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.llmModel')}</label>
           <select
             value={form.llm_model}
             onChange={e => set('llm_model', e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
           >
             {(LLM_MODELS[form.llm_provider] ?? []).map(m => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -702,18 +702,18 @@ export default function AgentEditPage() {
 
         {/* System Prompt */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.systemPrompt')}</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.systemPrompt')}</label>
           <textarea
             value={form.system_prompt}
             onChange={e => set('system_prompt', e.target.value)}
             rows={6}
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] resize-none font-mono text-sm"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all resize-none font-mono text-sm"
           />
         </div>
 
         {/* Temperature */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">
             {t('agents.temperature')}: <span className="text-[var(--th-primary)]">{Number(form.llm_temperature).toFixed(1)}</span>
           </label>
           <input
@@ -739,12 +739,12 @@ export default function AgentEditPage() {
       <div className="space-y-4">
         {/* Header with suggest button */}
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-[var(--th-text)]">{t('agents.skills')}</label>
+          <label className="text-sm font-semibold text-[var(--th-text)]">{t('agents.skills')}</label>
           <button
             type="button"
             onClick={suggestSkills}
             disabled={suggestingSkills}
-            className="px-3 py-1.5 text-sm rounded-lg bg-[var(--th-primary)] text-white hover:bg-[var(--th-primary-hover)] disabled:opacity-50 transition-all"
+            className="px-3 py-1.5 text-[10px] font-semibold rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] disabled:opacity-40 transition-all"
           >
             {suggestingSkills ? t('agents.suggestLoading') : t('agents.suggestSkills')}
           </button>
@@ -752,7 +752,7 @@ export default function AgentEditPage() {
 
         {/* Suggestions banner */}
         {skillSuggestions && skillSuggestions.length > 0 && (
-          <div className="p-3 rounded-lg bg-[var(--th-primary-bg)] border border-[var(--th-primary)]">
+          <div className="p-4 rounded-2xl bg-[var(--th-primary-bg)] border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow)]">
             <div className="space-y-2 mb-3">
               {skillSuggestions.map(s => (
                 <div key={s.skill_pack_id} className="text-sm">
@@ -764,7 +764,7 @@ export default function AgentEditPage() {
             <button
               type="button"
               onClick={applySuggestions}
-              className="px-3 py-1.5 text-sm rounded-lg bg-[var(--th-primary)] text-white hover:bg-[var(--th-primary-hover)] transition-all"
+              className="px-3 py-1.5 text-[10px] font-semibold rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all"
             >
               {t('agents.applySuggestions')}
             </button>
@@ -779,17 +779,17 @@ export default function AgentEditPage() {
             {allSkills.map(skill => (
               <div
                 key={skill.id}
-                className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
                   selectedSkills.has(skill.id)
-                    ? 'bg-[var(--th-primary-bg)] border-[var(--th-primary)]'
-                    : 'bg-[var(--th-surface)] border-[var(--th-border)]'
+                    ? 'bg-[var(--th-primary-bg)] border-[var(--th-primary)] shadow-[0_0_0_1px_var(--th-primary)]'
+                    : 'bg-[var(--th-surface)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-border)]'
                 }`}
               >
                 <div className="flex-1 min-w-0 mr-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[var(--th-text)]">{skill.name}</span>
+                    <span className="text-sm font-semibold text-[var(--th-text)]">{skill.name}</span>
                     {skill.intent && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-border)]">
+                      <span className="px-2 py-0.5 text-[10px] rounded-full bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-card-border-subtle)] font-medium">
                         {skill.intent}
                       </span>
                     )}
@@ -822,7 +822,7 @@ export default function AgentEditPage() {
   function renderPrompts() {
     return (
       <div className="space-y-4">
-        <label className="block text-sm font-medium text-[var(--th-text)]">{t('agents.prompts')}</label>
+        <label className="block text-sm font-semibold text-[var(--th-text)]">{t('agents.prompts')}</label>
 
         {allPrompts.length === 0 ? (
           <p className="text-sm text-[var(--th-text-muted)]">{t('agents.noPrompts')}</p>
@@ -831,17 +831,17 @@ export default function AgentEditPage() {
             {allPrompts.map(prompt => (
               <div
                 key={prompt.id}
-                className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
                   selectedPrompts.has(prompt.id)
-                    ? 'bg-[var(--th-primary-bg)] border-[var(--th-primary)]'
-                    : 'bg-[var(--th-surface)] border-[var(--th-border)]'
+                    ? 'bg-[var(--th-primary-bg)] border-[var(--th-primary)] shadow-[0_0_0_1px_var(--th-primary)]'
+                    : 'bg-[var(--th-surface)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-border)]'
                 }`}
               >
                 <div className="flex-1 min-w-0 mr-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[var(--th-text)]">{prompt.name}</span>
+                    <span className="text-sm font-semibold text-[var(--th-text)]">{prompt.name}</span>
                     {prompt.category && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-border)]">
+                      <span className="px-2 py-0.5 text-[10px] rounded-full bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-card-border-subtle)] font-medium">
                         {prompt.category}
                       </span>
                     )}
@@ -883,7 +883,7 @@ export default function AgentEditPage() {
 
     return (
       <div className="space-y-4">
-        <label className="block text-sm font-medium text-[var(--th-text)]">{t('agents.knowledge')}</label>
+        <label className="block text-sm font-semibold text-[var(--th-text)]">{t('agents.knowledge')}</label>
 
         {allKBs.length === 0 ? (
           <div className="text-center py-8">
@@ -895,17 +895,17 @@ export default function AgentEditPage() {
             {allKBs.map(kb => (
               <div
                 key={kb.id}
-                className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
                   selectedKBs.has(kb.id)
-                    ? 'bg-[var(--th-primary-bg)] border-[var(--th-primary)]'
-                    : 'bg-[var(--th-surface)] border-[var(--th-border)]'
+                    ? 'bg-[var(--th-primary-bg)] border-[var(--th-primary)] shadow-[0_0_0_1px_var(--th-primary)]'
+                    : 'bg-[var(--th-surface)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-border)]'
                 }`}
               >
                 <div className="flex-1 min-w-0 mr-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[var(--th-text)]">{kb.name}</span>
+                    <span className="text-sm font-semibold text-[var(--th-text)]">{kb.name}</span>
                     {kb.document_count != null && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-border)]">
+                      <span className="px-2 py-0.5 text-[10px] rounded-full bg-[var(--th-surface)] text-[var(--th-text-muted)] border border-[var(--th-card-border-subtle)] font-medium">
                         {kb.document_count} {t('knowledge.docs')}
                       </span>
                     )}
@@ -940,18 +940,18 @@ export default function AgentEditPage() {
       <div className="space-y-6">
         {/* Business Mode */}
         <div>
-          <label className="block text-sm font-medium text-[var(--th-text)] mb-1">{t('agents.businessMode')}</label>
+          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.businessMode')}</label>
           <input
             type="text"
             value={form.business_mode}
             onChange={e => set('business_mode', e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[var(--th-input)] border border-[var(--th-input-border)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
           />
         </div>
 
         {/* Memory Enabled */}
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-[var(--th-text)]">{t('agents.memoryEnabled')}</label>
+          <label className="text-sm font-semibold text-[var(--th-text)]">{t('agents.memoryEnabled')}</label>
           <button
             type="button"
             onClick={() => set('memory_enabled', !form.memory_enabled)}
@@ -969,7 +969,7 @@ export default function AgentEditPage() {
 
         {/* Is Default */}
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-[var(--th-text)]">{t('agents.isDefault')}</label>
+          <label className="text-sm font-semibold text-[var(--th-text)]">{t('agents.isDefault')}</label>
           <button
             type="button"
             onClick={() => set('is_default', !form.is_default)}
