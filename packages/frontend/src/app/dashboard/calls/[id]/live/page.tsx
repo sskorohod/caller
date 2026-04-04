@@ -100,13 +100,13 @@ function fmtDuration(s: number | null) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  completed:   'bg-green-100 text-green-700',
-  failed:      'bg-red-100 text-red-700',
-  in_progress: 'bg-blue-100 text-blue-700',
-  initiated:   'bg-purple-100 text-purple-700',
-  ringing:     'bg-yellow-100 text-yellow-700',
-  cancelled:   'bg-gray-100 text-gray-500',
-  no_answer:   'bg-orange-100 text-orange-600',
+  completed:   'bg-[var(--th-success-bg)] text-[var(--th-success-text)]',
+  failed:      'bg-[var(--th-error-bg)] text-[var(--th-error-text)]',
+  in_progress: 'bg-[var(--th-info-bg)] text-[var(--th-info-text)]',
+  initiated:   'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]',
+  ringing:     'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)]',
+  cancelled:   'bg-[var(--th-surface)] text-[var(--th-text-muted)]',
+  no_answer:   'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)]',
 };
 
 const TONE_PRESETS = [
@@ -425,38 +425,43 @@ export default function LiveCallPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!callData) {
     return (
-      <div className="p-8 text-center text-[var(--th-text-secondary)]">
-        Call not found.
-        <button onClick={() => router.push('/dashboard/calls')} className="ml-2 text-[var(--th-primary-text)] hover:underline">
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <div className="w-14 h-14 bg-[var(--th-surface)] rounded-2xl flex items-center justify-center text-[var(--th-text-muted)]">
+          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 3.75v4.5m0-4.5h-4.5m4.5 0l-6 6m3 12c-8.284 0-15-6.716-15-15 0-1.372.185-2.702.53-3.965.214-.784 1.109-1.285 1.94-1.285H6.75l2.474 4.015a1.19 1.19 0 01-.11 1.335l-1.56 1.873a12.02 12.02 0 006.274 6.274l1.873-1.56a1.19 1.19 0 011.335-.11L21.75 12v2.25" /></svg>
+        </div>
+        <p className="text-sm font-medium text-[var(--th-text-secondary)]">Call not found</p>
+        <button onClick={() => router.push('/dashboard/calls')} className="text-xs text-[var(--th-primary-text)] hover:underline font-medium">
           {t('live.back')}
         </button>
       </div>
     );
   }
 
+  const selectCls = 'text-xs border border-[var(--th-card-border-subtle)] rounded-lg px-2.5 py-1.5 bg-[var(--th-card)] text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors appearance-none cursor-pointer';
+
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
-      {/* Header */}
+      {/* ─── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 shrink-0 mb-4">
         <button
           onClick={() => router.push('/dashboard/calls')}
-          className="p-2 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-colors"
+          className="p-2 rounded-xl hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-all"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
         </button>
         <h1 className="text-xl font-bold text-[var(--th-text)]">{t('live.title')}</h1>
-        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${STATUS_COLORS[callData.status] ?? 'bg-gray-100 text-gray-500'}`}>
+        <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold ${STATUS_COLORS[callData.status] ?? 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'}`}>
           {callData.status === 'ringing' ? t('live.waiting') : callData.status}
         </span>
         {isActive && (
@@ -466,7 +471,7 @@ export default function LiveCallPage() {
           </span>
         )}
         {operatorConnected && (
-          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700">
+          <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold bg-[var(--th-warning-bg)] text-[var(--th-warning-text)]">
             {t('live.operatorConnected')}
           </span>
         )}
@@ -475,10 +480,10 @@ export default function LiveCallPage() {
             {/* Listen button */}
             <button
               onClick={() => isListening ? stopListening() : startListening('both')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold rounded-lg transition-all ${
                 isListening
-                  ? 'bg-[var(--th-primary)] text-white'
-                  : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-primary-bg)] hover:text-[var(--th-primary-text)]'
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+                  : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-primary-bg)] hover:text-[var(--th-primary-text)] border border-[var(--th-card-border-subtle)]'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -494,7 +499,7 @@ export default function LiveCallPage() {
                 <select
                   value={audioChannel}
                   onChange={e => setAudioChannel(e.target.value as AudioChannel)}
-                  className="text-xs border border-[var(--th-border)] rounded-lg px-2 py-1 text-[var(--th-text-dark)] bg-[var(--th-input)] focus:outline-none"
+                  className={selectCls}
                 >
                   <option value="both">Both</option>
                   <option value="caller">Caller</option>
@@ -515,7 +520,7 @@ export default function LiveCallPage() {
             {/* Translate in new tab */}
             <button
               onClick={() => window.open(`/dashboard/calls/${callId}/translate`, '_blank')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-info-bg)] hover:text-[var(--th-info-text)] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold rounded-lg bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-info-bg)] hover:text-[var(--th-info-text)] border border-[var(--th-card-border-subtle)] transition-all"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582" />
@@ -527,7 +532,7 @@ export default function LiveCallPage() {
             {!operatorConnected && (
               <button
                 onClick={() => setShowTakeover(true)}
-                className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+                className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] font-semibold rounded-lg hover:from-red-600 hover:to-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.3)] transition-all"
               >
                 {t('live.takeOver')}
               </button>
@@ -536,20 +541,21 @@ export default function LiveCallPage() {
         )}
       </div>
 
-      {/* Two-column layout — fills remaining height */}
+      {/* ─── Two-column layout ──────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-4 min-h-0 flex-1">
 
-        {/* ─── Left Column: Caller Info (40%) — scrollable ─────────────── */}
+        {/* ─── Left Column: Caller Info (40%) ─────────────────────────── */}
         <div className="w-full lg:w-2/5 space-y-4 lg:overflow-y-auto min-h-0">
 
           {/* Caller card */}
-          <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.callerInfo')}</h2>
-            <div className="text-2xl font-bold text-[var(--th-text)]">{fromNumber}</div>
+          <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 space-y-3 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] relative overflow-hidden">
+            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-[var(--th-primary)] opacity-[0.04]" />
+            <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t('live.callerInfo')}</h2>
+            <div className="text-2xl font-bold text-[var(--th-text)] tabular-nums">{fromNumber}</div>
             {agentName && (
               <div className="flex items-center gap-1.5 text-sm text-[var(--th-text-secondary)]">
                 <span>{t('realtime.agent')}:</span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[var(--th-primary)]/10 text-[var(--th-primary-text)] text-xs font-medium">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] text-[10px] font-semibold">
                   {agentName}
                 </span>
               </div>
@@ -558,11 +564,14 @@ export default function LiveCallPage() {
 
           {/* Memory facts */}
           {memoryFacts.length > 0 && (
-            <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.memoryFacts')}</h2>
-              <ul className="space-y-1.5">
+            <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 space-y-3 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+              <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                {t('live.memoryFacts')}
+              </h2>
+              <ul className="space-y-2">
                 {memoryFacts.map((fact, i) => (
-                  <li key={i} className="text-sm text-[var(--th-text-dark)] flex items-start gap-2">
+                  <li key={i} className="text-sm text-[var(--th-text)] flex items-start gap-2">
                     <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[var(--th-primary)] shrink-0" />
                     <span>{fact}</span>
                   </li>
@@ -572,43 +581,48 @@ export default function LiveCallPage() {
           )}
 
           {/* Call history accordion */}
-          <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.callHistory')}</h2>
+          <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 space-y-3 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+            <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              {t('live.callHistory')}
+            </h2>
             {callerHistory.length === 0 ? (
               <p className="text-sm text-[var(--th-text-muted)]">{t('live.noHistory')}</p>
             ) : (
               <div className="space-y-2">
                 {callerHistory.slice(0, 10).map(pastCall => (
-                  <div key={pastCall.id} className="border border-[var(--th-border-light)] rounded-lg overflow-hidden">
+                  <div key={pastCall.id} className="border border-[var(--th-card-border-subtle)] rounded-xl overflow-hidden transition-all hover:border-[var(--th-border)]">
                     <button
                       onClick={() => toggleExpandCall(pastCall.id)}
-                      className="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-[var(--th-skeleton)] transition-colors"
+                      className="w-full text-left px-3.5 py-2.5 flex items-center justify-between hover:bg-[var(--th-surface)] transition-colors"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs text-[var(--th-text-secondary)] shrink-0">{fmtDate(pastCall.created_at)}</span>
-                        <span className="text-xs text-[var(--th-text-muted)]">{fmtDuration(pastCall.duration_seconds)}</span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xs text-[var(--th-text)] font-medium shrink-0">{fmtDate(pastCall.created_at)}</span>
+                        <span className="text-[10px] text-[var(--th-text-muted)] font-medium tabular-nums">{fmtDuration(pastCall.duration_seconds)}</span>
                       </div>
                       <svg
-                        className={`w-4 h-4 text-[var(--th-text-muted)] shrink-0 transition-transform ${expandedCall === pastCall.id ? 'rotate-180' : ''}`}
+                        className={`w-4 h-4 text-[var(--th-text-muted)] shrink-0 transition-transform duration-200 ${expandedCall === pastCall.id ? 'rotate-180' : ''}`}
                         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                       </svg>
                     </button>
                     {pastCall.summary && (
-                      <div className="px-3 pb-2 text-xs text-[var(--th-text-secondary)]">{pastCall.summary}</div>
+                      <div className="px-3.5 pb-2.5 text-xs text-[var(--th-text-secondary)] leading-relaxed">{pastCall.summary}</div>
                     )}
                     {expandedCall === pastCall.id && (
-                      <div className="px-3 pb-3 border-t border-[var(--th-border-light)]">
+                      <div className="px-3.5 pb-3 border-t border-[var(--th-card-border-subtle)]">
                         {expandedTranscript === null ? (
-                          <div className="py-2 text-xs text-[var(--th-text-muted)]">{t('common.loading')}</div>
+                          <div className="py-3 flex justify-center">
+                            <div className="w-4 h-4 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
+                          </div>
                         ) : expandedTranscript.length === 0 ? (
                           <div className="py-2 text-xs text-[var(--th-text-muted)]">{t('calls.noTranscript')}</div>
                         ) : (
                           <div className="py-2 space-y-1.5 max-h-48 overflow-y-auto">
                             {expandedTranscript.map((entry, i) => (
                               <div key={i} className="text-xs">
-                                <span className={`font-medium ${entry.role === 'agent' ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-text-dark)]'}`}>
+                                <span className={`font-semibold ${entry.role === 'agent' ? 'text-[var(--th-primary-text)]' : 'text-[var(--th-text)]'}`}>
                                   {entry.role === 'agent' ? t('live.agentRole') : t('live.callerRole')}:
                                 </span>{' '}
                                 <span className="text-[var(--th-text-secondary)]">{entry.content}</span>
@@ -625,18 +639,18 @@ export default function LiveCallPage() {
           </div>
         </div>
 
-        {/* ─── Right Column: Live Transcript (60%) — fills height ─────── */}
-        <div className="w-full lg:w-3/5 flex flex-col bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden min-h-0 flex-1 lg:flex-none lg:h-full">
+        {/* ─── Right Column: Live Transcript (60%) ────────────────────── */}
+        <div className="w-full lg:w-3/5 flex flex-col bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] overflow-hidden min-h-0 flex-1 lg:flex-none lg:h-full shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
 
           {/* Transcript header */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--th-border-light)]">
-            <h2 className="text-sm font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('live.liveTranscript')}</h2>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--th-card-border-subtle)]">
+            <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t('live.liveTranscript')}</h2>
             <div className="flex items-center gap-2">
-              <label className="text-xs text-[var(--th-text-secondary)]">{t('live.language')}:</label>
+              <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t('live.language')}:</label>
               <select
                 value={language}
                 onChange={e => setLanguage(e.target.value)}
-                className="text-xs border border-[var(--th-border)] rounded-lg px-2 py-1 text-[var(--th-text-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
+                className={selectCls}
               >
                 {LANGUAGES.map(lang => (
                   <option key={lang.value} value={lang.value}>
@@ -651,9 +665,9 @@ export default function LiveCallPage() {
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
             {callData.status === 'ringing' && transcript.length === 0 && (
               <div className="flex items-center justify-center h-full text-sm text-[var(--th-text-muted)]">
-                <div className="text-center space-y-2">
-                  <div className="w-10 h-10 mx-auto border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
-                  <div>{t('live.waiting')}</div>
+                <div className="text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
+                  <div className="text-sm font-medium">{t('live.waiting')}</div>
                 </div>
               </div>
             )}
@@ -662,7 +676,8 @@ export default function LiveCallPage() {
               if (entry.role === 'system') {
                 return (
                   <div key={i} className="flex justify-center animate-[fadeIn_0.3s_ease-out]">
-                    <div className="px-3 py-1.5 rounded-full bg-[#fef3c7] text-[#92400e] text-xs font-medium">
+                    <div className="px-3.5 py-1.5 rounded-full bg-[var(--th-warning-bg)] text-[var(--th-warning-text)] text-[10px] font-semibold flex items-center gap-1.5">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
                       {t('live.instructionSent')}: {entry.content}
                     </div>
                   </div>
@@ -678,15 +693,15 @@ export default function LiveCallPage() {
                   className={`flex ${isAgent ? 'justify-end' : 'justify-start'} animate-[fadeIn_0.3s_ease-out]`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
+                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-[0_1px_3px_var(--th-shadow)] ${
                       isAgent
-                        ? 'bg-[var(--th-primary)] text-white rounded-br-md'
-                        : 'bg-[var(--th-surface)] text-[var(--th-text)] rounded-bl-md'
+                        ? 'bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 text-white rounded-br-md'
+                        : 'bg-[var(--th-surface)] text-[var(--th-text)] rounded-bl-md border border-[var(--th-card-border-subtle)]'
                     }`}
                   >
                     <div className="text-sm leading-relaxed">{displayText}</div>
                     {language !== 'original' && entry.translated && (
-                      <div className={`text-xs mt-1 ${isAgent ? 'text-white/60' : 'text-[var(--th-text-muted)]'}`}>
+                      <div className={`text-[10px] mt-1 ${isAgent ? 'text-white/60' : 'text-[var(--th-text-muted)]'}`}>
                         {entry.content}
                       </div>
                     )}
@@ -704,13 +719,13 @@ export default function LiveCallPage() {
 
           {/* Call ended banner */}
           {!isActive && callData.status !== 'initiated' && (
-            <div className="px-5 py-3 border-t border-[var(--th-border-light)] bg-[var(--th-skeleton)]">
+            <div className="px-5 py-3 border-t border-[var(--th-card-border-subtle)] bg-[var(--th-surface)]">
               <div className="flex items-center justify-center gap-2 text-sm">
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[callData.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_COLORS[callData.status] ?? 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'}`}>
                   {t('live.callEnded')}
                 </span>
                 {callData.duration_seconds && (
-                  <span className="text-[var(--th-text-secondary)] text-xs">{fmtDuration(callData.duration_seconds)}</span>
+                  <span className="text-[var(--th-text-secondary)] text-xs tabular-nums font-medium">{fmtDuration(callData.duration_seconds)}</span>
                 )}
               </div>
             </div>
@@ -718,7 +733,7 @@ export default function LiveCallPage() {
 
           {/* Quick action buttons */}
           {isActive && (
-            <div className="flex gap-2 overflow-x-auto px-4 py-2 border-t border-[var(--th-border-light)]">
+            <div className="flex gap-2 overflow-x-auto px-4 py-2.5 border-t border-[var(--th-card-border-subtle)]">
               {TONE_PRESETS.map(tone => (
                 <button
                   key={tone.key}
@@ -728,10 +743,10 @@ export default function LiveCallPage() {
                     toast.success(`${tone.emoji} ${t(tone.labelKey)}`);
                     setTimeout(() => setActiveTone(prev => prev === tone.key ? null : prev), 5000);
                   }}
-                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
                     activeTone === tone.key
-                      ? 'bg-[#6366f1] text-white border border-[#6366f1] shadow-sm'
-                      : 'border border-[#6366f1]/30 text-[#6366f1] hover:bg-[#eef2ff]'
+                      ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+                      : 'border border-[var(--th-card-border-subtle)] text-[var(--th-primary-text)] hover:bg-[var(--th-primary-bg)] hover:border-[var(--th-primary)]'
                   }`}
                 >
                   {tone.emoji} {t(tone.labelKey)}
@@ -744,7 +759,7 @@ export default function LiveCallPage() {
                     socket?.emit('call:instruction', { call_id: callId, text: skill.conversation_rules || skill.intent });
                     toast.info(`Sent: ${skill.name}`);
                   }}
-                  className="shrink-0 px-3 py-1.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg text-xs font-medium text-[#475569] hover:bg-[#eef2ff] hover:border-[#c7d2fe] hover:text-[#6366f1] transition-colors"
+                  className="shrink-0 px-3 py-1.5 bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)] rounded-lg text-[10px] font-semibold text-[var(--th-text-secondary)] hover:bg-[var(--th-primary-bg)] hover:border-[var(--th-primary)] hover:text-[var(--th-primary-text)] transition-all"
                   title={skill.intent}
                 >
                   {skill.name}
@@ -754,26 +769,26 @@ export default function LiveCallPage() {
                 onClick={() => {
                   socket?.emit('call:instruction', { call_id: callId, text: 'Politely wrap up the conversation and end the call.' });
                 }}
-                className="shrink-0 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
+                className="shrink-0 px-3 py-1.5 bg-[var(--th-error-bg)] border border-transparent rounded-lg text-[10px] font-semibold text-[var(--th-error-text)] hover:shadow-[0_2px_8px_rgba(239,68,68,0.15)] transition-all"
               >
-                {'\u{1F44B}'} {t('live.endCall')}
+                {t('live.endCall')}
               </button>
             </div>
           )}
 
           {/* Instruction input */}
           {isActive && (
-            <div className="px-4 py-3 border-t border-[var(--th-border-light)] flex items-center gap-2">
+            <div className="px-4 py-3 border-t border-[var(--th-card-border-subtle)] flex items-center gap-2">
               <button
                 onClick={toggleVoiceInput}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2.5 rounded-xl transition-all ${
                   listening
-                    ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                    : 'hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:text-[var(--th-text)]'
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-[0_2px_8px_rgba(239,68,68,0.3)]'
+                    : 'hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:text-[var(--th-text)] border border-[var(--th-card-border-subtle)]'
                 }`}
                 title={t('live.voiceInput')}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
                 </svg>
               </button>
@@ -783,12 +798,12 @@ export default function LiveCallPage() {
                 onChange={e => setInstruction(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && sendInstruction()}
                 placeholder={t('live.sendInstruction')}
-                className="flex-1 px-4 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
               />
               <button
                 onClick={sendInstruction}
                 disabled={!instruction.trim()}
-                className="px-4 py-2 bg-[var(--th-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--th-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_2px_12px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all"
               >
                 {t('live.send')}
               </button>
@@ -797,16 +812,19 @@ export default function LiveCallPage() {
         </div>
       </div>
 
-      {/* Browser call controls (when operator is on the line) */}
+      {/* ─── Browser call controls (operator live bar) ──────────────────── */}
       {twilioCall && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--th-card)] border border-[var(--th-border)] rounded-2xl shadow-2xl px-6 py-3 flex items-center gap-4">
-          <span className="flex items-center gap-2 text-sm font-medium text-[var(--th-success-text)]">
-            <span className="w-2 h-2 rounded-full bg-[var(--th-success-icon)] animate-pulse" />
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.25),0_0_0_1px_var(--th-card-border-subtle)] backdrop-blur-sm px-6 py-3 flex items-center gap-4">
+          <span className="flex items-center gap-2 text-sm font-semibold text-[var(--th-success-text)]">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+            </span>
             You are live
           </span>
           <button
             onClick={toggleMute}
-            className={`p-2 rounded-lg transition-colors ${isMuted ? 'bg-red-100 text-red-600' : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)]'}`}
+            className={`p-2.5 rounded-xl transition-all ${isMuted ? 'bg-[var(--th-error-bg)] text-[var(--th-error-text)]' : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-primary-bg)]'}`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               {isMuted ? (
@@ -818,7 +836,7 @@ export default function LiveCallPage() {
           </button>
           <button
             onClick={twilioHangup}
-            className="p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+            className="p-2.5 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-[0_2px_8px_rgba(239,68,68,0.3)] transition-all"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 3.75L18 6m0 0l2.25 2.25M18 6l2.25-2.25M18 6l-2.25 2.25m1.5 13.5c-8.284 0-15-6.716-15-15" />
@@ -827,50 +845,62 @@ export default function LiveCallPage() {
         </div>
       )}
 
-      {/* Takeover modal */}
+      {/* ─── Takeover modal ─────────────────────────────────────────────── */}
       {showTakeover && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowTakeover(false)}>
-          <div className="bg-[var(--th-card)] rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-[var(--th-text)]">{t('live.takeOver')}</h3>
-
-            {/* Browser takeover — primary */}
-            <button
-              onClick={handleBrowserTakeover}
-              disabled={takeoverLoading}
-              className="w-full px-4 py-3 bg-[var(--th-primary)] text-white text-sm font-semibold rounded-lg hover:bg-[var(--th-primary-hover)] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-              </svg>
-              {takeoverLoading ? t('live.connecting') : 'Take Over (Browser)'}
-            </button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[var(--th-border)]" /></div>
-              <div className="relative flex justify-center text-xs"><span className="bg-[var(--th-card)] px-2 text-[var(--th-text-muted)]">or dial my phone</span></div>
-            </div>
-
-            {/* Phone takeover — secondary */}
-            <div className="flex gap-2">
-              <input
-                type="tel"
-                value={takeoverPhone}
-                onChange={e => setTakeoverPhone(e.target.value)}
-                placeholder={t('live.phoneNumber')}
-                className="flex-1 px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20"
-              />
-              <button
-                onClick={handleTakeover}
-                disabled={!takeoverPhone.trim() || takeoverLoading}
-                className="px-4 py-2 border border-[var(--th-border)] text-sm font-medium text-[var(--th-text-secondary)] rounded-lg hover:bg-[var(--th-surface)] disabled:opacity-50 transition-colors"
-              >
-                {t('live.connect')}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowTakeover(false)}>
+          <div className="bg-[var(--th-card)] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)] p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[var(--th-text)]">{t('live.takeOver')}</h3>
+              <button onClick={() => setShowTakeover(false)} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg transition-colors text-[var(--th-text-muted)]">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <button onClick={() => setShowTakeover(false)} className="w-full text-center text-sm text-[var(--th-text-muted)] hover:text-[var(--th-text)] py-1">
-              {t('common.cancel')}
-            </button>
+            {/* Mode tabs */}
+            <div className="flex gap-1 p-1 bg-[var(--th-surface)] rounded-xl">
+              <button
+                onClick={() => setTakeoverMode('browser')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${takeoverMode === 'browser' ? 'bg-[var(--th-card)] text-[var(--th-text)] shadow-[0_1px_3px_var(--th-shadow)]' : 'text-[var(--th-text-muted)]'}`}
+              >
+                Browser
+              </button>
+              <button
+                onClick={() => setTakeoverMode('phone')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${takeoverMode === 'phone' ? 'bg-[var(--th-card)] text-[var(--th-text)] shadow-[0_1px_3px_var(--th-shadow)]' : 'text-[var(--th-text-muted)]'}`}
+              >
+                Phone
+              </button>
+            </div>
+
+            {takeoverMode === 'browser' ? (
+              <button
+                onClick={handleBrowserTakeover}
+                disabled={takeoverLoading}
+                className="w-full px-4 py-3 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                </svg>
+                {takeoverLoading ? t('live.connecting') : 'Take Over via Browser'}
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  value={takeoverPhone}
+                  onChange={e => setTakeoverPhone(e.target.value)}
+                  placeholder={t('live.phoneNumber')}
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
+                />
+                <button
+                  onClick={handleTakeover}
+                  disabled={!takeoverPhone.trim() || takeoverLoading}
+                  className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_2px_12px_rgba(99,102,241,0.3)] disabled:opacity-40 transition-all"
+                >
+                  {t('live.connect')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
