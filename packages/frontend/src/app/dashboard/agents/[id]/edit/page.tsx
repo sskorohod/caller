@@ -801,13 +801,13 @@ export default function AgentEditPage() {
                 <button
                   type="button"
                   onClick={() => toggleSkill(skill.id)}
-                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
+                  className={`relative w-10 h-6 rounded-full transition-all flex-shrink-0 ${
                     selectedSkills.has(skill.id) ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                      selectedSkills.has(skill.id) ? 'translate-x-5' : 'translate-x-0.5'
+                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      selectedSkills.has(skill.id) ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -853,13 +853,13 @@ export default function AgentEditPage() {
                 <button
                   type="button"
                   onClick={() => togglePrompt(prompt.id)}
-                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
+                  className={`relative w-10 h-6 rounded-full transition-all flex-shrink-0 ${
                     selectedPrompts.has(prompt.id) ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                      selectedPrompts.has(prompt.id) ? 'translate-x-5' : 'translate-x-0.5'
+                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      selectedPrompts.has(prompt.id) ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -917,13 +917,13 @@ export default function AgentEditPage() {
                 <button
                   type="button"
                   onClick={() => toggleKB(kb.id)}
-                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
+                  className={`relative w-10 h-6 rounded-full transition-all flex-shrink-0 ${
                     selectedKBs.has(kb.id) ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                      selectedKBs.has(kb.id) ? 'translate-x-5' : 'translate-x-0.5'
+                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      selectedKBs.has(kb.id) ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>

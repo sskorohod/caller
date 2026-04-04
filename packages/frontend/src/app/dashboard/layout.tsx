@@ -159,7 +159,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <>
       {/* Logo */}
       <div className="px-5 h-16 flex items-center gap-3 border-b border-[var(--th-sidebar-border)]">
-        <div className="w-8 h-8 bg-[var(--th-primary)] rounded-lg flex items-center justify-center shadow-lg shadow-[var(--th-shadow-primary)]">
+        <div className="w-8 h-8 bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 rounded-xl flex items-center justify-center shadow-[0_2px_8px_rgba(99,102,241,0.4)]">
           <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
           </svg>
@@ -182,9 +182,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               key={item.href}
               href={item.href}
               onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                 isActive
-                  ? 'bg-[var(--th-primary)]/20 text-[var(--th-primary-light)] font-medium'
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
                   : 'text-[var(--th-sidebar-text)] hover:bg-[var(--th-sidebar-hover)] hover:text-white'
               }`}
             >
@@ -203,7 +203,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setLang('en')}
             className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
               lang === 'en'
-                ? 'bg-[var(--th-primary)]/20 text-[var(--th-primary-light)]'
+                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_1px_4px_rgba(99,102,241,0.3)]'
                 : 'text-[var(--th-sidebar-label)] hover:text-[var(--th-sidebar-text)]'
             }`}
           >
@@ -213,7 +213,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onClick={() => setLang('ru')}
             className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
               lang === 'ru'
-                ? 'bg-[var(--th-primary)]/20 text-[var(--th-primary-light)]'
+                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_1px_4px_rgba(99,102,241,0.3)]'
                 : 'text-[var(--th-sidebar-label)] hover:text-[var(--th-sidebar-text)]'
             }`}
           >
@@ -278,7 +278,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="h-16 bg-[var(--th-topbar)] border-b border-[var(--th-border)] px-4 md:px-8 flex items-center justify-between shrink-0">
+        <header className="h-16 bg-[var(--th-topbar)] border-b border-[var(--th-card-border-subtle)] px-4 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_3px_var(--th-shadow)]">
           <div className="flex items-center gap-3">
             {/* Hamburger — mobile only */}
             <button
@@ -290,7 +290,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
             </button>
-            <h1 className="text-base font-semibold text-[var(--th-text)]">
+            <h1 className="text-base font-bold text-[var(--th-text)]">
               {(() => {
                 const found = navItems.find(i => i.href === pathname || (i.href !== '/dashboard' && pathname.startsWith(i.href)));
                 return found ? t(found.key) : 'Dashboard';

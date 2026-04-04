@@ -282,9 +282,9 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${checked ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
+        className={`relative w-10 h-6 rounded-full transition-all shrink-0 ${checked ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
       >
-        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
       </button>
       <span className="text-sm text-[var(--th-text-dark)]">{label}</span>
     </label>
@@ -1540,9 +1540,9 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
             aria-checked={recording}
             aria-label="Toggle call recording disclosure"
             onClick={() => setRecording(v => !v)}
-            className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${recording ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
+            className={`mt-0.5 relative w-10 h-6 rounded-full transition-all shrink-0 ${recording ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
           >
-            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${recording ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${recording ? 'translate-x-4' : 'translate-x-0'}`} />
           </button>
           <div>
             <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.callRecordingDisclosure')}</div>
@@ -1559,9 +1559,9 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
             aria-checked={aiDisclosure}
             aria-label="Toggle AI identity disclosure"
             onClick={() => setAiDisclosure(v => !v)}
-            className={`mt-0.5 relative w-10 h-5 rounded-full transition-colors shrink-0 ${aiDisclosure ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
+            className={`mt-0.5 relative w-10 h-6 rounded-full transition-all shrink-0 ${aiDisclosure ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}
           >
-            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${aiDisclosure ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${aiDisclosure ? 'translate-x-4' : 'translate-x-0'}`} />
           </button>
           <div>
             <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.aiDisclosure')}</div>
