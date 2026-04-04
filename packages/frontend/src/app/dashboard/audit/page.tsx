@@ -85,52 +85,54 @@ export default function AuditPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <p className="text-sm font-medium text-red-700">{error}</p>
-          <button onClick={() => loadLogs()} className="mt-3 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 rounded-lg transition-colors">{t('common.retry')}</button>
+        <div className="bg-[var(--th-error-bg)] border border-[var(--th-card-border-subtle)] rounded-2xl p-6 text-center shadow-[0_1px_3px_var(--th-shadow)]">
+          <p className="text-sm font-semibold text-[var(--th-error-text)]">{error}</p>
+          <button onClick={() => loadLogs()} className="mt-3 px-4 py-2 text-sm font-semibold text-[var(--th-error-text)] hover:bg-[var(--th-surface)] rounded-xl transition-all">{t('common.retry')}</button>
         </div>
       )}
 
-      <div className="bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
+      <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
         {/* Filters */}
-        <div className="px-5 py-4 border-b border-[var(--th-border)] flex items-center gap-3 flex-wrap">
+        <div className="px-5 py-4 border-b border-[var(--th-card-border-subtle)] flex items-center gap-3 flex-wrap">
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('audit.action')}</label>
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t('audit.action')}</label>
             <input
               type="text"
               value={actionFilter}
               onChange={e => setActionFilter(e.target.value)}
               placeholder={t('audit.filterByAction')}
-              className="px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] bg-[var(--th-input)]"
+              className="px-3.5 py-2 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] bg-[var(--th-card)] transition-all"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('audit.from')}</label>
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t('audit.from')}</label>
             <input
               type="date"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
+              className="px-3.5 py-2 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] bg-[var(--th-card)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('audit.to')}</label>
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t('audit.to')}</label>
             <input
               type="date"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-[var(--th-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]"
+              className="px-3.5 py-2 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] bg-[var(--th-card)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
             />
           </div>
           <div className="self-end">
             <button
               onClick={applyFilters}
-              className="px-4 py-2 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white text-sm font-semibold rounded-lg transition-colors"
+              className="px-4 py-2 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all"
             >
               {t('calls.applyFilters')}
             </button>
           </div>
-          <div className="ml-auto self-end text-xs text-[var(--th-text-muted)]">{total} {t('audit.totalEntries')}</div>
+          <div className="ml-auto self-end">
+            <span className="text-[11px] text-[var(--th-text-muted)] bg-[var(--th-surface)] px-2.5 py-1 rounded-lg font-medium">{total} {t('audit.totalEntries')}</span>
+          </div>
         </div>
 
         {/* Table */}
@@ -138,48 +140,52 @@ export default function AuditPage() {
           <div className="p-6 space-y-3">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="flex gap-4 animate-pulse">
-                <div className="w-32 h-3.5 bg-slate-100 rounded" />
-                <div className="w-24 h-3.5 bg-slate-100 rounded" />
-                <div className="w-20 h-3.5 bg-slate-100 rounded" />
-                <div className="w-24 h-3.5 bg-slate-100 rounded" />
-                <div className="w-16 h-3.5 bg-slate-100 rounded" />
+                <div className="w-32 h-3.5 bg-[var(--th-skeleton)] rounded-lg" />
+                <div className="w-24 h-3.5 bg-[var(--th-skeleton)] rounded-lg" />
+                <div className="w-20 h-3.5 bg-[var(--th-skeleton)] rounded-lg" />
+                <div className="w-24 h-3.5 bg-[var(--th-skeleton)] rounded-lg" />
+                <div className="w-16 h-3.5 bg-[var(--th-skeleton)] rounded-lg" />
               </div>
             ))}
           </div>
         ) : logs.length === 0 ? (
-          <div className="flex flex-col items-center py-16">
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-12 h-12 bg-[var(--th-surface)] rounded-2xl flex items-center justify-center text-[var(--th-text-muted)]">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
+            </div>
             <p className="text-sm text-[var(--th-text-secondary)] font-medium">{t('audit.noLogs')}</p>
-            <p className="text-xs text-[var(--th-text-muted)] mt-1">{t('audit.noLogsHint')}</p>
+            <p className="text-[11px] text-[var(--th-text-muted)]">{t('audit.noLogsHint')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px]">
-              <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-border)]">
-                <tr>
+              <thead>
+                <tr className="border-b border-[var(--th-card-border-subtle)]">
                   {[t('audit.timestamp'), t('audit.userEmail'), t('audit.action'), t('audit.resourceType'), t('audit.resourceId'), t('audit.changes')].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--th-border-light)]">
-                {logs.map(log => (
-                  <tr key={log.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
-                    <td className="px-5 py-3.5 text-xs text-[var(--th-text-muted)] whitespace-nowrap">{fmtDate(log.created_at)}</td>
-                    <td className="px-5 py-3.5 text-sm text-[var(--th-text)]">{log.user_email ?? '\u2014'}</td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]">
+              <tbody>
+                {logs.map((log, idx) => (
+                  <tr key={log.id} className={`hover:bg-[var(--th-surface)] transition-colors ${idx < logs.length - 1 ? 'border-b border-[var(--th-card-border-subtle)]' : ''}`}>
+                    <td className="px-5 py-3 text-[13px] text-[var(--th-text-muted)] whitespace-nowrap tabular-nums">{fmtDate(log.created_at)}</td>
+                    <td className="px-5 py-3 text-sm text-[var(--th-text)] font-medium">{log.user_email ?? '\u2014'}</td>
+                    <td className="px-5 py-3">
+                      <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]">
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-[var(--th-text-secondary)]">{log.resource_type}</td>
-                    <td className="px-5 py-3.5 text-xs text-[var(--th-text-muted)] font-mono">{log.resource_id ? log.resource_id.slice(0, 8) + '...' : '\u2014'}</td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)]">{log.resource_type}</td>
+                    <td className="px-5 py-3 text-xs text-[var(--th-text-muted)] font-mono tabular-nums">{log.resource_id ? log.resource_id.slice(0, 8) + '...' : '\u2014'}</td>
+                    <td className="px-5 py-3">
                       {log.changes && Object.keys(log.changes).length > 0 ? (
                         <button
                           onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                          className="text-xs text-[var(--th-primary-text)] hover:text-[var(--th-primary-hover)] font-medium"
+                          className="text-[10px] text-[var(--th-primary-text)] hover:text-[var(--th-primary-hover)] font-semibold flex items-center gap-1 transition-colors"
                         >
                           {expandedId === log.id ? t('audit.hideChanges') : t('audit.showChanges')}
+                          <svg className={`w-3 h-3 transition-transform duration-200 ${expandedId === log.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                         </button>
                       ) : (
                         <span className="text-xs text-[var(--th-text-muted)]">\u2014</span>
@@ -191,7 +197,7 @@ export default function AuditPage() {
                 {logs.map(log => expandedId === log.id && log.changes && Object.keys(log.changes).length > 0 ? (
                   <tr key={`${log.id}-expanded`} className="bg-[var(--th-surface)]">
                     <td colSpan={6} className="px-5 py-3">
-                      <pre className="text-xs text-[var(--th-text-secondary)] bg-[var(--th-card)] border border-[var(--th-border)] rounded-lg p-3 overflow-x-auto max-h-48">
+                      <pre className="text-xs text-[var(--th-text-secondary)] bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] rounded-xl p-4 overflow-x-auto max-h-48 font-mono leading-relaxed">
                         {JSON.stringify(log.changes, null, 2)}
                       </pre>
                     </td>
@@ -209,7 +215,7 @@ export default function AuditPage() {
           <button
             onClick={() => loadLogs(offset)}
             disabled={loadingMore}
-            className="px-5 py-2.5 text-sm font-medium text-[var(--th-primary-text)] hover:bg-[var(--th-primary-bg)] border border-[var(--th-border)] rounded-xl transition-colors disabled:opacity-50"
+            className="px-5 py-2.5 text-sm font-semibold text-[var(--th-primary-text)] hover:bg-[var(--th-primary-bg)] border border-[var(--th-card-border-subtle)] rounded-xl transition-all disabled:opacity-40"
           >
             {loadingMore ? t('common.loading') : `${t('calls.loadMore')} (${total - offset} ${t('calls.remaining')})`}
           </button>
