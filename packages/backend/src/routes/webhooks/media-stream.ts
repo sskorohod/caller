@@ -414,13 +414,26 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
               const translationModel = process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini';
 
-              // Each isFinal segment → immediately translate → TTS → inject (no waiting for utterance_end)
+              // PTT-aware translation: buffer while button held, translate+TTS on release
+              let pttBuffer = ''; // accumulates text while PTT is held
+
               operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
                 if (!evt.isFinal || !evt.text.trim()) return;
                 const segmentText = evt.text.trim();
                 operatorAccum += (operatorAccum ? ' ' : '') + segmentText;
 
                 if (!translationLlm) return;
+
+                // Check PTT state — if button is held, buffer text for later
+                const vtSess = activeVoiceTranslateSessions.get(callId);
+                if (vtSess?.pttActive) {
+                  pttBuffer += (pttBuffer ? ' ' : '') + segmentText;
+                  return; // Don't translate yet — wait for button release
+                }
+
+                // PTT not active (or non-PTT mode) — translate immediately
+                const textToTranslate = pttBuffer ? pttBuffer + ' ' + segmentText : segmentText;
+                pttBuffer = '';
 
                 // Fire-and-forget: translate + TTS this segment immediately
                 (async () => {
@@ -434,7 +447,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       stream: false,
                       messages: [
                         { role: 'system', content: `Translate to ${calleeLang}. Phone call. Be natural.\nOnly output the translation.` },
-                        { role: 'user', content: `"${segmentText}"` },
+                        { role: 'user', content: `"${textToTranslate}"` },
                       ],
                     });
                     const translated = resp.choices?.[0]?.message?.content?.trim();
@@ -443,7 +456,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     // Emit translation to UI
                     if (io) {
                       io.to(`call:${callId}:translate`).emit('call:translation', {
-                        call_id: callId, speaker: 'operator', original: segmentText,
+                        call_id: callId, speaker: 'operator', original: textToTranslate,
                         translated, timestamp: new Date().toISOString(),
                       });
                     }
@@ -498,15 +511,86 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       }
                     }
 
-                    logger.info({ callId, original: segmentText.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
+                    logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
                   } catch (err) {
                     logger.error({ err, callId }, 'Voice translate pipeline error');
                   }
                 })();
               });
 
-              // Emit complete utterance to transcript UI on utterance_end (for display only)
+              // Emit complete utterance to transcript UI on utterance_end
+              // Also flush PTT buffer if button was just released
               operatorStt.on('utterance_end', () => {
+                // Flush any remaining PTT buffer (button released, Deepgram detected silence)
+                const vtSess = activeVoiceTranslateSessions.get(callId);
+                if (pttBuffer && (!vtSess?.pttActive)) {
+                  const bufferedText = pttBuffer;
+                  pttBuffer = '';
+                  if (translationLlm) {
+                    (async () => {
+                      try {
+                        const client = (translationLlm as any).client;
+                        const resp = await client.chat.completions.create({
+                          model: translationModel,
+                          temperature: 0.3,
+                          max_tokens: 300,
+                          stream: false,
+                          messages: [
+                            { role: 'system', content: `Translate to ${calleeLang}. Phone call. Be natural.\nOnly output the translation.` },
+                            { role: 'user', content: `"${bufferedText}"` },
+                          ],
+                        });
+                        const translated = resp.choices?.[0]?.message?.content?.trim();
+                        if (!translated) return;
+
+                        if (io) {
+                          io.to(`call:${callId}:translate`).emit('call:translation', {
+                            call_id: callId, speaker: 'operator', original: bufferedText,
+                            translated, timestamp: new Date().toISOString(),
+                          });
+                        }
+
+                        const currentTts = vtSess?.tts ?? tts;
+                        let audio: Buffer | null = null;
+                        try {
+                          audio = await currentTts.synthesize(translated);
+                        } catch (ttsErr) {
+                          for (const fallback of (['openai', 'elevenlabs', 'xai'] as const)) {
+                            try {
+                              const fb = await createTTSProvider(call.workspace_id, fallback, undefined, calleeLang);
+                              audio = await fb.synthesize(translated);
+                              break;
+                            } catch { /* try next */ }
+                          }
+                        }
+                        if (!audio) return;
+
+                        const skipConversion = (currentTts as any).constructor?.name === 'ElevenLabsTTS' ||
+                          (currentTts as any).nativemulaw === true;
+                        if (!skipConversion) {
+                          audio = pcmToMulaw(audio);
+                        }
+
+                        const calleeWs2 = vtSess?.calleeSocket;
+                        const calleeSid2 = vtSess?.calleeStreamSid;
+                        if (calleeWs2 && calleeSid2 && calleeWs2.readyState === 1) {
+                          const chunkSize = 640;
+                          for (let i = 0; i < audio.length; i += chunkSize) {
+                            calleeWs2.send(JSON.stringify({
+                              event: 'media',
+                              streamSid: calleeSid2,
+                              media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+                            }));
+                          }
+                        }
+                        logger.info({ callId, original: bufferedText.slice(0, 40), translated: translated.slice(0, 40) }, 'PTT buffer flushed: voice translation sent');
+                      } catch (err) {
+                        logger.error({ err, callId }, 'PTT buffer flush error');
+                      }
+                    })();
+                  }
+                }
+
                 const text = operatorAccum.trim();
                 operatorAccum = '';
                 if (!text) return;
