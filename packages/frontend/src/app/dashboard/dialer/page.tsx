@@ -481,7 +481,7 @@ export default function DialerPage() {
                   {t('dialer.voiceTranslateHint')}
                 </div>
 
-                {/* TTS provider + voice */}
+                {/* TTS provider + voice (can be changed mid-call) */}
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <label className="block text-[10px] font-medium text-[var(--th-text-secondary)] mb-0.5 px-1">
@@ -491,11 +491,14 @@ export default function DialerPage() {
                       value={ttsProvider}
                       onChange={e => {
                         const p = e.target.value as 'openai' | 'elevenlabs' | 'xai';
+                        const newVoice = TTS_VOICES[p]?.[0]?.value ?? '';
                         setTtsProvider(p);
-                        setTtsVoice(TTS_VOICES[p]?.[0]?.value ?? '');
+                        setTtsVoice(newVoice);
+                        if (callId && socket) {
+                          socket.emit('call:tts:change', { call_id: callId, provider: p, voice: newVoice });
+                        }
                       }}
-                      disabled={isInCall}
-                      className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs disabled:opacity-50"
+                      className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs"
                     >
                       <option value="openai">OpenAI</option>
                       <option value="xai">xAI (Grok)</option>
@@ -509,9 +512,13 @@ export default function DialerPage() {
                       </label>
                       <select
                         value={ttsVoice}
-                        onChange={e => setTtsVoice(e.target.value)}
-                        disabled={isInCall}
-                        className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs disabled:opacity-50"
+                        onChange={e => {
+                          setTtsVoice(e.target.value);
+                          if (callId && socket) {
+                            socket.emit('call:tts:change', { call_id: callId, provider: ttsProvider, voice: e.target.value });
+                          }
+                        }}
+                        className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs"
                       >
                         {TTS_VOICES[ttsProvider].map(v => (
                           <option key={v.value} value={v.value}>{v.label}</option>

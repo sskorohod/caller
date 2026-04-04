@@ -91,6 +91,25 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       socket.leave(`call:${call_id}:translate`);
     });
 
+    // Change TTS provider/voice mid-call
+    socket.on('call:tts:change', async ({ call_id, provider, voice }: { call_id: string; provider: string; voice?: string }) => {
+      try {
+        const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
+        const session = getActiveVoiceTranslateSessions().get(call_id);
+        if (!session) return;
+        const { createTTSProvider } = await import('../services/tts.service.js');
+        const newTts = await createTTSProvider(
+          session.workspaceId,
+          provider as 'elevenlabs' | 'openai' | 'xai',
+          voice || (provider === 'openai' ? 'alloy' : undefined),
+        );
+        session.tts = newTts;
+        console.log(`[Socket.IO] TTS changed: call=${call_id} provider=${provider} voice=${voice}`);
+      } catch (err) {
+        console.error(`[Socket.IO] TTS change failed:`, err);
+      }
+    });
+
     // Mission chat: join/leave mission room
     socket.on('mission:join', ({ mission_id }: { mission_id: string }) => {
       socket.join(`mission:${mission_id}`);

@@ -80,6 +80,7 @@ interface VoiceTranslateSession {
 const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 
 export function getActiveTranslators() { return activeTranslators; }
+export function getActiveVoiceTranslateSessions() { return activeVoiceTranslateSessions; }
 
 export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRealtimeOrchestrator | undefined {
   return activeOrchestrators.get(callId);
@@ -416,11 +417,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       });
                     }
 
-                    // TTS → generate audio with runtime fallback
+                    // TTS → generate audio with runtime fallback (use session.tts for mid-call changes)
+                    const vtSession = activeVoiceTranslateSessions.get(callId);
+                    const currentTts = vtSession?.tts ?? tts;
                     let audio: Buffer | null = null;
                     let actualTtsProvider = ttsProviderUsed;
                     try {
-                      audio = await tts.synthesize(translated);
+                      audio = await currentTts.synthesize(translated);
                     } catch (ttsErr) {
                       logger.warn({ err: ttsErr, callId, provider: ttsProviderUsed }, 'TTS synthesis failed, trying fallback');
                       // Try fallback providers
@@ -438,8 +441,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       logger.error({ callId }, 'All TTS providers failed');
                       return;
                     }
-                    if (actualTtsProvider !== 'elevenlabs') {
-                      // OpenAI/xAI return PCM 24kHz 16-bit — convert to mulaw 8kHz
+                    // ElevenLabs outputs mulaw directly; OpenAI/xAI output PCM that needs conversion
+                    const isElevenlabs = actualTtsProvider === 'elevenlabs' ||
+                      (currentTts as any).constructor?.name === 'ElevenLabsTTS';
+                    if (!isElevenlabs) {
                       audio = pcmToMulaw(audio);
                     }
 
