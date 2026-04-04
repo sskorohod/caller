@@ -279,69 +279,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         const session = activeVoiceTranslateSessions.get(callId);
         if (session) {
           if (session.calleeStt) session.calleeStt.close();
-          if (session.operatorStt) session.operatorStt.close();
-          // Calculate and save costs
-          const vtSessionId = session.sessionId;
-          if (vtSessionId) {
-            (async () => {
-              try {
-                const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
-                if (callRow) {
-                  const meta = callRow.metadata as any;
-                  const durationSecs = callRow.connected_at
-                    ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
-                    : 0;
-                  const durationMins = durationSecs / 60;
-                  const sttProv = meta?.stt_provider ?? 'deepgram';
-
-                  const costStt = calculateSTTCost(sttProv, durationMins) * 2; // 2 STT streams
-                  const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2; // 2 Twilio legs
-                  const costTotal = costStt + costTelephony; // TTS/LLM costs tracked separately via events
-
-                  await callService.updateAiSession(vtSessionId, {
-                    transcript: session.transcript as any,
-                    total_turns: session.transcript.length,
-                    cost_stt: String(costStt),
-                    cost_telephony: String(costTelephony),
-                    cost_total: String(costTotal),
-                  } as any);
-
-                  // Update call duration
-                  await callService.updateCallStatus(callId, 'completed', {
-                    duration_seconds: durationSecs,
-                  } as any);
-
-                  // Queue post-call processing (summary generation)
-                  if (session.transcript.length > 0) {
-                    queuePostCallProcessing({
-                      callId,
-                      workspaceId: session.workspaceId,
-                      sessionId: vtSessionId,
-                    });
-                  }
-                }
-              } catch (err) {
-                logger.error({ err, callId }, 'Failed to save voice translate costs');
-              }
-            })();
-          }
-
-          // Notify frontend that callee disconnected
-          const io = getIo();
-          if (io) {
-            io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });
-          }
-
-          // Close operator WebSocket → Twilio ends <Connect><Stream> → operator call ends
+          // Close operator WebSocket → triggers operator close handler which saves everything
           if (session.operatorSocket && session.operatorSocket.readyState === 1) {
             session.operatorSocket.close();
           }
-
-          // Update call status in DB
-          callService.updateCallStatus(callId, 'completed').catch(err =>
-            logger.error({ err, callId }, 'Failed to update call status on callee disconnect'));
-
-          activeVoiceTranslateSessions.delete(callId);
         }
       });
 
@@ -896,11 +837,58 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     socket.on('close', (code: number, reason: Buffer) => {
       logger.info({ callId, code, reason: reason?.toString() }, 'Twilio MediaStream WebSocket closed');
-      // Cleanup voice translate session + hang up callee
+      // Cleanup voice translate session + save transcript + hang up callee
       const vt = activeVoiceTranslateSessions.get(callId);
       if (vt) {
         vt.operatorStt.close();
         if (vt.calleeStt) vt.calleeStt.close();
+
+        // Save transcript + costs + queue post-call (before deleting session)
+        const vtSessionId = vt.sessionId;
+        if (vtSessionId) {
+          (async () => {
+            try {
+              const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
+              if (callRow) {
+                const meta = callRow.metadata as any;
+                const durationSecs = callRow.connected_at
+                  ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
+                  : 0;
+                const durationMins = durationSecs / 60;
+                const sttProv = meta?.stt_provider ?? 'deepgram';
+                const costStt = calculateSTTCost(sttProv, durationMins) * 2;
+                const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2;
+                const costTotal = costStt + costTelephony;
+
+                await callService.updateAiSession(vtSessionId, {
+                  transcript: vt.transcript as any,
+                  total_turns: vt.transcript.length,
+                  cost_stt: String(costStt),
+                  cost_telephony: String(costTelephony),
+                  cost_total: String(costTotal),
+                } as any);
+
+                await callService.updateCallStatus(callId, 'completed', {
+                  duration_seconds: durationSecs,
+                } as any);
+
+                if (vt.transcript.length > 0) {
+                  queuePostCallProcessing({ callId, workspaceId: vt.workspaceId, sessionId: vtSessionId });
+                }
+                logger.info({ callId, turns: vt.transcript.length, costTotal }, 'VT transcript saved on operator close');
+              }
+            } catch (err) {
+              logger.error({ err, callId }, 'Failed to save VT transcript on operator close');
+            }
+          })();
+        }
+
+        // Notify frontend
+        const io = getIo();
+        if (io) {
+          io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });
+        }
+
         if (vt.calleeCallSid) {
           telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch(() => {});
         }
