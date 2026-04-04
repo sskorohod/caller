@@ -272,12 +272,41 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         if (session) {
           if (session.calleeStt) session.calleeStt.close();
           if (session.operatorStt) session.operatorStt.close();
-          // Save transcript
-          if (session.sessionId && session.transcript.length > 0) {
-            callService.updateAiSession(session.sessionId, {
-              transcript: session.transcript as any,
-              total_turns: session.transcript.length,
-            } as any).catch(err => logger.error({ err, callId }, 'Failed to save voice translate transcript'));
+          // Calculate and save costs
+          const vtSessionId = session.sessionId;
+          if (vtSessionId) {
+            (async () => {
+              try {
+                const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
+                if (callRow) {
+                  const meta = callRow.metadata as any;
+                  const durationSecs = callRow.connected_at
+                    ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
+                    : 0;
+                  const durationMins = durationSecs / 60;
+                  const sttProv = meta?.stt_provider ?? 'deepgram';
+
+                  const costStt = calculateSTTCost(sttProv, durationMins) * 2; // 2 STT streams
+                  const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2; // 2 Twilio legs
+                  const costTotal = costStt + costTelephony; // TTS/LLM costs tracked separately via events
+
+                  await callService.updateAiSession(vtSessionId, {
+                    transcript: session.transcript as any,
+                    total_turns: session.transcript.length,
+                    cost_stt: String(costStt),
+                    cost_telephony: String(costTelephony),
+                    cost_total: String(costTotal),
+                  } as any);
+
+                  // Update call duration
+                  await callService.updateCallStatus(callId, 'completed', {
+                    duration_seconds: durationSecs,
+                  } as any);
+                }
+              } catch (err) {
+                logger.error({ err, callId }, 'Failed to save voice translate costs');
+              }
+            })();
           }
 
           // Notify frontend that callee disconnected

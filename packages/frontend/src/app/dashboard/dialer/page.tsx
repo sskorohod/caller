@@ -49,6 +49,15 @@ const TRANSLATE_LANGUAGES = [
   { value: 'fr', label: 'Français' },
 ];
 
+// ─── Pricing (mirrors backend pricing.ts) ──────────────────────────────────
+
+const PRICING = {
+  telephony: { twilio: 0.013 }, // per minute per leg
+  stt: { deepgram: 0.0043, openai: 0.006 }, // per minute per stream
+  tts: { openai: 0.015, xai: 0.015, elevenlabs: 0.30 }, // per 1K chars
+  llm_translation: 0.00003, // ~estimate per translation (50 in + 150 out tokens at gpt-4o-mini rates)
+};
+
 const TTS_VOICES: Record<string, Array<{ value: string; label: string }>> = {
   openai: [
     { value: 'alloy', label: 'Alloy' },
@@ -92,6 +101,14 @@ export default function DialerPage() {
   const [pttMode, setPttMode] = useState(true); // push-to-talk vs always-on
   const [pttActive, setPttActive] = useState(false); // currently holding PTT button
 
+  // Live cost counter
+  const [callCost, setCallCost] = useState(0);
+  const eventCostRef = useRef(0); // accumulated TTS + LLM costs from events
+
+  // Call history by phone number
+  const [callHistory, setCallHistory] = useState<Array<{ id: string; created_at: string; duration_seconds: number | null; direction: string; status: string; summary?: string }>>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callStartRef = useRef<number>(0);
@@ -110,18 +127,28 @@ export default function DialerPage() {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript]);
 
-  // Duration timer
+  // Duration timer + live cost calculation
   useEffect(() => {
     if (callState === 'in_call') {
       callStartRef.current = Date.now();
+      eventCostRef.current = 0;
+      setCallCost(0);
       durationRef.current = setInterval(() => {
-        setDuration(Math.floor((Date.now() - callStartRef.current) / 1000));
+        const secs = Math.floor((Date.now() - callStartRef.current) / 1000);
+        setDuration(secs);
+        // Time-based costs: Twilio (2 legs) + STT (2 streams if voice translate, 1 stream if normal)
+        const mins = secs / 60;
+        const sttRate = (PRICING.stt as any)[sttProvider] ?? PRICING.stt.deepgram;
+        const sttStreams = voiceTranslate ? 2 : 1;
+        const twilioLegs = voiceTranslate ? 2 : 1;
+        const timeCost = mins * (PRICING.telephony.twilio * twilioLegs + sttRate * sttStreams);
+        setCallCost(timeCost + eventCostRef.current);
       }, 1000);
     } else {
       if (durationRef.current) clearInterval(durationRef.current);
     }
     return () => { if (durationRef.current) clearInterval(durationRef.current); };
-  }, [callState]);
+  }, [callState, sttProvider, voiceTranslate]);
 
   // Socket.IO listeners
   useEffect(() => {
@@ -168,6 +195,9 @@ export default function DialerPage() {
 
     const onTranslation = (data: { call_id: string; speaker: string; original: string; translated: string; timestamp: string }) => {
       if (data.call_id !== callId) return;
+      // Add event-based cost: TTS + LLM translation
+      const ttsRate = (PRICING.tts as any)[ttsProvider] ?? PRICING.tts.openai;
+      eventCostRef.current += (data.translated.length / 1000) * ttsRate + PRICING.llm_translation;
       setTranscript(prev => {
         // Match by original text first, fallback to last untranslated isFinal from same speaker
         const reversed = [...prev].reverse();
@@ -330,6 +360,23 @@ export default function DialerPage() {
     setTranslateTo('ru');
   }, [hangup]);
 
+  // Load call history when phone number changes (debounced)
+  useEffect(() => {
+    const normalized = phoneNumber.trim().replace(/[\s\-\(\)]/g, '');
+    if (normalized.length < 7) {
+      setCallHistory([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setHistoryLoading(true);
+      api.get<{ calls: typeof callHistory }>(`/calls/by-phone/${encodeURIComponent(normalized)}`)
+        .then(r => setCallHistory(r.calls ?? []))
+        .catch(() => setCallHistory([]))
+        .finally(() => setHistoryLoading(false));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [phoneNumber]);
+
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
@@ -348,7 +395,7 @@ export default function DialerPage() {
   return (
     <div className="h-full flex flex-col lg:flex-row gap-4 p-4">
       {/* Left: Dialer controls */}
-      <div className="lg:w-[360px] shrink-0 flex flex-col gap-4">
+      <div className="lg:w-[420px] shrink-0 flex flex-col gap-4">
         <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-surface)] p-6">
           <h2 className="text-lg font-semibold text-[var(--th-text)] mb-4">{t('dialer.title')}</h2>
 
@@ -574,9 +621,14 @@ export default function DialerPage() {
                     </span>
                   </div>
                   {callState === 'in_call' && (
-                    <span className="text-sm font-mono text-green-700 dark:text-green-400">
-                      {formatDuration(duration)}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-mono text-green-700 dark:text-green-400">
+                        {formatDuration(duration)}
+                      </span>
+                      <span className="text-sm font-mono text-amber-600 dark:text-amber-400">
+                        ${callCost.toFixed(4)}
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -669,7 +721,10 @@ export default function DialerPage() {
               <>
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800">
                   <span className="text-sm text-[var(--th-text-secondary)]">{t('dialer.callEnded')}</span>
-                  <span className="text-sm font-mono text-[var(--th-text-secondary)]">{formatDuration(duration)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-mono text-[var(--th-text-secondary)]">{formatDuration(duration)}</span>
+                    <span className="text-sm font-mono text-amber-600 dark:text-amber-400">${callCost.toFixed(4)}</span>
+                  </div>
                 </div>
                 <button
                   onClick={handleNewCall}
@@ -681,6 +736,42 @@ export default function DialerPage() {
             )}
           </div>
         </div>
+
+        {/* Call history for this number */}
+        {callHistory.length > 0 && (
+          <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-surface)] p-4">
+            <h3 className="text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-2">
+              {t('dialer.callHistory')} ({callHistory.length})
+            </h3>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {callHistory.slice(0, 10).map(c => (
+                <div key={c.id} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-[var(--th-bg)] text-xs transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`shrink-0 ${c.direction === 'outbound' ? 'text-blue-500' : 'text-green-500'}`}>
+                      {c.direction === 'outbound' ? '↗' : '↙'}
+                    </span>
+                    <span className="text-[var(--th-text-secondary)] shrink-0">
+                      {new Date(c.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className="text-[var(--th-text-muted)] shrink-0">
+                      {c.duration_seconds ? formatDuration(c.duration_seconds) : '--'}
+                    </span>
+                    {c.summary && (
+                      <span className="text-[var(--th-text-secondary)] truncate">{c.summary}</span>
+                    )}
+                  </div>
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    c.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    c.status === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                    'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                  }`}>
+                    {c.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Translation panel */}
         <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-surface)] p-4">

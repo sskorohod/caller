@@ -53,6 +53,7 @@ const en: Record<string, string> = {
   'dialer.voice': 'Voice',
   'dialer.noTranscript': 'Transcript will appear here when the call starts...',
   'dialer.duration': 'Duration',
+  'dialer.callHistory': 'Call History',
 
   // Dashboard
   'dashboard.greeting': 'Good {{timeOfDay}}, {{name}}',
@@ -659,6 +660,7 @@ const ru: Record<string, string> = {
   'dialer.voice': 'Голос',
   'dialer.noTranscript': 'Транскрипт появится когда начнётся звонок...',
   'dialer.duration': 'Длительность',
+  'dialer.callHistory': 'История звонков',
 
   // Dashboard
   'dashboard.greeting': 'Добрый {{timeOfDay}}, {{name}}',
