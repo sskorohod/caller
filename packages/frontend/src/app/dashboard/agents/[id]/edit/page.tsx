@@ -625,8 +625,8 @@ export default function AgentEditPage() {
                 }}
                 className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                   form.voice_provider === p.value
-                    ? 'bg-[var(--th-primary)] text-white border-[var(--th-primary)]'
-                    : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-border)] hover:border-[var(--th-primary)]'
+                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white border-transparent shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                    : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary)]'
                 }`}
               >
                 {p.label}
@@ -676,8 +676,8 @@ export default function AgentEditPage() {
                 }}
                 className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                   form.llm_provider === p.value
-                    ? 'bg-[var(--th-primary)] text-white border-[var(--th-primary)]'
-                    : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-border)] hover:border-[var(--th-primary)]'
+                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white border-transparent shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                    : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary)]'
                 }`}
               >
                 {p.label}
@@ -1003,11 +1003,11 @@ export default function AgentEditPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--th-border)] bg-[var(--th-card)]">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow)]">
         <button
           type="button"
           onClick={() => router.push('/dashboard/agents')}
-          className="flex items-center gap-2 text-sm text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-colors"
+          className="flex items-center gap-2 text-sm text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-all font-medium"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -1018,7 +1018,7 @@ export default function AgentEditPage() {
           <button
             type="button"
             onClick={() => router.push('/dashboard/agents')}
-            className="px-4 py-2 text-sm rounded-lg border border-[var(--th-border)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] transition-all"
+            className="px-4 py-2 text-sm rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] transition-all font-medium"
           >
             {t('common.cancel')}
           </button>
@@ -1026,7 +1026,7 @@ export default function AgentEditPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm rounded-lg bg-[var(--th-primary)] text-white hover:bg-[var(--th-primary-hover)] disabled:opacity-50 transition-all font-medium"
+            className="px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-40 transition-all font-semibold"
           >
             {saving ? t('agents.saving') : t('common.save')}
           </button>
@@ -1036,15 +1036,15 @@ export default function AgentEditPage() {
       {/* Body: sidebar + content */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar — desktop */}
-        <nav className="hidden md:flex flex-col w-48 border-r border-[var(--th-border)] bg-[var(--th-card)] py-2 flex-shrink-0">
+        <nav className="hidden md:flex flex-col w-48 border-r border-[var(--th-card-border-subtle)] bg-[var(--th-card)] py-3 flex-shrink-0">
           {SECTIONS.map(s => (
             <button
               key={s}
               type="button"
               onClick={() => setSection(s)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all mx-2 rounded-lg ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all mx-2 rounded-xl ${
                 section === s
-                  ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] font-medium'
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
                   : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)]'
               }`}
             >
@@ -1055,7 +1055,7 @@ export default function AgentEditPage() {
         </nav>
 
         {/* Mobile tabs */}
-        <div className="md:hidden flex overflow-x-auto border-b border-[var(--th-border)] bg-[var(--th-card)] px-2 py-1 gap-1 flex-shrink-0">
+        <div className="md:hidden flex overflow-x-auto border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] px-2 py-1.5 gap-1 flex-shrink-0">
           {SECTIONS.map(s => (
             <button
               key={s}
@@ -1063,7 +1063,7 @@ export default function AgentEditPage() {
               onClick={() => setSection(s)}
               className={`flex items-center gap-1 px-3 py-2 text-xs rounded-lg whitespace-nowrap transition-all ${
                 section === s
-                  ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] font-medium'
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold'
                   : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)]'
               }`}
             >
@@ -1079,11 +1079,11 @@ export default function AgentEditPage() {
             {RENDER_MAP[section]()}
 
             {/* Delete zone — always visible at bottom */}
-            <div className="mt-12 pt-6 border-t border-[var(--th-border)]">
+            <div className="mt-12 pt-6 border-t border-[var(--th-card-border-subtle)]">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="px-4 py-2 text-sm rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950 transition-all"
+                className="px-4 py-2 text-sm rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-error-text)] hover:bg-[var(--th-error-bg)] transition-all font-medium"
               >
                 {t('agents.deleteAgent')}
               </button>
@@ -1094,15 +1094,20 @@ export default function AgentEditPage() {
 
       {/* Delete confirmation modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-[var(--th-card)] rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl border border-[var(--th-border)]">
-            <h3 className="text-lg font-semibold text-[var(--th-text)] mb-2">{t('agents.deleteAgent')}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--th-card)] rounded-2xl p-6 w-full max-w-sm mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)]">
+            <div className="w-11 h-11 bg-[var(--th-error-bg)] rounded-xl flex items-center justify-center mb-4">
+              <svg className="w-5 h-5 text-[var(--th-error-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-[var(--th-text)] mb-2">{t('agents.deleteAgent')}</h3>
             <p className="text-sm text-[var(--th-text-secondary)] mb-6">{t('agents.deleteConfirm')}</p>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 text-sm rounded-lg border border-[var(--th-border)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] transition-all"
+                className="px-4 py-2.5 text-sm rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] transition-all"
               >
                 {t('common.cancel')}
               </button>
@@ -1110,7 +1115,7 @@ export default function AgentEditPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-all font-medium"
+                className="px-4 py-2.5 text-sm rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white hover:shadow-[0_4px_16px_rgba(239,68,68,0.3)] disabled:opacity-40 transition-all font-semibold"
               >
                 {deleting ? t('common.loading') : t('common.delete')}
               </button>
