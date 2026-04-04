@@ -404,7 +404,7 @@ export default function CallsPage() {
       .finally(() => { setLoading(false); setLoadingMore(false); });
   }, [filter, advFilters]);
 
-  useEffect(() => { loadCalls(); }, []);
+  useEffect(() => { loadCalls(); }, [filter]);
 
   function applyFilters() {
     setOffset(0);
