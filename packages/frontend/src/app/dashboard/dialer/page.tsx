@@ -120,13 +120,15 @@ export default function DialerPage() {
           if (!data.isFinal && last.speaker === speaker && !last.isFinal) {
             return [...prev.slice(0, -1), { ...last, text: data.text, timestamp: data.timestamp }];
           }
-          // Merge consecutive isFinal from same speaker ONLY if:
-          // - no translation yet (phrase not complete)
-          // - within 2s gap
-          if (data.isFinal && last.speaker === speaker && last.isFinal && !last.translated) {
+          // Final replacing an interim from same speaker
+          if (data.isFinal && last.speaker === speaker && !last.isFinal) {
+            return [...prev.slice(0, -1), { speaker, text: data.text, timestamp: data.timestamp, isFinal: true }];
+          }
+          // Merge consecutive isFinal from same speaker within 2s gap
+          if (data.isFinal && last.speaker === speaker && last.isFinal) {
             const gap = new Date(data.timestamp).getTime() - new Date(last.timestamp).getTime();
             if (gap < 2000) {
-              return [...prev.slice(0, -1), { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp }];
+              return [...prev.slice(0, -1), { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp, translated: undefined }];
             }
           }
         }
@@ -147,14 +149,16 @@ export default function DialerPage() {
     const onTranslation = (data: { call_id: string; speaker: string; original: string; translated: string; timestamp: string }) => {
       if (data.call_id !== callId) return;
       setTranscript(prev => {
-        // Find last entry from same speaker — append translation
-        const idx = [...prev].reverse().findIndex(e => e.speaker === data.speaker && e.isFinal);
+        // Match by original text first, fallback to last untranslated isFinal from same speaker
+        const reversed = [...prev].reverse();
+        let idx = reversed.findIndex(e => e.speaker === data.speaker && e.isFinal && e.text === data.original);
+        if (idx < 0) {
+          idx = reversed.findIndex(e => e.speaker === data.speaker && e.isFinal && !e.translated);
+        }
         if (idx >= 0) {
           const realIdx = prev.length - 1 - idx;
-          const entry = prev[realIdx];
           const updated = [...prev];
-          const newTranslated = entry.translated ? entry.translated + ' ' + data.translated : data.translated;
-          updated[realIdx] = { ...entry, translated: newTranslated };
+          updated[realIdx] = { ...prev[realIdx], translated: data.translated };
           return updated;
         }
         return prev;

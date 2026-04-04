@@ -187,22 +187,27 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               session.calleeStt = await createSTTProvider(call!.workspace_id, sttProviderName);
               const io = getIo();
 
+              let calleeAccum = '';
               session.calleeStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
-                if (io) {
-                  io.to(`call:${callId}`).emit('call:transcript', {
-                    call_id: callId, speaker: 'caller', text: evt.text,
-                    timestamp: evt.timestamp, isFinal: evt.isFinal,
-                  });
-                }
                 if (evt.isFinal && evt.text.trim()) {
-                  session.transcript.push({ speaker: 'caller', text: evt.text.trim(), timestamp: evt.timestamp });
-                  // Feed to LiveTranslator for callee→operator translation
-                  const translator = activeTranslators.get(callId);
-                  if (translator?.translateText) translator.translateText(evt.text.trim());
+                  calleeAccum += (calleeAccum ? ' ' : '') + evt.text.trim();
                 }
               });
               session.calleeStt.on('utterance_end', () => {
+                const text = calleeAccum.trim();
+                calleeAccum = '';
+                if (!text) return;
+
+                if (io) {
+                  io.to(`call:${callId}`).emit('call:transcript', {
+                    call_id: callId, speaker: 'caller', text,
+                    timestamp: new Date().toISOString(), isFinal: true,
+                  });
+                }
+                session.transcript.push({ speaker: 'caller', text, timestamp: new Date().toISOString() });
+
                 const translator = activeTranslators.get(callId);
+                if (translator?.translateText) translator.translateText(text);
                 if (translator?.flushTranslation) translator.flushTranslation();
               });
               session.calleeStt.on('error', (err: Error) => logger.error({ err, callId }, 'Callee STT error'));
@@ -341,33 +346,33 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               }
               if (!tts) throw new Error('No TTS provider available');
 
-              // Wire operator STT
-              operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
-                if (io) {
-                  io.to(`call:${callId}`).emit('call:transcript', {
-                    call_id: callId, speaker: 'operator', text: evt.text,
-                    timestamp: evt.timestamp, isFinal: evt.isFinal,
-                  });
-                }
-                if (evt.isFinal && evt.text.trim()) {
-                  transcript.push({ speaker: 'operator', text: evt.text.trim(), timestamp: evt.timestamp });
-                }
-              });
-              operatorStt.on('error', (err: Error) => logger.error({ err, callId }, 'Voice translate operator STT error'));
-
-              const translationModel = process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini';
-
-              // On operator utterance end → translate → TTS → inject to callee
+              // Wire operator STT — accumulate finals, emit once on utterance_end
               let operatorAccum = '';
               operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
                 if (evt.isFinal && evt.text.trim()) {
                   operatorAccum += (operatorAccum ? ' ' : '') + evt.text.trim();
                 }
               });
+              operatorStt.on('error', (err: Error) => logger.error({ err, callId }, 'Voice translate operator STT error'));
+
+              const translationModel = process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini';
+
+              // On operator utterance end → emit transcript + translate → TTS → inject to callee
               operatorStt.on('utterance_end', () => {
                 const text = operatorAccum.trim();
                 operatorAccum = '';
-                if (!text || !translationLlm) return;
+                if (!text) return;
+
+                // Emit one transcript event per utterance
+                if (io) {
+                  io.to(`call:${callId}`).emit('call:transcript', {
+                    call_id: callId, speaker: 'operator', text,
+                    timestamp: new Date().toISOString(), isFinal: true,
+                  });
+                }
+                transcript.push({ speaker: 'operator', text, timestamp: new Date().toISOString() });
+
+                if (!translationLlm) return;
 
                 // Pipeline: translate → TTS → inject
                 (async () => {
@@ -489,18 +494,33 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               const aiSession = await callService.getAiSession(callId);
 
               const wireSTT = (stt: import('../../services/stt.service.js').STTProvider, speaker: 'caller' | 'operator') => {
+                let accum = '';
                 stt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                  if (evt.isFinal && evt.text.trim()) {
+                    accum += (accum ? ' ' : '') + evt.text.trim();
+                  }
+                });
+                stt.on('utterance_end', () => {
+                  const text = accum.trim();
+                  accum = '';
+                  if (!text) return;
+
                   if (io) {
                     io.to(`call:${callId}`).emit('call:transcript', {
                       call_id: callId,
                       speaker,
-                      text: evt.text,
-                      timestamp: evt.timestamp,
-                      isFinal: evt.isFinal,
+                      text,
+                      timestamp: new Date().toISOString(),
+                      isFinal: true,
                     });
                   }
-                  if (evt.isFinal && evt.text.trim()) {
-                    transcript.push({ speaker, text: evt.text.trim(), timestamp: evt.timestamp });
+                  transcript.push({ speaker, text, timestamp: new Date().toISOString() });
+
+                  // Feed callee text to LiveTranslator (if active)
+                  if (speaker === 'caller') {
+                    const translator = activeTranslators.get(callId);
+                    if (translator?.translateText) translator.translateText(text);
+                    if (translator?.flushTranslation) translator.flushTranslation();
                   }
                 });
                 stt.on('error', (err: Error) => {
@@ -522,19 +542,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
               wireSTT(calleeStt, 'caller');
               wireSTT(operatorStt, 'operator');
-
-              // Wire calleeStt transcripts directly to LiveTranslator (if active)
-              // This bypasses the duplicate STT in LiveTranslator for ~500ms speedup
-              calleeStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
-                if (evt.isFinal && evt.text.trim()) {
-                  const translator = activeTranslators.get(callId);
-                  if (translator?.translateText) translator.translateText(evt.text.trim());
-                }
-              });
-              calleeStt.on('utterance_end', () => {
-                const translator = activeTranslators.get(callId);
-                if (translator?.flushTranslation) translator.flushTranslation();
-              });
 
               // Resolve LLM for speech correction (prefer fast/cheap models)
               let correctionLlm: import('../../services/llm.service.js').LLMProvider | null = null;
