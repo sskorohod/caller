@@ -517,9 +517,10 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       stt_language: z.enum(['auto', 'en', 'ru', 'es', 'de', 'fr']).optional().default('en'),
       stt_provider: z.enum(['deepgram', 'openai']).optional().default('deepgram'),
       voice_translate: z.boolean().optional().default(false),
+      voice_translate_mode: z.enum(['sequential', 'translated']).optional(),
       tts_provider: z.enum(['elevenlabs', 'openai', 'xai']).optional(),
       tts_voice_id: z.string().optional(),
-      translate_to_language: z.string().optional(), // language operator's speech gets translated to (for callee)
+      translate_to_language: z.string().optional(),
     }).parse(request.body);
 
     const connection = await telephonyService.getOutboundConnection(request.auth.workspaceId);
@@ -535,6 +536,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
         stt_language: body.stt_language,
         stt_provider: body.stt_provider,
         voice_translate: body.voice_translate,
+        voice_translate_mode: body.voice_translate_mode,
         tts_provider: body.tts_provider,
         tts_voice_id: body.tts_voice_id,
         translate_to_language: body.translate_to_language,

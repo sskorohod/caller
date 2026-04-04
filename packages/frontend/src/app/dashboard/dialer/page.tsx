@@ -356,6 +356,7 @@ export default function DialerPage() {
           stt_language: sttLanguage,
           stt_provider: sttProvider,
           voice_translate: voiceTranslate,
+          voice_translate_mode: voiceTranslate && speakDirect ? 'sequential' : undefined,
           tts_provider: voiceTranslate ? ttsProvider : undefined,
           tts_voice_id: voiceTranslate && ttsVoice ? ttsVoice : undefined,
           translate_to_language: voiceTranslate ? ttsTargetLang : undefined,
@@ -690,33 +691,60 @@ export default function DialerPage() {
                         {pttMode ? 'Switch to always-on' : 'Switch to PTT'}
                       </button>
                     </div>
+                    {/* Sequential mode toggle */}
+                    <button
+                      onClick={() => {
+                        const next = !speakDirect;
+                        setSpeakDirect(next);
+                        if (socket && callId) socket.emit('call:translate:mode', { call_id: callId, sequential: next });
+                      }}
+                      className={`w-full py-1.5 rounded-lg font-medium text-[10px] transition-all ${
+                        speakDirect
+                          ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                          : 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                      }`}
+                    >
+                      {speakDirect ? '🎙 Voice + Translation' : '🔄 Translation only'}
+                    </button>
+
                     {pttMode ? (
                       <button
-                        onMouseDown={() => { setPttActive(true); if (activeCall) activeCall.mute(false); }}
-                        onMouseUp={() => { setPttActive(false); if (activeCall) activeCall.mute(true); }}
-                        onMouseLeave={() => { if (pttActive) { setPttActive(false); if (activeCall) activeCall.mute(true); } }}
-                        onTouchStart={() => { setPttActive(true); if (activeCall) activeCall.mute(false); }}
-                        onTouchEnd={() => { setPttActive(false); if (activeCall) activeCall.mute(true); }}
+                        onMouseDown={() => {
+                          setPttActive(true);
+                          if (activeCall) activeCall.mute(false);
+                          if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: true });
+                        }}
+                        onMouseUp={() => {
+                          setPttActive(false);
+                          if (activeCall) activeCall.mute(true);
+                          if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: false });
+                        }}
+                        onMouseLeave={() => {
+                          if (pttActive) {
+                            setPttActive(false);
+                            if (activeCall) activeCall.mute(true);
+                            if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: false });
+                          }
+                        }}
+                        onTouchStart={() => {
+                          setPttActive(true);
+                          if (activeCall) activeCall.mute(false);
+                          if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: true });
+                        }}
+                        onTouchEnd={() => {
+                          setPttActive(false);
+                          if (activeCall) activeCall.mute(true);
+                          if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: false });
+                        }}
                         className={`w-full py-4 rounded-xl font-bold text-sm transition-all select-none ${
                           pttActive
                             ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_0_24px_rgba(239,68,68,0.3)] scale-[1.02]'
                             : 'bg-purple-500/10 text-purple-300 border-2 border-dashed border-purple-500/30 hover:border-purple-500/50'
                         }`}
                       >
-                        {pttActive ? 'SPEAKING...' : 'HOLD TO SPEAK'}
+                        {pttActive ? (speakDirect ? '🎙 SPEAKING...' : '🔄 SPEAKING...') : 'HOLD TO SPEAK'}
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => setSpeakDirect(!speakDirect)}
-                        className={`w-full py-2 rounded-xl font-medium text-xs transition-all ${
-                          speakDirect
-                            ? 'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)] border border-[var(--th-warning-border)]'
-                            : 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-                        }`}
-                      >
-                        {speakDirect ? 'Speaking directly (no translation)' : 'Voice translating your speech'}
-                      </button>
-                    )}
+                    ) : null}
                   </div>
                 )}
 

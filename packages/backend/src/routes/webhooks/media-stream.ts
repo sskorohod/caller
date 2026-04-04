@@ -76,6 +76,8 @@ interface VoiceTranslateSession {
   sessionId?: string;
   tts: import('../../services/tts.service.js').TTSProvider;
   translationLlm: import('../../services/llm.service.js').LLMProvider | null;
+  pttActive: boolean;
+  sequentialMode: boolean;
 }
 const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 
@@ -551,6 +553,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 sessionId: aiSession?.id,
                 tts,
                 translationLlm,
+                pttActive: false,
+                sequentialMode: meta?.voice_translate_mode === 'sequential',
               });
 
               // Forward operator audio to STT
@@ -732,10 +736,20 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
           const track = msg.media.track as string | undefined; // 'inbound' | 'outbound' when both_tracks
 
-          // --- Voice translate mode: route operator audio to STT ---
+          // --- Voice translate mode: route operator audio ---
           const vtSession = activeVoiceTranslateSessions.get(callId);
           if (vtSession) {
-            // In <Connect><Stream> mode, all audio is operator's voice (no track separation)
+            // Sequential interpretation: forward operator's raw voice to callee when PTT is held
+            if (vtSession.sequentialMode && vtSession.pttActive
+              && vtSession.calleeSocket && vtSession.calleeStreamSid
+              && vtSession.calleeSocket.readyState === 1) {
+              vtSession.calleeSocket.send(JSON.stringify({
+                event: 'media',
+                streamSid: vtSession.calleeStreamSid,
+                media: { payload: msg.media.payload },
+              }));
+            }
+            // Always send to STT for transcription + translation
             vtSession.operatorStt.sendAudio(audioBuffer);
             return;
           }

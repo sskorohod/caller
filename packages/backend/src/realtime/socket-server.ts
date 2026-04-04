@@ -129,6 +129,24 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       }
     });
 
+    // PTT state for sequential interpretation mode
+    socket.on('call:ptt:state', async ({ call_id, active }: { call_id: string; active: boolean }) => {
+      try {
+        const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
+        const session = getActiveVoiceTranslateSessions().get(call_id);
+        if (session) session.pttActive = active;
+      } catch { /* ignore */ }
+    });
+
+    // Toggle sequential mode mid-call
+    socket.on('call:translate:mode', async ({ call_id, sequential }: { call_id: string; sequential: boolean }) => {
+      try {
+        const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
+        const session = getActiveVoiceTranslateSessions().get(call_id);
+        if (session) session.sequentialMode = sequential;
+      } catch { /* ignore */ }
+    });
+
     // Mission chat: join/leave mission room
     socket.on('mission:join', ({ mission_id }: { mission_id: string }) => {
       socket.join(`mission:${mission_id}`);
