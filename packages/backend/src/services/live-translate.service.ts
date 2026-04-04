@@ -59,6 +59,12 @@ export class LiveTranslator {
   private sourceLanguage: string;
   private skipStt: boolean = false;
 
+  // Speculative translation state
+  private lastInterimText: string = '';
+  private lastInterimTranslation: string = '';
+  private interimDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingInterimTranslation: boolean = false;
+
   constructor(options: LiveTranslatorOptions) {
     this.callId = options.callId;
     this.workspaceId = options.workspaceId;
@@ -165,6 +171,10 @@ export class LiveTranslator {
 
     this.llm = null;
     this.accumulatedText = '';
+    if (this.interimDebounceTimer) {
+      clearTimeout(this.interimDebounceTimer);
+      this.interimDebounceTimer = null;
+    }
 
     log.info({ callId: this.callId }, 'LiveTranslator stopped');
   }
@@ -174,16 +184,107 @@ export class LiveTranslator {
   /* ------------------------------------------------------------------ */
 
   private handleTranscript(event: TranscriptEvent): void {
-    if (!event.isFinal || !event.text.trim()) return;
+    const text = event.text.trim();
+    if (!text) return;
 
-    if (this.instant) {
-      // Instant mode: translate each final segment immediately
-      this.translateAndEmit(event.text.trim()).catch((err) => {
-        log.error({ err, callId: this.callId }, 'Instant translation error');
-      });
+    if (event.isFinal) {
+      // Cancel any pending interim translation
+      if (this.interimDebounceTimer) {
+        clearTimeout(this.interimDebounceTimer);
+        this.interimDebounceTimer = null;
+      }
+
+      if (this.instant) {
+        // Check if we already translated this via interim (speculative)
+        if (this.lastInterimTranslation && this.textSimilar(text, this.lastInterimText)) {
+          // Interim translation was close enough — skip re-translating
+          this.lastInterimText = '';
+          this.lastInterimTranslation = '';
+          return;
+        }
+        this.lastInterimText = '';
+        this.lastInterimTranslation = '';
+        this.translateAndEmit(text).catch((err) => {
+          log.error({ err, callId: this.callId }, 'Instant translation error');
+        });
+      } else {
+        this.accumulatedText += (this.accumulatedText ? ' ' : '') + text;
+      }
     } else {
-      this.accumulatedText += (this.accumulatedText ? ' ' : '') + event.text.trim();
+      // Interim result — speculative translation with debounce
+      // Only translate if we have enough words (>3) and not already translating
+      const wordCount = text.split(/\s+/).length;
+      if (wordCount >= 3 && !this.pendingInterimTranslation) {
+        if (this.interimDebounceTimer) clearTimeout(this.interimDebounceTimer);
+        this.interimDebounceTimer = setTimeout(() => {
+          this.speculativeTranslate(text);
+        }, 150); // 150ms debounce
+      }
     }
+  }
+
+  /** Check if two texts are similar enough to skip re-translation */
+  private textSimilar(a: string, b: string): boolean {
+    if (!a || !b) return false;
+    const al = a.toLowerCase().replace(/[^\w\s]/g, '');
+    const bl = b.toLowerCase().replace(/[^\w\s]/g, '');
+    if (al === bl) return true;
+    // Check if >80% of words overlap
+    const aWords = new Set(al.split(/\s+/));
+    const bWords = bl.split(/\s+/);
+    const overlap = bWords.filter(w => aWords.has(w)).length;
+    return overlap / Math.max(aWords.size, bWords.length) > 0.8;
+  }
+
+  /** Speculative translation from interim results — sends early translation */
+  private speculativeTranslate(interimText: string): void {
+    if (!this.running || !this.llm || this.pendingInterimTranslation) return;
+    this.pendingInterimTranslation = true;
+    this.lastInterimText = interimText;
+
+    this.translateAndEmitSpeculative(interimText).catch((err) => {
+      log.error({ err, callId: this.callId }, 'Speculative translation error');
+    }).finally(() => {
+      this.pendingInterimTranslation = false;
+    });
+  }
+
+  /** Translate and emit as speculative (early) result */
+  private async translateAndEmitSpeculative(original: string): Promise<void> {
+    if (!this.llm) return;
+
+    const model = MODEL_MAP[this.llmProviderName] ?? 'gpt-4o-mini';
+    const channel = `call:${this.callId}:translate`;
+
+    const translated = await this.runLLMFast(
+      [
+        {
+          role: 'system',
+          content: `Translate to ${this.targetLanguage}. Phone call fragment. Be natural and concise.\nOnly output the translation, nothing else.`,
+        },
+        { role: 'user', content: `"${original}"` },
+      ],
+      model,
+      150,
+    );
+
+    if (!translated) return;
+
+    this.lastInterimTranslation = translated;
+
+    const io = getIo();
+    if (!io) return;
+
+    const translationPayload: TranslationPayload = {
+      call_id: this.callId,
+      speaker: 'caller',
+      original,
+      translated,
+      timestamp: new Date().toISOString(),
+    };
+
+    io.to(channel).emit('call:translation', translationPayload);
+    log.debug({ callId: this.callId, original: original.slice(0, 40), speculative: true }, 'Speculative translation emitted');
   }
 
   private handleUtteranceEnd(): void {
