@@ -109,9 +109,31 @@ export default function DialerPage() {
   const [callHistory, setCallHistory] = useState<Array<{ id: string; created_at: string; duration_seconds: number | null; direction: string; status: string; summary?: string }>>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Recent numbers (from localStorage)
+  const [recentNumbers, setRecentNumbers] = useState<string[]>([]);
+  const [showRecent, setShowRecent] = useState(false);
+
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callStartRef = useRef<number>(0);
+
+  // Load recent numbers from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('caller_recent_numbers');
+      if (stored) setRecentNumbers(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, []);
+
+  const saveRecentNumber = useCallback((num: string) => {
+    const normalized = num.trim().replace(/[\s\-\(\)]/g, '');
+    if (!normalized) return;
+    setRecentNumbers(prev => {
+      const updated = [normalized, ...prev.filter(n => n !== normalized)].slice(0, 10);
+      localStorage.setItem('caller_recent_numbers', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   // Load workspace settings to determine region defaults
   useEffect(() => {
@@ -170,13 +192,6 @@ export default function DialerPage() {
           // Final replacing an interim from same speaker
           if (data.isFinal && last.speaker === speaker && !last.isFinal) {
             return [...prev.slice(0, -1), { speaker, text: data.text, timestamp: data.timestamp, isFinal: true }];
-          }
-          // Merge consecutive isFinal from same speaker within 2s gap
-          if (data.isFinal && last.speaker === speaker && last.isFinal) {
-            const gap = new Date(data.timestamp).getTime() - new Date(last.timestamp).getTime();
-            if (gap < 2000) {
-              return [...prev.slice(0, -1), { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp, translated: undefined }];
-            }
           }
         }
         return [...prev, { speaker, text: data.text, timestamp: data.timestamp, isFinal: data.isFinal }];
@@ -285,6 +300,7 @@ export default function DialerPage() {
     setTranscript([]);
     setDuration(0);
     setCallState('connecting');
+    saveRecentNumber(phoneNumber);
 
     // Normalize phone number to E.164 format
     let normalizedPhone = phoneNumber.trim().replace(/[\s\-\(\)]/g, '');
@@ -399,19 +415,35 @@ export default function DialerPage() {
         <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-surface)] p-6">
           <h2 className="text-lg font-semibold text-[var(--th-text)] mb-4">{t('dialer.title')}</h2>
 
-          {/* Phone number input */}
-          <div className="mb-4">
+          {/* Phone number input + recent numbers */}
+          <div className="mb-4 relative">
             <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
               {t('dialer.phonePlaceholder')}
             </label>
             <input
               type="tel"
               value={phoneNumber}
-              onChange={e => setPhoneNumber(e.target.value)}
+              onChange={e => { setPhoneNumber(e.target.value); setShowRecent(false); }}
+              onFocus={() => { if (!phoneNumber && recentNumbers.length > 0) setShowRecent(true); }}
+              onBlur={() => setTimeout(() => setShowRecent(false), 200)}
               placeholder={`${phonePlaceholder}...`}
               disabled={isInCall}
               className="w-full px-3 py-2.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-lg font-mono focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] disabled:opacity-50"
             />
+            {showRecent && recentNumbers.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 rounded-lg border border-[var(--th-border)] bg-[var(--th-card)] shadow-lg overflow-hidden">
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-[var(--th-text-muted)] uppercase">{t('dialer.recentNumbers')}</div>
+                {recentNumbers.map(num => (
+                  <button
+                    key={num}
+                    onMouseDown={() => { setPhoneNumber(num); setShowRecent(false); }}
+                    className="w-full text-left px-3 py-2 text-sm font-mono text-[var(--th-text)] hover:bg-[var(--th-surface)] transition-colors"
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Language selectors */}

@@ -17,6 +17,7 @@ interface Call {
   summary: string | null;
   sentiment: string | null;
   qa_score: number | null;
+  cost_total: string | null;
   agent_profile_id: string | null;
   created_at: string;
 }
@@ -288,8 +289,13 @@ function CallRow({ call, agentMap, onClick, expanded, onToggleExpand }: { call: 
         </span>
       </td>
 
-      {/* Duration */}
-      <td className="px-5 py-3.5 text-sm tabular-nums text-[var(--th-text-secondary)]">{fmtDuration(call.duration_seconds)}</td>
+      {/* Duration + Cost */}
+      <td className="px-5 py-3.5 text-sm tabular-nums text-[var(--th-text-secondary)]">
+        <div>{fmtDuration(call.duration_seconds)}</div>
+        {call.cost_total && Number(call.cost_total) > 0 && (
+          <div className="text-[10px] text-amber-600 dark:text-amber-400">${Number(call.cost_total).toFixed(4)}</div>
+        )}
+      </td>
 
       {/* Summary — expandable */}
       <td className="px-5 py-3.5 max-w-[260px]" onClick={e => { e.stopPropagation(); if (call.summary) onToggleExpand(); }}>

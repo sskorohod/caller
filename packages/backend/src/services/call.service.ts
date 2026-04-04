@@ -159,6 +159,7 @@ export async function listCalls(
       summary: aiCallSessions.summary,
       sentiment: aiCallSessions.sentiment,
       qa_score: aiCallSessions.qa_score,
+      cost_total: aiCallSessions.cost_total,
     })
     .from(calls)
     .leftJoin(aiCallSessions, eq(aiCallSessions.call_id, calls.id))
