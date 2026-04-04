@@ -145,7 +145,7 @@ export class XaiTTS extends EventEmitter {
 
   async synthesize(text: string): Promise<Buffer> {
     // Retry once on network errors (xAI sometimes drops connections)
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const res = await fetch('https://api.x.ai/v1/tts', {
           method: 'POST',
@@ -188,8 +188,9 @@ export class XaiTTS extends EventEmitter {
 
         return Buffer.concat(chunks);
       } catch (err) {
-        if (attempt === 0 && (err as Error).message?.includes('terminated')) {
-          await new Promise(r => setTimeout(r, 100)); // brief pause before retry
+        const msg = (err as Error).message ?? '';
+        if (attempt < 2 && (msg.includes('terminated') || msg.includes('closed') || msg.includes('ECONNRESET'))) {
+          await new Promise(r => setTimeout(r, 150)); // brief pause before retry
           continue;
         }
         throw err;

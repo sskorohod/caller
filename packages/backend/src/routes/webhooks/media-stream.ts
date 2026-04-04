@@ -424,10 +424,14 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       audio = await currentTts.synthesize(translated);
                     } catch (ttsErr) {
                       logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
-                      // Try fallback providers
+                      // Try fallback providers — match voice gender
+                      const xaiVoice = ttsVoiceId ?? 'ara';
+                      const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
+                      const openaiVoice = isMale ? 'onyx' : 'nova'; // onyx=male, nova=female
                       for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
                         try {
-                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fallback === 'openai' ? 'alloy' : undefined, calleeLang);
+                          const fallbackVoice = fallback === 'openai' ? openaiVoice : undefined;
+                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fallbackVoice, calleeLang);
                           audio = await fallbackTts.synthesize(translated);
                           actualTtsProvider = fallback;
                           logger.info({ callId, fallback }, 'TTS fallback succeeded');
