@@ -472,8 +472,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       audio = await currentTts.synthesize(translated);
                     } catch (ttsErr) {
                       logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
-                      // Try fallback providers (exclude xAI — returns 403)
-                      for (const fallback of (['openai', 'elevenlabs'] as const).filter(p => p !== actualTtsProvider)) {
+                      // Try fallback providers
+                      for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
                         try {
                           const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fallback === 'openai' ? 'alloy' : undefined);
                           audio = await fallbackTts.synthesize(translated);
@@ -487,7 +487,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       logger.error({ callId }, 'All TTS providers failed');
                       return;
                     }
-                    if (actualTtsProvider !== 'elevenlabs') {
+                    // ElevenLabs and xAI (native mulaw) output mulaw directly; OpenAI outputs PCM
+                    const skipConversion = actualTtsProvider === 'elevenlabs' ||
+                      (currentTts as any).nativemulaw === true;
+                    if (!skipConversion) {
                       audio = pcmToMulaw(audio);
                     }
 

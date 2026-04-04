@@ -106,11 +106,14 @@ export class OpenAITTS extends EventEmitter {
 
 /**
  * xAI Grok TTS.
- * Uses OpenAI-compatible API at api.x.ai with Grok voices: ara, rex, sal, eve, leo.
+ * Uses xAI native TTS API at api.x.ai/v1/tts with Grok voices: ara, rex, sal, eve, leo.
+ * Outputs mulaw 8kHz directly for telephony — no PCM conversion needed.
  */
 export class XaiTTS extends EventEmitter {
   private apiKey: string;
   private voice: string;
+  /** When true, output is already mulaw 8kHz (no conversion needed) */
+  public readonly nativemulaw = true;
 
   constructor(apiKey: string, voice = 'ara') {
     super();
@@ -119,23 +122,24 @@ export class XaiTTS extends EventEmitter {
   }
 
   async synthesize(text: string): Promise<Buffer> {
-    const res = await fetch('https://api.x.ai/v1/audio/speech', {
+    const res = await fetch('https://api.x.ai/v1/tts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: 'grok-3-fast',
-        input: text,
-        voice: this.voice,
-        response_format: 'pcm',
-        speed: 1.0,
+        text,
+        voice_id: this.voice,
+        language: 'auto',
+        output_format: 'mulaw',
+        sample_rate: 8000,
       }),
     });
 
     if (!res.ok) {
-      throw new Error(`xAI TTS error: ${res.status} ${res.statusText}`);
+      const body = await res.text().catch(() => '');
+      throw new Error(`xAI TTS error: ${res.status} ${res.statusText} ${body.slice(0, 200)}`);
     }
 
     const arrayBuf = await res.arrayBuffer();
