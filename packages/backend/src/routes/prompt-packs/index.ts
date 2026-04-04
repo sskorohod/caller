@@ -8,6 +8,7 @@ const createPromptPackSchema = z.object({
   description: z.string().optional(),
   content: z.string().min(1),
   category: z.string().optional(),
+  is_active: z.boolean().optional(),
 });
 
 const promptPackRoutes: FastifyPluginAsync = async (app) => {

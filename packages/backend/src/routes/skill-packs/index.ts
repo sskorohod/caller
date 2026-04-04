@@ -14,6 +14,7 @@ const createSkillPackSchema = z.object({
   escalation_conditions: z.array(z.unknown()).optional(),
   completion_criteria: z.record(z.unknown()).optional(),
   conversation_rules: z.string().optional(),
+  is_active: z.boolean().optional(),
 });
 
 const skillPackRoutes: FastifyPluginAsync = async (app) => {
