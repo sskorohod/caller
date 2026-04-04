@@ -95,8 +95,8 @@ export default function DialerPage() {
   const [error, setError] = useState<string | null>(null);
   const [voiceTranslate, setVoiceTranslate] = useState(false);
   const [speakDirect, setSpeakDirect] = useState(false); // temporary bypass in voice translate mode
-  const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'openai' | 'xai'>('openai');
-  const [ttsVoice, setTtsVoice] = useState('alloy'); // selected TTS voice
+  const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'openai' | 'xai'>('xai');
+  const [ttsVoice, setTtsVoice] = useState('ara');
   const [ttsTargetLang, setTtsTargetLang] = useState('en'); // language to translate operator's speech INTO
   const [pttMode, setPttMode] = useState(true); // push-to-talk vs always-on
   const [pttActive, setPttActive] = useState(false); // currently holding PTT button
