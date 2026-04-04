@@ -310,6 +310,15 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   await callService.updateCallStatus(callId, 'completed', {
                     duration_seconds: durationSecs,
                   } as any);
+
+                  // Queue post-call processing (summary generation)
+                  if (session.transcript.length > 0) {
+                    queuePostCallProcessing({
+                      callId,
+                      workspaceId: session.workspaceId,
+                      sessionId: vtSessionId,
+                    });
+                  }
                 }
               } catch (err) {
                 logger.error({ err, callId }, 'Failed to save voice translate costs');
@@ -459,6 +468,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       });
                     }
 
+                    // Save to transcript for persistence
+                    transcript.push({ speaker: 'operator', text: textToTranslate, timestamp: new Date().toISOString() });
+
                     // TTS → generate audio with runtime fallback (use session.tts for mid-call changes)
                     const vtSession = activeVoiceTranslateSessions.get(callId);
                     const currentTts = vtSession?.tts ?? tts;
@@ -567,7 +579,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     timestamp: new Date().toISOString(), isFinal: true,
                   });
                 }
-                transcript.push({ speaker: 'operator', text, timestamp: new Date().toISOString() });
+                // transcript.push moved to per-segment translation handler above
               });
 
               operatorStt.connect({ language: operatorLang === 'auto' ? undefined : operatorLang });
