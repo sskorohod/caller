@@ -1,7 +1,7 @@
 import { eq, and, desc, asc, sql, count, gte, lte, inArray, getTableColumns } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import { db } from '../config/db.js';
-import { calls, aiCallSessions, callEvents, callShareTokens } from '../db/schema.js';
+import { calls, aiCallSessions, callEvents, callShareTokens, missions, missionMessages } from '../db/schema.js';
 import { NotFoundError } from '../lib/errors.js';
 import type { Call, AiCallSession, CallEvent, ConversationOwner, CallStatus } from '../models/types.js';
 
@@ -66,9 +66,16 @@ export async function getCall(workspaceId: string, callId: string): Promise<Call
 }
 
 export async function deleteCall(workspaceId: string, callId: string): Promise<void> {
-  // Delete related records first
+  // Delete related records first (order matters for FK constraints)
+  // Mission messages → missions → call events → ai sessions → share tokens → call
+  const missionRows = await db.select({ id: missions.id }).from(missions).where(eq(missions.call_id, callId));
+  for (const m of missionRows) {
+    await db.delete(missionMessages).where(eq(missionMessages.mission_id, m.id));
+  }
+  await db.delete(missions).where(eq(missions.call_id, callId));
   await db.delete(callEvents).where(eq(callEvents.call_id, callId));
   await db.delete(aiCallSessions).where(eq(aiCallSessions.call_id, callId));
+  await db.delete(callShareTokens).where(eq(callShareTokens.call_id, callId));
   await db.delete(calls).where(
     and(eq(calls.id, callId), eq(calls.workspace_id, workspaceId)),
   );
