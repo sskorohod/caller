@@ -237,7 +237,7 @@ function FilterTabs({ value, onChange, t }: { value: string; onChange: (v: strin
 
 // ─── Call Row (card-style) ───────────────────────────────────────────────────
 
-function CallRow({ call, agentMap, onClick, expanded, onToggleExpand }: { call: Call; agentMap: Map<string, string>; onClick: () => void; expanded: boolean; onToggleExpand: () => void }) {
+function CallRow({ call, agentMap, onClick, expanded, onToggleExpand, checked, onCheck }: { call: Call; agentMap: Map<string, string>; onClick: () => void; expanded: boolean; onToggleExpand: () => void; checked: boolean; onCheck: (checked: boolean) => void }) {
   const phone = call.direction === 'outbound' ? call.to_number : call.from_number;
   const agentName = call.agent_profile_id ? agentMap.get(call.agent_profile_id) : null;
 
@@ -246,6 +246,15 @@ function CallRow({ call, agentMap, onClick, expanded, onToggleExpand }: { call: 
       className="hover:bg-[var(--th-surface)] transition-colors cursor-pointer group"
       onClick={onClick}
     >
+      {/* Checkbox */}
+      <td className="pl-4 pr-1 py-3.5 w-8" onClick={e => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={e => onCheck(e.target.checked)}
+          className="w-3.5 h-3.5 rounded border-[var(--th-border)] accent-[var(--th-primary)] cursor-pointer"
+        />
+      </td>
       {/* Phone + Agent */}
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-3">
@@ -335,6 +344,7 @@ export default function CallsPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState<Call | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<CallDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
@@ -422,6 +432,19 @@ export default function CallsPage() {
 
   const closeDetail = useCallback(() => { setSelected(null); setDetail(null); }, []);
 
+  const handleBulkDelete = useCallback(async () => {
+    if (checkedIds.size === 0) return;
+    if (!confirm(t('calls.bulkDeleteConfirm', { count: String(checkedIds.size) }))) return;
+    try {
+      await api.post('/calls/bulk-delete', { ids: Array.from(checkedIds) });
+      toast.success(t('calls.bulkDeleted', { count: String(checkedIds.size) }));
+      setCheckedIds(new Set());
+      loadCalls();
+    } catch {
+      toast.error(t('calls.bulkDeleteError'));
+    }
+  }, [checkedIds]);
+
   const filtered = calls.filter(c => {
     if (!search) return true;
     return c.to_number?.includes(search) || c.from_number?.includes(search);
@@ -476,6 +499,17 @@ export default function CallsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {checkedIds.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-2 rounded-lg border border-red-300 dark:border-red-700 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+              {t('calls.deleteSelected', { count: String(checkedIds.size) })}
+            </button>
+          )}
           <button
             onClick={handleExportCSV}
             disabled={exporting}
@@ -646,6 +680,17 @@ export default function CallsPage() {
             <table className="w-full min-w-[900px]">
               <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-border)]">
                 <tr>
+                  <th className="pl-4 pr-1 py-2.5 w-8">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && checkedIds.size === filtered.length}
+                      onChange={e => {
+                        if (e.target.checked) setCheckedIds(new Set(filtered.map(c => c.id)));
+                        else setCheckedIds(new Set());
+                      }}
+                      className="w-3.5 h-3.5 rounded border-[var(--th-border)] accent-[var(--th-primary)] cursor-pointer"
+                    />
+                  </th>
                   {[t('calls.phone'), t('calls.direction'), t('calls.status'), t('calls.duration'), t('calls.summary'), t('calls.date'), ''].map(h => (
                     <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{h}</th>
                   ))}
@@ -658,6 +703,12 @@ export default function CallsPage() {
                     onToggleExpand={() => setExpandedSummaries(prev => {
                       const next = new Set(prev);
                       next.has(call.id) ? next.delete(call.id) : next.add(call.id);
+                      return next;
+                    })}
+                    checked={checkedIds.has(call.id)}
+                    onCheck={v => setCheckedIds(prev => {
+                      const next = new Set(prev);
+                      v ? next.add(call.id) : next.delete(call.id);
                       return next;
                     })} />
                 ))}

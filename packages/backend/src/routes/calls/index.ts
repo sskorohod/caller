@@ -655,6 +655,21 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     await callService.deleteCall(request.auth.workspaceId, id);
     return { deleted: true };
   });
+
+  // POST /api/calls/bulk-delete
+  app.post('/bulk-delete', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { ids } = z.object({ ids: z.array(z.string().uuid()).min(1).max(100) }).parse(request.body);
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        await callService.deleteCall(request.auth.workspaceId, id);
+        deleted++;
+      } catch { /* skip not found */ }
+    }
+    return { deleted };
+  });
 };
 
 export default callRoutes;

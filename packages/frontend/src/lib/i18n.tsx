@@ -265,6 +265,10 @@ const en: Record<string, string> = {
   'calls.to': 'To',
   'calls.deleteConfirm': 'Delete this call?',
   'calls.deleted': 'Call deleted',
+  'calls.bulkDeleteConfirm': 'Delete {{count}} selected calls?',
+  'calls.bulkDeleted': '{{count}} calls deleted',
+  'calls.bulkDeleteError': 'Failed to delete calls',
+  'calls.deleteSelected': 'Delete ({{count}})',
   'calls.agentRole': 'Agent',
   'calls.callerRole': 'Caller',
 
@@ -873,6 +877,10 @@ const ru: Record<string, string> = {
   'calls.to': 'Кому',
   'calls.deleteConfirm': 'Удалить этот звонок?',
   'calls.deleted': 'Звонок удалён',
+  'calls.bulkDeleteConfirm': 'Удалить {{count}} выбранных звонков?',
+  'calls.bulkDeleted': '{{count}} звонков удалено',
+  'calls.bulkDeleteError': 'Не удалось удалить звонки',
+  'calls.deleteSelected': 'Удалить ({{count}})',
   'calls.agentRole': 'Агент',
   'calls.callerRole': 'Звонящий',
 
