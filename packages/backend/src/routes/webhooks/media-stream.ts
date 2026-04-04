@@ -399,7 +399,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 : (['elevenlabs', 'openai', 'xai'] as const);
               for (const ttsProv of ttsOrder) {
                 try {
-                  tts = await createTTSProvider(call.workspace_id, ttsProv, ttsVoiceId ?? (ttsProv === 'openai' ? 'alloy' : undefined));
+                  tts = await createTTSProvider(call.workspace_id, ttsProv, ttsVoiceId ?? (ttsProv === 'openai' ? 'alloy' : undefined), calleeLang);
                   ttsProviderUsed = ttsProv;
                   break;
                 } catch { /* try next */ }
@@ -461,7 +461,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       // Try fallback providers
                       for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
                         try {
-                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fallback === 'openai' ? 'alloy' : undefined);
+                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fallback === 'openai' ? 'alloy' : undefined, calleeLang);
                           audio = await fallbackTts.synthesize(translated);
                           actualTtsProvider = fallback;
                           logger.info({ callId, fallback }, 'TTS fallback succeeded');

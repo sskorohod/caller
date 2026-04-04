@@ -112,13 +112,15 @@ export class OpenAITTS extends EventEmitter {
 export class XaiTTS extends EventEmitter {
   private apiKey: string;
   private voice: string;
+  private language: string;
   /** When true, output is already mulaw 8kHz (no conversion needed) */
   public readonly nativemulaw = true;
 
-  constructor(apiKey: string, voice = 'ara') {
+  constructor(apiKey: string, voice = 'ara', language = 'en') {
     super();
     this.apiKey = apiKey;
     this.voice = voice.toLowerCase();
+    this.language = language;
   }
 
   async synthesize(text: string): Promise<Buffer> {
@@ -131,9 +133,8 @@ export class XaiTTS extends EventEmitter {
       body: JSON.stringify({
         text,
         voice_id: this.voice,
-        language: 'auto',
-        output_format: 'mulaw',
-        sample_rate: 8000,
+        language: this.language,
+        output_format: { codec: 'mulaw', sample_rate: 8000 },
       }),
     });
 
@@ -155,6 +156,7 @@ export async function createTTSProvider(
   workspaceId: string,
   provider: 'elevenlabs' | 'openai' | 'xai',
   voiceId?: string,
+  language?: string,
 ): Promise<TTSProvider> {
   const [row] = await db
     .select({ credential_data: providerCredentials.credential_data })
@@ -174,7 +176,7 @@ export async function createTTSProvider(
     return new ElevenLabsTTS(creds.api_key, voiceId ?? 'EXAVITQu4vr4xnSDxMaL');
   }
   if (provider === 'xai') {
-    return new XaiTTS(creds.api_key, voiceId ?? 'ara');
+    return new XaiTTS(creds.api_key, voiceId ?? 'ara', language ?? 'en');
   }
   return new OpenAITTS(creds.api_key, voiceId ?? 'alloy');
 }

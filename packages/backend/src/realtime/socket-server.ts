@@ -110,7 +110,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     });
 
     // Change TTS provider/voice mid-call
-    socket.on('call:tts:change', async ({ call_id, provider, voice }: { call_id: string; provider: string; voice?: string }) => {
+    socket.on('call:tts:change', async ({ call_id, provider, voice, language }: { call_id: string; provider: string; voice?: string; language?: string }) => {
       try {
         const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
         const session = getActiveVoiceTranslateSessions().get(call_id);
@@ -120,6 +120,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
           session.workspaceId,
           provider as 'elevenlabs' | 'openai' | 'xai',
           voice || (provider === 'openai' ? 'alloy' : undefined),
+          language,
         );
         session.tts = newTts;
         console.log(`[Socket.IO] TTS changed: call=${call_id} provider=${provider} voice=${voice}`);

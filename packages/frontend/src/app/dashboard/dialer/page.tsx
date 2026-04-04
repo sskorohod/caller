@@ -580,7 +580,7 @@ export default function DialerPage() {
                         const p = e.target.value as 'openai' | 'elevenlabs' | 'xai';
                         const newVoice = TTS_VOICES[p]?.[0]?.value ?? '';
                         setTtsProvider(p); setTtsVoice(newVoice);
-                        if (callId && socket) socket.emit('call:tts:change', { call_id: callId, provider: p, voice: newVoice });
+                        if (callId && socket) socket.emit('call:tts:change', { call_id: callId, provider: p, voice: newVoice, language: ttsTargetLang });
                       }}
                       className={selectSmCls}
                     >
@@ -596,7 +596,7 @@ export default function DialerPage() {
                         value={ttsVoice}
                         onChange={e => {
                           setTtsVoice(e.target.value);
-                          if (callId && socket) socket.emit('call:tts:change', { call_id: callId, provider: ttsProvider, voice: e.target.value });
+                          if (callId && socket) socket.emit('call:tts:change', { call_id: callId, provider: ttsProvider, voice: e.target.value, language: ttsTargetLang });
                         }}
                         className={selectSmCls}
                       >
