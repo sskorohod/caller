@@ -20,12 +20,12 @@ export function SystemHealthStrip({ agents, connections, t }: SystemHealthStripP
   ];
 
   return (
-    <div className="flex items-center gap-4 flex-wrap">
+    <div className="flex items-center gap-3 flex-wrap">
       {items.map(item => (
-        <div key={item.label} className="flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.ok ? 'bg-[var(--th-success-icon)]' : 'bg-[var(--th-text-muted)]'}`} />
+        <div key={item.label} className="flex items-center gap-1.5 bg-[var(--th-surface)] rounded-lg px-2.5 py-1">
+          <span className={`w-[6px] h-[6px] rounded-full shrink-0 ${item.ok ? 'bg-[var(--th-success-icon)] shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-[var(--th-text-muted)]'}`} />
           <span className="text-[11px] text-[var(--th-text-muted)]">{item.label}</span>
-          <span className="text-[11px] font-semibold text-[var(--th-text)]">{item.value}</span>
+          <span className="text-[11px] font-bold text-[var(--th-text)]">{item.value}</span>
         </div>
       ))}
     </div>

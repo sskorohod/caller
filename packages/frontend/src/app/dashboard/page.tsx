@@ -66,28 +66,32 @@ export default function OverviewPage() {
           value={String(s?.total_calls ?? 0)}
           sub={`${s?.today_calls ?? 0} ${t('dashboard.today')}`}
           icon={<IconPhone />}
-          accent="var(--th-primary)"
+          gradient="var(--th-gradient-indigo)"
+          accentColor="#6366f1"
         />
         <KpiCard
           label={t('dashboard.activeNow')}
           value={String(s?.active_calls ?? 0)}
           sub={t('dashboard.liveRightNow')}
           icon={<IconSignal />}
-          accent="var(--th-success-icon)"
+          gradient="var(--th-gradient-emerald)"
+          accentColor="#22c55e"
         />
         <KpiCard
           label={t('dashboard.successRate')}
           value={`${s?.success_rate ?? 0}%`}
           sub={t('dashboard.last30Days')}
           icon={<IconCheck />}
-          accent="var(--th-info-text)"
+          gradient="var(--th-gradient-blue)"
+          accentColor="#3b82f6"
         />
         <KpiCard
           label={t('dashboard.costTotal')}
           value={fmtCost(s?.cost_total_30d ?? 0)}
           sub={t('dashboard.last30Days')}
           icon={<IconDollar />}
-          accent="var(--th-warning-icon)"
+          gradient="var(--th-gradient-amber)"
+          accentColor="#eab308"
         />
       </div>
 
@@ -96,7 +100,7 @@ export default function OverviewPage() {
         <div className="lg:col-span-7">
           <WeeklyChart dailyCalls={s?.daily_calls ?? []} t={t} />
         </div>
-        <div className="lg:col-span-5 bg-[var(--th-card)] rounded-xl border border-[var(--th-border)] shadow-[0_2px_8px_var(--th-shadow)] divide-y divide-[var(--th-border-light)]">
+        <div className="lg:col-span-5 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] divide-y divide-[var(--th-border-light)]">
           <StatusDonut data={s?.status_breakdown ?? {}} t={t} />
           <CostBreakdown
             total={s?.cost_total_30d ?? 0}

@@ -23,27 +23,35 @@ export function StatusDonut({ data, t }: StatusDonutProps) {
 
   return (
     <div className="p-4">
-      <h3 className="text-xs font-semibold text-[var(--th-text)] mb-3">{t('dashboard.callStatus')}</h3>
+      <h3 className="text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-3">{t('dashboard.callStatus')}</h3>
       <div className="flex items-center gap-4">
-        <div className="relative w-16 h-16 shrink-0">
+        {/* Donut with glow */}
+        <div className="relative w-[68px] h-[68px] shrink-0">
           <div
-            className="w-full h-full rounded-full"
+            className="w-full h-full rounded-full shadow-[0_0_16px_rgba(99,102,241,0.1)]"
             style={{ background: `conic-gradient(${gradParts.join(', ')})` }}
           />
-          <div className="absolute inset-[5px] rounded-full bg-[var(--th-card)] flex items-center justify-center">
+          <div className="absolute inset-[6px] rounded-full bg-[var(--th-card)] flex items-center justify-center">
             <span className="text-sm font-bold text-[var(--th-text)]">{total}</span>
           </div>
         </div>
-        <div className="flex-1 space-y-1">
-          {entries.slice(0, 4).map(([status, count]) => (
-            <div key={status} className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: DONUT_COLORS[status] ?? 'var(--th-text-muted)' }} />
-                <span className="text-[11px] text-[var(--th-text-secondary)] capitalize">{STATUS_LABELS[status] ?? status}</span>
+        {/* Legend */}
+        <div className="flex-1 space-y-1.5">
+          {entries.slice(0, 4).map(([status, count]) => {
+            const pct = Math.round((count / total) * 100);
+            return (
+              <div key={status} className="flex items-center justify-between group">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full shrink-0 ring-2 ring-[var(--th-card)]" style={{ backgroundColor: DONUT_COLORS[status] ?? 'var(--th-text-muted)' }} />
+                  <span className="text-[11px] text-[var(--th-text-secondary)] capitalize">{STATUS_LABELS[status] ?? status}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-[var(--th-text)]">{count}</span>
+                  <span className="text-[10px] text-[var(--th-text-muted)]">{pct}%</span>
+                </div>
               </div>
-              <span className="text-[11px] font-semibold text-[var(--th-text)]">{count}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
