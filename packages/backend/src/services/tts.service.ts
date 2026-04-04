@@ -124,29 +124,41 @@ export class XaiTTS extends EventEmitter {
   }
 
   async synthesize(text: string): Promise<Buffer> {
-    const res = await fetch('https://api.x.ai/v1/tts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        text,
-        voice_id: this.voice,
-        language: this.language,
-        output_format: { codec: 'mulaw', sample_rate: 8000 },
-      }),
-    });
+    // Retry once on network errors (xAI sometimes drops connections)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('https://api.x.ai/v1/tts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            text,
+            voice_id: this.voice,
+            language: this.language,
+            output_format: { codec: 'mulaw', sample_rate: 8000 },
+          }),
+        });
 
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`xAI TTS error: ${res.status} ${res.statusText} ${body.slice(0, 200)}`);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          throw new Error(`xAI TTS error: ${res.status} ${res.statusText} ${body.slice(0, 200)}`);
+        }
+
+        const arrayBuf = await res.arrayBuffer();
+        const audio = Buffer.from(arrayBuf);
+        this.emit('chunk', { audio, index: 0 } as TTSChunk);
+        return audio;
+      } catch (err) {
+        if (attempt === 0 && (err as Error).message?.includes('terminated')) {
+          await new Promise(r => setTimeout(r, 100)); // brief pause before retry
+          continue;
+        }
+        throw err;
+      }
     }
-
-    const arrayBuf = await res.arrayBuffer();
-    const audio = Buffer.from(arrayBuf);
-    this.emit('chunk', { audio, index: 0 } as TTSChunk);
-    return audio;
+    throw new Error('xAI TTS: max retries exceeded');
   }
 }
 
