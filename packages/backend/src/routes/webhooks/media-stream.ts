@@ -498,9 +498,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       logger.error({ callId }, 'All TTS providers failed');
                       return;
                     }
-                    // ElevenLabs and xAI (native mulaw) output mulaw directly; OpenAI outputs PCM
-                    const skipConversion = actualTtsProvider === 'elevenlabs' ||
-                      (currentTts as any).nativemulaw === true;
+                    // ElevenLabs and xAI output mulaw directly; OpenAI outputs PCM needing conversion
+                    const skipConversion = actualTtsProvider === 'elevenlabs' || actualTtsProvider === 'xai';
                     if (!skipConversion) {
                       audio = pcmToMulaw(audio);
                     }
