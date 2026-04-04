@@ -548,7 +548,7 @@ export default function CallsPage() {
       {/* Filter Tabs + Search */}
       <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
         <div className="px-5 py-3 border-b border-[var(--th-card-border-subtle)] flex flex-wrap items-center gap-3">
-          <FilterTabs value={filter} onChange={v => { setFilter(v); setTimeout(() => applyFilters(), 0); }} t={t} />
+          <FilterTabs value={filter} onChange={v => { setFilter(v); setOffset(0); }} t={t} />
 
           <div className="ml-auto flex items-center gap-2">
             {/* Search */}
