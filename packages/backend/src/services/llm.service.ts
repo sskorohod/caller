@@ -141,15 +141,20 @@ export type LLMProvider = AnthropicLLM | OpenAILLM;
 
 export async function createLLMProvider(
   workspaceId: string,
-  provider: 'anthropic' | 'openai' | 'xai',
+  provider: 'anthropic' | 'openai' | 'openai_proxy' | 'xai',
 ): Promise<LLMProvider> {
-  // OAuth proxy mode — uses ChatGPT Plus/Pro subscription via openai-oauth proxy
+  // OpenAI Proxy mode — uses ChatGPT Plus/Pro subscription via openai-oauth proxy
   const oauthProxyUrl = process.env.OPENAI_OAUTH_PROXY_URL;
+  if (provider === 'openai_proxy' && oauthProxyUrl) {
+    return new OpenAILLM('dummy', oauthProxyUrl);
+  }
   if (provider === 'openai' && oauthProxyUrl) {
     return new OpenAILLM('dummy', oauthProxyUrl);
   }
+  // Map openai_proxy back to openai for credential lookup (fallback if no proxy URL)
+  const resolvedProvider = provider === 'openai_proxy' ? 'openai' : provider;
 
-  const providerKey = provider === 'xai' ? 'xai' : provider;
+  const providerKey = resolvedProvider === 'xai' ? 'xai' : resolvedProvider;
 
   const [row] = await db
     .select({ credential_data: providerCredentials.credential_data })
@@ -161,15 +166,15 @@ export async function createLLMProvider(
       ),
     );
 
-  if (!row) throw new Error(`${provider} LLM credentials not configured`);
+  if (!row) throw new Error(`${resolvedProvider} LLM credentials not configured`);
 
   const creds = JSON.parse(decrypt(row.credential_data));
 
-  if (provider === 'anthropic') {
+  if (resolvedProvider === 'anthropic') {
     return new AnthropicLLM(creds.api_key);
   }
 
-  if (provider === 'xai') {
+  if (resolvedProvider === 'xai') {
     // xAI uses OpenAI-compatible API at api.x.ai
     return new OpenAILLM(creds.api_key, 'https://api.x.ai/v1');
   }

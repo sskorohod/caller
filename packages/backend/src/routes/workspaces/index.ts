@@ -39,7 +39,11 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/workspaces/current
   app.get('/current', async (request) => {
-    return workspaceService.getWorkspace(request.auth.workspaceId);
+    const workspace = await workspaceService.getWorkspace(request.auth.workspaceId);
+    return {
+      ...workspace,
+      openai_proxy_available: !!process.env.OPENAI_OAUTH_PROXY_URL,
+    };
   });
 
   // PATCH /api/workspaces/current

@@ -165,6 +165,14 @@ const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
     { value: 'gpt-4o', label: 'GPT-4o' },
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
   ],
+  openai_proxy: [
+    { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
+    { value: 'gpt-5.4', label: 'GPT-5.4' },
+    { value: 'gpt-4.1', label: 'GPT-4.1' },
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+    { value: 'o3', label: 'o3 (reasoning)' },
+    { value: 'o4-mini', label: 'o4-mini (reasoning, fast)' },
+  ],
   xai: [
     { value: 'grok-3', label: 'Grok 3' },
     { value: 'grok-3-mini', label: 'Grok 3 Mini' },
@@ -175,6 +183,7 @@ const LLM_MODELS: Record<string, { value: string; label: string }[]> = {
 const DEFAULT_MODEL: Record<string, string> = {
   anthropic: 'claude-sonnet-4-5-20250514',
   openai: 'gpt-4.1-mini',
+  openai_proxy: 'gpt-5.4-mini',
   xai: 'grok-3',
 };
 
@@ -184,9 +193,10 @@ const VOICE_PROVIDERS = [
   { value: 'xai', label: 'xAI Grok' },
 ];
 
-const LLM_PROVIDERS = [
+const LLM_PROVIDERS_BASE = [
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
+  { value: 'openai_proxy', label: 'OpenAI Proxy' },
   { value: 'xai', label: 'xAI' },
 ];
 
@@ -236,6 +246,9 @@ export default function AgentEditPage() {
   const [skillSuggestions, setSkillSuggestions] = useState<SkillSuggestion[] | null>(null);
   const [suggestingSkills, setSuggestingSkills] = useState(false);
 
+  // OpenAI Proxy availability
+  const [proxyAvailable, setProxyAvailable] = useState(false);
+
   // Knowledge bases
   const [allKBs, setAllKBs] = useState<KnowledgeBaseItem[]>([]);
   const [selectedKBs, setSelectedKBs] = useState<Set<string>>(new Set());
@@ -257,12 +270,14 @@ export default function AgentEditPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [agent, skills, prompts, kbs] = await Promise.all([
+        const [agent, skills, prompts, kbs, ws] = await Promise.all([
           api.get<AgentDetail>(`/agents/${id}`),
           api.get<{ skill_packs: SkillPack[] }>('/skill-packs').then(r => r.skill_packs ?? []).catch(() => [] as SkillPack[]),
           api.get<{ prompt_packs: PromptPack[] }>('/prompt-packs').then(r => r.prompt_packs ?? []).catch(() => [] as PromptPack[]),
           api.get<{ knowledge_bases: KnowledgeBaseItem[] }>('/knowledge').then(r => r.knowledge_bases ?? []).catch(() => [] as KnowledgeBaseItem[]),
+          api.get<{ openai_proxy_available?: boolean }>('/workspaces/current').catch(() => ({ openai_proxy_available: false })),
         ]);
+        setProxyAvailable(ws.openai_proxy_available ?? false);
 
         setForm({
           display_name: agent.display_name || '',
@@ -651,7 +666,7 @@ export default function AgentEditPage() {
         <div>
           <label className="block text-sm font-medium text-[var(--th-text)] mb-2">{t('agents.llmProvider')}</label>
           <div className="grid grid-cols-3 gap-2">
-            {LLM_PROVIDERS.map(p => (
+            {LLM_PROVIDERS_BASE.filter(p => p.value !== 'openai_proxy' || proxyAvailable).map(p => (
               <button
                 key={p.value}
                 type="button"

@@ -16,7 +16,7 @@ const createAgentSchema = z.object({
   language: z.enum(['en', 'ru', 'es', 'de', 'fr', 'auto']).default('auto'),
   voice_provider: z.enum(['elevenlabs', 'openai', 'xai']).default('elevenlabs'),
   voice_id: z.string().nullable().optional(),
-  llm_provider: z.enum(['anthropic', 'openai', 'xai']).default('anthropic'),
+  llm_provider: z.enum(['anthropic', 'openai', 'openai_proxy', 'xai']).default('anthropic'),
   llm_model: z.string().default('claude-sonnet-4-5-20250514'),
   stt_provider: z.enum(['deepgram', 'openai']).default('deepgram'),
   system_prompt: z.string().nullable().optional(),
