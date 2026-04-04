@@ -550,12 +550,20 @@ export default function DialerPage() {
                 </div>
               </div>
             ) : (
-              <div>
-                <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.sttLanguage')}</label>
-                <select value={sttLanguage} onChange={e => setSttLanguage(e.target.value)} disabled={isInCall} className={selectCls}>
-                  {sttProvider === 'openai' && <option value="auto">Auto-detect</option>}
-                  {STT_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.sttLanguage')}</label>
+                  <select value={sttLanguage} onChange={e => setSttLanguage(e.target.value)} disabled={isInCall} className={selectCls}>
+                    {sttProvider === 'openai' && <option value="auto">Auto-detect</option>}
+                    {STT_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.translateTo')}</label>
+                  <select value={translateTo} onChange={e => setTranslateTo(e.target.value)} className={selectCls}>
+                    {TRANSLATE_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                  </select>
+                </div>
               </div>
             )}
 
@@ -826,11 +834,11 @@ export default function DialerPage() {
 
         {/* Call history with expandable transcripts */}
         {callHistory.length > 0 && (
-          <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 shadow-[0_1px_3px_var(--th-shadow)]">
+          <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 shadow-[0_1px_3px_var(--th-shadow)] flex-1 min-h-0 flex flex-col">
             <h3 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-2.5">
               {t('dialer.callHistory')} ({callHistory.length})
             </h3>
-            <div className="space-y-1 max-h-72 overflow-y-auto">
+            <div className="space-y-1 flex-1 overflow-y-auto">
               {callHistory.slice(0, 15).map(c => (
                 <div key={c.id} className="rounded-lg border border-[var(--th-border-light)] overflow-hidden">
                   <button
@@ -909,15 +917,7 @@ export default function DialerPage() {
           </div>
         )}
 
-        {/* Translation selector */}
-        <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 shadow-[0_1px_3px_var(--th-shadow)]">
-          <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">
-            {t('dialer.translateTo')}
-          </label>
-          <select value={translateTo} onChange={e => setTranslateTo(e.target.value)} className={selectCls}>
-            {TRANSLATE_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-          </select>
-        </div>
+        {/* Translation selector moved inline next to language */}
       </div>
 
       {/* ──── Right: Transcript ──── */}
