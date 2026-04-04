@@ -21,7 +21,8 @@ const skillPackRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/skill-packs
   app.get('/', async (request) => {
-    return agentService.listSkillPacks(request.auth.workspaceId);
+    const skillPacks = await agentService.listSkillPacks(request.auth.workspaceId);
+    return { skill_packs: skillPacks };
   });
 
   // GET /api/skill-packs/:id

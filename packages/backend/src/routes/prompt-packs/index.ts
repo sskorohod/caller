@@ -15,7 +15,8 @@ const promptPackRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/prompt-packs
   app.get('/', async (request) => {
-    return agentService.listPromptPacks(request.auth.workspaceId);
+    const promptPacks = await agentService.listPromptPacks(request.auth.workspaceId);
+    return { prompt_packs: promptPacks };
   });
 
   // GET /api/prompt-packs/:id
