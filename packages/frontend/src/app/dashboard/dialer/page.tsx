@@ -346,25 +346,70 @@ export default function DialerPage() {
             />
           </div>
 
-          {/* STT language */}
-          <div className="mb-4">
-            <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
-              {t('dialer.sttLanguage')}
-            </label>
-            <select
-              value={sttLanguage}
-              onChange={e => setSttLanguage(e.target.value)}
-              disabled={isInCall}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] disabled:opacity-50"
-            >
-              {sttProvider === 'openai' && (
-                <option value="auto">Auto-detect</option>
-              )}
-              {STT_LANGUAGES.map(l => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
-          </div>
+          {/* Language selectors */}
+          {voiceTranslate ? (
+            /* Voice translate: show both operator and callee language */
+            <div className="mb-4 flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
+                  {t('dialer.yourLanguage')}
+                </label>
+                <select
+                  value={sttLanguage}
+                  onChange={e => setSttLanguage(e.target.value)}
+                  disabled={isInCall}
+                  className="w-full px-2 py-2 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] disabled:opacity-50"
+                >
+                  {sttProvider === 'openai' && (
+                    <option value="auto">Auto-detect</option>
+                  )}
+                  {STT_LANGUAGES.map(l => (
+                    <option key={l.value} value={l.value}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end pb-1 text-[var(--th-text-muted)]">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
+                  {t('dialer.sttLanguage')}
+                </label>
+                <select
+                  value={ttsTargetLang}
+                  onChange={e => setTtsTargetLang(e.target.value)}
+                  disabled={isInCall}
+                  className="w-full px-2 py-2 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] disabled:opacity-50"
+                >
+                  {STT_LANGUAGES.map(l => (
+                    <option key={l.value} value={l.value}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            /* Normal mode: just callee STT language */
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-[var(--th-text-secondary)] mb-1">
+                {t('dialer.sttLanguage')}
+              </label>
+              <select
+                value={sttLanguage}
+                onChange={e => setSttLanguage(e.target.value)}
+                disabled={isInCall}
+                className="w-full px-3 py-2 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)] disabled:opacity-50"
+              >
+                {sttProvider === 'openai' && (
+                  <option value="auto">Auto-detect</option>
+                )}
+                {STT_LANGUAGES.map(l => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* STT provider */}
           <div className="mb-4">
@@ -412,24 +457,14 @@ export default function DialerPage() {
             {voiceTranslate && (
               <div className="mt-2 space-y-2">
                 <div className="text-[10px] text-purple-600 dark:text-purple-400 px-1">
-                  Your voice will be translated and spoken to the callee via TTS
+                  {t('dialer.voiceTranslateHint')}
                 </div>
 
-                {/* TTS target language */}
+                {/* TTS provider */}
                 <div>
                   <label className="block text-[10px] font-medium text-[var(--th-text-secondary)] mb-0.5 px-1">
-                    Translate my speech to
+                    TTS
                   </label>
-                  <select
-                    value={ttsTargetLang}
-                    onChange={e => setTtsTargetLang(e.target.value)}
-                    disabled={isInCall}
-                    className="w-full px-2 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-bg)] text-[var(--th-text)] text-xs disabled:opacity-50"
-                  >
-                    {STT_LANGUAGES.map(l => (
-                      <option key={l.value} value={l.value}>{l.label}</option>
-                    ))}
-                  </select>
                 </div>
                 <div className="flex gap-1.5">
                   {([
