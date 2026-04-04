@@ -166,6 +166,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     // --- Callee leg for voice translate mode ---
     if (isCalleeLeg) {
       logger.info({ callId }, 'Voice translate callee leg WebSocket connected');
+
+      // WebSocket keepalive ping to prevent Cloudflare/proxy idle timeout
+      const calleePingInterval = setInterval(() => {
+        if (socket.readyState === 1) socket.ping();
+      }, 30000);
+      socket.on('close', () => clearInterval(calleePingInterval));
+
       let calleeStreamSid: string | null = null;
 
       socket.on('message', async (data: Buffer) => {
@@ -296,6 +303,12 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     }
 
     logger.info({ callId }, 'Twilio MediaStream WebSocket connected');
+
+    // WebSocket keepalive ping to prevent Cloudflare/proxy idle timeout
+    const pingInterval = setInterval(() => {
+      if (socket.readyState === 1) socket.ping();
+    }, 30000);
+    socket.on('close', () => clearInterval(pingInterval));
 
     let orchestrator: CallOrchestrator | GrokRealtimeOrchestrator | null = null;
     let externalSession: ExternalAgentSession | null = null;
@@ -768,8 +781,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       }
     });
 
-    socket.on('close', () => {
-      logger.info({ callId }, 'Twilio MediaStream WebSocket closed');
+    socket.on('close', (code: number, reason: Buffer) => {
+      logger.info({ callId, code, reason: reason?.toString() }, 'Twilio MediaStream WebSocket closed');
       // Cleanup voice translate session + hang up callee
       const vt = activeVoiceTranslateSessions.get(callId);
       if (vt) {

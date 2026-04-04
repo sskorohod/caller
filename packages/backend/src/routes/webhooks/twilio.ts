@@ -202,6 +202,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
     const callStatus = body.CallStatus;
     const duration = body.CallDuration;
 
+    app.log.info({ callSid, callStatus, duration, rawBody: request.body }, 'Twilio status callback');
+
     const [call] = await db.select({ id: calls.id, workspace_id: calls.workspace_id })
       .from(calls)
       .where(eq(calls.twilio_call_sid, callSid));
