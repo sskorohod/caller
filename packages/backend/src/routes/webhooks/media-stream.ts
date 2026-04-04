@@ -406,35 +406,21 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               }
               if (!tts) throw new Error('No TTS provider available');
 
-              // Wire operator STT — accumulate finals, emit once on utterance_end
-              let operatorAccum = '';
-              operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
-                if (evt.isFinal && evt.text.trim()) {
-                  operatorAccum += (operatorAccum ? ' ' : '') + evt.text.trim();
-                }
-              });
+              // Wire operator STT — stream mode: translate+TTS each isFinal segment immediately
+              let operatorAccum = ''; // for transcript display only
               operatorStt.on('error', (err: Error) => logger.error({ err, callId }, 'Voice translate operator STT error'));
 
               const translationModel = process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini';
 
-              // On operator utterance end → emit transcript + translate → TTS → inject to callee
-              operatorStt.on('utterance_end', () => {
-                const text = operatorAccum.trim();
-                operatorAccum = '';
-                if (!text) return;
-
-                // Emit one transcript event per utterance
-                if (io) {
-                  io.to(`call:${callId}`).emit('call:transcript', {
-                    call_id: callId, speaker: 'operator', text,
-                    timestamp: new Date().toISOString(), isFinal: true,
-                  });
-                }
-                transcript.push({ speaker: 'operator', text, timestamp: new Date().toISOString() });
+              // Each isFinal segment → immediately translate → TTS → inject (no waiting for utterance_end)
+              operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
+                if (!evt.isFinal || !evt.text.trim()) return;
+                const segmentText = evt.text.trim();
+                operatorAccum += (operatorAccum ? ' ' : '') + segmentText;
 
                 if (!translationLlm) return;
 
-                // Pipeline: translate → TTS → inject
+                // Fire-and-forget: translate + TTS this segment immediately
                 (async () => {
                   try {
                     // Translate
@@ -446,7 +432,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       stream: false,
                       messages: [
                         { role: 'system', content: `Translate to ${calleeLang}. Phone call. Be natural.\nOnly output the translation.` },
-                        { role: 'user', content: `"${text}"` },
+                        { role: 'user', content: `"${segmentText}"` },
                       ],
                     });
                     const translated = resp.choices?.[0]?.message?.content?.trim();
@@ -455,7 +441,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     // Emit translation to UI
                     if (io) {
                       io.to(`call:${callId}:translate`).emit('call:translation', {
-                        call_id: callId, speaker: 'operator', original: text,
+                        call_id: callId, speaker: 'operator', original: segmentText,
                         translated, timestamp: new Date().toISOString(),
                       });
                     }
@@ -510,11 +496,25 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       }
                     }
 
-                    logger.info({ callId, original: text.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
+                    logger.info({ callId, original: segmentText.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
                   } catch (err) {
                     logger.error({ err, callId }, 'Voice translate pipeline error');
                   }
                 })();
+              });
+
+              // Emit complete utterance to transcript UI on utterance_end (for display only)
+              operatorStt.on('utterance_end', () => {
+                const text = operatorAccum.trim();
+                operatorAccum = '';
+                if (!text) return;
+                if (io) {
+                  io.to(`call:${callId}`).emit('call:transcript', {
+                    call_id: callId, speaker: 'operator', text,
+                    timestamp: new Date().toISOString(), isFinal: true,
+                  });
+                }
+                transcript.push({ speaker: 'operator', text, timestamp: new Date().toISOString() });
               });
 
               operatorStt.connect({ language: operatorLang === 'auto' ? undefined : operatorLang });
