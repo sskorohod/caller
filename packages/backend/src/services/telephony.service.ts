@@ -153,6 +153,16 @@ export async function hangupCall(workspaceId: string, callSid: string): Promise<
   await client.calls(callSid).update({ status: 'completed' });
 }
 
+/** Start recording on an already-connected call (used for inbound calls). */
+export async function startCallRecording(workspaceId: string, callSid: string): Promise<void> {
+  const client = await getTwilioClient(workspaceId);
+  await client.calls(callSid).recordings.create({
+    recordingStatusCallback: `https://${env.API_DOMAIN}/webhooks/twilio/recording`,
+    recordingStatusCallbackMethod: 'POST',
+  });
+  logger.info({ workspaceId, callSid }, 'Started call recording via REST API');
+}
+
 export async function createTelephonyConnection(params: {
   workspaceId: string;
   phoneNumber: string;

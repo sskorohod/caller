@@ -278,6 +278,9 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           await callService.updateCallStatus(callId, 'in_progress', {
             conversation_owner_actual: 'internal',
           } as any);
+          // Start recording on auto-answered inbound call
+          telephonyService.startCallRecording(wsId, callSid)
+            .catch((err: unknown) => { app.log.warn({ err, callId }, 'Failed to start recording on auto-answered call'); });
           const io = getIo();
           if (io) {
             io.to(`workspace:${wsId}`).emit('call:answered', { call_id: callId, mode: 'internal', auto: true });
@@ -384,7 +387,15 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
   app.post('/recording', async (request, reply) => {
     const body = recordingSchema.parse(request.body);
 
+    app.log.info({
+      callSid: body.CallSid,
+      recordingSid: body.RecordingSid,
+      recordingStatus: body.RecordingStatus,
+      recordingDuration: body.RecordingDuration,
+    }, 'Recording webhook received');
+
     if (body.RecordingStatus !== 'completed') {
+      app.log.info({ callSid: body.CallSid, status: body.RecordingStatus }, 'Recording webhook — non-completed status, ignoring');
       reply.status(200).send('OK');
       return;
     }
@@ -395,6 +406,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       .where(eq(calls.twilio_call_sid, body.CallSid));
 
     if (!call) {
+      app.log.warn({ callSid: body.CallSid, recordingSid: body.RecordingSid }, 'Recording webhook — no call found for CallSid');
       reply.status(200).send('OK');
       return;
     }
@@ -435,7 +447,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           }
         }
       } catch (err) {
-        // MinIO failed — keep Twilio URL
+        app.log.warn({ err, callSid: body.CallSid }, 'MinIO storage failed, falling back to Twilio URL');
       }
 
       await db.update(aiCallSessions)
@@ -444,6 +456,10 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           recording_duration_seconds: durationSeconds,
         })
         .where(eq(aiCallSessions.id, session.id));
+
+      app.log.info({ callId: call.id, sessionId: session.id, recordingUrl }, 'Recording URL saved to AI session');
+    } else {
+      app.log.warn({ callId: call.id, callSid: body.CallSid }, 'Recording webhook — no AI session found for call');
     }
 
     await callService.addCallEvent({
