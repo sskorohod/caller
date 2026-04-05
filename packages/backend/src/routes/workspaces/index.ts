@@ -31,6 +31,7 @@ const updateWorkspaceSchema = z.object({
   transcript_retention_days: z.number().min(1).max(3650).optional(),
   call_recording_disclosure: z.boolean().optional(),
   ai_disclosure: z.boolean().optional(),
+  inbound_auto_answer_delay_seconds: z.number().min(5).max(120).optional(),
 });
 
 const workspaceRoutes: FastifyPluginAsync = async (app) => {

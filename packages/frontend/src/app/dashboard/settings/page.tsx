@@ -17,6 +17,7 @@ interface Workspace {
   allow_inbound_external_handoff: boolean;
   call_recording_disclosure: boolean;
   ai_disclosure: boolean;
+  inbound_auto_answer_delay_seconds: number;
 }
 
 interface Provider {
@@ -1495,6 +1496,7 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
   const t = useT();
   const [recording, setRecording] = useState(workspace?.call_recording_disclosure ?? true);
   const [aiDisclosure, setAiDisclosure] = useState(workspace?.ai_disclosure ?? true);
+  const [autoAnswerDelay, setAutoAnswerDelay] = useState(workspace?.inbound_auto_answer_delay_seconds ?? 30);
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
   const [error, setError]     = useState('');
@@ -1503,6 +1505,7 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
     if (workspace) {
       setRecording(workspace.call_recording_disclosure ?? true);
       setAiDisclosure(workspace.ai_disclosure ?? true);
+      setAutoAnswerDelay(workspace.inbound_auto_answer_delay_seconds ?? 30);
     }
   }, [workspace]);
 
@@ -1512,6 +1515,7 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
       const updated = await api.patch<Workspace>('/workspaces/current', {
         call_recording_disclosure: recording,
         ai_disclosure: aiDisclosure,
+        inbound_auto_answer_delay_seconds: autoAnswerDelay,
       });
       onUpdated(updated);
       setSaved(true);
@@ -1578,6 +1582,26 @@ function ComplianceSection({ workspace, onUpdated }: { workspace: Workspace | nu
           <p className="text-xs text-[var(--th-warning-text)]">
             We recommend keeping both disclosures enabled. Disabling them may expose you to legal liability depending on your jurisdiction.
           </p>
+        </div>
+
+        {/* Auto-answer delay */}
+        <div className="pt-4 border-t border-[var(--th-border)]">
+          <div className="text-sm font-medium text-[var(--th-text)] mb-1">{t('settings.autoAnswerDelay')}</div>
+          <div className="text-xs text-[var(--th-text-muted)] mb-3">{t('settings.autoAnswerHint')}</div>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={5}
+              max={120}
+              step={5}
+              value={autoAnswerDelay}
+              onChange={e => setAutoAnswerDelay(parseInt(e.target.value))}
+              className="flex-1 accent-[var(--th-primary)]"
+            />
+            <span className="text-sm font-mono font-bold text-[var(--th-primary-text)] w-12 text-right">
+              {autoAnswerDelay}s
+            </span>
+          </div>
         </div>
 
         <SaveBar saving={saving} saved={saved} error={error} onSave={save} />

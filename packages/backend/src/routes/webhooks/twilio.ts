@@ -185,20 +185,53 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       }
     })();
 
-    const streamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${call.id}`;
-    const disclosure = workspace.call_recording_disclosure
-      ? (agentProfile.language === 'ru'
-        ? 'Этот звонок может быть записан для повышения качества обслуживания.'
-        : 'This call may be recorded for quality purposes.')
-      : undefined;
+    // Hold TwiML — wait for operator to answer/reject, or auto-answer by agent
+    const autoAnswerDelay = (workspace as any).inbound_auto_answer_delay_seconds ?? 30;
+    const holdTwiml = new (await import('twilio')).default.twiml.VoiceResponse();
+    if (workspace.call_recording_disclosure) {
+      holdTwiml.say({ voice: 'Polly.Joanna' },
+        agentProfile.language === 'ru'
+          ? 'Пожалуйста, подождите. Ваш звонок будет обработан в ближайшее время.'
+          : 'Please hold. Your call will be answered shortly.');
+    }
+    holdTwiml.pause({ length: Math.max(autoAnswerDelay + 5, 65) });
+    holdTwiml.say({ voice: 'Polly.Joanna' }, 'We are sorry, no one is available right now. Goodbye.');
 
-    const twiml = telephonyService.generateInboundTwiml({
-      callId: call.id,
-      streamUrl,
-      disclosureMessage: disclosure,
-    });
+    // Auto-answer timer: if operator doesn't respond, AI agent takes over
+    const callId = call.id;
+    const wsId = workspace.id;
+    setTimeout(async () => {
+      try {
+        const [currentCall] = await db.select().from(calls).where(eq(calls.id, callId));
+        if (currentCall && currentCall.status === 'ringing') {
+          // Auto-answer with AI agent
+          const streamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}`;
+          const twiml = telephonyService.generateInboundTwiml({ callId, streamUrl });
+          await telephonyService.updateActiveCall(wsId, callSid, twiml);
+          await callService.updateCallStatus(callId, 'in_progress', {
+            conversation_owner_actual: 'internal',
+          } as any);
+          const io = getIo();
+          if (io) {
+            io.to(`workspace:${wsId}`).emit('call:answered', { call_id: callId, mode: 'internal', auto: true });
+          }
+          app.log.info({ callId, autoAnswerDelay }, 'Inbound call auto-answered by AI agent');
+        }
+      } catch (err) {
+        app.log.error({ err, callId }, 'Auto-answer failed');
+      }
+    }, autoAnswerDelay * 1000);
 
-    reply.type('text/xml').send(twiml);
+    // Send auto_answer_delay to frontend via Socket.IO
+    const io2 = getIo();
+    if (io2) {
+      io2.to(`workspace:${workspace.id}`).emit('call:incoming:config', {
+        call_id: call.id,
+        auto_answer_delay_seconds: autoAnswerDelay,
+      });
+    }
+
+    reply.type('text/xml').send(holdTwiml.toString());
   });
 
   app.post('/status', async (request, reply) => {

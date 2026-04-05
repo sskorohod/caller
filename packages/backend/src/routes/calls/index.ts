@@ -717,6 +717,56 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
+  // POST /api/calls/:id/answer — answer inbound call with mode selection
+  app.post('/:id/answer', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const { mode } = z.object({ mode: z.enum(['manual', 'internal', 'reject']) }).parse(request.body);
+
+    const call = await callService.getCall(request.auth.workspaceId, id);
+    if (!call.twilio_call_sid) throw new Error('No Twilio call SID');
+
+    if (mode === 'reject') {
+      const twilio = await import('twilio');
+      const rejectTwiml = new twilio.default.twiml.VoiceResponse();
+      rejectTwiml.hangup();
+      await telephonyService.updateActiveCall(request.auth.workspaceId, call.twilio_call_sid, rejectTwiml.toString());
+      await callService.updateCallStatus(id, 'canceled');
+      return { ok: true, mode: 'reject' };
+    }
+
+    const streamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${id}`;
+
+    if (mode === 'manual') {
+      // Connect to bidirectional stream (VoiceTranslateSession path)
+      await callService.updateCallStatus(id, 'in_progress', {
+        conversation_owner_requested: 'manual',
+        conversation_owner_actual: 'internal',
+      } as any);
+      const twilio = await import('twilio');
+      const twiml = new twilio.default.twiml.VoiceResponse();
+      const connect = twiml.connect();
+      connect.stream({ url: streamUrl, name: `inbound-manual-${id}` });
+      await telephonyService.updateActiveCall(request.auth.workspaceId, call.twilio_call_sid, twiml.toString());
+    } else {
+      // Connect to AI orchestrator stream
+      await callService.updateCallStatus(id, 'in_progress', {
+        conversation_owner_requested: 'internal',
+        conversation_owner_actual: 'internal',
+      } as any);
+      const { generateInboundTwiml } = await import('../../services/telephony.service.js');
+      const twiml = generateInboundTwiml({ callId: id, streamUrl });
+      await telephonyService.updateActiveCall(request.auth.workspaceId, call.twilio_call_sid, twiml);
+    }
+
+    // Notify frontend
+    const io = (await import('../../realtime/io.js')).getIo();
+    io?.to(`workspace:${request.auth.workspaceId}`).emit('call:answered', { call_id: id, mode });
+
+    return { ok: true, mode };
+  });
+
   // POST /api/calls/:id/hangup — explicitly end a call (hang up callee in voice translate)
   app.post('/:id/hangup', {
     preHandler: [authenticateUser],

@@ -37,6 +37,7 @@ export const workspaces = pgTable('workspaces', {
   external_inbound_auth_secret: text('external_inbound_auth_secret'),
   external_ready_timeout_ms: integer('external_ready_timeout_ms').notNull().default(8000),
   inbound_fallback_mode: text('inbound_fallback_mode').notNull().default('fallback_to_internal'),
+  inbound_auto_answer_delay_seconds: integer('inbound_auto_answer_delay_seconds').notNull().default(30),
   recording_retention_days: integer('recording_retention_days').notNull().default(90),
   transcript_retention_days: integer('transcript_retention_days').notNull().default(365),
   call_recording_disclosure: boolean('call_recording_disclosure').notNull().default(true),
