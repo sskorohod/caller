@@ -108,19 +108,24 @@ export default function MissionsPage() {
 
       {/* Filters */}
       <div className="flex gap-1.5 overflow-x-auto p-1 bg-[var(--th-surface)] rounded-xl">
-        {statusOptions.map(s => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`px-3.5 py-1.5 text-[10px] font-semibold rounded-lg transition-all whitespace-nowrap ${
-              statusFilter === s
-                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
-                : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-card)] hover:text-[var(--th-text)]'
-            }`}
-          >
-            {s === 'all' ? t('missions.all') : (STATUS_CONFIG[s]?.label ?? s)}
-          </button>
-        ))}
+        {statusOptions.map(s => {
+          const count = s === 'all' ? missions.length : missions.filter(m => m.status === s).length;
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3.5 py-1.5 text-[10px] font-semibold rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                statusFilter === s
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                  : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-card)] hover:text-[var(--th-text)]'
+              }`}
+            >
+              {s !== 'all' && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_CONFIG[s]?.color }} />}
+              {s === 'all' ? t('missions.all') : (STATUS_CONFIG[s]?.label ?? s)}
+              {count > 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${statusFilter === s ? 'bg-white/20' : 'bg-[var(--th-surface-hover)]'}`}>{count}</span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* Mission cards */}

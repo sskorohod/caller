@@ -97,10 +97,10 @@
   --th-glass: rgba(255,255,255,0.7);
   --th-glass-border: rgba(0,0,0,0.06);
   /* Gradient accents for KPI */
-  --th-gradient-indigo: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(99,102,241,0.01) 100%);
-  --th-gradient-emerald: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.01) 100%);
-  --th-gradient-blue: linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(37,99,235,0.01) 100%);
-  --th-gradient-amber: linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(245,158,11,0.01) 100%);
+  --th-gradient-indigo: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.02) 100%);
+  --th-gradient-emerald: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.02) 100%);
+  --th-gradient-blue: linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(37,99,235,0.02) 100%);
+  --th-gradient-amber: linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.02) 100%);
   /* Bar chart gradient */
   --th-bar-primary: linear-gradient(180deg, #818cf8 0%, #6366f1 100%);
   --th-bar-muted: linear-gradient(180deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.08) 100%);

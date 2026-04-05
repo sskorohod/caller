@@ -270,7 +270,7 @@ function Field({
           </button>
         )}
       </div>
-      {hint && <p className="text-xs text-[var(--th-text-muted)]">{hint}</p>}
+      {hint && <p className="text-xs text-[var(--th-text-secondary)]">{hint}</p>}
     </div>
   );
 }
@@ -402,7 +402,7 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
             <option value="internal">{t('settings.internalAgent')}</option>
             <option value="external">{t('settings.externalAgent')}</option>
           </select>
-          <p className="text-xs text-[var(--th-text-muted)]">
+          <p className="text-xs text-[var(--th-text-secondary)]">
             {t('settings.convOwnerHint')}
           </p>
         </div>

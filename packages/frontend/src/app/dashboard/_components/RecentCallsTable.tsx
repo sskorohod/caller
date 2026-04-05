@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import type { RecentCall } from '../_lib/types';
-import { fmtDuration, fmtDate, fmtCost } from '../_lib/utils';
+import { fmtDuration, fmtDate, fmtCost, fmtPhone } from '../_lib/utils';
 import { STATUS_COLORS, STATUS_LABELS } from '../_lib/constants';
 import { IconPhone } from '../_lib/icons';
 
@@ -41,7 +41,7 @@ export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
             <tbody>
               {calls.map((call, idx) => (
                 <tr key={call.id} className={`transition-colors hover:bg-[var(--th-surface)] ${idx < calls.length - 1 ? 'border-b border-[var(--th-border-light)]' : ''}`}>
-                  <td className="px-5 py-3 text-sm font-medium text-[var(--th-text)] tabular-nums">{call.direction === 'outbound' ? call.phone_number_to : call.phone_number_from}</td>
+                  <td className="px-5 py-3 text-sm font-medium text-[var(--th-text)] tabular-nums">{fmtPhone(call.direction === 'outbound' ? call.phone_number_to : call.phone_number_from)}</td>
                   <td className="px-5 py-3">
                     <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                       call.direction === 'outbound'

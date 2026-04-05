@@ -171,28 +171,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <div className="px-3 mb-3 text-[10px] font-semibold text-[var(--th-sidebar-label)] uppercase tracking-widest">Platform</div>
-        {navItems.map(item => {
-          const isActive = item.href === '/dashboard'
-            ? pathname === '/dashboard'
-            : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                isActive
-                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
-                  : 'text-[var(--th-sidebar-text)] hover:bg-[var(--th-sidebar-hover)] hover:text-white'
-              }`}
-            >
-              {item.icon}
-              {t(item.key)}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        {[
+          { label: t('nav.sectionOverview') || 'Overview', items: navItems.filter(i => i.href === '/dashboard') },
+          { label: t('nav.sectionOperations') || 'Operations', items: navItems.filter(i => ['/dashboard/calls', '/dashboard/dialer', '/dashboard/missions'].includes(i.href)) },
+          { label: t('nav.sectionAi') || 'AI Config', items: navItems.filter(i => ['/dashboard/agents', '/dashboard/knowledge', '/dashboard/prompts', '/dashboard/skills'].includes(i.href)) },
+          { label: t('nav.sectionIntegrations') || 'Integrations', items: navItems.filter(i => ['/dashboard/connectors'].includes(i.href)) },
+          { label: t('nav.sectionSystem') || 'System', items: navItems.filter(i => ['/dashboard/audit', '/dashboard/settings'].includes(i.href)) },
+        ].filter(section => section.items.length > 0).map((section, si) => (
+          <div key={si} className={si > 0 ? 'mt-4' : ''}>
+            <div className="px-3 mb-2 text-[10px] font-semibold text-[var(--th-sidebar-label)] uppercase tracking-widest">{section.label}</div>
+            <div className="space-y-0.5">
+              {section.items.map(item => {
+                const isActive = item.href === '/dashboard'
+                  ? pathname === '/dashboard'
+                  : pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+                        : 'text-[var(--th-sidebar-text)] hover:bg-[var(--th-sidebar-hover)] hover:text-white'
+                    }`}
+                  >
+                    {item.icon}
+                    {t(item.key)}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Theme + Language Switcher */}
@@ -278,7 +290,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Topbar */}
-        <header className="h-16 bg-[var(--th-topbar)] border-b border-[var(--th-card-border-subtle)] px-4 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_3px_var(--th-shadow)]">
+        <header className="h-14 bg-[var(--th-topbar)] border-b border-[var(--th-card-border-subtle)] px-4 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_3px_var(--th-shadow)]">
           <div className="flex items-center gap-3">
             {/* Hamburger — mobile only */}
             <button
@@ -290,12 +302,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
             </button>
-            <h1 className="text-base font-bold text-[var(--th-text)]">
-              {(() => {
-                const found = navItems.find(i => i.href === pathname || (i.href !== '/dashboard' && pathname.startsWith(i.href)));
-                return found ? t(found.key) : 'Dashboard';
-              })()}
-            </h1>
           </div>
           <div className="flex items-center gap-2">
             <ConnectionIndicator />

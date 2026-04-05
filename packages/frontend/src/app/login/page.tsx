@@ -119,7 +119,7 @@ function LoginContent() {
             </div>
 
             {error && (
-              <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">
+              <div className="px-4 py-3 rounded-xl bg-[var(--th-error-bg)] border border-[var(--th-error-border)] text-sm text-[var(--th-error-text)]">
                 {error}
               </div>
             )}

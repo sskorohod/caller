@@ -199,7 +199,7 @@ export default function AgentsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {agents.map(agent => (
             <div key={agent.id} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-6 hover:border-[var(--th-border)] hover:shadow-[0_4px_16px_var(--th-card-glow)] transition-all group shadow-[0_1px_3px_var(--th-shadow)] relative overflow-hidden">
               {/* Active indicator bar */}

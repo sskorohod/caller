@@ -30,6 +30,13 @@ const en: Record<string, string> = {
   'nav.skills': 'Skills',
   'nav.connectors': 'Connectors',
   'nav.settings': 'Settings',
+  'nav.audit': 'Audit Log',
+  'nav.missions': 'Missions',
+  'nav.sectionOverview': 'Overview',
+  'nav.sectionOperations': 'Operations',
+  'nav.sectionAi': 'AI Config',
+  'nav.sectionIntegrations': 'Integrations',
+  'nav.sectionSystem': 'System',
 
   // Dialer
   'dialer.title': 'Phone Dialer',
@@ -52,6 +59,7 @@ const en: Record<string, string> = {
   'dialer.translateTo': 'Translate to',
   'dialer.voice': 'Voice',
   'dialer.noTranscript': 'Transcript will appear here when the call starts...',
+  'dialer.noTranscriptHint': 'Enter a phone number and click Call to start a conversation',
   'dialer.duration': 'Duration',
   'dialer.callHistory': 'Call History',
   'dialer.recentNumbers': 'Recent',
@@ -205,7 +213,6 @@ const en: Record<string, string> = {
   'translate.loadError': 'Failed to load',
 
   // Missions
-  'nav.missions': 'Missions',
   'missions.title': 'Missions',
   'missions.subtitle': 'AI call tasks and assignments',
   'missions.newMission': 'New Mission',
@@ -557,9 +564,6 @@ const en: Record<string, string> = {
   'calls.applyFilters': 'Apply',
   'calls.sentiment_mixed': 'Mixed',
 
-  // Nav
-  'nav.audit': 'Audit Log',
-
   // Audit
   'audit.title': 'Audit Log',
   'audit.subtitle': 'Track all actions performed in your workspace',
@@ -648,6 +652,13 @@ const ru: Record<string, string> = {
   'nav.skills': 'Навыки',
   'nav.connectors': 'Коннекторы',
   'nav.settings': 'Настройки',
+  'nav.audit': 'Аудит',
+  'nav.missions': 'Миссии',
+  'nav.sectionOverview': 'Обзор',
+  'nav.sectionOperations': 'Операции',
+  'nav.sectionAi': 'ИИ Конфигурация',
+  'nav.sectionIntegrations': 'Интеграции',
+  'nav.sectionSystem': 'Система',
 
   // Dialer
   'dialer.title': 'Телефон',
@@ -670,6 +681,7 @@ const ru: Record<string, string> = {
   'dialer.translateTo': 'Перевести на',
   'dialer.voice': 'Голос',
   'dialer.noTranscript': 'Транскрипт появится когда начнётся звонок...',
+  'dialer.noTranscriptHint': 'Введите номер телефона и нажмите Позвонить',
   'dialer.duration': 'Длительность',
   'dialer.callHistory': 'История звонков',
   'dialer.recentNumbers': 'Недавние',
@@ -823,7 +835,6 @@ const ru: Record<string, string> = {
   'translate.loadError': 'Не удалось загрузить',
 
   // Missions
-  'nav.missions': 'Миссии',
   'missions.title': 'Миссии',
   'missions.subtitle': 'Задачи для AI-агентов',
   'missions.newMission': 'Новая миссия',
@@ -1174,9 +1185,6 @@ const ru: Record<string, string> = {
   'calls.clearFilters': 'Сбросить',
   'calls.applyFilters': 'Применить',
   'calls.sentiment_mixed': 'Смешанная',
-
-  // Nav
-  'nav.audit': 'Аудит',
 
   // Audit
   'audit.title': 'Журнал аудита',

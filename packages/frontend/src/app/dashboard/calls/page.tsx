@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
+import { fmtPhone } from '../_lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -238,7 +239,7 @@ function FilterTabs({ value, onChange, t }: { value: string; onChange: (v: strin
 // ─── Call Row (card-style) ───────────────────────────────────────────────────
 
 function CallRow({ call, agentMap, onClick, expanded, onToggleExpand, checked, onCheck }: { call: Call; agentMap: Map<string, string>; onClick: () => void; expanded: boolean; onToggleExpand: () => void; checked: boolean; onCheck: (checked: boolean) => void }) {
-  const phone = call.direction === 'outbound' ? call.to_number : call.from_number;
+  const phone = fmtPhone(call.direction === 'outbound' ? call.to_number : call.from_number);
   const agentName = call.agent_profile_id ? agentMap.get(call.agent_profile_id) : null;
 
   return (
@@ -773,7 +774,7 @@ export default function CallsPage() {
               <div className="flex gap-3">
                 <div className="flex-1 rounded-2xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)] p-3 text-center">
                   <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase mb-0.5">{t('calls.from')}</p>
-                  <p className="text-sm font-bold text-[var(--th-text)] tracking-wide">{selected.from_number || '—'}</p>
+                  <p className="text-sm font-bold text-[var(--th-text)] tracking-wide">{fmtPhone(selected.from_number) || '—'}</p>
                 </div>
                 <div className="flex items-center">
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
@@ -784,7 +785,7 @@ export default function CallsPage() {
                 </div>
                 <div className="flex-1 rounded-2xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)] p-3 text-center">
                   <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase mb-0.5">{t('calls.to')}</p>
-                  <p className="text-sm font-bold text-[var(--th-text)] tracking-wide">{selected.to_number || '—'}</p>
+                  <p className="text-sm font-bold text-[var(--th-text)] tracking-wide">{fmtPhone(selected.to_number) || '—'}</p>
                 </div>
               </div>
 
