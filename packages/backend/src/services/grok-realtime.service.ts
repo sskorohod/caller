@@ -309,22 +309,15 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       logger.info({ callId: this.config.call.id, text }, 'Agent response (Grok)');
       this.emit('transcript', { speaker: 'agent', text, timestamp: new Date().toISOString(), isFinal: true });
 
-      // Fallback farewell detection — Grok often ignores end_call tool
-      // If agent gave a short response (< 60 chars) after 2+ turns, likely a farewell
-      const isFarewell = text.length < 60 && this.turnCount >= 2 && (
-        /\b(пока|до свидания|goodbye|bye|всего доброго|до встречи|see you|take care|спокойной|удачи|good night|sweet dreams)\b/i.test(text) ||
-        // Or last caller message had farewell intent
-        (() => {
-          const lastCaller = [...this.conversationHistory].reverse().find(t => t.speaker === 'caller');
-          return lastCaller && /\b(пока|до свидания|bye|goodbye|спокойной|всего|до встречи|see you|ладно всё|всё|конец)\b/i.test(lastCaller.text);
-        })()
-      );
-      if (isFarewell && !this.pendingHangup) {
-        logger.info({ callId: this.config.call.id, text }, 'Server-side farewell detection — scheduling hangup');
+      // Farewell detection — hang up when agent says goodbye
+      const farewellWords = /\b(пока|до свидания|goodbye|bye|всего доброго|до встречи|see you|take care|спокойной|удачи|good night|sweet dreams)\b/i;
+      logger.info({ callId: this.config.call.id, text, len: text.length, hasFarewell: farewellWords.test(text), pendingHangup: this.pendingHangup }, 'Farewell check');
+      if (farewellWords.test(text) && !this.pendingHangup) {
+        logger.info({ callId: this.config.call.id, text }, 'FAREWELL DETECTED — hanging up in 3s');
         this.pendingHangup = true;
         setTimeout(() => {
-          if (!this.pendingHangup || this.isStopped) return;
-          logger.info({ callId: this.config.call.id }, 'Hanging up after server-detected farewell');
+          if (this.isStopped) return;
+          logger.info({ callId: this.config.call.id }, 'Executing hangup now');
           this.stop('agent_ended_call');
           try { this.config.twilioWs.close(); } catch { /* ignore */ }
         }, 3000);
