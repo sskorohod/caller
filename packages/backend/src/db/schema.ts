@@ -548,6 +548,8 @@ export const translatorSubscribers = pgTable('translator_subscribers', {
   stripe_customer_id: text('stripe_customer_id'),
   balance_minutes: numeric('balance_minutes', { precision: 10, scale: 2 }).notNull().default('0'),
   enabled: boolean('enabled').notNull().default(true),
+  blocked: boolean('blocked').notNull().default(false),
+  blocked_reason: text('blocked_reason'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -571,6 +573,70 @@ export const translatorSessions = pgTable('translator_sessions', {
   index('idx_translator_sess_subscriber').on(t.subscriber_id),
   index('idx_translator_sess_workspace').on(t.workspace_id),
   index('idx_translator_sess_call').on(t.call_id),
+]);
+
+// ============================================================
+// PROMO CODES
+// ============================================================
+export const promoCodes = pgTable('promo_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  minutes: numeric('minutes', { precision: 10, scale: 2 }).notNull(),
+  max_uses: integer('max_uses').notNull().default(100),
+  used_count: integer('used_count').notNull().default(0),
+  expires_at: timestamp('expires_at', { withTimezone: true }),
+  active: boolean('active').notNull().default(true),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique('uq_promo_code').on(t.workspace_id, t.code),
+]);
+
+export const promoRedemptions = pgTable('promo_redemptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  promo_id: uuid('promo_id').notNull().references(() => promoCodes.id, { onDelete: 'cascade' }),
+  subscriber_id: uuid('subscriber_id').notNull().references(() => translatorSubscribers.id, { onDelete: 'cascade' }),
+  redeemed_at: timestamp('redeemed_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================================
+// BALANCE TRANSACTIONS (audit trail for subscriber balance)
+// ============================================================
+export const balanceTransactions = pgTable('balance_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  subscriber_id: uuid('subscriber_id').notNull().references(() => translatorSubscribers.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'topup' | 'usage' | 'gift' | 'promo' | 'refund'
+  minutes: numeric('minutes', { precision: 10, scale: 2 }).notNull(),
+  comment: text('comment'),
+  admin_user_id: uuid('admin_user_id'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_balance_tx_subscriber').on(t.subscriber_id),
+]);
+
+// ============================================================
+// PLATFORM SETTINGS (key-value store)
+// ============================================================
+export const platformSettings = pgTable('platform_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================================
+// ADMIN AUDIT LOG
+// ============================================================
+export const adminAuditLog = pgTable('admin_audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  user_id: uuid('user_id'),
+  action: text('action').notNull(),
+  resource_type: text('resource_type'),
+  resource_id: text('resource_id'),
+  details: jsonb('details'),
+  ip_address: text('ip_address'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_admin_audit_created').on(t.created_at),
 ]);
 
 // ============================================================
