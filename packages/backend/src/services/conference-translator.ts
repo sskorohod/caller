@@ -10,6 +10,10 @@ import { getIo } from '../realtime/io.js';
 import * as callService from './call.service.js';
 import { queuePostCallProcessing } from '../workers/post-call.worker.js';
 import { calculateSTTCost, calculateTelephonyCost } from '../config/pricing.js';
+import { sendTranslatorSessionStart, sendTranslatorSessionEnd } from './telegram.service.js';
+import { decrypt } from '../lib/crypto.js';
+import { providerCredentials, callShareTokens } from '../db/schema.js';
+import { env } from '../config/env.js';
 import type { WebSocket } from 'ws';
 
 const log = pino({ name: 'conference-translator' });
@@ -151,6 +155,9 @@ export class ConferenceTranslator extends EventEmitter {
       targetLang: this.targetLang,
       mode: this.mode,
     }, 'Conference translator started');
+
+    // Send Telegram notification with live translate link (fire-and-forget)
+    this.sendTelegramNotification('start').catch(() => {});
   }
 
   sendAudio(audioBuffer: Buffer): void {
@@ -401,6 +408,52 @@ export class ConferenceTranslator extends EventEmitter {
       costTotal,
       turns: this.transcript.length,
     }, 'Conference translator finalized');
+
+    // Send Telegram end notification
+    this.sendTelegramNotification('end', durationSecs, minutesUsed).catch(() => {});
+  }
+
+  private async sendTelegramNotification(type: 'start' | 'end', durationSecs?: number, minutesUsed?: number): Promise<void> {
+    // Get subscriber's telegram_chat_id OR workspace telegram credentials
+    const [sub] = await db.select().from(translatorSubscribers).where(eq(translatorSubscribers.id, this.subscriberId));
+    if (!sub) return;
+
+    // Try subscriber's own telegram chat first, then workspace telegram
+    let botToken: string | null = null;
+    let chatId: string | null = sub.telegram_chat_id;
+
+    const [telegramCreds] = await db.select().from(providerCredentials)
+      .where(and(eq(providerCredentials.workspace_id, this.workspaceId), eq(providerCredentials.provider, 'telegram')));
+
+    if (telegramCreds) {
+      const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+      botToken = creds.bot_token;
+      if (!chatId) chatId = creds.chat_id;
+    }
+
+    if (!botToken || !chatId) return;
+
+    if (type === 'start') {
+      // Create share token for live translate page
+      let liveUrl: string | undefined;
+      try {
+        const shareToken = await callService.createShareToken(this.callId);
+        liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
+      } catch { /* no live URL */ }
+
+      await sendTranslatorSessionStart(botToken, chatId, {
+        subscriberName: sub.name,
+        liveUrl,
+      });
+    } else {
+      const balance = parseFloat(sub.balance_minutes as string);
+      await sendTranslatorSessionEnd(botToken, chatId, {
+        subscriberName: sub.name,
+        durationSecs: durationSecs ?? 0,
+        minutesUsed: minutesUsed ?? 0,
+        balanceRemaining: Math.max(balance - (minutesUsed ?? 0), 0),
+      });
+    }
   }
 
   stop(): void {

@@ -105,6 +105,20 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       socket.join(`call:${call_id}:translate`);
     });
 
+    // Join translate room by share token (for public live-translate page)
+    socket.on('call:translate:join:token', async ({ token }: { token: string }) => {
+      try {
+        const { callShareTokens } = await import('../db/schema.js');
+        const { db } = await import('../config/db.js');
+        const { eq } = await import('drizzle-orm');
+        const [row] = await db.select().from(callShareTokens).where(eq(callShareTokens.token, token));
+        if (row && new Date(row.expires_at) > new Date()) {
+          socket.join(`call:${row.call_id}`);
+          socket.join(`call:${row.call_id}:translate`);
+        }
+      } catch { /* ignore */ }
+    });
+
     socket.on('call:translate:leave', ({ call_id }: { call_id: string }) => {
       socket.leave(`call:${call_id}:translate`);
     });

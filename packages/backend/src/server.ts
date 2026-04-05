@@ -112,6 +112,7 @@ await app.register(import('./routes/connectors/index.js'), { prefix: '/api/conne
 await app.register(import('./routes/audit/index.js'), { prefix: '/api/audit-logs' });
 await app.register(import('./routes/missions/index.js'), { prefix: '/api/missions' });
 await app.register(import('./routes/translator/index.js'), { prefix: '/api/translator' });
+await app.register(import('./routes/translator/stripe.js'), { prefix: '/api/translator' });
 
 // Start post-call worker (BullMQ)
 import { startPostCallWorker } from './workers/post-call.worker.js';

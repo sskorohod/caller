@@ -71,3 +71,42 @@ export async function testBot(botToken: string, chatId: string): Promise<boolean
   const text = '\u2705 <b>Caller</b> Telegram integration connected successfully!';
   return sendTelegramMessage(botToken, chatId, text);
 }
+
+// ─── Translator notifications ───────────────────────────────────────────────
+
+export async function sendTranslatorSessionStart(
+  botToken: string,
+  chatId: string,
+  data: { subscriberName: string; liveUrl?: string },
+): Promise<boolean> {
+  const lines = [
+    '\u{1F310} <b>Live Translator Started</b>',
+    `Subscriber: ${escapeHtml(data.subscriberName)}`,
+  ];
+  if (data.liveUrl) {
+    lines.push('');
+    lines.push(`\u{1F4F2} <a href="${escapeHtml(data.liveUrl)}">View Live Translation</a>`);
+  }
+  return sendTelegramMessage(botToken, chatId, lines.join('\n'));
+}
+
+export async function sendTranslatorSessionEnd(
+  botToken: string,
+  chatId: string,
+  data: { subscriberName: string; durationSecs: number; minutesUsed: number; balanceRemaining: number },
+): Promise<boolean> {
+  const mins = Math.floor(data.durationSecs / 60);
+  const secs = data.durationSecs % 60;
+  const lines = [
+    '\u{1F3C1} <b>Translator Session Ended</b>',
+    `Subscriber: ${escapeHtml(data.subscriberName)}`,
+    `Duration: ${mins}m ${secs}s`,
+    `Minutes used: ${data.minutesUsed.toFixed(1)}`,
+    `Balance remaining: ${data.balanceRemaining.toFixed(1)} min`,
+  ];
+  if (data.balanceRemaining < 5) {
+    lines.push('');
+    lines.push('\u26A0\uFE0F <b>Low balance!</b> Please top up.');
+  }
+  return sendTelegramMessage(botToken, chatId, lines.join('\n'));
+}
