@@ -316,14 +316,14 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         'goodbye', 'bye', 'see you', 'take care', 'good night', 'sweet dreams'].some(w => textLower.includes(w));
       logger.info({ callId: this.config.call.id, text, hasFarewell, pendingHangup: this.pendingHangup }, 'Farewell check');
       if (hasFarewell && !this.pendingHangup) {
-        logger.info({ callId: this.config.call.id, text }, 'FAREWELL DETECTED — hanging up in 3s');
+        logger.info({ callId: this.config.call.id, text }, 'FAREWELL DETECTED — hanging up in 5s (wait for audio to finish)');
         this.pendingHangup = true;
         setTimeout(() => {
           if (this.isStopped) return;
           logger.info({ callId: this.config.call.id }, 'Executing hangup now');
           this.stop('agent_ended_call');
           try { this.config.twilioWs.close(); } catch { /* ignore */ }
-        }, 3000);
+        }, 5000);
       }
     }
 
