@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#0e131f",
+                    "inverse-on-surface": "#2b303d",
+                    "on-error": "#690005",
+                    "primary-fixed": "#d8e2ff",
+                    "on-primary-container": "#00285d",
+                    "inverse-primary": "#005ac2",
+                    "on-tertiary-fixed": "#001c39",
+                    "outline": "#8c909f",
+                    "secondary-fixed-dim": "#d0bcff",
+                    "surface-dim": "#0e131f",
+                    "on-tertiary": "#00315d",
+                    "secondary": "#d0bcff",
+                    "on-background": "#dde2f3",
+                    "on-surface-variant": "#c2c6d6",
+                    "tertiary-container": "#4c93e7",
+                    "on-surface": "#dde2f3",
+                    "surface-container-high": "#242a36",
+                    "surface-variant": "#2f3542",
+                    "surface": "#0e131f",
+                    "outline-variant": "#424754",
+                    "primary": "#adc6ff",
+                    "surface-container-highest": "#2f3542",
+                    "tertiary-fixed-dim": "#a4c9ff",
+                    "on-primary-fixed": "#001a42",
+                    "inverse-surface": "#dde2f3",
+                    "tertiary-fixed": "#d4e3ff",
+                    "surface-tint": "#adc6ff",
+                    "error-container": "#93000a",
+                    "on-secondary": "#3c0091",
+                    "surface-container-low": "#161c28",
+                    "primary-fixed-dim": "#adc6ff",
+                    "error": "#ffb4ab",
+                    "on-error-container": "#ffdad6",
+                    "secondary-container": "#571bc1",
+                    "tertiary": "#a4c9ff",
+                    "on-tertiary-container": "#002a51",
+                    "surface-container": "#1a202c",
+                    "secondary-fixed": "#e9ddff",
+                    "primary-container": "#4d8eff",
+                    "on-secondary-fixed": "#23005c",
+                    "on-secondary-container": "#c4abff",
+                    "on-tertiary-fixed-variant": "#004883",
+                    "on-primary": "#002e6a",
+                    "on-secondary-fixed-variant": "#5516be",
+                    "on-primary-fixed-variant": "#004395",
+                    "surface-bright": "#343946",
+                    "surface-container-lowest": "#080e1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(26, 32, 44, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .flux-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #adc6ff 0%, #d0bcff 100%);
+            box-shadow: 0 0 12px rgba(173, 198, 255, 0.6);
+        }
+        .translation-cell-active {
+            border-bottom: 2px solid;
+            border-image: linear-gradient(to right, #adc6ff, #d0bcff) 1;
+        }
+        .nebula-glow {
+            background: radial-gradient(circle at 50% 50%, rgba(77, 142, 255, 0.08) 0%, transparent 70%);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0e131f;
+            color: #dde2f3;
+        }
+        h1, h2, h3, .font-headline {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-hidden selection:bg-primary/30">
+<!-- TopNavBar Strategy: Transactional suppress used, custom Status Bar implemented -->
+<header class="fixed top-0 w-full z-50 glass-panel border-b border-outline-variant/10">
+<div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-[inset_0px_1px_1px_rgba(255,255,255,0.3)]">
+<span class="material-symbols-outlined text-on-primary text-xl" style="font-variation-settings: 'FILL' 1;">translate</span>
+</div>
+<span class="text-xl font-extrabold tracking-tighter text-on-surface">Live Translator</span>
+</div>
+<div class="h-4 w-px bg-outline-variant/30"></div>
+<div class="flex items-center gap-3">
+<span class="flux-indicator"></span>
+<span class="font-headline font-bold text-sm tracking-tight text-primary">Live Call in Progress</span>
+<span class="font-headline font-medium text-sm text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded">04:12</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/10">
+<span class="material-symbols-outlined text-sm text-primary">signal_cellular_alt</span>
+<span class="text-xs font-semibold text-on-surface-variant">Secure Connection</span>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 bg-error-container text-on-error-container rounded-lg font-headline font-bold text-sm hover:brightness-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-sm">call_end</span>
+                    End Translation
+                </button>
+</div>
+</div>
+</header>
+<!-- Main Dashboard Area -->
+<main class="flex-1 mt-16 flex overflow-hidden nebula-glow">
+<!-- Sidebar Controls -->
+<aside class="w-80 border-r border-outline-variant/10 p-6 flex flex-col gap-8 bg-surface-container-low/30">
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-outline mb-4 block">Session Controls</label>
+<div class="space-y-3">
+<button class="w-full flex items-center justify-between p-4 rounded-xl bg-surface-container-highest border border-outline-variant/20 hover:border-primary/40 transition-colors group">
+<div class="flex flex-col items-start">
+<span class="text-[10px] text-outline font-semibold uppercase">Primary Language</span>
+<span class="text-sm font-bold text-on-surface">English (US)</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">auto_awesome</span>
+</button>
+<button class="w-full flex items-center justify-between p-4 rounded-xl bg-surface-container-highest border border-outline-variant/20 hover:border-secondary/40 transition-colors group">
+<div class="flex flex-col items-start">
+<span class="text-[10px] text-outline font-semibold uppercase">Target Language</span>
+<span class="text-sm font-bold text-on-surface">Spanish (ES)</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-secondary transition-colors">translate</span>
+</button>
+</div>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-widest text-outline mb-4 block">Settings</label>
+<div class="space-y-1">
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">volume_up</span>
+<span class="text-sm font-medium">Text-to-Speech</span>
+</div>
+<div class="w-8 h-4 bg-primary rounded-full relative">
+<div class="absolute right-0.5 top-0.5 w-3 h-3 bg-on-primary rounded-full"></div>
+</div>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">history</span>
+<span class="text-sm font-medium">Auto-Save Logs</span>
+</div>
+<div class="w-8 h-4 bg-primary rounded-full relative">
+<div class="absolute right-0.5 top-0.5 w-3 h-3 bg-on-primary rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-auto">
+<button class="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-surface-container-high border border-outline-variant/10 text-primary font-headline font-bold hover:bg-surface-container-highest transition-all group">
+<span class="material-symbols-outlined group-hover:translate-y-0.5 transition-transform">download</span>
+                    Download Transcript
+                </button>
+</div>
+</aside>
+<!-- Live Transcript Canvas -->
+<section class="flex-1 flex flex-col p-8 relative">
+<div class="flex-1 overflow-y-auto space-y-8 pr-4 custom-scrollbar">
+<!-- Speaker A Entry -->
+<div class="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-700">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#adc6ff]"></div>
+<span class="text-xs font-bold font-headline tracking-wide text-primary">Speaker A (English)</span>
+<span class="text-[10px] text-outline">10:42:01 AM</span>
+</div>
+<div class="bg-surface-container-low rounded-2xl rounded-tl-none p-6 border border-outline-variant/5 shadow-xl">
+<p class="text-lg font-medium text-on-surface leading-relaxed mb-4">Hello everyone, thank you for joining this emergency sync. We need to finalize the global distribution plan by the end of today.</p>
+<div class="pt-4 border-t border-outline-variant/10">
+<span class="text-[10px] font-bold text-outline uppercase tracking-tighter mb-2 block">Translation (ES)</span>
+<p class="text-lg font-medium text-secondary/90 italic leading-relaxed">Hola a todos, gracias por unirse a esta sincronización de emergencia. Necesitamos finalizar el plan de distribución global para el final de hoy.</p>
+</div>
+</div>
+</div>
+<!-- Speaker B Entry -->
+<div class="max-w-3xl ml-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+<div class="flex items-center justify-end gap-3 mb-3">
+<span class="text-[10px] text-outline">10:42:15 AM</span>
+<span class="text-xs font-bold font-headline tracking-wide text-secondary">Speaker B (Spanish)</span>
+<div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_#d0bcff]"></div>
+</div>
+<div class="bg-surface-container-highest rounded-2xl rounded-tr-none p-6 border border-outline-variant/10 shadow-xl">
+<p class="text-lg font-medium text-on-surface leading-relaxed mb-4">Entendido. Tengo los informes de logística listos, pero me preocupa el plazo para la región de Asia.</p>
+<div class="pt-4 border-t border-outline-variant/10">
+<span class="text-[10px] font-bold text-outline uppercase tracking-tighter mb-2 block">Translation (EN)</span>
+<p class="text-lg font-medium text-primary/90 italic leading-relaxed">Understood. I have the logistics reports ready, but I am concerned about the deadline for the Asia region.</p>
+</div>
+</div>
+</div>
+<!-- Speaker A Active Response -->
+<div class="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#adc6ff]"></div>
+<span class="text-xs font-bold font-headline tracking-wide text-primary">Speaker A (English)</span>
+<span class="text-[10px] text-outline">Just now</span>
+</div>
+<div class="bg-surface-container-low rounded-2xl rounded-tl-none p-6 border border-outline-variant/5 shadow-xl translation-cell-active">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-sm">graphic_eq</span>
+<span class="text-[10px] font-bold text-primary uppercase">Transcribing Live...</span>
+</div>
+<p class="text-lg font-medium text-on-surface leading-relaxed">That makes sense. Let's look at the current resource allocation and see if we can...</p>
+</div>
+</div>
+</div>
+<!-- Footer Meta Bar (Mini Footer Alternative) -->
+<div class="mt-6 flex items-center justify-between px-2">
+<div class="flex items-center gap-6">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-outline uppercase tracking-wider">Detected Latency</span>
+<span class="text-xs font-medium text-on-surface">14ms (Optimal)</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-outline uppercase tracking-wider">Accuracy Engine</span>
+<span class="text-xs font-medium text-on-surface">Precision Ethereal AI v4.2</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-outline hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">zoom_in</span>
+</button>
+<button class="p-2 text-outline hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">settings_voice</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Right Panel: Context & Details -->
+<aside class="w-96 border-l border-outline-variant/10 bg-surface-container-low/20 p-8">
+<h3 class="font-headline font-bold text-on-surface mb-6">Call Details</h3>
+<div class="space-y-6">
+<div class="relative group cursor-pointer overflow-hidden rounded-2xl">
+<img class="w-full h-40 object-cover opacity-60 group-hover:opacity-80 transition-opacity" data-alt="minimal dark futuristic map showing connection between London and Madrid with glowing data paths" data-location="London" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqq74HJymsu8uNrbaNaTIYvUrOYavA8pUaagGKTtEm4SbdqHe3jNIvF5GTuLFctBcASYl84DJO_6-lTAXAJEGeeznrEhDpKgK7t0V122d3GXMKM6D5qSCVaUQyon2-PZ8xOWIXO3K870fUzbkIvVfplNna29NiXBmSX7haW31fz2WsVm0qTdCfIt3kVB0cbUUTLMhqN-5yxfqgC10oPoJOJqeyybQ-_joG0eBtCVROwLVNIqdWjJ969FSxxwDYNyV1eGZqW23iiRgE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface to-transparent"></div>
+<div class="absolute bottom-4 left-4">
+<p class="text-xs font-bold text-primary">Location Sync</p>
+<p class="text-sm font-medium text-on-surface">London ↔ Madrid</p>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl p-5 border border-outline-variant/10">
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-3">Key Terms Identified</p>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 bg-secondary-container/30 text-on-secondary-container text-[10px] font-bold rounded-md">Logistics Reports</span>
+<span class="px-2 py-1 bg-secondary-container/30 text-on-secondary-container text-[10px] font-bold rounded-md">Distribution Plan</span>
+<span class="px-2 py-1 bg-secondary-container/30 text-on-secondary-container text-[10px] font-bold rounded-md">Asia Region</span>
+<span class="px-2 py-1 bg-secondary-container/30 text-on-secondary-container text-[10px] font-bold rounded-md">Emergency Sync</span>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl p-5 border border-outline-variant/10">
+<p class="text-[10px] font-bold text-outline uppercase tracking-widest mb-4 text-center">Translation Sentiment</p>
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-medium text-on-surface-variant">Tone: Professional</span>
+<span class="text-xs font-bold text-primary">98% Clarity</span>
+</div>
+<div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary" style="width: 98%"></div>
+</div>
+</div>
+</div>
+<!-- Footer Logic Implementation -->
+<div class="mt-12 pt-8 border-t border-outline-variant/10">
+<p class="text-[10px] text-outline leading-relaxed">
+                    © 2024 Live Translator. Precision Ethereal AI.<br/>
+                    All audio processing is encrypted end-to-end and deleted post-session.
+                </p>
+</div>
+</aside>
+</main>
+<!-- Contextual FAB Suppression: FAB not relevant for dashboard view -->
+</body></html>

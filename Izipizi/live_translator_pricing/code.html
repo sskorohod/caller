@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pricing | Live Translator</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "background": "#0e131f",
+                      "inverse-on-surface": "#2b303d",
+                      "on-error": "#690005",
+                      "primary-fixed": "#d8e2ff",
+                      "on-primary-container": "#00285d",
+                      "inverse-primary": "#005ac2",
+                      "on-tertiary-fixed": "#001c39",
+                      "outline": "#8c909f",
+                      "secondary-fixed-dim": "#d0bcff",
+                      "surface-dim": "#0e131f",
+                      "on-tertiary": "#00315d",
+                      "secondary": "#d0bcff",
+                      "on-background": "#dde2f3",
+                      "on-surface-variant": "#c2c6d6",
+                      "tertiary-container": "#4c93e7",
+                      "on-surface": "#dde2f3",
+                      "surface-container-high": "#242a36",
+                      "surface-variant": "#2f3542",
+                      "surface": "#0e131f",
+                      "outline-variant": "#424754",
+                      "primary": "#adc6ff",
+                      "surface-container-highest": "#2f3542",
+                      "tertiary-fixed-dim": "#a4c9ff",
+                      "on-primary-fixed": "#001a42",
+                      "inverse-surface": "#dde2f3",
+                      "tertiary-fixed": "#d4e3ff",
+                      "surface-tint": "#adc6ff",
+                      "error-container": "#93000a",
+                      "on-secondary": "#3c0091",
+                      "surface-container-low": "#161c28",
+                      "primary-fixed-dim": "#adc6ff",
+                      "error": "#ffb4ab",
+                      "on-error-container": "#ffdad6",
+                      "secondary-container": "#571bc1",
+                      "tertiary": "#a4c9ff",
+                      "on-tertiary-container": "#002a51",
+                      "surface-container": "#1a202c",
+                      "secondary-fixed": "#e9ddff",
+                      "primary-container": "#4d8eff",
+                      "on-secondary-fixed": "#23005c",
+                      "on-secondary-container": "#c4abff",
+                      "on-tertiary-fixed-variant": "#004883",
+                      "on-primary": "#002e6a",
+                      "on-secondary-fixed-variant": "#5516be",
+                      "on-primary-fixed-variant": "#004395",
+                      "surface-bright": "#343946",
+                      "surface-container-lowest": "#080e1a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(36, 42, 54, 0.6);
+            backdrop-filter: blur(20px);
+            border: 0.5px solid rgba(140, 144, 159, 0.15);
+        }
+        .nebula-glow {
+            background: radial-gradient(circle at center, rgba(173, 198, 255, 0.08) 0%, transparent 70%);
+        }
+        .primary-gradient {
+            background: linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%);
+        }
+        .flux-orb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #adc6ff;
+            filter: blur(4px);
+            box-shadow: 0 0 12px #adc6ff;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0e131f]/60 backdrop-blur-xl border-b border-[#dde2f3]/10">
+<div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+<div class="text-xl font-bold tracking-tighter text-[#dde2f3] flex items-center gap-2 font-['Manrope']">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">translate</span>
+                Live Translator
+            </div>
+<nav class="hidden md:flex items-center gap-8 font-['Manrope'] font-bold text-sm tracking-tight">
+<a class="text-[#dde2f3]/70 hover:text-[#dde2f3] transition-all duration-300" href="#">Features</a>
+<a class="text-[#dde2f3]/70 hover:text-[#dde2f3] transition-all duration-300" href="#">How it Works</a>
+<a class="text-[#adc6ff] border-b-2 border-[#adc6ff] pb-1" href="#">Pricing</a>
+<a class="text-[#dde2f3]/70 hover:text-[#dde2f3] transition-all duration-300" href="#">FAQ</a>
+</nav>
+<div class="flex items-center gap-4 font-['Manrope'] font-bold text-sm">
+<button class="text-[#dde2f3]/70 hover:text-[#dde2f3] px-4 py-2 transition-all">Login</button>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg active:scale-95 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">Try Free</button>
+</div>
+</div>
+</header>
+<main class="pt-32 pb-24 overflow-hidden relative">
+<!-- Background Decor -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[800px] nebula-glow pointer-events-none -z-10"></div>
+<!-- Hero Section -->
+<section class="max-w-4xl mx-auto px-6 text-center mb-20">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary-container/20 border border-secondary/10 mb-6">
+<div class="flux-orb"></div>
+<span class="text-xs font-bold text-secondary tracking-widest uppercase font-headline">Lucid Pricing</span>
+</div>
+<h1 class="text-5xl md:text-7xl font-headline font-extrabold tracking-tighter text-on-surface mb-6 leading-tight">
+                Simple, transparent pricing. <br/>
+<span class="text-primary">Pay only for what you use.</span>
+</h1>
+<p class="text-on-surface-variant text-lg max-w-2xl mx-auto font-body">
+                No hidden fees. No restrictive monthly subscriptions. We believe in high-performance translation accessible to everyone, billed by the second.
+            </p>
+</section>
+<!-- Primary Pay-Per-Minute Model -->
+<section class="max-w-7xl mx-auto px-6 mb-32">
+<div class="glass-panel rounded-3xl p-1 md:p-1.5 overflow-hidden">
+<div class="bg-surface-container-high rounded-[calc(1.5rem-4px)] p-8 md:p-12 flex flex-col md:flex-row gap-12 items-center">
+<div class="flex-1 space-y-6">
+<h2 class="text-3xl font-headline font-bold text-on-surface">The "Pay Per Minute" Standard</h2>
+<p class="text-on-surface-variant leading-relaxed">
+                            Perfect for occasional users and spontaneous meetings. Deposit credits and watch them deplete only when the translation is active.
+                        </p>
+<ul class="space-y-4">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+<span class="text-on-surface font-medium">No subscriptions or monthly bills</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+<span class="text-on-surface font-medium">Credits never expire</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">check_circle</span>
+<span class="text-on-surface font-medium">No commitments - cancel anytime</span>
+</li>
+</ul>
+</div>
+<div class="w-full md:w-80 h-80 glass-panel rounded-2xl flex flex-col items-center justify-center relative overflow-hidden group">
+<div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="text-sm font-bold text-primary tracking-widest uppercase mb-2">Base Rate</div>
+<div class="text-7xl font-headline font-extrabold text-on-surface tracking-tighter mb-2">$0.15</div>
+<div class="text-on-surface-variant font-medium">per minute</div>
+<div class="mt-8">
+<button class="primary-gradient text-on-primary px-8 py-3 rounded-xl font-bold tracking-tight shadow-xl hover:scale-105 active:scale-95 transition-all">Get Started</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Starter Bundles -->
+<section class="max-w-7xl mx-auto px-6 mb-32">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Starter -->
+<div class="glass-panel rounded-3xl p-8 flex flex-col hover:bg-surface-variant/20 transition-all">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary">rocket_launch</span>
+</div>
+<h3 class="text-xl font-headline font-bold text-on-surface mb-2">Starter</h3>
+<div class="text-4xl font-headline font-extrabold text-on-surface mb-4">$4.50</div>
+<div class="text-sm text-on-surface-variant mb-8">Includes 30 minutes of translation time.</div>
+<div class="mt-auto pt-8 border-t border-outline-variant/10">
+<button class="w-full py-3 rounded-xl bg-surface-container-highest text-on-surface font-bold hover:bg-primary hover:text-on-primary transition-all">Buy Bundle</button>
+</div>
+</div>
+<!-- Pro (Highlighted) -->
+<div class="glass-panel rounded-3xl p-8 flex flex-col relative scale-105 z-10 border-primary/30 ring-1 ring-primary/20 bg-surface-container-high/80">
+<div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-on-primary text-[10px] font-extrabold tracking-widest uppercase px-4 py-1.5 rounded-full shadow-lg">Most Popular</div>
+<div class="w-12 h-12 rounded-xl primary-gradient flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-on-primary">workspace_premium</span>
+</div>
+<h3 class="text-xl font-headline font-bold text-on-surface mb-2">Pro</h3>
+<div class="text-4xl font-headline font-extrabold text-on-surface mb-4">$9.00</div>
+<div class="text-sm text-on-surface-variant mb-8">Includes 60 minutes of translation time.</div>
+<div class="mt-auto pt-8 border-t border-outline-variant/10">
+<button class="w-full py-3 rounded-xl primary-gradient text-on-primary font-bold shadow-lg hover:brightness-110 active:scale-[0.98] transition-all">Buy Bundle</button>
+</div>
+</div>
+<!-- Executive -->
+<div class="glass-panel rounded-3xl p-8 flex flex-col hover:bg-surface-variant/20 transition-all">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary">stars</span>
+</div>
+<h3 class="text-xl font-headline font-bold text-on-surface mb-2">Executive</h3>
+<div class="text-4xl font-headline font-extrabold text-on-surface mb-4">$18.00</div>
+<div class="text-sm text-on-surface-variant mb-8">Includes 120 minutes of translation time.</div>
+<div class="mt-auto pt-8 border-t border-outline-variant/10">
+<button class="w-full py-3 rounded-xl bg-surface-container-highest text-on-surface font-bold hover:bg-primary hover:text-on-primary transition-all">Buy Bundle</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Included Features Section -->
+<section class="max-w-7xl mx-auto px-6 mb-32">
+<div class="bg-surface-container-low rounded-[2rem] p-12 relative overflow-hidden">
+<div class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+<div>
+<h2 class="text-4xl font-headline font-extrabold text-on-surface mb-6">Everything included. <br/><span class="text-tertiary">No premium tiers.</span></h2>
+<p class="text-on-surface-variant mb-10 text-lg">We don't hold features hostage. Every user gets access to our full suite of AI-powered translation tools from the very first minute.</p>
+<div class="grid grid-cols-2 gap-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-lg">translate</span>
+</div>
+<span class="text-on-surface font-medium">10+ Languages</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-lg">description</span>
+</div>
+<span class="text-on-surface font-medium">Real-time Transcript</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-lg">dynamic_form</span>
+</div>
+<span class="text-on-surface font-medium">Auto-detection</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-lg">cloud_sync</span>
+</div>
+<span class="text-on-surface font-medium">Cloud Sync</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-6 glass-panel rounded-2xl text-center">
+<div class="text-on-surface font-bold mb-1">English</div>
+<div class="text-xs text-primary font-bold">ACTIVE</div>
+</div>
+<div class="p-6 glass-panel rounded-2xl text-center">
+<div class="text-on-surface font-bold mb-1">Spanish</div>
+<div class="text-xs text-primary font-bold">ACTIVE</div>
+</div>
+<div class="p-6 glass-panel rounded-2xl text-center">
+<div class="text-on-surface font-bold mb-1">French</div>
+<div class="text-xs text-primary font-bold">ACTIVE</div>
+</div>
+<div class="p-6 glass-panel rounded-2xl text-center">
+<div class="text-on-surface font-bold mb-1">Chinese</div>
+<div class="text-xs text-primary font-bold">ACTIVE</div>
+</div>
+<div class="p-6 glass-panel rounded-2xl text-center">
+<div class="text-on-surface font-bold mb-1">Arabic</div>
+<div class="text-xs text-primary font-bold">ACTIVE</div>
+</div>
+<div class="p-6 glass-panel rounded-2xl text-center">
+<div class="text-on-surface font-bold mb-1">+5 More</div>
+<div class="text-xs text-on-surface-variant">Available</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Trust Section -->
+<section class="max-w-7xl mx-auto px-6 mb-32 text-center">
+<h4 class="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-12">Trusted Security &amp; Infrastructure</h4>
+<div class="flex flex-wrap justify-center items-center gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-700">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-3xl">payments</span>
+<span class="font-headline font-bold text-xl">Stripe</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-3xl">lock</span>
+<span class="font-headline font-bold text-xl">256-bit AES</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-3xl">verified_user</span>
+<span class="font-headline font-bold text-xl">PCI DSS Compliant</span>
+</div>
+</div>
+</section>
+<!-- FAQ Section -->
+<section class="max-w-4xl mx-auto px-6 mb-32">
+<h2 class="text-3xl font-headline font-extrabold text-on-surface text-center mb-16">Billing Questions</h2>
+<div class="space-y-4">
+<div class="glass-panel rounded-2xl p-6">
+<h4 class="font-bold text-on-surface mb-2">How does the "Pay Per Minute" actually work?</h4>
+<p class="text-on-surface-variant text-sm">You purchase credits in advance. When you start a translation session, we track the usage down to the second and deduct from your balance only for the active translation time.</p>
+</div>
+<div class="glass-panel rounded-2xl p-6">
+<h4 class="font-bold text-on-surface mb-2">Do my credits ever expire?</h4>
+<p class="text-on-surface-variant text-sm">No. Whether you use them today or next year, your credits remain in your account until used. We do not have "use it or lose it" policies.</p>
+</div>
+<div class="glass-panel rounded-2xl p-6">
+<h4 class="font-bold text-on-surface mb-2">Can I get a refund for unused credits?</h4>
+<p class="text-on-surface-variant text-sm">Yes, we offer a full refund for any unused credit balance within 30 days of purchase, no questions asked.</p>
+</div>
+<div class="glass-panel rounded-2xl p-6">
+<h4 class="font-bold text-on-surface mb-2">Are there any hidden connection fees?</h4>
+<p class="text-on-surface-variant text-sm">None. You pay exactly $0.15 per minute of translation. We don't charge for opening the app, setting up languages, or storage of your transcripts.</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-[#161c28] w-full border-t border-[#dde2f3]/5 font-['Inter']">
+<div class="max-w-7xl mx-auto px-8 py-16 flex flex-col md:flex-row justify-between gap-12">
+<div class="space-y-6 max-w-sm">
+<div class="text-lg font-bold text-[#dde2f3]">Live Translator</div>
+<p class="text-sm text-[#dde2f3]/60">Break language barriers in real-time with precision AI. Built for the modern professional moving at the speed of sound.</p>
+<p class="text-xs text-[#dde2f3]/40 tracking-tight">© 2024 Live Translator. Precision Ethereal AI.</p>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-2 gap-x-16 gap-y-8">
+<div>
+<h5 class="text-on-surface font-bold text-sm mb-6 uppercase tracking-widest">Product</h5>
+<ul class="space-y-4 text-sm">
+<li><a class="text-[#dde2f3]/50 hover:text-[#adc6ff] transition-colors" href="#">Features</a></li>
+<li><a class="text-[#dde2f3]/50 hover:text-[#adc6ff] transition-colors" href="#">API</a></li>
+<li><a class="text-[#adc6ff] transition-colors" href="#">Pricing</a></li>
+<li><a class="text-[#dde2f3]/50 hover:text-[#adc6ff] transition-colors" href="#">Trust Center</a></li>
+</ul>
+</div>
+<div>
+<h5 class="text-on-surface font-bold text-sm mb-6 uppercase tracking-widest">Legal</h5>
+<ul class="space-y-4 text-sm">
+<li><a class="text-[#dde2f3]/50 hover:text-[#adc6ff] transition-colors" href="#">Privacy Policy</a></li>
+<li><a class="text-[#dde2f3]/50 hover:text-[#adc6ff] transition-colors" href="#">Terms of Service</a></li>
+<li><a class="text-[#dde2f3]/50 hover:text-[#adc6ff] transition-colors" href="#">Security</a></li>
+<li><a class="text-[#dde2f3]/50 hover:text-[#adc6ff] transition-colors" href="#">Compliance</a></li>
+</ul>
+</div>
+</div>
+</div>
+</footer>
+</body></html>

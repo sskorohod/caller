@@ -37,15 +37,15 @@ export default function PricingPage() {
       {/* Navigation */}
       <header className="fixed top-0 w-full z-50 border-b" style={{ background: 'rgba(14, 19, 31, 0.6)', backdropFilter: 'blur(24px)', borderColor: 'rgba(221, 226, 243, 0.1)' }}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/landing" className="text-xl font-bold tracking-tighter flex items-center gap-2 font-headline">
+          <Link href="/" className="text-xl font-bold tracking-tighter flex items-center gap-2 font-headline">
             <span className="material-symbols-outlined" style={{ color: '#adc6ff', fontVariationSettings: "'FILL' 1" }}>translate</span>
             Live Translator
           </Link>
           <nav className="hidden md:flex items-center gap-8 font-headline font-bold text-sm tracking-tight">
-            <Link href="/landing#features" className="opacity-70 hover:opacity-100 transition-all duration-300">Features</Link>
-            <Link href="/landing#how-it-works" className="opacity-70 hover:opacity-100 transition-all duration-300">How it Works</Link>
+            <Link href="/#features" className="opacity-70 hover:opacity-100 transition-all duration-300">Features</Link>
+            <Link href="/#how-it-works" className="opacity-70 hover:opacity-100 transition-all duration-300">How it Works</Link>
             <span style={{ color: '#adc6ff', borderBottom: '2px solid #adc6ff', paddingBottom: '4px' }}>Pricing</span>
-            <Link href="/landing#faq" className="opacity-70 hover:opacity-100 transition-all duration-300">FAQ</Link>
+            <Link href="/#faq" className="opacity-70 hover:opacity-100 transition-all duration-300">FAQ</Link>
           </nav>
           <div className="flex items-center gap-4 font-headline font-bold text-sm">
             <Link href="/login" className="opacity-70 hover:opacity-100 px-4 py-2 transition-all">Login</Link>
@@ -240,7 +240,7 @@ export default function PricingPage() {
       <footer className="w-full border-t" style={{ background: '#161c28', borderColor: 'rgba(221, 226, 243, 0.05)' }}>
         <div className="max-w-7xl mx-auto px-8 py-16 flex flex-col md:flex-row justify-between gap-12">
           <div className="space-y-6 max-w-sm">
-            <Link href="/landing" className="text-lg font-bold font-headline">Live Translator</Link>
+            <Link href="/" className="text-lg font-bold font-headline">Live Translator</Link>
             <p className="text-sm" style={{ color: 'rgba(221, 226, 243, 0.6)' }}>Break language barriers in real-time with precision AI. Built for the modern professional.</p>
             <p className="text-xs tracking-tight" style={{ color: 'rgba(221, 226, 243, 0.4)' }}>&copy; 2025 Live Translator. All rights reserved.</p>
           </div>
