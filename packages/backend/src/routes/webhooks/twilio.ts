@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../config/db.js';
-import { telephonyConnections, workspaces } from '../../db/schema.js';
+import { telephonyConnections, workspaces, translatorSubscribers } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
@@ -86,6 +86,73 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { connection, workspace } = row;
+
+    // --- Check if caller is a translator subscriber ---
+    const callerNormalized = callerNumber.replace(/[\s\-\(\)]/g, '');
+    const [translatorSub] = await db
+      .select()
+      .from(translatorSubscribers)
+      .where(and(
+        eq(translatorSubscribers.workspace_id, workspace.id),
+        eq(translatorSubscribers.phone_number, callerNormalized),
+        eq(translatorSubscribers.enabled, true),
+      ))
+      .limit(1);
+
+    if (translatorSub) {
+      const balance = parseFloat(translatorSub.balance_minutes as string);
+      if (balance <= 0) {
+        // No balance — inform and hang up
+        const noBalanceTwiml = new (await import('twilio')).default.twiml.VoiceResponse();
+        noBalanceTwiml.say({ voice: 'Polly.Joanna' },
+          translatorSub.my_language === 'ru'
+            ? 'Ваш баланс исчерпан. Пожалуйста, пополните баланс для использования переводчика.'
+            : 'Your balance is depleted. Please top up to use the translator service.');
+        noBalanceTwiml.hangup();
+        reply.type('text/xml').send(noBalanceTwiml.toString());
+        return;
+      }
+
+      // Create call record for translator session
+      const translatorCall = await callService.createCall({
+        workspaceId: workspace.id,
+        direction: 'inbound',
+        fromNumber: callerNumber,
+        toNumber: calledNumber,
+        telephonyConnectionId: connection.id,
+        conversationOwnerRequested: 'internal',
+        metadata: { call_type: 'translator', subscriber_id: translatorSub.id },
+      });
+
+      await callService.updateCallStatus(translatorCall.id, 'in_progress', {
+        twilio_call_sid: callSid,
+      } as any);
+
+      // Create AI session for cost tracking
+      await callService.createAiSession({
+        callId: translatorCall.id,
+        workspaceId: workspace.id,
+        conversationOwner: 'internal',
+      });
+
+      // Return TwiML: greeting + connect to media stream
+      const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
+      // Play greeting via Twilio TTS (fast, no external API call)
+      twiml.say({ voice: translatorSub.my_language === 'ru' ? 'Polly.Tatyana' : 'Polly.Joanna' },
+        translatorSub.greeting_text);
+      // Connect to media stream for live translation
+      const connect = twiml.connect();
+      connect.stream({
+        url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${translatorCall.id}`,
+        name: `translator-${translatorCall.id}`,
+      });
+
+      app.log.info({ callId: translatorCall.id, subscriber: translatorSub.name, phone: callerNormalized }, 'Translator subscriber call connected');
+      reply.type('text/xml').send(twiml.toString());
+      return;
+    }
+
+    // --- Regular inbound call flow ---
     const agentProfileId = connection.default_agent_profile_id;
 
     let agentProfile = agentProfileId
