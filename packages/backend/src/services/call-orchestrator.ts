@@ -255,7 +255,7 @@ export class CallOrchestrator extends EventEmitter {
     await llm.generateStream(
       this.llmMessages,
       this.config.agentProfile.llm_model,
-      this.config.agentProfile.llm_temperature,
+      Number(this.config.agentProfile.llm_temperature) || 0.7,
       {
         onToken: (token: string) => {
           if (this.isStopped) return;
