@@ -275,6 +275,11 @@ export async function executeMission(workspaceId: string, missionId: string): Pr
   const mission = await getMission(workspaceId, missionId);
   if (!mission.target_phone) throw new Error('No target phone number');
 
+  // Safety: if stuck in 'calling', allow re-execute
+  if (mission.status === 'calling') {
+    await updateMission(missionId, { status: 'ready' } as any);
+  }
+
   // Get agent
   let agentProfile;
   if (mission.agent_profile_id) {

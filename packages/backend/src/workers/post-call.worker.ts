@@ -220,7 +220,14 @@ Respond in JSON format:
 
         // Update mission if this call belongs to one
         try {
-          const [mission] = await db.select().from(missions).where(eq(missions.call_id, callId));
+          let [mission] = await db.select().from(missions).where(eq(missions.call_id, callId));
+          // Fallback: find any mission stuck in 'calling' for this workspace
+          if (!mission) {
+            const { and: andOp } = await import('drizzle-orm');
+            [mission] = await db.select().from(missions)
+              .where(andOp(eq(missions.status, 'calling'), eq(missions.workspace_id, workspaceId)))
+              .limit(1);
+          }
           if (mission) {
             await db.update(missions).set({
               status: 'completed',
