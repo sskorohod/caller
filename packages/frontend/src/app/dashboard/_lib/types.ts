@@ -24,8 +24,10 @@ export interface RecentCall {
   id: string;
   direction: string;
   status: string;
-  phone_number_to: string;
-  phone_number_from: string;
+  phone_number_to?: string;
+  phone_number_from?: string;
+  to_number?: string;
+  from_number?: string;
   duration_seconds: number | null;
   cost_total: string | null;
   created_at: string;

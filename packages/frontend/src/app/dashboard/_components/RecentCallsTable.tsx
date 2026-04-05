@@ -41,7 +41,7 @@ export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
             <tbody>
               {calls.map((call, idx) => (
                 <tr key={call.id} className={`transition-colors hover:bg-[var(--th-surface)] ${idx < calls.length - 1 ? 'border-b border-[var(--th-border-light)]' : ''}`}>
-                  <td className="px-5 py-3 text-sm font-medium text-[var(--th-text)] tabular-nums">{fmtPhone(call.direction === 'outbound' ? call.phone_number_to : call.phone_number_from)}</td>
+                  <td className="px-5 py-3 text-sm font-medium text-[var(--th-text)] tabular-nums">{fmtPhone(call.direction === 'outbound' ? (call.phone_number_to || call.to_number) : (call.phone_number_from || call.from_number))}</td>
                   <td className="px-5 py-3">
                     <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                       call.direction === 'outbound'
