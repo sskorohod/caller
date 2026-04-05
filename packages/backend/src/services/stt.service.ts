@@ -29,7 +29,7 @@ export class DeepgramSTT extends EventEmitter {
   connect(options?: { language?: string; model?: string }): void {
     const lang = options?.language ?? 'en-US';
     const model = options?.model ?? 'nova-2';
-    const url = `wss://api.deepgram.com/v1/listen?model=${model}&language=${lang}&punctuate=true&interim_results=true&endpointing=200&utterance_end_ms=1000&vad_events=true&encoding=mulaw&sample_rate=8000&channels=1`;
+    const url = `wss://api.deepgram.com/v1/listen?model=${model}&language=${lang}&punctuate=true&interim_results=true&endpointing=100&utterance_end_ms=400&vad_events=true&encoding=mulaw&sample_rate=8000&channels=1`;
 
     this.ws = new WebSocket(url, {
       headers: { Authorization: `Token ${this.apiKey}` },
@@ -82,6 +82,13 @@ export class DeepgramSTT extends EventEmitter {
 
     this.ws.on('error', (err: Error) => this.emit('error', err));
     this.ws.on('close', () => this.emit('close'));
+  }
+
+  /** Force Deepgram to emit buffered audio as a final transcript immediately. */
+  finalize(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'Finalize' }));
+    }
   }
 
   sendAudio(audioBuffer: Buffer): void {
