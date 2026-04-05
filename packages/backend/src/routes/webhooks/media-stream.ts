@@ -59,6 +59,8 @@ interface ManualSession {
   transcript: Array<{ speaker: string; text: string; timestamp: string }>;
   callId: string;
   sessionId?: string;
+  workspaceId: string;
+  saved: boolean;
   stop: () => void;
 }
 const activeManualSessions = new Map<string, ManualSession>();
@@ -79,6 +81,8 @@ interface VoiceTranslateSession {
   pttActive: boolean;
   sequentialMode: boolean;
   translationEnabled: boolean;
+  saved: boolean;
+  safetyTimer?: ReturnType<typeof setTimeout>;
 }
 const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 
@@ -87,6 +91,133 @@ export function getActiveVoiceTranslateSessions() { return activeVoiceTranslateS
 
 // PTT audio buffer flush callbacks (registered per call, called when PTT released)
 const pttFlushCallbacks = new Map<string, () => void>();
+
+// Safety-net timers for manual sessions
+const manualSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/* ------------------------------------------------------------------ */
+/*  Idempotent finalize functions — called from stop/close/error/timer */
+/* ------------------------------------------------------------------ */
+
+async function finalizeVTSession(callId: string): Promise<void> {
+  const vt = activeVoiceTranslateSessions.get(callId);
+  if (!vt || vt.saved) return; // already saved or session gone
+  vt.saved = true; // prevent double-save
+
+  // Clear safety timer
+  if (vt.safetyTimer) { clearTimeout(vt.safetyTimer); vt.safetyTimer = undefined; }
+
+  // Close STT connections
+  try { vt.operatorStt.close(); } catch { /* ignore */ }
+  try { if (vt.calleeStt) vt.calleeStt.close(); } catch { /* ignore */ }
+
+  // Save transcript + costs + queue post-call
+  const sessionId = vt.sessionId;
+  if (sessionId) {
+    try {
+      const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
+      if (callRow) {
+        const meta = callRow.metadata as any;
+        const durationSecs = callRow.connected_at
+          ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
+          : 0;
+        const durationMins = durationSecs / 60;
+        const sttProv = meta?.stt_provider ?? 'deepgram';
+        const costStt = calculateSTTCost(sttProv, durationMins) * 2;
+        const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2;
+        const costTotal = costStt + costTelephony;
+
+        await callService.updateAiSession(sessionId, {
+          transcript: vt.transcript as any,
+          total_turns: vt.transcript.length,
+          cost_stt: String(costStt),
+          cost_telephony: String(costTelephony),
+          cost_total: String(costTotal),
+        } as any);
+
+        await callService.updateCallStatus(callId, 'completed', {
+          duration_seconds: durationSecs,
+        } as any);
+
+        if (vt.transcript.length > 0) {
+          queuePostCallProcessing({ callId, workspaceId: vt.workspaceId, sessionId });
+        }
+        logger.info({ callId, turns: vt.transcript.length, costTotal }, 'VT session finalized');
+      }
+    } catch (err) {
+      logger.error({ err, callId }, 'Failed to finalize VT session');
+    }
+  }
+
+  // Notify frontend
+  const io = getIo();
+  if (io) {
+    io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });
+  }
+
+  // Hang up callee
+  if (vt.calleeCallSid) {
+    telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: unknown) => {
+      logger.warn({ err, callId }, 'Failed to hangup callee');
+    });
+  }
+
+  activeVoiceTranslateSessions.delete(callId);
+  pttFlushCallbacks.delete(callId);
+}
+
+async function finalizeManualSession(callId: string): Promise<void> {
+  const ms = activeManualSessions.get(callId);
+  if (!ms || ms.saved) return;
+  ms.saved = true;
+
+  // Clear safety timer
+  const timer = manualSafetyTimers.get(callId);
+  if (timer) { clearTimeout(timer); manualSafetyTimers.delete(callId); }
+
+  // Close STT
+  try { ms.calleeStt.close(); } catch { /* ignore */ }
+  try { ms.operatorStt.close(); } catch { /* ignore */ }
+
+  // Save transcript + costs
+  if (ms.sessionId) {
+    try {
+      const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
+      if (callRow) {
+        const durationSecs = callRow.connected_at
+          ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
+          : 0;
+        const durationMins = durationSecs / 60;
+        const meta = callRow.metadata as any;
+        const sttProv = meta?.stt_provider ?? 'deepgram';
+        const costStt = calculateSTTCost(sttProv, durationMins) * 2;
+        const costTelephony = calculateTelephonyCost('twilio', durationMins);
+        const costTotal = costStt + costTelephony;
+
+        await callService.updateAiSession(ms.sessionId, {
+          transcript: ms.transcript as any,
+          total_turns: ms.transcript.length,
+          cost_stt: String(costStt),
+          cost_telephony: String(costTelephony),
+          cost_total: String(costTotal),
+        } as any);
+
+        await callService.updateCallStatus(callId, 'completed', {
+          duration_seconds: durationSecs,
+        } as any);
+
+        if (ms.transcript.length > 0) {
+          queuePostCallProcessing({ callId, workspaceId: ms.workspaceId, sessionId: ms.sessionId });
+        }
+        logger.info({ callId, turns: ms.transcript.length, costTotal }, 'Manual session finalized');
+      }
+    } catch (err) {
+      logger.error({ err, callId }, 'Failed to finalize manual session');
+    }
+  }
+
+  activeManualSessions.delete(callId);
+}
 export function registerPttFlush(callId: string, cb: () => void) { pttFlushCallbacks.set(callId, cb); }
 export function flushPttAudio(callId: string) { pttFlushCallbacks.get(callId)?.(); }
 
@@ -581,6 +712,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 pttActive: false,
                 sequentialMode: meta?.voice_translate_mode === 'sequential',
                 translationEnabled: vtEnabled,
+                saved: false,
+                safetyTimer: setTimeout(() => {
+                  logger.warn({ callId }, 'VT safety timer fired — force-finalizing session');
+                  finalizeVTSession(callId).catch(() => {});
+                }, 4 * 60 * 60 * 1000), // 4 hours max
               });
 
               // Forward operator audio to STT
@@ -711,22 +847,21 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 operatorStt,
                 transcript,
                 callId,
+                workspaceId: call.workspace_id,
                 sessionId: aiSession?.id,
+                saved: false,
                 stop: () => {
-                  calleeStt.close();
-                  operatorStt.close();
-                  // Save transcript
-                  if (manualSession.sessionId && transcript.length > 0) {
-                    callService.updateAiSession(manualSession.sessionId, {
-                      transcript: transcript as any,
-                      total_turns: transcript.length,
-                    } as any).catch(err => logger.error({ err, callId }, 'Failed to save manual call transcript'));
-                  }
-                  activeManualSessions.delete(callId);
+                  // Delegate to idempotent finalizer
+                  finalizeManualSession(callId).catch(err =>
+                    logger.error({ err, callId }, 'finalizeManualSession error'));
                 },
               };
 
               activeManualSessions.set(callId, manualSession);
+              manualSafetyTimers.set(callId, setTimeout(() => {
+                logger.warn({ callId }, 'Manual session safety timer fired — force-finalizing');
+                finalizeManualSession(callId).catch(() => {});
+              }, 4 * 60 * 60 * 1000));
             } catch (err) {
               logger.error({ err, callId }, 'Failed to start manual call STT');
             }
@@ -846,19 +981,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         }
 
         if (msg.event === 'stop') {
-          const vt = activeVoiceTranslateSessions.get(callId);
-          if (vt) {
-            vt.operatorStt.close();
-            if (vt.calleeStt) vt.calleeStt.close();
-            // Hang up the callee call
-            if (vt.calleeCallSid) {
-              telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: Error) =>
-                logger.error({ err, callId }, 'Failed to hangup callee call'));
-            }
-            // Do NOT delete session here — close handler saves transcript/costs first
-          }
-          const ms = activeManualSessions.get(callId);
-          if (ms) ms.stop();
+          finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on stop'));
+          finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on stop'));
           if (orchestrator) orchestrator.stop('stream_stopped');
           if (externalSession) externalSession.sendCallEnded('stream_stopped');
         }
@@ -869,65 +993,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     socket.on('close', (code: number, reason: Buffer) => {
       logger.info({ callId, code, reason: reason?.toString() }, 'Twilio MediaStream WebSocket closed');
-      // Cleanup voice translate session + save transcript + hang up callee
-      const vt = activeVoiceTranslateSessions.get(callId);
-      if (vt) {
-        vt.operatorStt.close();
-        if (vt.calleeStt) vt.calleeStt.close();
-
-        // Save transcript + costs + queue post-call (before deleting session)
-        const vtSessionId = vt.sessionId;
-        if (vtSessionId) {
-          (async () => {
-            try {
-              const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
-              if (callRow) {
-                const meta = callRow.metadata as any;
-                const durationSecs = callRow.connected_at
-                  ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
-                  : 0;
-                const durationMins = durationSecs / 60;
-                const sttProv = meta?.stt_provider ?? 'deepgram';
-                const costStt = calculateSTTCost(sttProv, durationMins) * 2;
-                const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2;
-                const costTotal = costStt + costTelephony;
-
-                await callService.updateAiSession(vtSessionId, {
-                  transcript: vt.transcript as any,
-                  total_turns: vt.transcript.length,
-                  cost_stt: String(costStt),
-                  cost_telephony: String(costTelephony),
-                  cost_total: String(costTotal),
-                } as any);
-
-                await callService.updateCallStatus(callId, 'completed', {
-                  duration_seconds: durationSecs,
-                } as any);
-
-                if (vt.transcript.length > 0) {
-                  queuePostCallProcessing({ callId, workspaceId: vt.workspaceId, sessionId: vtSessionId });
-                }
-                logger.info({ callId, turns: vt.transcript.length, costTotal }, 'VT transcript saved on operator close');
-              }
-            } catch (err) {
-              logger.error({ err, callId }, 'Failed to save VT transcript on operator close');
-            }
-          })();
-        }
-
-        // Notify frontend
-        const io = getIo();
-        if (io) {
-          io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });
-        }
-
-        if (vt.calleeCallSid) {
-          telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: unknown) => { logger.warn({ err, callId }, 'Failed to hangup callee'); });
-        }
-        activeVoiceTranslateSessions.delete(callId);
-      }
-      const ms = activeManualSessions.get(callId);
-      if (ms) ms.stop();
+      // Finalize all session types (idempotent — safe to call even if already finalized in stop)
+      finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on close'));
+      finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on close'));
       if (orchestrator) orchestrator.stop('ws_closed');
       if (externalSession) {
         externalSession.sendCallEnded('ws_closed');
