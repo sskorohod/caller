@@ -226,18 +226,6 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  // POST /api/calls/:id/hangup — force end a call via Twilio
-  app.post('/:id/hangup', async (request) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
-    const call = await callService.getCall(request.auth.workspaceId, id);
-    if (!call) throw { statusCode: 404, message: 'Call not found' };
-    if (call.twilio_call_sid) {
-      await telephonyService.hangupCall(request.auth.workspaceId, call.twilio_call_sid);
-    }
-    await callService.updateCallStatus(id, 'completed');
-    return { ok: true };
-  });
-
   // GET /api/calls/:id/artifacts
   app.get('/:id/artifacts', {
     preHandler: [authenticateApiKey],
