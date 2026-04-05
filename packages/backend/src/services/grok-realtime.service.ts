@@ -259,10 +259,16 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     const transcript = msg.transcript as string;
     if (!transcript?.trim()) return;
 
-    // If caller speaks after end_call was triggered, cancel hangup — they want to continue
+    // If caller speaks after end_call was triggered — only cancel hangup if it's NOT a farewell
+    // (farewell responses like "пока", "до свидания" should NOT restart the conversation)
     if (this.pendingHangup) {
-      logger.info({ callId: this.config.call.id }, 'Caller spoke after end_call — cancelling hangup');
-      this.pendingHangup = false;
+      const farewellPattern = /^(пока|до свидания|bye|goodbye|всего доброго|до встречи|see you|take care|ладно|ок|хорошо|да|угу|ага|спокойной)[.!,\s]*$/i;
+      if (!farewellPattern.test(transcript.trim())) {
+        logger.info({ callId: this.config.call.id, text: transcript }, 'Caller spoke NEW topic after end_call — cancelling hangup');
+        this.pendingHangup = false;
+      } else {
+        logger.info({ callId: this.config.call.id, text: transcript }, 'Caller farewell after end_call — keeping hangup');
+      }
     }
 
     this.turnCount++;
@@ -333,18 +339,14 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       });
       this.sendGrok({ type: 'response.create' });
 
-      // Wait 6 seconds for:
-      // 1. Grok to finish saying goodbye (~3s)
-      // 2. Caller to potentially respond (~3s)
-      // If caller speaks, Grok will respond naturally (VAD still active)
-      // After 6s, hang up regardless
+      // Wait 3 seconds for Grok to finish saying goodbye, then hang up
       this.pendingHangup = true;
       setTimeout(() => {
         if (!this.pendingHangup || this.isStopped) return;
-        logger.info({ callId: this.config.call.id }, 'Hanging up after goodbye delay');
+        logger.info({ callId: this.config.call.id }, 'Hanging up after goodbye');
         this.stop('agent_ended_call');
         try { this.config.twilioWs.close(); } catch { /* ignore */ }
-      }, 6000);
+      }, 3000);
     }
   }
 
