@@ -1280,6 +1280,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       createLLMProvider(call.workspace_id, agentProfile.llm_provider as any),
     ]);
 
+    // Use language from call context (mission) if available, otherwise agent profile
+    const callLanguage = (call.context as any)?.language || agentProfile.language;
+
     const orchestrator = new CallOrchestrator({
       call: call as any,
       agentProfile: agentProfile as any,
@@ -1288,7 +1291,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       llm,
       twilioWs: twilioSocket,
       streamSid,
-      language: agentProfile.language,
+      language: callLanguage,
       systemPrompt,
       callerContext,
       knowledgeSearch: attachedKBs.length > 0

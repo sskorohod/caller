@@ -178,7 +178,7 @@ ${JSON.stringify({ status: mission.status, title: mission.title, target_phone: m
 RESPONSE FORMAT:
 - For normal conversation: respond naturally in the user's language
 - When you have all details, include JSON at the END of your message:
-  {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","context":{...},"fallback_action":"report"}}
+  {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","language":"en","context":{...},"fallback_action":"report"}}
 - When user confirms to call NOW: {"action":"execute"}
 - When user wants to schedule: {"action":"schedule","at":"2026-04-03T09:00:00Z"}
 
@@ -188,6 +188,9 @@ RULES:
 - Ask for phone number if missing
 - ALL phone numbers MUST use +1 (US) country code. NEVER use +7 or any other country code.
 - Format phone as E.164: +1XXXXXXXXXX (e.g. +18182775070)
+- ALWAYS ask or detect the language of the call. Set "language" in the plan:
+  "ru" for Russian, "en" for English, "es" for Spanish, etc.
+  Default to "en" if unclear. This determines STT transcription language.
 - Suggest the best agent by task type
 - For fallback, options are: connect_operator, retry_later, voicemail, report, wait_instructions`;
 
@@ -230,12 +233,15 @@ RULES:
 
       if (actionJson.action === 'ready' && actionJson.plan) {
         const plan = actionJson.plan;
+        // Merge language into context
+        const mergedContext = { ...(mission.context as any ?? {}), ...(plan.context ?? {}) };
+        if (plan.language) mergedContext.language = plan.language;
         await updateMission(missionId, {
           title: plan.title ?? mission.title,
           target_phone: plan.target_phone ?? mission.target_phone,
           goal: plan.goal ?? mission.goal,
           agent_profile_id: plan.agent_profile_id ?? mission.agent_profile_id,
-          context: plan.context ?? mission.context,
+          context: mergedContext,
           fallback_action: plan.fallback_action ?? mission.fallback_action,
           status: 'ready',
         });
