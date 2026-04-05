@@ -310,6 +310,20 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       this.conversationHistory.push({ speaker: 'agent', text, timestamp: new Date().toISOString() });
       logger.info({ callId: this.config.call.id, text }, 'Agent response (Grok)');
       this.emit('transcript', { speaker: 'agent', text, timestamp: new Date().toISOString(), isFinal: true });
+
+      // Fallback farewell detection — Grok often ignores end_call tool
+      // If agent said a short farewell phrase, trigger hangup from server side
+      const farewellPattern = /^(пока|до свидания|goodbye|bye|bye-bye|всего доброго|до встречи|see you|take care|спокойной ночи)[.!,\s]*$/i;
+      if (farewellPattern.test(text) && !this.pendingHangup) {
+        logger.info({ callId: this.config.call.id, text }, 'Server-side farewell detection — scheduling hangup');
+        this.pendingHangup = true;
+        setTimeout(() => {
+          if (!this.pendingHangup || this.isStopped) return;
+          logger.info({ callId: this.config.call.id }, 'Hanging up after server-detected farewell');
+          this.stop('agent_ended_call');
+          try { this.config.twilioWs.close(); } catch { /* ignore */ }
+        }, 3000);
+      }
     }
 
     this.currentAgentTranscript = '';
