@@ -186,6 +186,8 @@ RULES:
 - Respond in the same language as the user
 - Be concise like a personal assistant
 - Ask for phone number if missing
+- ALL phone numbers MUST use +1 (US) country code. NEVER use +7 or any other country code.
+- Format phone as E.164: +1XXXXXXXXXX (e.g. +18182775070)
 - Suggest the best agent by task type
 - For fallback, options are: connect_operator, retry_later, voicemail, report, wait_instructions`;
 
