@@ -262,12 +262,13 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     // If caller speaks after end_call was triggered — only cancel hangup if it's NOT a farewell
     // (farewell responses like "пока", "до свидания" should NOT restart the conversation)
     if (this.pendingHangup) {
-      const farewellPattern = /^(пока|до свидания|bye|goodbye|всего доброго|до встречи|see you|take care|ладно|ок|хорошо|да|угу|ага|спокойной)[.!,\s]*$/i;
-      if (!farewellPattern.test(transcript.trim())) {
-        logger.info({ callId: this.config.call.id, text: transcript }, 'Caller spoke NEW topic after end_call — cancelling hangup');
-        this.pendingHangup = false;
+      const farewellWords = /\b(пока|до свидания|bye|goodbye|всего доброго|до встречи|see you|take care|спокойной ночи)\b/i;
+      const shortAck = /^(ладно|ок|хорошо|да|угу|ага|ну всё|всё)[.!,\s]*$/i;
+      if (farewellWords.test(transcript.trim()) || shortAck.test(transcript.trim())) {
+        // Caller said farewell or short ack — keep hangup active
       } else {
-        logger.info({ callId: this.config.call.id, text: transcript }, 'Caller farewell after end_call — keeping hangup');
+        logger.info({ callId: this.config.call.id, text: transcript }, 'Caller spoke NEW topic after farewell — cancelling hangup');
+        this.pendingHangup = false;
       }
     }
 
