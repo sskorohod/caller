@@ -613,20 +613,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                         flushPttAudioBuffer();
                       }
                     } else {
-                      // Inject TTS audio into callee stream immediately
-                      const calleeSid = vtSessNow?.calleeStreamSid;
-                      const calleeWs = vtSessNow?.calleeSocket;
-                      if (calleeWs && calleeSid && calleeWs.readyState === 1) {
-                        const chunkSize = 640;
-                        for (let i = 0; i < audio.length; i += chunkSize) {
-                          const chunk = audio.subarray(i, i + chunkSize);
-                          calleeWs.send(JSON.stringify({
-                            event: 'media',
-                            streamSid: calleeSid,
-                            media: { payload: chunk.toString('base64') },
-                          }));
-                        }
-                      }
+                      // Inject TTS audio into callee + operator streams immediately
+                      sendTtsAudioToBoth(audio);
                       logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
                     }
                   } catch (err) {
@@ -635,25 +623,40 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 })();
               });
 
-              // Flush pre-buffered TTS audio to callee (called when PTT released)
+              // Send TTS audio to both callee AND operator (so operator hears the translation too)
+              const sendTtsAudioToBoth = (audio: Buffer) => {
+                const vtSess = activeVoiceTranslateSessions.get(callId);
+                if (!vtSess) return;
+                const chunkSize = 640;
+                // → callee
+                const calleeWs = vtSess.calleeSocket;
+                const calleeSid = vtSess.calleeStreamSid;
+                if (calleeWs && calleeSid && calleeWs.readyState === 1) {
+                  for (let i = 0; i < audio.length; i += chunkSize) {
+                    calleeWs.send(JSON.stringify({
+                      event: 'media', streamSid: calleeSid,
+                      media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+                    }));
+                  }
+                }
+                // → operator (hear your own translation)
+                if (vtSess.operatorSocket && vtSess.operatorStreamSid && vtSess.operatorSocket.readyState === 1) {
+                  for (let i = 0; i < audio.length; i += chunkSize) {
+                    vtSess.operatorSocket.send(JSON.stringify({
+                      event: 'media', streamSid: vtSess.operatorStreamSid,
+                      media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+                    }));
+                  }
+                }
+              };
+
+              // Flush pre-buffered TTS audio to callee+operator (called when PTT released)
               const flushPttAudioBuffer = () => {
                 if (pttAudioBuffer.length === 0) return;
-                const vtSess = activeVoiceTranslateSessions.get(callId);
-                const calleeWs = vtSess?.calleeSocket;
-                const calleeSid = vtSess?.calleeStreamSid;
-                if (calleeWs && calleeSid && calleeWs.readyState === 1) {
-                  for (const audio of pttAudioBuffer) {
-                    const chunkSize = 640;
-                    for (let i = 0; i < audio.length; i += chunkSize) {
-                      calleeWs.send(JSON.stringify({
-                        event: 'media',
-                        streamSid: calleeSid,
-                        media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
-                      }));
-                    }
-                  }
-                  logger.info({ callId, chunks: pttAudioBuffer.length }, 'PTT audio buffer flushed instantly');
+                for (const audio of pttAudioBuffer) {
+                  sendTtsAudioToBoth(audio);
                 }
+                logger.info({ callId, chunks: pttAudioBuffer.length }, 'PTT audio buffer flushed instantly');
                 // Translation already emitted per-segment in transcript handler (line 410)
                 // Only clear buffers here — no duplicate UI emit
                 pttAudioBuffer.length = 0;
