@@ -506,15 +506,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   }
                   logger.info({ callId, chunks: pttAudioBuffer.length }, 'PTT audio buffer flushed instantly');
                 }
-                // Emit combined translation to UI
-                if (io && pttTranslatedTexts.length > 0) {
-                  io.to(`call:${callId}:translate`).emit('call:translation', {
-                    call_id: callId, speaker: 'operator',
-                    original: operatorAccum.trim(),
-                    translated: pttTranslatedTexts.join(' '),
-                    timestamp: new Date().toISOString(),
-                  });
-                }
+                // Translation already emitted per-segment in transcript handler (line 410)
+                // Only clear buffers here — no duplicate UI emit
                 pttAudioBuffer.length = 0;
                 pttTranslatedTexts.length = 0;
               };
