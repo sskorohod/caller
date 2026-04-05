@@ -222,6 +222,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 // Final segment → accumulate and translate immediately
                 calleeAccum += (calleeAccum ? ' ' : '') + text;
 
+                // Save each final segment to transcript immediately (don't rely on utterance_end)
+                session.transcript.push({ speaker: 'caller', text, timestamp: new Date().toISOString() });
+
                 // Translate each final segment right away (don't wait for utterance_end)
                 const translator = activeTranslators.get(callId);
                 if (translator?.translateText) translator.translateText(text);
@@ -232,7 +235,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 calleeAccum = '';
                 if (!text) return;
 
-                // Emit final transcript for logging/persistence
+                // Emit final transcript for UI display
                 logger.info({ callId, speaker: 'caller', text: text.slice(0, 50) }, 'Callee transcript emitted');
                 if (io) {
                   io.to(`call:${callId}`).emit('call:transcript', {
@@ -240,7 +243,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     timestamp: new Date().toISOString(), isFinal: true,
                   });
                 }
-                session.transcript.push({ speaker: 'caller', text, timestamp: new Date().toISOString() });
               });
               session.calleeStt.on('error', (err: Error) => logger.error({ err, callId }, 'Callee STT error'));
               session.calleeStt.connect({ language: calleeLang === 'auto' ? undefined : calleeLang });
@@ -853,7 +855,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: Error) =>
                 logger.error({ err, callId }, 'Failed to hangup callee call'));
             }
-            activeVoiceTranslateSessions.delete(callId);
+            // Do NOT delete session here — close handler saves transcript/costs first
           }
           const ms = activeManualSessions.get(callId);
           if (ms) ms.stop();
