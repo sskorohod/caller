@@ -118,7 +118,14 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         this.onAgentTranscriptDelta(msg);
         break;
 
+      case 'response.output_audio_transcript.done':
+        // Full agent transcript available — trigger farewell check here
+        // (response.done may not arrive from Grok)
+        this.onResponseDone();
+        break;
+
       case 'response.done':
+        // Backup — also check here if transcript wasn't already processed
         this.onResponseDone();
         break;
 
