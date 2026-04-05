@@ -310,9 +310,12 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       this.emit('transcript', { speaker: 'agent', text, timestamp: new Date().toISOString(), isFinal: true });
 
       // Farewell detection — hang up when agent says goodbye
-      const farewellWords = /\b(пока|до свидания|goodbye|bye|всего доброго|до встречи|see you|take care|спокойной|удачи|good night|sweet dreams)\b/i;
-      logger.info({ callId: this.config.call.id, text, len: text.length, hasFarewell: farewellWords.test(text), pendingHangup: this.pendingHangup }, 'Farewell check');
-      if (farewellWords.test(text) && !this.pendingHangup) {
+      // Note: \b doesn't work with Cyrillic in JS regex, so use simple includes/match
+      const textLower = text.toLowerCase();
+      const hasFarewell = ['пока', 'до свидания', 'всего доброго', 'до встречи', 'спокойной', 'удачи',
+        'goodbye', 'bye', 'see you', 'take care', 'good night', 'sweet dreams'].some(w => textLower.includes(w));
+      logger.info({ callId: this.config.call.id, text, hasFarewell, pendingHangup: this.pendingHangup }, 'Farewell check');
+      if (hasFarewell && !this.pendingHangup) {
         logger.info({ callId: this.config.call.id, text }, 'FAREWELL DETECTED — hanging up in 3s');
         this.pendingHangup = true;
         setTimeout(() => {
