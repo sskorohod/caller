@@ -273,7 +273,9 @@ RULES:
 
 export async function executeMission(workspaceId: string, missionId: string): Promise<void> {
   const mission = await getMission(workspaceId, missionId);
-  if (!mission.target_phone) throw new Error('No target phone number');
+  if (!mission.target_phone) {
+    throw Object.assign(new Error('Mission is not ready — no phone number set. Please complete the plan first.'), { statusCode: 400 });
+  }
 
   // Safety: if stuck in 'calling', allow re-execute
   if (mission.status === 'calling') {
