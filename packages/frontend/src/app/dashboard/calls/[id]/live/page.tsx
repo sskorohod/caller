@@ -766,8 +766,8 @@ export default function LiveCallPage() {
                 </button>
               ))}
               <button
-                onClick={() => {
-                  socket?.emit('call:instruction', { call_id: callId, text: 'Politely wrap up the conversation and end the call.' });
+                onClick={async () => {
+                  try { await api.post(`/calls/${callId}/hangup`, {}); } catch { /* ignore */ }
                 }}
                 className="shrink-0 px-3 py-1.5 bg-[var(--th-error-bg)] border border-transparent rounded-lg text-[10px] font-semibold text-[var(--th-error-text)] hover:shadow-[0_2px_8px_rgba(239,68,68,0.15)] transition-all"
               >

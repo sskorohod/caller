@@ -312,9 +312,9 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       this.emit('transcript', { speaker: 'agent', text, timestamp: new Date().toISOString(), isFinal: true });
 
       // Fallback farewell detection — Grok often ignores end_call tool
-      // If agent said a short farewell phrase, trigger hangup from server side
-      const farewellPattern = /^(пока|до свидания|goodbye|bye|bye-bye|всего доброго|до встречи|see you|take care|спокойной ночи)[.!,\s]*$/i;
-      if (farewellPattern.test(text) && !this.pendingHangup) {
+      // If agent's short response contains a farewell, trigger hangup
+      const farewellPattern = /\b(пока|до свидания|goodbye|bye|всего доброго|до встречи|see you|take care|спокойной ночи)\b/i;
+      if (farewellPattern.test(text) && text.length < 50 && !this.pendingHangup) {
         logger.info({ callId: this.config.call.id, text }, 'Server-side farewell detection — scheduling hangup');
         this.pendingHangup = true;
         setTimeout(() => {
