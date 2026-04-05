@@ -576,17 +576,23 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       audio = await currentTts.synthesize(translated);
                     } catch (ttsErr) {
                       logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
-                      // Try fallback providers — match voice gender
+                      // Try fallback providers — match voice gender + pass voiceId
                       const xaiVoice = ttsVoiceId ?? 'ara';
                       const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
-                      const openaiVoice = isMale ? 'onyx' : 'nova'; // onyx=male, nova=female
+                      const openaiVoice = isMale ? 'onyx' : 'nova';
+                      const elevenVoice = ttsVoiceId; // keep same ElevenLabs voice if configured
                       for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
                         try {
-                          const fallbackVoice = fallback === 'openai' ? openaiVoice : undefined;
-                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fallbackVoice, calleeLang);
+                          const fbVoice = fallback === 'openai' ? openaiVoice
+                            : fallback === 'elevenlabs' ? elevenVoice
+                            : xaiVoice;
+                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
                           audio = await fallbackTts.synthesize(translated);
                           actualTtsProvider = fallback;
-                          logger.info({ callId, fallback }, 'TTS fallback succeeded');
+                          // Lock session to fallback provider for rest of call (stable voice)
+                          const vtSessFb = activeVoiceTranslateSessions.get(callId);
+                          if (vtSessFb) vtSessFb.tts = fallbackTts;
+                          logger.info({ callId, fallback, voice: fbVoice }, 'TTS fallback succeeded — locked for call');
                           break;
                         } catch { /* try next */ }
                       }
