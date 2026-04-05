@@ -75,6 +75,9 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       revenue_by_day: revenueByDay.rows,
       low_balance_alerts: lowBalance,
       recent_sessions: recentSessions,
+      subscribers: await db.select().from(translatorSubscribers)
+        .where(eq(translatorSubscribers.workspace_id, wsId))
+        .orderBy(desc(translatorSubscribers.created_at)),
     };
   });
 

@@ -15,6 +15,7 @@ interface DashboardData {
   revenue_by_day: Array<{ date: string; revenue: string; minutes: string; sessions: string }>;
   low_balance_alerts: Array<{ id: string; name: string; balance_minutes: string }>;
   recent_sessions: Array<{ id: string; subscriber_id: string; duration_seconds: number; minutes_used: string; cost_usd: string; status: string; created_at: string }>;
+  subscribers: Array<{ id: string; name: string; phone_number: string; my_language: string; target_language: string; mode: string; balance_minutes: string; enabled: boolean; blocked: boolean; created_at: string }>;
 }
 
 export default function AdminDashboard() {
@@ -114,6 +115,49 @@ export default function AdminDashboard() {
             {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
           </div>
         </div>
+      </div>
+
+      {/* Subscribers */}
+      <div className="glass-panel rounded-2xl p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>All Subscribers ({data.subscribers.length})</h3>
+          <Link href="/admin/subscribers" className="text-xs" style={{ color: '#adc6ff' }}>Manage</Link>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left" style={{ color: '#c2c6d6' }}>
+              <th className="pb-2 font-medium">Name</th>
+              <th className="pb-2 font-medium">Phone</th>
+              <th className="pb-2 font-medium">Languages</th>
+              <th className="pb-2 font-medium">Balance</th>
+              <th className="pb-2 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.subscribers.map(s => (
+              <tr key={s.id} className="border-t" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
+                <td className="py-2 font-medium">{s.name}</td>
+                <td className="py-2 font-mono text-xs" style={{ color: '#c2c6d6' }}>{s.phone_number}</td>
+                <td className="py-2 text-xs">{s.my_language} &harr; {s.target_language}</td>
+                <td className="py-2">
+                  <span className="font-mono text-xs" style={{ color: parseFloat(s.balance_minutes) < 5 ? '#fbbf24' : '#4ade80' }}>
+                    {parseFloat(s.balance_minutes).toFixed(1)} min
+                  </span>
+                </td>
+                <td className="py-2">
+                  <span className="px-2 py-0.5 rounded text-xs font-bold" style={
+                    s.blocked ? { background: 'rgba(248,113,113,0.1)', color: '#f87171' }
+                    : s.enabled ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }
+                    : { background: 'rgba(107,114,128,0.1)', color: '#6b7280' }
+                  }>
+                    {s.blocked ? 'Blocked' : s.enabled ? 'Active' : 'Disabled'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {data.subscribers.length === 0 && <tr><td colSpan={5} className="py-4 text-center opacity-50">No subscribers yet</td></tr>}
+          </tbody>
+        </table>
       </div>
     </div>
   );
