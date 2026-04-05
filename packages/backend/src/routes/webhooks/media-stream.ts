@@ -205,15 +205,34 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
               let calleeAccum = '';
               session.calleeStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
-                if (evt.isFinal && evt.text.trim()) {
-                  calleeAccum += (calleeAccum ? ' ' : '') + evt.text.trim();
+                const text = evt.text.trim();
+                if (!text) return;
+
+                if (!evt.isFinal) {
+                  // Interim → show raw transcript in UI immediately (real-time feel)
+                  if (io) {
+                    io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                      call_id: callId, speaker: 'caller', text: calleeAccum ? calleeAccum + ' ' + text : text,
+                      timestamp: new Date().toISOString(), isFinal: false,
+                    });
+                  }
+                  return;
                 }
+
+                // Final segment → accumulate and translate immediately
+                calleeAccum += (calleeAccum ? ' ' : '') + text;
+
+                // Translate each final segment right away (don't wait for utterance_end)
+                const translator = activeTranslators.get(callId);
+                if (translator?.translateText) translator.translateText(text);
+                if (translator?.flushTranslation) translator.flushTranslation();
               });
               session.calleeStt.on('utterance_end', () => {
                 const text = calleeAccum.trim();
                 calleeAccum = '';
                 if (!text) return;
 
+                // Emit final transcript for logging/persistence
                 logger.info({ callId, speaker: 'caller', text: text.slice(0, 50) }, 'Callee transcript emitted');
                 if (io) {
                   io.to(`call:${callId}`).emit('call:transcript', {
@@ -222,10 +241,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   });
                 }
                 session.transcript.push({ speaker: 'caller', text, timestamp: new Date().toISOString() });
-
-                const translator = activeTranslators.get(callId);
-                if (translator?.translateText) translator.translateText(text);
-                if (translator?.flushTranslation) translator.flushTranslation();
               });
               session.calleeStt.on('error', (err: Error) => logger.error({ err, callId }, 'Callee STT error'));
               session.calleeStt.connect({ language: calleeLang === 'auto' ? undefined : calleeLang });
@@ -596,8 +611,28 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               const wireSTT = (stt: import('../../services/stt.service.js').STTProvider, speaker: 'caller' | 'operator') => {
                 let accum = '';
                 stt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
-                  if (evt.isFinal && evt.text.trim()) {
-                    accum += (accum ? ' ' : '') + evt.text.trim();
+                  const text = evt.text.trim();
+                  if (!text) return;
+
+                  if (!evt.isFinal) {
+                    // Interim → show in UI immediately for real-time feel
+                    if (io) {
+                      io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                        call_id: callId, speaker,
+                        text: accum ? accum + ' ' + text : text,
+                        timestamp: new Date().toISOString(), isFinal: false,
+                      });
+                    }
+                    return;
+                  }
+
+                  accum += (accum ? ' ' : '') + text;
+
+                  // Translate callee segments immediately (don't wait for utterance_end)
+                  if (speaker === 'caller') {
+                    const translator = activeTranslators.get(callId);
+                    if (translator?.translateText) translator.translateText(text);
+                    if (translator?.flushTranslation) translator.flushTranslation();
                   }
                 });
                 stt.on('utterance_end', () => {
@@ -615,13 +650,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     });
                   }
                   transcript.push({ speaker, text, timestamp: new Date().toISOString() });
-
-                  // Feed callee text to LiveTranslator (if active)
-                  if (speaker === 'caller') {
-                    const translator = activeTranslators.get(callId);
-                    if (translator?.translateText) translator.translateText(text);
-                    if (translator?.flushTranslation) translator.flushTranslation();
-                  }
                 });
                 stt.on('error', (err: Error) => {
                   logger.error({ err, callId, speaker }, 'Manual call STT error');
