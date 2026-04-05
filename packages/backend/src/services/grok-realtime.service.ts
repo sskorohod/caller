@@ -259,18 +259,8 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     const transcript = msg.transcript as string;
     if (!transcript?.trim()) return;
 
-    // If caller speaks after end_call was triggered — only cancel hangup if it's NOT a farewell
-    // (farewell responses like "пока", "до свидания" should NOT restart the conversation)
-    if (this.pendingHangup) {
-      const farewellWords = /\b(пока|до свидания|bye|goodbye|всего доброго|до встречи|see you|take care|спокойной ночи)\b/i;
-      const shortAck = /^(ладно|ок|хорошо|да|угу|ага|ну всё|всё)[.!,\s]*$/i;
-      if (farewellWords.test(transcript.trim()) || shortAck.test(transcript.trim())) {
-        // Caller said farewell or short ack — keep hangup active
-      } else {
-        logger.info({ callId: this.config.call.id, text: transcript }, 'Caller spoke NEW topic after farewell — cancelling hangup');
-        this.pendingHangup = false;
-      }
-    }
+    // If hangup is pending — ignore caller speech, call is ending
+    if (this.pendingHangup) return;
 
     this.turnCount++;
     logger.info({ callId: this.config.call.id, turn: this.turnCount, text: transcript }, 'Caller utterance (Grok)');
@@ -313,9 +303,16 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       this.emit('transcript', { speaker: 'agent', text, timestamp: new Date().toISOString(), isFinal: true });
 
       // Fallback farewell detection — Grok often ignores end_call tool
-      // If agent's short response contains a farewell, trigger hangup
-      const farewellPattern = /\b(пока|до свидания|goodbye|bye|всего доброго|до встречи|see you|take care|спокойной ночи)\b/i;
-      if (farewellPattern.test(text) && text.length < 50 && !this.pendingHangup) {
+      // If agent gave a short response (< 60 chars) after 2+ turns, likely a farewell
+      const isFarewell = text.length < 60 && this.turnCount >= 2 && (
+        /\b(пока|до свидания|goodbye|bye|всего доброго|до встречи|see you|take care|спокойной|удачи|good night|sweet dreams)\b/i.test(text) ||
+        // Or last caller message had farewell intent
+        (() => {
+          const lastCaller = [...this.conversationHistory].reverse().find(t => t.speaker === 'caller');
+          return lastCaller && /\b(пока|до свидания|bye|goodbye|спокойной|всего|до встречи|see you|ладно всё|всё|конец)\b/i.test(lastCaller.text);
+        })()
+      );
+      if (isFarewell && !this.pendingHangup) {
         logger.info({ callId: this.config.call.id, text }, 'Server-side farewell detection — scheduling hangup');
         this.pendingHangup = true;
         setTimeout(() => {
