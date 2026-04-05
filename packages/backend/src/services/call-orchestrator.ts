@@ -79,7 +79,14 @@ export class CallOrchestrator extends EventEmitter {
     this.setupTwilioStream();
 
     // Connect STT
-    this.config.stt.connect({ language: this.config.language === 'ru' ? 'ru' : 'en-US' });
+    // Map language to Deepgram language code
+    const sttLang = this.config.language === 'ru' ? 'ru'
+      : this.config.language === 'auto' ? 'multi'
+      : this.config.language === 'es' ? 'es'
+      : this.config.language === 'de' ? 'de'
+      : this.config.language === 'fr' ? 'fr'
+      : 'en-US';
+    this.config.stt.connect({ language: sttLang });
 
     // Send greeting if configured
     if (this.config.agentProfile.greeting_message) {
