@@ -528,6 +528,54 @@ export const missionMessages = pgTable('mission_messages', {
 
 // ─── Call Share Tokens ─────────────────────────────────────────────────────
 
+// ============================================================
+// TRANSLATOR SUBSCRIBERS (B2C live translator service)
+// ============================================================
+export const translatorSubscribers = pgTable('translator_subscribers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  phone_number: text('phone_number').notNull(),
+  name: text('name').notNull(),
+  email: text('email'),
+  my_language: text('my_language').notNull().default('ru'),
+  target_language: text('target_language').notNull().default('en'),
+  mode: text('mode').notNull().default('voice'), // 'voice' | 'text' | 'both'
+  who_hears: text('who_hears').notNull().default('subscriber'), // 'subscriber' | 'both'
+  greeting_text: text('greeting_text').notNull().default('Hello, I am your live translator. I will be translating this conversation.'),
+  tts_provider: text('tts_provider').notNull().default('elevenlabs'),
+  tts_voice_id: text('tts_voice_id'),
+  telegram_chat_id: text('telegram_chat_id'),
+  stripe_customer_id: text('stripe_customer_id'),
+  balance_minutes: numeric('balance_minutes', { precision: 10, scale: 2 }).notNull().default('0'),
+  enabled: boolean('enabled').notNull().default(true),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_translator_subs_workspace').on(t.workspace_id),
+  index('idx_translator_subs_phone').on(t.phone_number),
+  unique('uq_translator_subs_phone').on(t.workspace_id, t.phone_number),
+]);
+
+export const translatorSessions = pgTable('translator_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  subscriber_id: uuid('subscriber_id').notNull().references(() => translatorSubscribers.id, { onDelete: 'cascade' }),
+  call_id: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  duration_seconds: integer('duration_seconds').default(0),
+  minutes_used: numeric('minutes_used', { precision: 10, scale: 2 }).default('0'),
+  cost_usd: numeric('cost_usd', { precision: 10, scale: 4 }).default('0'),
+  transcript: jsonb('transcript').notNull().default([]),
+  status: text('status').notNull().default('active'), // 'active' | 'completed'
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_translator_sess_subscriber').on(t.subscriber_id),
+  index('idx_translator_sess_workspace').on(t.workspace_id),
+  index('idx_translator_sess_call').on(t.call_id),
+]);
+
+// ============================================================
+// CALL SHARE TOKENS
+// ============================================================
 export const callShareTokens = pgTable('call_share_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
   call_id: uuid('call_id').notNull().references(() => calls.id, { onDelete: 'cascade' }),
