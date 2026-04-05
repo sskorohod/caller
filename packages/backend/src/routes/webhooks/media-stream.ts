@@ -27,7 +27,7 @@ import pino from 'pino';
 const logger = pino({ name: 'media-stream' });
 
 /** Convert PCM 16-bit 24kHz to mulaw 8kHz (Twilio format) */
-function pcmToMulaw(pcmBuf: Buffer): Buffer {
+export function pcmToMulaw(pcmBuf: Buffer): Buffer {
   // Downsample 24kHz → 8kHz (take every 3rd sample)
   const samples16 = new Int16Array(pcmBuf.buffer, pcmBuf.byteOffset, pcmBuf.length / 2);
   const downsampled = new Int16Array(Math.floor(samples16.length / 3));
@@ -467,6 +467,39 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           }
 
           await callService.updateCallStatus(callId, 'in_progress');
+
+          // --- Conference Translator call ---
+          const callMeta = call.metadata as any;
+          if (callMeta?.call_type === 'translator' && callMeta?.subscriber_id) {
+            logger.info({ callId, subscriberId: callMeta.subscriber_id }, 'Translator call — starting conference translator');
+            try {
+              const { translatorSubscribers } = await import('../../db/schema.js');
+              const [sub] = await db.select().from(translatorSubscribers)
+                .where(eq(translatorSubscribers.id, callMeta.subscriber_id));
+              if (sub) {
+                const { ConferenceTranslator } = await import('../../services/conference-translator.js');
+                const translator = new ConferenceTranslator({
+                  callId,
+                  workspaceId: call.workspace_id,
+                  subscriberId: sub.id,
+                  myLanguage: sub.my_language,
+                  targetLanguage: sub.target_language,
+                  mode: sub.mode as 'voice' | 'text' | 'both',
+                  whoHears: sub.who_hears as 'subscriber' | 'both',
+                  ttsProvider: sub.tts_provider,
+                  ttsVoiceId: sub.tts_voice_id ?? undefined,
+                  socket: socket as any,
+                  streamSid: streamSid!,
+                });
+                await translator.start();
+                // Store reference for media/stop/close events
+                (socket as any).__conferenceTranslator = translator;
+              }
+            } catch (err) {
+              logger.error({ err, callId }, 'Failed to start conference translator');
+            }
+            return;
+          }
 
           // --- Dialer call: always use bidirectional <Connect><Stream> (supports mid-call translate toggle) ---
           if (call.conversation_owner_requested === 'manual') {
@@ -919,6 +952,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
           const track = msg.media.track as string | undefined; // 'inbound' | 'outbound' when both_tracks
 
+          // --- Conference translator: forward audio ---
+          const confTranslator = (socket as any).__conferenceTranslator;
+          if (confTranslator) {
+            confTranslator.sendAudio(audioBuffer);
+            return;
+          }
+
           // --- Voice translate mode: route operator audio ---
           const vtSession = activeVoiceTranslateSessions.get(callId);
           if (vtSession) {
@@ -990,6 +1030,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         }
 
         if (msg.event === 'stop') {
+          // Conference translator
+          const ct = (socket as any).__conferenceTranslator;
+          if (ct) ct.stop();
           finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on stop'));
           finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on stop'));
           if (orchestrator) orchestrator.stop('stream_stopped');
@@ -1003,6 +1046,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     socket.on('close', (code: number, reason: Buffer) => {
       logger.info({ callId, code, reason: reason?.toString() }, 'Twilio MediaStream WebSocket closed');
       // Finalize all session types (idempotent — safe to call even if already finalized in stop)
+      const ct = (socket as any).__conferenceTranslator;
+      if (ct) ct.stop();
       finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on close'));
       finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on close'));
       if (orchestrator) orchestrator.stop('ws_closed');
