@@ -9,8 +9,10 @@ import { UnauthorizedError } from '../lib/errors.js';
  */
 export async function validateTwilioSignature(request: FastifyRequest, reply: FastifyReply) {
   // When TWILIO_WEBHOOK_SECRET is not set, skip validation
-  // (Cloudflare Tunnel rewrites URLs which breaks HMAC — tunnel itself provides security)
   if (!env.TWILIO_WEBHOOK_SECRET) return;
+
+  // Skip validation for voice-client (called by Twilio Client SDK from browser, not Twilio servers)
+  if (request.url.includes('/voice-client')) return;
 
   const signature = request.headers['x-twilio-signature'] as string | undefined;
   const url = `https://${env.API_DOMAIN}${request.url}`;
