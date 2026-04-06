@@ -26,6 +26,10 @@ const envSchema = z.object({
   MINIO_SECRET_KEY: z.string().default(''),
   MINIO_USE_SSL: z.string().transform(v => v === 'true').default('false'),
   MINIO_BUCKET: z.string().default('caller-recordings'),
+
+  // Stripe Connect OAuth
+  STRIPE_CONNECT_CLIENT_ID: z.string().default(''),
+  STRIPE_CONNECT_SECRET: z.string().default(''),
 });
 
 export const env = envSchema.parse(process.env);

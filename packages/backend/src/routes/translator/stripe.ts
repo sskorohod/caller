@@ -9,7 +9,16 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
   app.post('/checkout', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
-    if (!isStripeConfigured()) {
+    // Check if Stripe is available either via env or OAuth credentials
+    let stripeAvailable = isStripeConfigured();
+    if (!stripeAvailable) {
+      try {
+        const { getProviderCredential } = await import('../../services/provider.service.js');
+        const creds = await getProviderCredential(request.auth.workspaceId, 'stripe');
+        stripeAvailable = !!(creds.access_token || creds.secret_key);
+      } catch { /* not configured */ }
+    }
+    if (!stripeAvailable) {
       reply.status(503).send({ error: 'Stripe not configured' });
       return;
     }
@@ -26,6 +35,7 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
       pricePerMinute: body.price_per_minute,
       successUrl: `https://${env.API_DOMAIN}/dashboard/translator?checkout=success`,
       cancelUrl: `https://${env.API_DOMAIN}/dashboard/translator?checkout=canceled`,
+      workspaceId: request.auth.workspaceId,
     });
 
     return { url: session.url, session_id: session.sessionId };

@@ -8,6 +8,14 @@ import {
   balanceTransactions, platformSettings, adminAuditLog, providerCredentials,
 } from '../../db/schema.js';
 import { decrypt, encrypt } from '../../lib/crypto.js';
+import {
+  generateAuthorizationUrl, validateState, exchangeCodeForTokens,
+  fetchAccountInfo, disconnectAccount, isStripeConnectConfigured,
+} from '../../services/stripe-connect.service.js';
+import {
+  saveProviderCredential, getProviderCredential, markProviderVerified, deleteProviderCredential,
+} from '../../services/provider.service.js';
+import { env } from '../../config/env.js';
 
 async function auditLog(userId: string | undefined, action: string, resourceType: string, resourceId: string, details: any, ip?: string) {
   await db.insert(adminAuditLog).values({ user_id: userId, action, resource_type: resourceType, resource_id: resourceId, details, ip_address: ip });
@@ -361,6 +369,65 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     }
     await auditLog(request.auth.userId, 'settings_changed', 'settings', 'platform',
       { keys: Object.keys(body) }, request.ip);
+    return { ok: true };
+  });
+
+  // ─── Stripe Connect OAuth ─────────────────────────────────���────────────
+
+  app.get('/stripe/connect', async (request) => {
+    if (!isStripeConnectConfigured()) throw { statusCode: 400, message: 'Stripe Connect not configured' };
+    const redirectUri = `https://${env.API_DOMAIN}/admin/providers/stripe/callback`;
+    return generateAuthorizationUrl(request.auth.workspaceId, redirectUri);
+  });
+
+  app.post('/stripe/callback', async (request) => {
+    const { code, state } = z.object({ code: z.string(), state: z.string() }).parse(request.body);
+
+    const stateWorkspaceId = await validateState(state);
+    if (!stateWorkspaceId || stateWorkspaceId !== request.auth.workspaceId) {
+      throw { statusCode: 400, message: 'Invalid or expired state' };
+    }
+
+    const tokens = await exchangeCodeForTokens(code);
+    await saveProviderCredential({
+      workspaceId: request.auth.workspaceId,
+      provider: 'stripe',
+      credentials: {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        stripe_user_id: tokens.stripe_user_id,
+        livemode: String(tokens.livemode),
+      },
+    });
+    await markProviderVerified(request.auth.workspaceId, 'stripe');
+
+    await auditLog(request.auth.userId, 'stripe_connected', 'provider', 'stripe',
+      { stripe_user_id: tokens.stripe_user_id, livemode: tokens.livemode }, request.ip);
+
+    return { ok: true, stripe_user_id: tokens.stripe_user_id, livemode: tokens.livemode };
+  });
+
+  app.get('/stripe/status', async (request) => {
+    try {
+      const creds = await getProviderCredential(request.auth.workspaceId, 'stripe');
+      if (creds.access_token) {
+        const info = await fetchAccountInfo(creds.access_token);
+        return { connected: true, stripe_user_id: creds.stripe_user_id, business_name: info.business_name, email: info.email, livemode: creds.livemode === 'true' };
+      }
+      return { connected: true, stripe_user_id: creds.stripe_user_id ?? null, livemode: false };
+    } catch {
+      return { connected: false };
+    }
+  });
+
+  app.delete('/stripe/connect', async (request) => {
+    try {
+      const creds = await getProviderCredential(request.auth.workspaceId, 'stripe');
+      if (creds.stripe_user_id) await disconnectAccount(creds.stripe_user_id);
+    } catch { /* not connected — ok */ }
+
+    await deleteProviderCredential(request.auth.workspaceId, 'stripe');
+    await auditLog(request.auth.userId, 'stripe_disconnected', 'provider', 'stripe', {}, request.ip);
     return { ok: true };
   });
 

@@ -2,19 +2,32 @@ import pino from 'pino';
 import { eq } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { translatorSubscribers } from '../db/schema.js';
+import { getProviderCredential } from './provider.service.js';
 
 const log = pino({ name: 'stripe' });
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? '';
-const API_DOMAIN = process.env.API_DOMAIN ?? '';
 
-async function stripeRequest(path: string, method: string, body?: Record<string, string>): Promise<any> {
-  if (!STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not configured');
+async function getStripeKey(workspaceId?: string): Promise<string> {
+  if (workspaceId) {
+    try {
+      const creds = await getProviderCredential(workspaceId, 'stripe');
+      if (creds.access_token) return creds.access_token;
+      if (creds.secret_key) return creds.secret_key;
+    } catch { /* fallback to env */ }
+  }
+  if (STRIPE_SECRET_KEY) return STRIPE_SECRET_KEY;
+  throw new Error('Stripe not configured');
+}
+
+async function stripeRequest(path: string, method: string, body?: Record<string, string>, secretKey?: string): Promise<any> {
+  const key = secretKey ?? STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY not configured');
   const res = await fetch(`https://api.stripe.com/v1${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+      Authorization: `Bearer ${key}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: body ? new URLSearchParams(body).toString() : undefined,
@@ -33,7 +46,10 @@ export async function createCheckoutSession(params: {
   pricePerMinute: number;
   successUrl: string;
   cancelUrl: string;
+  workspaceId?: string;
 }): Promise<{ url: string; sessionId: string }> {
+  const key = await getStripeKey(params.workspaceId);
+
   const [sub] = await db.select().from(translatorSubscribers)
     .where(eq(translatorSubscribers.id, params.subscriberId));
   if (!sub) throw new Error('Subscriber not found');
@@ -46,7 +62,7 @@ export async function createCheckoutSession(params: {
       phone: sub.phone_number,
       ...(sub.email ? { email: sub.email } : {}),
       'metadata[subscriber_id]': sub.id,
-    });
+    }, key);
     customerId = customer.id;
     await db.update(translatorSubscribers)
       .set({ stripe_customer_id: customerId })
@@ -67,7 +83,7 @@ export async function createCheckoutSession(params: {
     'metadata[minutes]': String(params.minutes),
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
-  });
+  }, key);
 
   return { url: session.url, sessionId: session.id };
 }
@@ -77,7 +93,6 @@ export async function createCheckoutSession(params: {
  */
 export function verifyWebhookSignature(payload: string, signature: string): boolean {
   if (!STRIPE_WEBHOOK_SECRET) return false;
-  // Simplified verification — in production use stripe SDK
   const parts = signature.split(',').reduce((acc, part) => {
     const [k, v] = part.split('=');
     acc[k] = v;
@@ -88,7 +103,6 @@ export function verifyWebhookSignature(payload: string, signature: string): bool
   const v1 = parts['v1'];
   if (!timestamp || !v1) return false;
 
-  // Compute expected signature
   const crypto = require('crypto');
   const expected = crypto
     .createHmac('sha256', STRIPE_WEBHOOK_SECRET)
