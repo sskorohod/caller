@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
-import { requireFeature } from '../../middleware/plan-gate.js';
 import * as agentService from '../../services/agent.service.js';
 import * as auditService from '../../services/audit.service.js';
 import * as uploadService from '../../services/upload.service.js';
@@ -29,7 +28,6 @@ const createAgentSchema = z.object({
 
 const agentRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
-  app.addHook('onRequest', requireFeature('aiAgents'));
 
   // GET /api/agents
   app.get('/', async (request) => {
