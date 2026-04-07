@@ -28,6 +28,8 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [balanceUsd, setBalanceUsd] = useState<number>(0);
   const [plan, setPlan] = useState<string>('');
+  const [subStatus, setSubStatus] = useState<string>('none');
+  const [subEnd, setSubEnd] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -35,14 +37,17 @@ export default function OverviewPage() {
       api.get<{ calls: RecentCall[] }>('/calls?limit=5').then(r => r?.calls ?? []).catch(() => []),
       api.get<{ agents: Agent[] }>('/agents').then(r => (r?.agents ?? []).filter(Boolean)).catch(() => []),
       api.get<TelConnection[]>('/telephony/connections').catch(() => []),
-      api.get<{ balance_usd: number; plan: string }>('/billing/balance').catch(() => ({ balance_usd: 0, plan: '' })),
+      api.get<{ balance_usd: number; plan: string; subscription_status: string; subscription_current_period_end: string | null }>('/billing/balance').catch(() => ({ balance_usd: 0, plan: '', subscription_status: 'none', subscription_current_period_end: null })),
     ]).then(([s, c, a, conn, billing]) => {
       setStats(s);
       setCalls(c);
       setAgents(a);
       setConnections(Array.isArray(conn) ? conn : []);
-      setBalanceUsd((billing as any)?.balance_usd ?? 0);
-      setPlan((billing as any)?.plan ?? '');
+      const b = billing as any;
+      setBalanceUsd(b?.balance_usd ?? 0);
+      setPlan(b?.plan ?? '');
+      setSubStatus(b?.subscription_status ?? 'none');
+      setSubEnd(b?.subscription_current_period_end ?? null);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -101,7 +106,12 @@ export default function OverviewPage() {
         <KpiCard
           label={t('dashboard.balance') || 'Balance'}
           value={`$${balanceUsd.toFixed(2)}`}
-          sub={plan === 'translator' ? 'Translator' : plan === 'agents' ? 'Agents' : plan === 'agents_mcp' ? 'Agents + MCP' : ''}
+          sub={
+            (plan === 'translator' ? 'Translator' : plan === 'agents' ? 'Agents' : plan === 'agents_mcp' ? 'Agents + MCP' : '')
+            + (subStatus === 'active' && subEnd ? ` · until ${new Date(subEnd).toLocaleDateString()}` : '')
+            + (subStatus === 'canceled' ? ' · canceled' : '')
+            + (subStatus === 'past_due' ? ' · past due' : '')
+          }
           icon={<IconWallet />}
           gradient="var(--th-gradient-emerald)"
           accentColor="#10b981"
