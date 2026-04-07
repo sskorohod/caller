@@ -665,6 +665,21 @@ export const depositTransactions = pgTable('deposit_transactions', {
 ]);
 
 // ============================================================
+// MAGIC LINKS (passwordless auth)
+// ============================================================
+export const magicLinks = pgTable('magic_links', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull(),
+  token: text('token').notNull().unique(),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
+  used_at: timestamp('used_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_magic_links_token').on(t.token),
+  index('idx_magic_links_email').on(t.email),
+]);
+
+// ============================================================
 // CALL SHARE TOKENS
 // ============================================================
 export const callShareTokens = pgTable('call_share_tokens', {
