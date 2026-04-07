@@ -185,12 +185,43 @@ export default function AdminWorkspaces() {
                 </div>
               </div>
 
+              {/* Share Twilio */}
+              <div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Twilio Access</div>
+                <button
+                  onClick={async () => {
+                    const current = selected.provider_config?.twilio || 'own';
+                    const next = current === 'platform' ? 'own' : 'platform';
+                    await api.patch(`/admin/workspaces/${selected.id}/provider-config`, { twilio: next });
+                    const { twilio: _, ...restConfig } = selected.provider_config || {};
+                    const newConfig = next === 'platform' ? { ...restConfig, twilio: next } : restConfig;
+                    const updated = { ...selected, provider_config: newConfig };
+                    setSelected(updated);
+                    load();
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition w-full"
+                  style={
+                    (selected.provider_config?.twilio === 'platform')
+                      ? { background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }
+                      : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
+                  }
+                >
+                  <span className="text-base">{selected.provider_config?.twilio === 'platform' ? '✓' : '○'}</span>
+                  Share platform Twilio
+                </button>
+                {selected.provider_config?.twilio === 'platform' && (
+                  <p className="text-[10px] mt-1.5" style={{ color: '#c2c6d6' }}>
+                    This workspace uses your Twilio account. Costs are deducted from their balance.
+                  </p>
+                )}
+              </div>
+
               {/* Provider Config */}
-              {Object.keys(selected.provider_config || {}).length > 0 && (
+              {Object.keys(selected.provider_config || {}).filter(k => k !== 'twilio').length > 0 && (
                 <div>
-                  <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Providers</div>
+                  <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Other Providers</div>
                   <div className="space-y-1">
-                    {Object.entries(selected.provider_config).map(([k, v]) => (
+                    {Object.entries(selected.provider_config).filter(([k]) => k !== 'twilio').map(([k, v]) => (
                       <div key={k} className="flex justify-between text-xs">
                         <span>{k}</span>
                         <span className="font-mono" style={{ color: v === 'own' ? '#adc6ff' : '#4ade80' }}>{v}</span>

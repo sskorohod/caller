@@ -1,7 +1,7 @@
 import twilio from 'twilio';
 import { eq, and, asc } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { providerCredentials, telephonyConnections } from '../db/schema.js';
+import { providerCredentials, telephonyConnections, workspaces, workspaceMembers } from '../db/schema.js';
 import { decrypt, encrypt } from '../lib/crypto.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { env } from '../config/env.js';
@@ -18,13 +18,51 @@ interface TwilioCredentials {
   twiml_app_sid?: string;
 }
 
+/**
+ * Resolve which workspace holds Twilio credentials for the given workspace.
+ * If the workspace has its own twilio creds, returns the same ID.
+ * If provider_config.twilio === 'platform', finds the owner workspace with twilio creds.
+ */
+async function resolveTwilioWorkspaceId(workspaceId: string): Promise<string> {
+  // Check own credentials
+  const [own] = await db.select({ id: providerCredentials.id })
+    .from(providerCredentials)
+    .where(and(
+      eq(providerCredentials.workspace_id, workspaceId),
+      eq(providerCredentials.provider, 'twilio'),
+    ));
+  if (own) return workspaceId;
+
+  // Check platform fallback
+  const [ws] = await db.select({ provider_config: workspaces.provider_config })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+
+  const config = (ws?.provider_config as Record<string, string>) || {};
+  if (config.twilio === 'platform') {
+    const [ownerRow] = await db
+      .select({ workspace_id: providerCredentials.workspace_id })
+      .from(providerCredentials)
+      .innerJoin(workspaceMembers, and(
+        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+        eq(workspaceMembers.role, 'owner'),
+      ))
+      .where(eq(providerCredentials.provider, 'twilio'))
+      .limit(1);
+    if (ownerRow) return ownerRow.workspace_id;
+  }
+
+  throw new ValidationError('Twilio credentials not configured');
+}
+
 export async function getTwilioCreds(workspaceId: string): Promise<TwilioCredentials> {
+  const resolvedId = await resolveTwilioWorkspaceId(workspaceId);
   const [row] = await db
     .select({ credential_data: providerCredentials.credential_data })
     .from(providerCredentials)
     .where(
       and(
-        eq(providerCredentials.workspace_id, workspaceId),
+        eq(providerCredentials.workspace_id, resolvedId),
         eq(providerCredentials.provider, 'twilio'),
       ),
     );
@@ -34,11 +72,12 @@ export async function getTwilioCreds(workspaceId: string): Promise<TwilioCredent
 }
 
 async function saveTwilioCreds(workspaceId: string, creds: TwilioCredentials): Promise<void> {
+  const resolvedId = await resolveTwilioWorkspaceId(workspaceId);
   await db.update(providerCredentials)
     .set({ credential_data: encrypt(JSON.stringify(creds)) })
     .where(
       and(
-        eq(providerCredentials.workspace_id, workspaceId),
+        eq(providerCredentials.workspace_id, resolvedId),
         eq(providerCredentials.provider, 'twilio'),
       ),
     );
@@ -50,6 +89,7 @@ async function getTwilioClient(workspaceId: string): Promise<twilio.Twilio> {
 }
 
 export async function getOutboundConnection(workspaceId: string): Promise<TelephonyConnection> {
+  // Try own connections first
   const [row] = await db
     .select()
     .from(telephonyConnections)
@@ -61,8 +101,38 @@ export async function getOutboundConnection(workspaceId: string): Promise<Teleph
     )
     .limit(1);
 
-  if (!row) throw new ValidationError('No outbound telephony connection configured');
-  return row as unknown as TelephonyConnection;
+  if (row) return row as unknown as TelephonyConnection;
+
+  // Platform fallback — use owner workspace connections
+  const [ws] = await db.select({ provider_config: workspaces.provider_config })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+
+  const config = (ws?.provider_config as Record<string, string>) || {};
+  if (config.twilio === 'platform') {
+    const [ownerRow] = await db
+      .select({ workspace_id: workspaceMembers.workspace_id })
+      .from(workspaceMembers)
+      .innerJoin(providerCredentials, and(
+        eq(providerCredentials.workspace_id, workspaceMembers.workspace_id),
+        eq(providerCredentials.provider, 'twilio'),
+      ))
+      .where(eq(workspaceMembers.role, 'owner'))
+      .limit(1);
+
+    if (ownerRow) {
+      const [platformConn] = await db.select()
+        .from(telephonyConnections)
+        .where(and(
+          eq(telephonyConnections.workspace_id, ownerRow.workspace_id),
+          eq(telephonyConnections.outbound_enabled, true),
+        ))
+        .limit(1);
+      if (platformConn) return platformConn as unknown as TelephonyConnection;
+    }
+  }
+
+  throw new ValidationError('No outbound telephony connection configured');
 }
 
 export async function getConnectionByNumber(workspaceId: string, phoneNumber: string): Promise<TelephonyConnection | null> {

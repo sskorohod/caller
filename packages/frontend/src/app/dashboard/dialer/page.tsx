@@ -151,10 +151,15 @@ export default function DialerPage() {
     }).catch(() => {});
   }, []);
 
-  // Check if Twilio provider is configured
+  // Check if Twilio is available (own credentials OR platform sharing)
   useEffect(() => {
-    api.get<Array<{ provider: string }>>('/auth/providers').then(providers => {
-      setTwilioConfigured(providers.some(p => p.provider === 'twilio'));
+    Promise.all([
+      api.get<Array<{ provider: string }>>('/auth/providers'),
+      api.get<Record<string, string>>('/billing/provider-config'),
+    ]).then(([providers, config]) => {
+      const hasOwn = providers.some(p => p.provider === 'twilio');
+      const usesPlatform = config.twilio === 'platform';
+      setTwilioConfigured(hasOwn || usesPlatform);
     }).catch(() => setTwilioConfigured(false));
   }, []);
 
