@@ -3,7 +3,7 @@ import { z } from 'zod';
 import websocket from '@fastify/websocket';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../../config/db.js';
-import { calls as callsTable, callerProfiles, callerMemoryFacts } from '../../db/schema.js';
+import { calls as callsTable, callerProfiles, callerMemoryFacts, workspaces as workspacesTable } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
 import * as agentService from '../../services/agent.service.js';
 import * as workspaceService from '../../services/workspace.service.js';
@@ -1383,6 +1383,33 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         } as any);
 
         logger.info({ callId, costLlm, costTts, costStt, costTelephony, costTotal }, 'Call costs calculated');
+
+        // Deduct usage cost from workspace deposit
+        try {
+          const { deductUsageCost } = await import('../../services/billing.service.js');
+          const workspace = await db.select({ provider_config: workspacesTable.provider_config })
+            .from(workspacesTable)
+            .where(eq(workspacesTable.id, call.workspace_id))
+            .limit(1);
+          const providerConfig = (workspace[0]?.provider_config as Record<string, string>) || {};
+          await deductUsageCost({
+            workspaceId: call.workspace_id,
+            providerCosts: {
+              stt: costStt,
+              llm: costLlm,
+              tts: costTts,
+              telephony: costTelephony,
+              sttProvider: result.sttProvider ?? 'deepgram',
+              llmProvider: result.llmModel?.startsWith('claude') ? 'anthropic' : result.llmModel?.startsWith('grok') ? 'xai' : 'openai',
+              ttsProvider: result.voiceProvider ?? 'elevenlabs',
+            },
+            providerConfig: providerConfig as any,
+            referenceType: 'call_session',
+            referenceId: session.id,
+          });
+        } catch (err) {
+          logger.error({ err, callId }, 'Failed to deduct usage cost');
+        }
 
         // Queue post-call processing (summary, sentiment, fact extraction, memory)
         queuePostCallProcessing({

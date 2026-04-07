@@ -1,0 +1,268 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+
+interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  balance_usd: number;
+  subscription_status: string;
+  subscription_current_period_end: string | null;
+  provider_config: Record<string, string>;
+  created_at: string;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount_usd: number;
+  balance_after: number;
+  description: string;
+  created_at: string;
+}
+
+const planBadge: Record<string, { bg: string; color: string }> = {
+  translator: { bg: 'rgba(173,198,255,0.1)', color: '#adc6ff' },
+  agents: { bg: 'rgba(74,222,128,0.1)', color: '#4ade80' },
+  agents_mcp: { bg: 'rgba(208,188,255,0.1)', color: '#d0bcff' },
+};
+
+export default function AdminWorkspaces() {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [selected, setSelected] = useState<Workspace | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState('');
+
+  // Balance modal
+  const [balanceModal, setBalanceModal] = useState(false);
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceType, setBalanceType] = useState<'topup' | 'gift' | 'refund'>('topup');
+  const [balanceComment, setBalanceComment] = useState('');
+
+  const load = () => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (planFilter) params.set('plan', planFilter);
+    api.get<Workspace[]>(`/admin/workspaces?${params}`).then(setWorkspaces).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, [search, planFilter]);
+
+  const selectWorkspace = async (ws: Workspace) => {
+    setSelected(ws);
+    const data = await api.get<{ workspace: Workspace; transactions: Transaction[] }>(`/admin/workspaces/${ws.id}`);
+    setSelected(data.workspace);
+    setTransactions(data.transactions);
+  };
+
+  const adjustBalance = async () => {
+    if (!selected || !balanceAmount) return;
+    await api.post(`/admin/workspaces/${selected.id}/balance`, {
+      amount_usd: parseFloat(balanceAmount),
+      type: balanceType,
+      comment: balanceComment || undefined,
+    });
+    setBalanceModal(false);
+    setBalanceAmount('');
+    setBalanceComment('');
+    selectWorkspace(selected);
+    load();
+  };
+
+  const changePlan = async (id: string, plan: string) => {
+    await api.patch(`/admin/workspaces/${id}/plan`, { plan });
+    load();
+    if (selected?.id === id) selectWorkspace({ ...selected, plan });
+  };
+
+  if (loading) return <div className="p-8 text-center opacity-50">Loading...</div>;
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-headline font-bold">Workspaces</h1>
+        <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Manage workspace plans and deposits</p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3">
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search by name..."
+          className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 flex-1 outline-none focus:border-blue-500/50"
+        />
+        <select value={planFilter} onChange={e => setPlanFilter(e.target.value)}
+          className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none">
+          <option value="">All Plans</option>
+          <option value="translator">Translator</option>
+          <option value="agents">Agents</option>
+          <option value="agents_mcp">Agents + MCP</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Workspace List */}
+        <div className="lg:col-span-2 glass-panel rounded-2xl p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left border-b" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
+                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Name</th>
+                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Plan</th>
+                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Balance</th>
+                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Subscription</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workspaces.map(ws => {
+                const badge = planBadge[ws.plan] || planBadge.translator;
+                return (
+                  <tr key={ws.id}
+                    onClick={() => selectWorkspace(ws)}
+                    className="border-b cursor-pointer hover:bg-white/5 transition"
+                    style={{ borderColor: 'rgba(66,71,84,0.1)', background: selected?.id === ws.id ? 'rgba(173,198,255,0.05)' : undefined }}>
+                    <td className="px-4 py-3 font-medium">{ws.name}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: badge.bg, color: badge.color }}>
+                        {ws.plan}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs" style={{ color: ws.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
+                      ${ws.balance_usd.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-xs" style={{ color: '#c2c6d6' }}>
+                      {ws.subscription_status === 'active' ? <span style={{ color: '#4ade80' }}>Active</span> :
+                       ws.subscription_status === 'canceled' ? <span style={{ color: '#fbbf24' }}>Canceled</span> :
+                       ws.subscription_status === 'past_due' ? <span style={{ color: '#f87171' }}>Past Due</span> :
+                       <span>None</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+              {workspaces.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center opacity-50">No workspaces found</td></tr>}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Workspace Detail */}
+        <div className="glass-panel rounded-2xl p-5 space-y-5">
+          {selected ? (
+            <>
+              <div>
+                <h3 className="font-headline font-bold text-lg">{selected.name}</h3>
+                <p className="text-xs mt-1" style={{ color: '#c2c6d6' }}>{selected.slug} &middot; {selected.id.slice(0, 8)}</p>
+              </div>
+
+              {/* Balance */}
+              <div className="glass-panel rounded-xl p-4">
+                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: '#c2c6d6' }}>Balance</div>
+                <div className="text-3xl font-headline font-bold" style={{ color: selected.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
+                  ${selected.balance_usd.toFixed(2)}
+                </div>
+                <button onClick={() => setBalanceModal(true)}
+                  className="mt-3 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 transition">
+                  Adjust Balance
+                </button>
+              </div>
+
+              {/* Plan */}
+              <div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Plan</div>
+                <div className="flex gap-2">
+                  {['translator', 'agents', 'agents_mcp'].map(p => (
+                    <button key={p} onClick={() => changePlan(selected.id, p)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                      style={selected.plan === p
+                        ? { background: planBadge[p].bg, color: planBadge[p].color, border: `1px solid ${planBadge[p].color}40` }
+                        : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
+                      }>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Provider Config */}
+              {Object.keys(selected.provider_config || {}).length > 0 && (
+                <div>
+                  <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Providers</div>
+                  <div className="space-y-1">
+                    {Object.entries(selected.provider_config).map(([k, v]) => (
+                      <div key={k} className="flex justify-between text-xs">
+                        <span>{k}</span>
+                        <span className="font-mono" style={{ color: v === 'own' ? '#adc6ff' : '#4ade80' }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Transactions */}
+              <div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Recent Transactions</div>
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {transactions.map(t => (
+                    <div key={t.id} className="flex justify-between items-center text-xs py-1 border-b" style={{ borderColor: 'rgba(66,71,84,0.1)' }}>
+                      <div>
+                        <span className="font-medium">{t.type}</span>
+                        <span className="ml-2" style={{ color: '#c2c6d6' }}>{t.description}</span>
+                      </div>
+                      <span className="font-mono" style={{ color: t.amount_usd >= 0 ? '#4ade80' : '#f87171' }}>
+                        {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
+                      </span>
+                    </div>
+                  ))}
+                  {transactions.length === 0 && <p className="text-xs opacity-50">No transactions yet</p>}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center opacity-50 py-12">
+              <span className="material-symbols-outlined text-3xl mb-2 block">apartment</span>
+              Select a workspace
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Balance Adjustment Modal */}
+      {balanceModal && selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
+          <div className="glass-panel rounded-2xl p-6 w-96 space-y-4" onClick={e => e.stopPropagation()}>
+            <h3 className="font-headline font-bold">Adjust Balance</h3>
+            <p className="text-xs" style={{ color: '#c2c6d6' }}>{selected.name} — Current: ${selected.balance_usd.toFixed(2)}</p>
+
+            <div>
+              <label className="text-xs font-medium block mb-1">Type</label>
+              <select value={balanceType} onChange={e => setBalanceType(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10">
+                <option value="topup">Top Up</option>
+                <option value="gift">Gift</option>
+                <option value="refund">Refund</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1">Amount (USD)</label>
+              <input type="number" step="0.01" value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none"
+                placeholder="10.00" />
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1">Comment</label>
+              <input value={balanceComment} onChange={e => setBalanceComment(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none"
+                placeholder="Optional" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setBalanceModal(false)} className="px-4 py-2 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition">Cancel</button>
+              <button onClick={adjustBalance} className="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 font-medium transition">Apply</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -42,10 +42,16 @@ export const workspaces = pgTable('workspaces', {
   transcript_retention_days: integer('transcript_retention_days').notNull().default(365),
   call_recording_disclosure: boolean('call_recording_disclosure').notNull().default(true),
   ai_disclosure: boolean('ai_disclosure').notNull().default(true),
-  plan: text('plan').notNull().default('free'),
-  minutes_included: integer('minutes_included').notNull().default(50),
-  minutes_used_this_period: integer('minutes_used_this_period').notNull().default(0),
-  billing_period_start: timestamp('billing_period_start', { withTimezone: true }),
+  plan: text('plan').notNull().default('translator'), // 'translator' | 'agents' | 'agents_mcp'
+  minutes_included: integer('minutes_included').notNull().default(50), // legacy, kept for backward compat
+  minutes_used_this_period: integer('minutes_used_this_period').notNull().default(0), // legacy
+  billing_period_start: timestamp('billing_period_start', { withTimezone: true }), // legacy
+  balance_usd: numeric('balance_usd', { precision: 12, scale: 4 }).notNull().default('0'),
+  stripe_customer_id: text('stripe_customer_id'),
+  stripe_subscription_id: text('stripe_subscription_id'),
+  subscription_status: text('subscription_status').notNull().default('none'), // 'none' | 'active' | 'past_due' | 'canceled' | 'trialing'
+  subscription_current_period_end: timestamp('subscription_current_period_end', { withTimezone: true }),
+  provider_config: jsonb('provider_config').notNull().default({}), // { twilio: 'platform'|'own', deepgram: ... }
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -637,6 +643,25 @@ export const adminAuditLog = pgTable('admin_audit_log', {
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('idx_admin_audit_created').on(t.created_at),
+]);
+
+// ============================================================
+// DEPOSIT TRANSACTIONS (workspace-level, USD-based billing)
+// ============================================================
+export const depositTransactions = pgTable('deposit_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'topup' | 'usage' | 'refund' | 'promo' | 'signup_bonus' | 'gift'
+  amount_usd: numeric('amount_usd', { precision: 12, scale: 4 }).notNull(), // positive = credit, negative = debit
+  balance_after: numeric('balance_after', { precision: 12, scale: 4 }).notNull(),
+  description: text('description'),
+  reference_type: text('reference_type'), // 'stripe_checkout' | 'call_session' | 'translator_session' | 'admin' | 'system' | 'subscription'
+  reference_id: text('reference_id'),
+  created_by: uuid('created_by'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_deposit_tx_workspace').on(t.workspace_id, t.created_at),
+  index('idx_deposit_tx_type').on(t.type),
 ]);
 
 // ============================================================

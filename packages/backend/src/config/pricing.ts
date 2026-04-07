@@ -71,3 +71,13 @@ export function calculateTelephonyCost(provider: string, durationMinutes: number
   const perMin = TELEPHONY_PRICING[provider] ?? TELEPHONY_PRICING.twilio;
   return durationMinutes * perMin;
 }
+
+// ─── Platform Markup ──────────────────────────────────────────────────────
+
+/** Default markup multiplier (our cost × markup = client price). Overridden by platform_settings.billing_markup */
+export const DEFAULT_PLATFORM_MARKUP = 3.0;
+
+/** Calculate client-facing cost from provider cost using markup */
+export function calculateClientCost(providerCost: number, markup: number = DEFAULT_PLATFORM_MARKUP): number {
+  return providerCost * markup;
+}

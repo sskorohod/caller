@@ -6,6 +6,7 @@ import { db } from '../../config/db.js';
 import {
   translatorSubscribers, translatorSessions, promoCodes, promoRedemptions,
   balanceTransactions, platformSettings, adminAuditLog, providerCredentials,
+  workspaces, depositTransactions, aiCallSessions,
 } from '../../db/schema.js';
 import { decrypt, encrypt } from '../../lib/crypto.js';
 import {
@@ -446,6 +447,254 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     const rows = await db.select().from(adminAuditLog)
       .where(conditions).orderBy(desc(adminAuditLog.created_at)).limit(q.limit).offset(q.offset);
     return { logs: rows };
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BILLING ADMIN — Workspaces, Finance, Settings
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ─── GET /workspaces ─────────────────────────────────────────────────
+  app.get('/workspaces', async (request) => {
+    const q = z.object({
+      plan: z.string().optional(),
+      search: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+      offset: z.coerce.number().int().min(0).default(0),
+    }).parse(request.query);
+
+    const conditions: any[] = [];
+    if (q.plan) conditions.push(eq(workspaces.plan, q.plan));
+    if (q.search) conditions.push(like(workspaces.name, `%${q.search}%`));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const rows = await db.select().from(workspaces)
+      .where(where)
+      .orderBy(desc(workspaces.created_at))
+      .limit(q.limit).offset(q.offset);
+
+    return rows.map(w => ({
+      ...w,
+      balance_usd: parseFloat(w.balance_usd as string) || 0,
+    }));
+  });
+
+  // ─── GET /workspaces/:id ─────────────────────────────────────────────
+  app.get('/workspaces/:id', async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, id));
+    if (!ws) return { error: 'Not found' };
+
+    const transactions = await db.select().from(depositTransactions)
+      .where(eq(depositTransactions.workspace_id, id))
+      .orderBy(desc(depositTransactions.created_at))
+      .limit(50);
+
+    return {
+      workspace: { ...ws, balance_usd: parseFloat(ws.balance_usd as string) || 0 },
+      transactions: transactions.map(t => ({
+        ...t,
+        amount_usd: parseFloat(t.amount_usd as string),
+        balance_after: parseFloat(t.balance_after as string),
+      })),
+    };
+  });
+
+  // ─── PATCH /workspaces/:id/plan ──────────────────────────────────────
+  app.patch('/workspaces/:id/plan', async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({ plan: z.enum(['translator', 'agents', 'agents_mcp']) }).parse(request.body);
+
+    await db.update(workspaces).set({ plan: body.plan, updated_at: new Date() }).where(eq(workspaces.id, id));
+    await auditLog(request.auth.userId, 'plan_changed', 'workspace', id, { plan: body.plan }, request.ip);
+    return { success: true };
+  });
+
+  // ─── POST /workspaces/:id/balance ────────────────────────────────────
+  app.post('/workspaces/:id/balance', async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      amount_usd: z.number(),
+      type: z.enum(['topup', 'refund', 'gift']),
+      comment: z.string().optional(),
+    }).parse(request.body);
+
+    const { creditDeposit } = await import('../../services/billing.service.js');
+    const result = await creditDeposit({
+      workspaceId: id,
+      amountUsd: body.amount_usd,
+      type: body.type,
+      description: body.comment || `Admin ${body.type}`,
+      referenceType: 'admin',
+      createdBy: request.auth.userId,
+    });
+
+    await auditLog(request.auth.userId, 'balance_adjusted', 'workspace', id,
+      { amount_usd: body.amount_usd, type: body.type, comment: body.comment, new_balance: result.newBalance },
+      request.ip);
+
+    return { success: true, new_balance: result.newBalance };
+  });
+
+  // ─── GET /finance/overview ───────────────────────────────────────────
+  app.get('/finance/overview', async (request) => {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Total deposit balance across all workspaces
+    const [totalBalance] = await db.select({
+      total: sum(workspaces.balance_usd),
+    }).from(workspaces);
+
+    // Deposits in last 30 days
+    const [depositsIn] = await db.select({
+      total: sum(depositTransactions.amount_usd),
+      count: count(),
+    }).from(depositTransactions)
+      .where(and(
+        eq(depositTransactions.type, 'topup'),
+        gte(depositTransactions.created_at, thirtyDaysAgo),
+      ));
+
+    // Usage in last 30 days
+    const [usageOut] = await db.select({
+      total: sum(depositTransactions.amount_usd),
+      count: count(),
+    }).from(depositTransactions)
+      .where(and(
+        eq(depositTransactions.type, 'usage'),
+        gte(depositTransactions.created_at, thirtyDaysAgo),
+      ));
+
+    // Real provider costs (from ai_call_sessions)
+    const [providerCosts] = await db.select({
+      total_cost: sum(aiCallSessions.cost_total),
+      total_sessions: count(),
+    }).from(aiCallSessions)
+      .where(gte(aiCallSessions.created_at, thirtyDaysAgo));
+
+    // Active subscriptions
+    const [activeSubs] = await db.select({ count: count() }).from(workspaces)
+      .where(eq(workspaces.subscription_status, 'active'));
+
+    // Workspace counts by plan
+    const planCounts = await db.select({
+      plan: workspaces.plan,
+      count: count(),
+    }).from(workspaces).groupBy(workspaces.plan);
+
+    const usageTotal = Math.abs(parseFloat(usageOut.total ?? '0'));
+    const realCost = parseFloat(providerCosts.total_cost ?? '0');
+    const revenue = usageTotal; // what we charged clients
+    const margin = revenue > 0 ? ((revenue - realCost) / revenue * 100) : 0;
+
+    return {
+      kpi: {
+        total_deposit_balance: parseFloat(totalBalance.total ?? '0'),
+        deposits_30d: parseFloat(depositsIn.total ?? '0'),
+        usage_revenue_30d: usageTotal,
+        real_provider_cost_30d: realCost,
+        margin_percent: Math.round(margin),
+        active_subscriptions: activeSubs.count,
+        total_sessions_30d: providerCosts.total_sessions,
+      },
+      plan_counts: planCounts,
+    };
+  });
+
+  // ─── GET /finance/transactions ────────────────────────────────────────
+  app.get('/finance/transactions', async (request) => {
+    const q = z.object({
+      type: z.string().optional(),
+      workspace_id: z.string().uuid().optional(),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+      offset: z.coerce.number().int().min(0).default(0),
+    }).parse(request.query);
+
+    const conditions: any[] = [];
+    if (q.type) conditions.push(eq(depositTransactions.type, q.type));
+    if (q.workspace_id) conditions.push(eq(depositTransactions.workspace_id, q.workspace_id));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const rows = await db.select({
+      id: depositTransactions.id,
+      workspace_id: depositTransactions.workspace_id,
+      workspace_name: workspaces.name,
+      type: depositTransactions.type,
+      amount_usd: depositTransactions.amount_usd,
+      balance_after: depositTransactions.balance_after,
+      description: depositTransactions.description,
+      reference_type: depositTransactions.reference_type,
+      created_at: depositTransactions.created_at,
+    })
+      .from(depositTransactions)
+      .leftJoin(workspaces, eq(workspaces.id, depositTransactions.workspace_id))
+      .where(where)
+      .orderBy(desc(depositTransactions.created_at))
+      .limit(q.limit).offset(q.offset);
+
+    return rows.map(r => ({
+      ...r,
+      amount_usd: parseFloat(r.amount_usd as string),
+      balance_after: parseFloat(r.balance_after as string),
+    }));
+  });
+
+  // ─── GET /finance/revenue-chart ──────────────────────────────────────
+  app.get('/finance/revenue-chart', async () => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const rows = await db.execute(sql`
+      SELECT DATE(created_at) as date,
+        SUM(CASE WHEN type = 'topup' THEN amount_usd::numeric ELSE 0 END) as deposits,
+        SUM(CASE WHEN type = 'usage' THEN ABS(amount_usd::numeric) ELSE 0 END) as usage_revenue
+      FROM deposit_transactions
+      WHERE created_at >= ${thirtyDaysAgo}
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `);
+
+    return rows.rows;
+  });
+
+  // ─── GET /billing-settings ───────────────────────────────────────────
+  app.get('/billing-settings', async () => {
+    const keys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd',
+      'billing_agents_monthly_price', 'billing_agents_mcp_monthly_price'];
+
+    const rows = await db.select().from(platformSettings)
+      .where(or(...keys.map(k => eq(platformSettings.key, k))));
+
+    const settings: Record<string, any> = {};
+    for (const row of rows) {
+      settings[row.key] = row.value;
+    }
+    return settings;
+  });
+
+  // ─── PUT /billing-settings ───────────────────────────────────────────
+  app.put('/billing-settings', async (request) => {
+    const body = z.record(z.union([z.string(), z.number()])).parse(request.body);
+
+    const allowedKeys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd',
+      'billing_agents_monthly_price', 'billing_agents_mcp_monthly_price'];
+
+    for (const [key, value] of Object.entries(body)) {
+      if (!allowedKeys.includes(key)) continue;
+      await db.insert(platformSettings).values({
+        key,
+        value: JSON.stringify(String(value)) as any,
+        updated_at: new Date(),
+      }).onConflictDoUpdate({
+        target: platformSettings.key,
+        set: { value: JSON.stringify(String(value)) as any, updated_at: new Date() },
+      });
+    }
+
+    await auditLog(request.auth.userId, 'billing_settings_changed', 'settings', 'billing', body, request.ip);
+    return { success: true };
   });
 };
 

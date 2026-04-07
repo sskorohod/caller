@@ -19,6 +19,14 @@ const navSections = [
     ],
   },
   {
+    label: 'Billing',
+    items: [
+      { href: '/admin/workspaces', icon: 'apartment', label: 'Workspaces' },
+      { href: '/admin/finance', icon: 'monitoring', label: 'Finance' },
+      { href: '/admin/billing', icon: 'tune', label: 'Billing Config' },
+    ],
+  },
+  {
     label: 'Infrastructure',
     items: [
       { href: '/admin/providers', icon: 'hub', label: 'Providers' },

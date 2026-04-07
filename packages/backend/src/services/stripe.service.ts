@@ -136,3 +136,179 @@ export async function handleCheckoutCompleted(session: any): Promise<void> {
 export function isStripeConfigured(): boolean {
   return !!STRIPE_SECRET_KEY;
 }
+
+// ============================================================
+// DEPOSIT CHECKOUT (workspace-level USD deposit)
+// ============================================================
+
+import { workspaces } from '../db/schema.js';
+
+/**
+ * Create a Stripe Checkout session for workspace USD deposit top-up.
+ */
+export async function createDepositCheckout(params: {
+  workspaceId: string;
+  amountUsd: number;
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<{ url: string; sessionId: string }> {
+  const key = await getStripeKey(params.workspaceId);
+
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, params.workspaceId));
+  if (!ws) throw new Error('Workspace not found');
+
+  // Create or reuse Stripe customer for workspace
+  let customerId = ws.stripe_customer_id;
+  if (!customerId) {
+    const customer = await stripeRequest('/customers', 'POST', {
+      name: ws.name,
+      'metadata[workspace_id]': ws.id,
+    }, key);
+    customerId = customer.id;
+    await db.update(workspaces)
+      .set({ stripe_customer_id: customerId })
+      .where(eq(workspaces.id, ws.id));
+  }
+
+  const amountCents = Math.round(params.amountUsd * 100);
+
+  const session = await stripeRequest('/checkout/sessions', 'POST', {
+    customer: customerId!,
+    mode: 'payment',
+    'line_items[0][price_data][currency]': 'usd',
+    'line_items[0][price_data][unit_amount]': String(amountCents),
+    'line_items[0][price_data][product_data][name]': `Deposit $${params.amountUsd.toFixed(2)}`,
+    'line_items[0][price_data][product_data][description]': 'Platform deposit top-up',
+    'line_items[0][quantity]': '1',
+    'metadata[workspace_id]': params.workspaceId,
+    'metadata[type]': 'deposit',
+    'metadata[amount_usd]': String(params.amountUsd),
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+  }, key);
+
+  return { url: session.url, sessionId: session.id };
+}
+
+/**
+ * Handle deposit checkout completed — add USD to workspace balance.
+ */
+export async function handleDepositCheckoutCompleted(session: any): Promise<void> {
+  const workspaceId = session.metadata?.workspace_id;
+  const amountUsd = parseFloat(session.metadata?.amount_usd ?? '0');
+
+  if (!workspaceId || !amountUsd) {
+    log.warn({ session: session.id }, 'Deposit checkout completed but missing metadata');
+    return;
+  }
+
+  const { creditDeposit } = await import('./billing.service.js');
+  await creditDeposit({
+    workspaceId,
+    amountUsd,
+    type: 'topup',
+    description: `Stripe deposit: $${amountUsd.toFixed(2)}`,
+    referenceType: 'stripe_checkout',
+    referenceId: session.id,
+  });
+
+  log.info({ workspaceId, amountUsd, sessionId: session.id }, 'Deposit added from Stripe checkout');
+}
+
+// ============================================================
+// SUBSCRIPTIONS
+// ============================================================
+
+/**
+ * Create Stripe subscription for workspace.
+ */
+export async function createSubscription(params: {
+  workspaceId: string;
+  priceId: string;
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<{ url: string; sessionId: string }> {
+  const key = await getStripeKey(params.workspaceId);
+
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, params.workspaceId));
+  if (!ws) throw new Error('Workspace not found');
+
+  let customerId = ws.stripe_customer_id;
+  if (!customerId) {
+    const customer = await stripeRequest('/customers', 'POST', {
+      name: ws.name,
+      'metadata[workspace_id]': ws.id,
+    }, key);
+    customerId = customer.id;
+    await db.update(workspaces)
+      .set({ stripe_customer_id: customerId })
+      .where(eq(workspaces.id, ws.id));
+  }
+
+  const session = await stripeRequest('/checkout/sessions', 'POST', {
+    customer: customerId!,
+    mode: 'subscription',
+    'line_items[0][price]': params.priceId,
+    'line_items[0][quantity]': '1',
+    'metadata[workspace_id]': params.workspaceId,
+    'metadata[type]': 'subscription',
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+  }, key);
+
+  return { url: session.url, sessionId: session.id };
+}
+
+/**
+ * Cancel workspace subscription at period end.
+ */
+export async function cancelSubscription(workspaceId: string): Promise<void> {
+  const key = await getStripeKey(workspaceId);
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+  if (!ws?.stripe_subscription_id) throw new Error('No active subscription');
+
+  await stripeRequest(`/subscriptions/${ws.stripe_subscription_id}`, 'POST', {
+    cancel_at_period_end: 'true',
+  }, key);
+
+  await db.update(workspaces).set({
+    subscription_status: 'canceled',
+    updated_at: new Date(),
+  }).where(eq(workspaces.id, workspaceId));
+
+  log.info({ workspaceId }, 'Subscription scheduled for cancellation');
+}
+
+/**
+ * Handle subscription webhook events.
+ */
+export async function handleSubscriptionEvent(event: any): Promise<void> {
+  const subscription = event.data?.object;
+  if (!subscription) return;
+
+  const customerId = subscription.customer;
+
+  // Find workspace by stripe_customer_id
+  const [ws] = await db.select().from(workspaces)
+    .where(eq(workspaces.stripe_customer_id, customerId));
+  if (!ws) {
+    log.warn({ customerId }, 'Subscription event for unknown customer');
+    return;
+  }
+
+  const updates: Record<string, any> = {
+    stripe_subscription_id: subscription.id,
+    subscription_status: subscription.status === 'active' ? 'active'
+      : subscription.status === 'past_due' ? 'past_due'
+      : subscription.cancel_at_period_end ? 'canceled'
+      : subscription.status,
+    updated_at: new Date(),
+  };
+
+  if (subscription.current_period_end) {
+    updates.subscription_current_period_end = new Date(subscription.current_period_end * 1000);
+  }
+
+  await db.update(workspaces).set(updates).where(eq(workspaces.id, ws.id));
+  log.info({ workspaceId: ws.id, status: updates.subscription_status }, 'Subscription updated');
+}

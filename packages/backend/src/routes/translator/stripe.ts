@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
-import { createCheckoutSession, handleCheckoutCompleted, verifyWebhookSignature, isStripeConfigured } from '../../services/stripe.service.js';
+import { createCheckoutSession, handleCheckoutCompleted, handleDepositCheckoutCompleted, handleSubscriptionEvent, verifyWebhookSignature, isStripeConfigured } from '../../services/stripe.service.js';
 import { env } from '../../config/env.js';
 
 const stripeRoutes: FastifyPluginAsync = async (app) => {
@@ -56,7 +56,19 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
     const event = typeof request.body === 'string' ? JSON.parse(request.body) : request.body;
 
     if (event.type === 'checkout.session.completed') {
-      await handleCheckoutCompleted(event.data.object);
+      const session = event.data.object;
+      if (session.metadata?.type === 'deposit') {
+        await handleDepositCheckoutCompleted(session);
+      } else {
+        await handleCheckoutCompleted(session);
+      }
+    } else if (
+      event.type === 'customer.subscription.updated' ||
+      event.type === 'customer.subscription.deleted' ||
+      event.type === 'invoice.payment_failed' ||
+      event.type === 'invoice.paid'
+    ) {
+      await handleSubscriptionEvent(event);
     }
 
     reply.status(200).send({ received: true });

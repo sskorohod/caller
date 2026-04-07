@@ -3,12 +3,16 @@
 // ============================================================
 
 export type ConversationOwner = 'internal' | 'external' | 'manual';
-export type WorkspacePlan = 'free' | 'starter' | 'growth' | 'business' | 'enterprise';
+export type WorkspacePlan = 'translator' | 'agents' | 'agents_mcp';
 export type MemberRole = 'owner' | 'admin' | 'operator' | 'analyst';
 export type CallDirection = 'inbound' | 'outbound';
 export type CallStatus = 'initiated' | 'ringing' | 'in_progress' | 'completed' | 'failed' | 'canceled' | 'fallback_to_internal';
 export type ExternalBootstrapStatus = 'not_requested' | 'requested' | 'accepted' | 'runtime_connecting' | 'ready' | 'timed_out' | 'failed';
 export type ProviderName = 'twilio' | 'openai' | 'anthropic' | 'elevenlabs' | 'deepgram' | 'xai' | 'telegram' | 'stripe';
+export type SubscriptionStatus = 'none' | 'active' | 'past_due' | 'canceled' | 'trialing';
+export type ProviderMode = 'platform' | 'own';
+export type ProviderConfig = Partial<Record<ProviderName, ProviderMode>>;
+export type DepositTransactionType = 'topup' | 'usage' | 'refund' | 'promo' | 'signup_bonus' | 'gift';
 export type VoiceProvider = 'elevenlabs' | 'openai' | 'xai';
 export type LlmProvider = 'anthropic' | 'openai' | 'xai';
 export type SttProvider = 'deepgram' | 'openai';
@@ -39,8 +43,27 @@ export interface Workspace {
   minutes_included: number;
   minutes_used_this_period: number;
   billing_period_start: string | null;
+  balance_usd: number;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_status: SubscriptionStatus;
+  subscription_current_period_end: string | null;
+  provider_config: ProviderConfig;
   created_at: string;
   updated_at: string;
+}
+
+export interface DepositTransaction {
+  id: string;
+  workspace_id: string;
+  type: DepositTransactionType;
+  amount_usd: number;
+  balance_after: number;
+  description: string | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface WorkspaceMember {

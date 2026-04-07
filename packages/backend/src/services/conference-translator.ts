@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import pino from 'pino';
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { translatorSubscribers, translatorSessions, calls as callsTable } from '../db/schema.js';
+import { translatorSubscribers, translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
 import { createSTTProvider, type STTProvider, type TranscriptEvent } from './stt.service.js';
 import { createTTSProvider, type TTSProvider } from './tts.service.js';
 import { createLLMProvider, type LLMProvider } from './llm.service.js';
@@ -352,7 +352,7 @@ export class ConferenceTranslator extends EventEmitter {
       }
     }
 
-    // Deduct balance from subscriber
+    // Deduct balance from subscriber (legacy minutes)
     try {
       await db.update(translatorSubscribers).set({
         balance_minutes: sql`GREATEST(${translatorSubscribers.balance_minutes} - ${minutesUsed}, 0)`,
@@ -360,6 +360,30 @@ export class ConferenceTranslator extends EventEmitter {
       }).where(eq(translatorSubscribers.id, this.subscriberId));
     } catch (err) {
       log.error({ err, callId: this.callId }, 'Failed to deduct subscriber balance');
+    }
+
+    // Deduct USD from workspace deposit (new billing system)
+    try {
+      const { deductUsageCost } = await import('./billing.service.js');
+      const [ws] = await db.select({ provider_config: workspacesSchema.provider_config })
+        .from(workspacesSchema)
+        .where(eq(workspacesSchema.id, this.workspaceId))
+        .limit(1);
+      await deductUsageCost({
+        workspaceId: this.workspaceId,
+        providerCosts: {
+          stt: costStt,
+          llm: 0,
+          tts: 0,
+          telephony: costTelephony,
+          sttProvider: 'deepgram',
+        },
+        providerConfig: (ws?.provider_config as any) || {},
+        referenceType: 'translator_session',
+        referenceId: this.sessionId || this.callId,
+      });
+    } catch (err) {
+      log.error({ err, callId: this.callId }, 'Failed to deduct workspace deposit');
     }
 
     // Update call status
