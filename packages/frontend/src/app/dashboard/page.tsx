@@ -6,7 +6,7 @@ import { useT } from '@/lib/i18n';
 
 import type { DashboardStats, RecentCall, Agent, TelConnection } from './_lib/types';
 import { fmtCost, getTimeOfDay } from './_lib/utils';
-import { IconPhone, IconSignal, IconCheck, IconDollar } from './_lib/icons';
+import { IconPhone, IconSignal, IconCheck, IconDollar, IconWallet } from './_lib/icons';
 
 import { DashboardSkeleton } from './_components/DashboardSkeleton';
 import { KpiCard } from './_components/KpiCard';
@@ -26,6 +26,8 @@ export default function OverviewPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [connections, setConnections] = useState<TelConnection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [balanceUsd, setBalanceUsd] = useState<number>(0);
+  const [plan, setPlan] = useState<string>('');
 
   useEffect(() => {
     Promise.all([
@@ -33,11 +35,14 @@ export default function OverviewPage() {
       api.get<{ calls: RecentCall[] }>('/calls?limit=5').then(r => r?.calls ?? []).catch(() => []),
       api.get<{ agents: Agent[] }>('/agents').then(r => (r?.agents ?? []).filter(Boolean)).catch(() => []),
       api.get<TelConnection[]>('/telephony/connections').catch(() => []),
-    ]).then(([s, c, a, conn]) => {
+      api.get<{ balance_usd: number; plan: string }>('/billing/balance').catch(() => ({ balance_usd: 0, plan: '' })),
+    ]).then(([s, c, a, conn, billing]) => {
       setStats(s);
       setCalls(c);
       setAgents(a);
       setConnections(Array.isArray(conn) ? conn : []);
+      setBalanceUsd((billing as any)?.balance_usd ?? 0);
+      setPlan((billing as any)?.plan ?? '');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -60,7 +65,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Row 2: Primary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <KpiCard
           label={t('dashboard.totalCalls')}
           value={String(s?.total_calls ?? 0)}
@@ -92,6 +97,14 @@ export default function OverviewPage() {
           icon={<IconDollar />}
           gradient="var(--th-gradient-amber)"
           accentColor="#eab308"
+        />
+        <KpiCard
+          label={t('dashboard.balance') || 'Balance'}
+          value={`$${balanceUsd.toFixed(2)}`}
+          sub={plan === 'translator' ? 'Translator' : plan === 'agents' ? 'Agents' : plan === 'agents_mcp' ? 'Agents + MCP' : ''}
+          icon={<IconWallet />}
+          gradient="var(--th-gradient-emerald)"
+          accentColor="#10b981"
         />
       </div>
 
