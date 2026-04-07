@@ -87,6 +87,7 @@ services:
       MINIO_USE_SSL: "false"
       MINIO_BUCKET: ${MINIO_BUCKET:-caller-recordings}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Caller <onboarding@resend.dev>}
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3011/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 15s
