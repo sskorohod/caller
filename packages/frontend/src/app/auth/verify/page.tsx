@@ -24,17 +24,24 @@ function VerifyContent() {
       user: { id: string; email: string };
       workspace: { id: string; name: string } | null;
       isNewUser: boolean;
+      needsPassword: boolean;
     }>(`/auth/verify?token=${token}`)
       .then(res => {
         setStatus('success');
-        // Small delay so user sees success state
         setTimeout(() => {
-          login(
-            res.token,
-            res.user,
-            res.workspace ?? undefined,
-            res.isNewUser ? '/onboarding' : undefined,
-          );
+          if (res.needsPassword) {
+            // New user — save token temporarily and go to set-password page
+            sessionStorage.setItem('caller_set_password_token', res.token);
+            sessionStorage.setItem('caller_set_password_user', JSON.stringify(res.user));
+            sessionStorage.setItem('caller_set_password_workspace', JSON.stringify(res.workspace));
+            router.push('/auth/set-password');
+          } else {
+            login(
+              res.token,
+              res.user,
+              res.workspace ?? undefined,
+            );
+          }
         }, 1000);
       })
       .catch(err => {

@@ -316,7 +316,36 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       user: { id: user.id, email: user.email },
       workspace,
       isNewUser,
+      needsPassword: isNewUser, // new users must set a password
     });
+  });
+
+  // ─── Set Password ───────────────────────────────────────────────────
+
+  // POST /api/auth/set-password — set password for current user (after magic link)
+  app.post('/set-password', async (request, reply) => {
+    const body = z.object({
+      token: z.string().min(1),
+      password: z.string().min(8, 'Password must be at least 8 characters'),
+    }).parse(request.body);
+
+    // Verify JWT token to get user ID
+    const { verifyJWT } = await import('../../lib/jwt.js');
+    let userId: string;
+    try {
+      const payload = await verifyJWT(body.token);
+      userId = payload.sub;
+    } catch {
+      return reply.status(401).send({ error: 'Invalid token' });
+    }
+
+    const passwordHash = await hashPassword(body.password);
+
+    await db.update(users)
+      .set({ password_hash: passwordHash, updated_at: new Date() })
+      .where(eq(users.id, userId));
+
+    return reply.send({ success: true });
   });
 };
 

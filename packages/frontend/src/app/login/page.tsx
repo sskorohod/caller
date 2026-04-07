@@ -9,12 +9,27 @@ function LoginContent() {
   const { login } = useAuth();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('return');
+  const modeParam = searchParams.get('mode');
+  const [mode, setMode] = useState<'login' | 'register'>(modeParam === 'register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await authApi.login({ email, password });
+      login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
+    } catch (err: any) {
+      setError(err.message || 'Invalid email or password');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
@@ -26,20 +41,6 @@ function LoginContent() {
       setMagicLinkSent(true);
     } catch (err: any) {
       setError(err.message || 'Failed to send magic link');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handlePasswordLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const res = await authApi.login({ email, password });
-      login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
-    } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -68,7 +69,6 @@ function LoginContent() {
           style={{ background: 'radial-gradient(circle, #adc6ff 0%, transparent 70%)', filter: 'blur(80px)' }} />
         <div className="absolute bottom-1/3 right-1/4 w-48 h-48 rounded-full opacity-15"
           style={{ background: 'radial-gradient(circle, #d0bcff 0%, transparent 70%)', filter: 'blur(60px)' }} />
-
         <div className="relative z-10 max-w-md px-12">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
@@ -113,7 +113,7 @@ function LoginContent() {
             <span className="text-xl font-headline font-extrabold tracking-tight">Caller</span>
           </div>
 
-          {/* Magic Link Sent */}
+          {/* Magic Link Sent State */}
           {magicLinkSent ? (
             <div className="text-center space-y-6">
               <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center"
@@ -128,48 +128,41 @@ function LoginContent() {
                 </p>
               </div>
               <p className="text-xs" style={{ color: 'rgba(194,198,214,0.5)' }}>
-                Link expires in 15 minutes. Check spam if you don&apos;t see it.
+                Click the link to verify your email and create your account.<br />
+                Expires in 15 minutes.
               </p>
-              <div className="pt-2">
-                <button onClick={() => { setMagicLinkSent(false); setEmail(''); }}
-                  className="text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
-                  Use a different email
-                </button>
-              </div>
+              <button onClick={() => { setMagicLinkSent(false); setEmail(''); }}
+                className="text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
+                Use a different email
+              </button>
             </div>
-          ) : (
+          ) : mode === 'login' ? (
+            /* ─── Sign In (email + password) ─── */
             <>
-              {/* Heading */}
               <div className="mb-8">
-                <h1 className="text-2xl font-headline font-bold tracking-tight">
-                  Welcome to Caller
-                </h1>
-                <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
-                  Sign in or create an account
-                </p>
+                <h1 className="text-2xl font-headline font-bold tracking-tight">Welcome back</h1>
+                <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Sign in to your account</p>
               </div>
 
-              {/* Magic Link Form (primary) */}
-              <form onSubmit={handleMagicLink} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>
-                    Email
-                  </label>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Email</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>mail</span>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      required
-                      placeholder="you@company.com"
-                      className="input-field"
-                      style={{ paddingLeft: '40px' }}
-                    />
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                      placeholder="you@company.com" className="input-field" style={{ paddingLeft: '40px' }} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Password</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>lock</span>
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
+                      placeholder="Enter password" className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
                 </div>
 
-                {error && !showPassword && (
+                {error && (
                   <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
                     style={{ background: 'rgba(248, 113, 113, 0.08)', border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171' }}>
                     <span className="material-symbols-outlined text-base">error</span>
@@ -177,90 +170,82 @@ function LoginContent() {
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={loading || !email}
-                  className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)',
-                    color: '#0e131f',
-                    boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)',
-                  }}>
-                  {loading && !showPassword ? (
+                <button type="submit" disabled={loading}
+                  className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                  style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)', color: '#0e131f', boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)' }}>
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+
+              <div className="flex items-center gap-3 my-6">
+                <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
+                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>new here?</span>
+                <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
+              </div>
+
+              <button onClick={() => { setMode('register'); setError(''); }}
+                className="w-full py-3 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                Create Account
+              </button>
+            </>
+          ) : (
+            /* ─── Register (magic link) ─── */
+            <>
+              <div className="mb-8">
+                <h1 className="text-2xl font-headline font-bold tracking-tight">Create account</h1>
+                <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
+                  Enter your email — we&apos;ll send a verification link. $2 free credit included.
+                </p>
+              </div>
+
+              <form onSubmit={handleMagicLink} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Email</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>mail</span>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                      placeholder="you@company.com" className="input-field" style={{ paddingLeft: '40px' }} autoFocus />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
+                    style={{ background: 'rgba(248, 113, 113, 0.08)', border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171' }}>
+                    <span className="material-symbols-outlined text-base">error</span>
+                    {error}
+                  </div>
+                )}
+
+                <button type="submit" disabled={loading || !email}
+                  className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                  style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)', color: '#0e131f', boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)' }}>
+                  {loading ? (
                     <span className="inline-flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                       Sending...
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-2">
-                      <span className="material-symbols-outlined text-lg">magic_button</span>
-                      Continue with Email
-                    </span>
-                  )}
+                  ) : 'Send Verification Link'}
                 </button>
               </form>
 
-              {/* Divider */}
               <div className="flex items-center gap-3 my-6">
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
-                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>or use password</span>
+                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>already have an account?</span>
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
               </div>
 
-              {/* Password toggle */}
-              {!showPassword ? (
-                <button onClick={() => setShowPassword(true)}
-                  className="w-full py-3 rounded-xl text-sm font-medium transition-all"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  Sign in with password
-                </button>
-              ) : (
-                <form onSubmit={handlePasswordLogin} className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>
-                      Password
-                    </label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>lock</span>
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        required
-                        minLength={8}
-                        placeholder="Enter password"
-                        className="input-field"
-                        style={{ paddingLeft: '40px' }}
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-
-                  {error && showPassword && (
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
-                      style={{ background: 'rgba(248, 113, 113, 0.08)', border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171' }}>
-                      <span className="material-symbols-outlined text-base">error</span>
-                      {error}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 rounded-xl text-sm font-semibold transition-all active:scale-[.98] disabled:opacity-50"
-                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                    {loading ? 'Signing in...' : 'Sign In'}
-                  </button>
-                </form>
-              )}
-
-              {/* Footer */}
-              <p className="text-center text-[10px] mt-8" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>
-                By continuing, you agree to our Terms of Service.<br />
-                Caller Platform &copy; {new Date().getFullYear()}
-              </p>
+              <button onClick={() => { setMode('login'); setError(''); }}
+                className="w-full py-3 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                Sign In with Password
+              </button>
             </>
           )}
+
+          <p className="text-center text-[10px] mt-8" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>
+            Caller Platform &copy; {new Date().getFullYear()}
+          </p>
         </div>
       </div>
     </div>
