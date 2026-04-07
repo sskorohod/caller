@@ -1264,15 +1264,14 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 function getBrowserLang(): Lang {
-  if (typeof window === 'undefined') return 'en';
+  if (typeof window === 'undefined') return 'ru';
   const stored = localStorage.getItem('caller_lang');
   if (stored === 'en' || stored === 'ru') return stored;
-  const nav = navigator.language.slice(0, 2).toLowerCase();
-  return nav === 'ru' ? 'ru' : 'en';
+  return 'ru';
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('en');
+  const [lang, setLangState] = useState<Lang>('ru');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
