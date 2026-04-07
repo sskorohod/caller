@@ -10,11 +10,13 @@ ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS subscription_status text NOT NUL
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS subscription_current_period_end timestamptz;
 ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS provider_config jsonb NOT NULL DEFAULT '{}';
 
--- 2. Migrate plan values: free → translator, starter/growth → agents, business/enterprise → agents_mcp
+-- 2. Drop old plan check constraint, migrate values, add new constraint
+ALTER TABLE workspaces DROP CONSTRAINT IF EXISTS workspaces_plan_check;
 UPDATE workspaces SET plan = 'translator' WHERE plan = 'free';
 UPDATE workspaces SET plan = 'agents' WHERE plan IN ('starter', 'growth');
 UPDATE workspaces SET plan = 'agents_mcp' WHERE plan IN ('business', 'enterprise');
 ALTER TABLE workspaces ALTER COLUMN plan SET DEFAULT 'translator';
+ALTER TABLE workspaces ADD CONSTRAINT workspaces_plan_check CHECK (plan IN ('translator', 'agents', 'agents_mcp'));
 
 -- 3. Create deposit_transactions table (workspace-level, USD-based)
 CREATE TABLE IF NOT EXISTS deposit_transactions (
