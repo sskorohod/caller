@@ -4,14 +4,13 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { authApi } from '@/lib/api';
 import Link from 'next/link';
-import { useT } from '@/lib/i18n';
 
 function LoginContent() {
   const { login } = useAuth();
-  const t = useT();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('return');
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const modeParam = searchParams.get('mode');
+  const [tab, setTab] = useState<'login' | 'register'>(modeParam === 'register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,72 +36,156 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-[var(--th-primary)] rounded-xl flex items-center justify-center shadow-lg shadow-[var(--th-shadow-primary)]">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-            </svg>
-          </div>
-          <span className="text-2xl font-bold text-white tracking-tight">Caller</span>
-        </div>
+    <div className="min-h-screen flex" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .glass-panel { background: rgba(26, 32, 44, 0.6); backdrop-filter: blur(20px); border: 0.5px solid rgba(140, 144, 159, 0.15); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .input-field {
+          width: 100%; padding: 12px 16px; border-radius: 12px; font-size: 14px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(140, 144, 159, 0.2);
+          color: #dde2f3; outline: none; transition: all 0.2s;
+        }
+        .input-field::placeholder { color: rgba(194, 198, 214, 0.4); }
+        .input-field:focus { border-color: rgba(173, 198, 255, 0.5); box-shadow: 0 0 0 3px rgba(173, 198, 255, 0.08); }
+      `}</style>
 
-        {/* Card */}
-        <div className="bg-[var(--th-card)] rounded-2xl shadow-2xl overflow-hidden">
+      {/* Left — Branding Panel */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #0a0f1a 0%, #131a2e 50%, #0e131f 100%)' }}>
+
+        {/* Decorative orbs */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, #adc6ff 0%, transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute bottom-1/3 right-1/4 w-48 h-48 rounded-full opacity-15"
+          style={{ background: 'radial-gradient(circle, #d0bcff 0%, transparent 70%)', filter: 'blur(60px)' }} />
+
+        <div className="relative z-10 max-w-md px-12">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-10">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)' }}>
+              <span className="material-symbols-outlined text-2xl" style={{ color: '#0e131f', fontVariationSettings: "'FILL' 1" }}>call</span>
+            </div>
+            <span className="text-2xl font-headline font-extrabold tracking-tight">Caller</span>
+          </div>
+
+          <h2 className="text-3xl font-headline font-extrabold tracking-tight leading-tight mb-4">
+            AI Phone Agents
+            <br />
+            <span style={{ color: '#adc6ff' }}>& Live Translator</span>
+          </h2>
+
+          <p className="text-sm leading-relaxed mb-8" style={{ color: '#c2c6d6' }}>
+            Automate your phone calls with AI agents or get real-time translation on any call.
+            Start with $2 free credit.
+          </p>
+
+          {/* Feature list */}
+          <div className="space-y-3">
+            {[
+              { icon: 'smart_toy', text: 'AI agents that answer & make calls' },
+              { icon: 'translate', text: 'Live translation in 10+ languages' },
+              { icon: 'shield', text: 'Your keys or ours — you choose' },
+            ].map(f => (
+              <div key={f.text} className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>{f.icon}</span>
+                <span className="text-sm" style={{ color: '#c2c6d6' }}>{f.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right — Form */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)' }}>
+              <span className="material-symbols-outlined text-xl" style={{ color: '#0e131f', fontVariationSettings: "'FILL' 1" }}>call</span>
+            </div>
+            <span className="text-xl font-headline font-extrabold tracking-tight">Caller</span>
+          </div>
+
           {/* Tabs */}
-          <div className="flex border-b border-[var(--th-border)]">
+          <div className="flex gap-1 p-1 rounded-xl mb-8" style={{ background: 'rgba(255,255,255,0.04)' }}>
             <button
               onClick={() => setTab('login')}
-              className={`flex-1 py-4 text-sm font-semibold transition-colors ${
-                tab === 'login' ? 'text-[var(--th-primary-text)] border-b-2 border-[var(--th-primary)]' : 'text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)]'
-              }`}
-            >
-              {t('login.signIn')}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+              style={tab === 'login'
+                ? { background: 'rgba(173, 198, 255, 0.12)', color: '#adc6ff' }
+                : { color: 'rgba(194, 198, 214, 0.6)' }}>
+              Sign In
             </button>
             <button
               onClick={() => setTab('register')}
-              className={`flex-1 py-4 text-sm font-semibold transition-colors ${
-                tab === 'register' ? 'text-[var(--th-primary-text)] border-b-2 border-[var(--th-primary)]' : 'text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)]'
-              }`}
-            >
-              {t('login.createAccount')}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+              style={tab === 'register'
+                ? { background: 'rgba(173, 198, 255, 0.12)', color: '#adc6ff' }
+                : { color: 'rgba(194, 198, 214, 0.6)' }}>
+              Create Account
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-5">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
-                {t('login.email')}
+          {/* Heading */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-headline font-bold tracking-tight">
+              {tab === 'login' ? 'Welcome back' : 'Get started'}
+            </h1>
+            <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
+              {tab === 'login'
+                ? 'Sign in to your account'
+                : 'Create your account — $2 free credit included'}
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>
+                Email
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                placeholder="you@company.com"
-                className="w-full px-4 py-3 rounded-xl border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
-              />
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>mail</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  placeholder="you@company.com"
+                  className="input-field"
+                  style={{ paddingLeft: '40px' }}
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
-                {t('login.password')}
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>
+                Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={8}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
-              />
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>lock</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="Min. 8 characters"
+                  className="input-field"
+                  style={{ paddingLeft: '40px' }}
+                />
+              </div>
             </div>
 
             {error && (
-              <div className="px-4 py-3 rounded-xl bg-[var(--th-error-bg)] border border-[var(--th-error-border)] text-sm text-[var(--th-error-text)]">
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
+                style={{ background: 'rgba(248, 113, 113, 0.08)', border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171' }}>
+                <span className="material-symbols-outlined text-base">error</span>
                 {error}
               </div>
             )}
@@ -110,16 +193,50 @@ function LoginContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white font-semibold rounded-xl text-sm transition-all active:scale-[.98] disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-[var(--th-shadow-primary)] mt-2"
-            >
-              {loading ? t('login.pleaseWait') : tab === 'login' ? t('login.signIn') : t('login.createAccount')}
+              className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+              style={{
+                background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)',
+                color: '#0e131f',
+                boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)',
+              }}>
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Please wait...
+                </span>
+              ) : tab === 'login' ? 'Sign In' : 'Create Account'}
             </button>
           </form>
-        </div>
 
-        <p className="text-center text-xs text-[var(--th-text-secondary)] mt-6">
-          {t('login.copyright')} © {new Date().getFullYear()}
-        </p>
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
+            <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>or</span>
+            <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
+          </div>
+
+          {/* Switch prompt */}
+          <p className="text-center text-sm" style={{ color: '#c2c6d6' }}>
+            {tab === 'login' ? (
+              <>Don&apos;t have an account?{' '}
+                <button onClick={() => setTab('register')} className="font-semibold hover:underline" style={{ color: '#adc6ff' }}>
+                  Sign up free
+                </button>
+              </>
+            ) : (
+              <>Already have an account?{' '}
+                <button onClick={() => setTab('login')} className="font-semibold hover:underline" style={{ color: '#adc6ff' }}>
+                  Sign in
+                </button>
+              </>
+            )}
+          </p>
+
+          {/* Footer */}
+          <p className="text-center text-[10px] mt-8" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>
+            Caller Platform &copy; {new Date().getFullYear()}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -128,8 +245,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e1b4b] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[var(--th-primary)] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0e131f' }}>
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#adc6ff', borderTopColor: 'transparent' }} />
       </div>
     }>
       <LoginContent />
