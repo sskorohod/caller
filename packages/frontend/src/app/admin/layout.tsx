@@ -45,12 +45,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [denied, setDenied] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('caller_token');
     if (!token) { router.replace('/login?returnUrl=/admin'); return; }
-    setReady(true);
+
+    // Verify user is owner (admin access is restricted to project owner only)
+    fetch((process.env.NEXT_PUBLIC_API_URL || '/api') + '/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.role === 'owner') {
+          setReady(true);
+        } else {
+          setDenied(true);
+        }
+      })
+      .catch(() => { router.replace('/login?returnUrl=/admin'); });
   }, [router]);
+
+  if (denied) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div className="text-center space-y-4">
+          <div className="text-4xl">🔒</div>
+          <h1 className="text-xl font-bold">Access Denied</h1>
+          <p className="text-sm" style={{ color: '#c2c6d6' }}>Admin panel is restricted to the project owner.</p>
+          <button onClick={() => router.push('/dashboard')} className="px-6 py-2 rounded-lg text-sm font-medium"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!ready) return null;
 

@@ -46,6 +46,37 @@ const loginBody = z.object({
 });
 
 const sessionRoutes: FastifyPluginAsync = async (app) => {
+  // GET /api/auth/me — return current user info + role
+  app.get('/me', async (request, reply) => {
+    const token = request.headers.authorization?.replace('Bearer ', '');
+    if (!token) return reply.status(401).send({ error: 'Not authenticated' });
+
+    let userId: string;
+    try {
+      const { verifyJWT } = await import('../../lib/jwt.js');
+      const payload = await verifyJWT(token);
+      userId = payload.sub;
+    } catch {
+      return reply.status(401).send({ error: 'Invalid token' });
+    }
+
+    const [user] = await db.select({ id: users.id, email: users.email })
+      .from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) return reply.status(401).send({ error: 'User not found' });
+
+    const [membership] = await db.select({
+      workspace_id: workspaceMembers.workspace_id,
+      role: workspaceMembers.role,
+    }).from(workspaceMembers)
+      .where(eq(workspaceMembers.user_id, userId)).limit(1);
+
+    return reply.send({
+      user: { id: user.id, email: user.email },
+      role: membership?.role ?? null,
+      workspaceId: membership?.workspace_id ?? null,
+    });
+  });
+
   // POST /api/auth/register — create first user + workspace
   app.post('/register', async (request, reply) => {
     const body = registerBody.parse(request.body);
