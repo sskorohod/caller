@@ -113,6 +113,9 @@ export default function DialerPage() {
   const [expandedHistoryCall, setExpandedHistoryCall] = useState<string | null>(null);
   const [expandedTranscript, setExpandedTranscript] = useState<Array<{ role: string; content: string }> | null>(null);
 
+  // Provider setup check
+  const [twilioConfigured, setTwilioConfigured] = useState<boolean | null>(null); // null = loading
+
   // Recent numbers (from localStorage)
   const [recentNumbers, setRecentNumbers] = useState<string[]>([]);
   const [showRecent, setShowRecent] = useState(false);
@@ -146,6 +149,13 @@ export default function DialerPage() {
       setPhonePlaceholder(placeholder);
       setSttLanguage(defaultSttLang);
     }).catch(() => {});
+  }, []);
+
+  // Check if Twilio provider is configured
+  useEffect(() => {
+    api.get<Array<{ provider: string }>>('/auth/providers').then(providers => {
+      setTwilioConfigured(providers.some(p => p.provider === 'twilio'));
+    }).catch(() => setTwilioConfigured(false));
   }, []);
 
   // Auto-scroll transcript
@@ -479,7 +489,23 @@ export default function DialerPage() {
   const selectSmCls = "w-full px-2.5 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] disabled:opacity-40 transition-all appearance-none";
 
   return (
-    <div className="h-full flex flex-col lg:flex-row gap-5">
+    <div className="h-full flex flex-col gap-5">
+      {twilioConfigured === false && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+          style={{ background: 'rgba(251, 191, 36, 0.06)', border: '1px solid rgba(251, 191, 36, 0.15)' }}>
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="#fbbf24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <span style={{ color: '#fbbf24' }}>
+            <strong>Twilio not configured</strong> — To make and receive calls, connect your Twilio account in Settings → Providers.
+          </span>
+          <a href="/dashboard/settings?section=providers" className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0"
+            style={{ background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>
+            Configure
+          </a>
+        </div>
+      )}
+      <div className="flex-1 flex flex-col lg:flex-row gap-5">
       {/* ──── Left: Dialer ──── */}
       <div className="lg:w-[440px] shrink-0 flex flex-col gap-4">
 
@@ -1020,6 +1046,7 @@ export default function DialerPage() {
           )}
           <div ref={transcriptEndRef} />
         </div>
+      </div>
       </div>
     </div>
   );

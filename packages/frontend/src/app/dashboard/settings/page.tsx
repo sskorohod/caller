@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useT } from '@/lib/i18n';
@@ -1822,7 +1823,9 @@ function TeamSection() {
 export default function SettingsPage() {
   const { setWorkspace } = useAuth();
   const t = useT();
-  const [activeSection, setActiveSection] = useState<SectionId>('general');
+  const searchParams = useSearchParams();
+  const initialSection = (searchParams.get('section') as SectionId) || 'general';
+  const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
   const [workspace, setWorkspaceLocal] = useState<Workspace | null>(null);
 
   useEffect(() => {
