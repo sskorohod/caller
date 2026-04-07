@@ -36,7 +36,7 @@ function issueJWT(userId: string): Promise<string> {
 const registerBody = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  workspace_name: z.string().min(1).max(100),
+  workspace_name: z.string().min(1).max(100).optional(),
 });
 
 const loginBody = z.object({
@@ -69,8 +69,14 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     if (!user) throw new Error('Failed to create user');
 
-    // Create workspace
-    const slug = body.workspace_name
+    // Auto-generate workspace name from email if not provided
+    const workspaceName = body.workspace_name || body.email
+      .split('@')[0]
+      .replace(/[._+]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .trim() || 'My Workspace';
+
+    const slug = workspaceName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
@@ -78,7 +84,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     const [workspace] = await db
       .insert(workspaces)
-      .values({ name: body.workspace_name, slug })
+      .values({ name: workspaceName, slug })
       .returning({ id: workspaces.id, name: workspaces.name });
 
     if (!workspace) throw new Error('Failed to create workspace');
@@ -89,6 +95,21 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       user_id: user.id,
       role: 'owner',
     });
+
+    // Credit $2 signup bonus
+    try {
+      const { creditDeposit } = await import('../../services/billing.service.js');
+      await creditDeposit({
+        workspaceId: workspace.id,
+        amountUsd: 2.00,
+        type: 'signup_bonus',
+        description: 'Welcome bonus — $2 free credit',
+        referenceType: 'system',
+      });
+    } catch (err) {
+      // Non-critical — don't fail registration
+      app.log.error({ err }, 'Failed to credit signup bonus');
+    }
 
     const token = await issueJWT(user.id);
 

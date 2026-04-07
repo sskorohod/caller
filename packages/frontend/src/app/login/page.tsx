@@ -14,7 +14,6 @@ function LoginContent() {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [workspaceName, setWorkspaceName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +26,7 @@ function LoginContent() {
         const res = await authApi.login({ email, password });
         login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
       } else {
-        const res = await authApi.register({ email, password, workspace_name: workspaceName });
+        const res = await authApi.register({ email, password });
         login(res.token, res.user, res.workspace, '/onboarding');
       }
     } catch (err: any) {
@@ -73,22 +72,6 @@ function LoginContent() {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-5">
-            {tab === 'register' && (
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
-                  {t('login.workspaceName')}
-                </label>
-                <input
-                  type="text"
-                  value={workspaceName}
-                  onChange={e => setWorkspaceName(e.target.value)}
-                  required
-                  placeholder="Acme Corp"
-                  className="w-full px-4 py-3 rounded-xl border border-[var(--th-border)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-colors"
-                />
-              </div>
-            )}
-
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">
                 {t('login.email')}

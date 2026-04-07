@@ -65,7 +65,7 @@ export const api = {
 
 // Auth (no token needed)
 export const authApi = {
-  register: (data: { email: string; password: string; workspace_name: string }) =>
+  register: (data: { email: string; password: string }) =>
     request<{ token: string; user: { id: string; email: string }; workspace: { id: string; name: string } }>(
       '/auth/register', { method: 'POST', body: JSON.stringify(data) }
     ),
