@@ -537,6 +537,21 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     return { success: true, new_balance: result.newBalance };
   });
 
+  // ─── DELETE /workspaces/:id ───────────────────────────────────────
+  app.delete('/workspaces/:id', async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    // Prevent deleting own workspace
+    if (id === request.auth.workspaceId) {
+      return { error: 'Cannot delete your own workspace' };
+    }
+
+    await db.delete(workspaces).where(eq(workspaces.id, id));
+    await auditLog(request.auth.userId, 'workspace_deleted', 'workspace', id, {}, request.ip);
+
+    return { success: true };
+  });
+
   // ─── PATCH /workspaces/:id/provider-config ──────────────────────────
   app.patch('/workspaces/:id/provider-config', async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);

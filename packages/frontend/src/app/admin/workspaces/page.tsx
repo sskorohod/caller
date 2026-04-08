@@ -231,6 +231,19 @@ export default function AdminWorkspaces() {
                 </div>
               )}
 
+              {/* Delete Workspace */}
+              <button
+                onClick={async () => {
+                  if (!confirm(`Delete workspace "${selected.name}"? This will remove all data including calls, sessions, and billing history. This cannot be undone.`)) return;
+                  await api.delete(`/admin/workspaces/${selected.id}`);
+                  setSelected(null);
+                  load();
+                }}
+                className="w-full px-3 py-2 rounded-lg text-xs font-medium transition hover:bg-red-500/20"
+                style={{ border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+                Delete Workspace
+              </button>
+
               {/* Recent Transactions */}
               <div>
                 <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Recent Transactions</div>
