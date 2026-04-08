@@ -38,7 +38,7 @@ const registerBody = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   workspace_name: z.string().min(1).max(100).optional(),
-  phone_number: z.string().regex(/^\+[1-9]\d{1,14}$/).optional(),
+  phone_number: z.string().transform(s => s.replace(/[\s\-\(\)]/g, '')).pipe(z.string().regex(/^\+[1-9]\d{1,14}$/)).optional(),
 });
 
 const loginBody = z.object({
@@ -184,7 +184,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     // Resolve workspace for the user
     const [membership] = await db
-      .select({ workspace_id: workspaceMembers.workspace_id })
+      .select({ workspace_id: workspaceMembers.workspace_id, role: workspaceMembers.role })
       .from(workspaceMembers)
       .where(eq(workspaceMembers.user_id, user.id))
       .limit(1);
@@ -194,7 +194,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       const [ws] = await db.select({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan })
         .from(workspaces)
         .where(eq(workspaces.id, membership.workspace_id));
-      if (ws) workspace = ws;
+      if (ws) workspace = { ...ws, role: membership.role };
     }
 
     return reply.send({
@@ -216,7 +216,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
   }, async (request, reply) => {
-    const body = z.object({ email: z.string().email(), phone_number: z.string().regex(/^\+[1-9]\d{1,14}$/).optional() }).parse(request.body);
+    const body = z.object({ email: z.string().email(), phone_number: z.string().transform(s => s.replace(/[\s\-\(\)]/g, '')).pipe(z.string().regex(/^\+[1-9]\d{1,14}$/)).optional() }).parse(request.body);
 
     // Generate secure token
     const token = randomBytes(32).toString('hex');

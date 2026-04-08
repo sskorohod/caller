@@ -1842,6 +1842,7 @@ export default function SettingsPage() {
   const { setWorkspace, workspace: authWorkspace } = useAuth();
   const t = useT();
   const plan = authWorkspace?.plan || 'translator';
+  const isOwner = authWorkspace?.role === 'owner';
   const searchParams = useSearchParams();
   const initialSection = (searchParams.get('section') as SectionId) || 'general';
   const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
@@ -1863,7 +1864,7 @@ export default function SettingsPage() {
         <nav className="md:space-y-0.5 md:sticky md:top-0 flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1 md:gap-0 pb-2 md:pb-0">
           <p className="hidden md:block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-widest px-3 mb-2">{t('settings.title')}</p>
           {SECTIONS.filter(s => {
-            if (plan === 'translator') {
+            if (plan === 'translator' && !isOwner) {
               return ['general', 'appearance', 'providers'].includes(s.id);
             }
             return true;

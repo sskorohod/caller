@@ -18,7 +18,7 @@ const createWorkspaceSchema = z.object({
 
 const updateWorkspaceSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  phone_numbers: z.array(z.string().regex(/^\+[1-9]\d{1,14}$/)).max(3).optional(),
+  phone_numbers: z.array(z.string().transform(s => s.replace(/[\s\-\(\)]/g, '')).pipe(z.string().regex(/^\+[1-9]\d{1,14}$/))).max(3).optional(),
   industry: z.string().optional(),
   timezone: z.string().optional(),
   languages: z.array(z.string()).optional(),
