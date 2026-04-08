@@ -164,21 +164,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Fetch current workspace plan + role (may be stale in localStorage)
   useEffect(() => {
-    if (!token) return;
-    api.get<{ role?: string; workspaceId?: string }>('/auth/me')
-      .then(data => {
-        if (data.role && workspace && data.role !== workspace.role) {
-          setWorkspace({ ...workspace, role: data.role });
-        }
-      })
-      .catch(() => {});
-    api.get<{ plan: string }>('/billing/balance')
-      .then(data => {
-        if (data.plan && workspace && data.plan !== workspace.plan) {
-          setWorkspace({ ...workspace, plan: data.plan });
-        }
-      })
-      .catch(() => {});
+    if (!token || !workspace) return;
+    Promise.all([
+      api.get<{ role?: string }>('/auth/me').catch(() => ({})),
+      api.get<{ plan?: string }>('/billing/balance').catch(() => ({})),
+    ]).then(([me, billing]) => {
+      const newRole = (me as any).role || workspace.role;
+      const newPlan = (billing as any).plan || workspace.plan;
+      if (newRole !== workspace.role || newPlan !== workspace.plan) {
+        setWorkspace({ ...workspace, role: newRole, plan: newPlan });
+      }
+    });
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close sidebar on route change
