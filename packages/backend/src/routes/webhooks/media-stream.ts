@@ -600,86 +600,44 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     // TTS → generate audio with runtime fallback (use session.tts for mid-call changes)
                     const vtSession = activeVoiceTranslateSessions.get(callId);
                     const currentTts = vtSession?.tts ?? tts;
-                    // Detect current TTS provider dynamically (handles mid-call changes)
                     const currentTtsName = (currentTts as any).constructor?.name;
                     let actualTtsProvider = currentTtsName === 'ElevenLabsTTS' ? 'elevenlabs'
                       : currentTtsName === 'XaiTTS' ? 'xai' : 'openai';
+                    let audio: Buffer | null = null;
+                    try {
+                      audio = await currentTts.synthesize(translated);
+                    } catch (ttsErr) {
+                      logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
+                      const xaiVoice = ttsVoiceId ?? 'ara';
+                      const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
+                      const openaiVoice = isMale ? 'onyx' : 'nova';
+                      for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
+                        try {
+                          const fbVoice = fallback === 'openai' ? openaiVoice
+                            : fallback === 'elevenlabs' ? ttsVoiceId : xaiVoice;
+                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
+                          audio = await fallbackTts.synthesize(translated);
+                          actualTtsProvider = fallback;
+                          const vtSessFb = activeVoiceTranslateSessions.get(callId);
+                          if (vtSessFb) vtSessFb.tts = fallbackTts;
+                          logger.info({ callId, fallback }, 'TTS fallback succeeded — locked for call');
+                          break;
+                        } catch { /* try next */ }
+                      }
+                    }
+                    if (!audio) { logger.error({ callId }, 'All TTS providers failed'); return; }
                     const skipConversion = actualTtsProvider === 'elevenlabs' || actualTtsProvider === 'xai';
+                    if (!skipConversion) audio = pcmToMulaw(audio);
 
-                    // Check mode before starting TTS
                     const vtSessNow = activeVoiceTranslateSessions.get(callId);
-                    const useStreaming = !vtSessNow?.sequentialMode; // stream chunks in non-sequential mode
-
-                    if (useStreaming) {
-                      // Streaming TTS: inject audio chunks as they arrive (low latency)
-                      const onChunk = (chunk: { audio: Buffer; index: number }) => {
-                        let chunkAudio = chunk.audio;
-                        if (!skipConversion) chunkAudio = pcmToMulaw(chunkAudio);
-                        sendTtsAudioToBoth(chunkAudio);
-                      };
-                      currentTts.on('chunk', onChunk);
-                      try {
-                        await currentTts.synthesize(translated);
-                      } catch (ttsErr) {
-                        logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
-                        const xaiVoice = ttsVoiceId ?? 'ara';
-                        const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
-                        const openaiVoice = isMale ? 'onyx' : 'nova';
-                        for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
-                          try {
-                            const fbVoice = fallback === 'openai' ? openaiVoice
-                              : fallback === 'elevenlabs' ? ttsVoiceId : xaiVoice;
-                            const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
-                            const fbSkipConv = fallback === 'elevenlabs' || fallback === 'xai';
-                            const onFbChunk = (chunk: { audio: Buffer }) => {
-                              let a = chunk.audio;
-                              if (!fbSkipConv) a = pcmToMulaw(a);
-                              sendTtsAudioToBoth(a);
-                            };
-                            fallbackTts.on('chunk', onFbChunk);
-                            await fallbackTts.synthesize(translated);
-                            fallbackTts.removeListener('chunk', onFbChunk);
-                            actualTtsProvider = fallback;
-                            const vtSessFb = activeVoiceTranslateSessions.get(callId);
-                            if (vtSessFb) vtSessFb.tts = fallbackTts;
-                            logger.info({ callId, fallback }, 'TTS fallback succeeded — locked for call');
-                            break;
-                          } catch { /* try next */ }
-                        }
-                      } finally {
-                        currentTts.removeListener('chunk', onChunk);
-                      }
-                      logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation streamed');
-                    } else {
-                      // Sequential/PTT mode: buffer full audio then flush on release
-                      let audio: Buffer | null = null;
-                      try {
-                        audio = await currentTts.synthesize(translated);
-                      } catch (ttsErr) {
-                        logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
-                        const xaiVoice = ttsVoiceId ?? 'ara';
-                        const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
-                        const openaiVoice = isMale ? 'onyx' : 'nova';
-                        for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
-                          try {
-                            const fbVoice = fallback === 'openai' ? openaiVoice
-                              : fallback === 'elevenlabs' ? ttsVoiceId : xaiVoice;
-                            const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
-                            audio = await fallbackTts.synthesize(translated);
-                            actualTtsProvider = fallback;
-                            const vtSessFb = activeVoiceTranslateSessions.get(callId);
-                            if (vtSessFb) vtSessFb.tts = fallbackTts;
-                            logger.info({ callId, fallback }, 'TTS fallback succeeded — locked for call');
-                            break;
-                          } catch { /* try next */ }
-                        }
-                      }
-                      if (!audio) { logger.error({ callId }, 'All TTS providers failed'); return; }
-                      if (!skipConversion) audio = pcmToMulaw(audio);
+                    if (vtSessNow?.sequentialMode) {
                       pttAudioBuffer.push(audio);
                       pttTranslatedTexts.push(translated);
-                      logger.info({ callId, original: textToTranslate.slice(0, 40), pttActive: vtSessNow?.pttActive }, 'TTS pre-buffered');
-                      if (vtSessNow && !vtSessNow.pttActive) flushPttAudioBuffer();
+                      logger.info({ callId, original: textToTranslate.slice(0, 40), pttActive: vtSessNow.pttActive }, 'TTS pre-buffered');
+                      if (!vtSessNow.pttActive) flushPttAudioBuffer();
+                    } else {
+                      sendTtsToCallee(audio);
+                      logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent to callee');
                     }
                   } catch (err) {
                     logger.error({ err, callId }, 'Voice translate pipeline error');
@@ -687,12 +645,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 })();
               });
 
-              // Send TTS audio to both callee AND operator (so operator hears the translation too)
-              const sendTtsAudioToBoth = (audio: Buffer) => {
+              // Send TTS audio to callee only (operator sees text subtitles instead)
+              const sendTtsToCallee = (audio: Buffer) => {
                 const vtSess = activeVoiceTranslateSessions.get(callId);
                 if (!vtSess) return;
                 const chunkSize = 640;
-                // → callee
                 const calleeWs = vtSess.calleeSocket;
                 const calleeSid = vtSess.calleeStreamSid;
                 if (calleeWs && calleeSid && calleeWs.readyState === 1) {
@@ -703,22 +660,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     }));
                   }
                 }
-                // → operator (hear your own translation)
-                if (vtSess.operatorSocket && vtSess.operatorStreamSid && vtSess.operatorSocket.readyState === 1) {
-                  for (let i = 0; i < audio.length; i += chunkSize) {
-                    vtSess.operatorSocket.send(JSON.stringify({
-                      event: 'media', streamSid: vtSess.operatorStreamSid,
-                      media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
-                    }));
-                  }
-                }
               };
 
               // Flush pre-buffered TTS audio to callee+operator (called when PTT released)
               const flushPttAudioBuffer = () => {
                 if (pttAudioBuffer.length === 0) return;
                 for (const audio of pttAudioBuffer) {
-                  sendTtsAudioToBoth(audio);
+                  sendTtsToCallee(audio);
                 }
                 logger.info({ callId, chunks: pttAudioBuffer.length }, 'PTT audio buffer flushed instantly');
                 // Translation already emitted per-segment in transcript handler (line 410)
