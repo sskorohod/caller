@@ -1,11 +1,9 @@
 import { EventEmitter } from 'node:events';
 import pino from 'pino';
+import { WebSocket } from 'ws';
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { translatorSubscribers, translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
-import { createSTTProvider, type STTProvider, type TranscriptEvent } from './stt.service.js';
-import { createTTSProvider, type TTSProvider } from './tts.service.js';
-import { createLLMProvider, type LLMProvider } from './llm.service.js';
 import { getIo } from '../realtime/io.js';
 import * as callService from './call.service.js';
 import { queuePostCallProcessing } from '../workers/post-call.worker.js';
@@ -14,7 +12,6 @@ import { sendTranslatorSessionStart, sendTranslatorSessionEnd } from './telegram
 import { decrypt } from '../lib/crypto.js';
 import { providerCredentials, callShareTokens } from '../db/schema.js';
 import { env } from '../config/env.js';
-import type { WebSocket } from 'ws';
 
 const log = pino({ name: 'conference-translator' });
 
@@ -32,18 +29,16 @@ interface ConferenceTranslatorOptions {
   streamSid: string;        // Twilio stream SID
 }
 
-const MODEL_MAP: Record<string, string> = {
-  openai: process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini',
-  xai: 'grok-3-mini-fast',
+const LANG_NAMES: Record<string, string> = {
+  en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French',
 };
 
 /**
- * Conference Translator — listens to a phone conference and translates
- * bidirectionally between two languages.
+ * Conference Translator — uses xAI Grok Voice Agent API for speech-to-speech
+ * translation with minimal latency. Single WebSocket replaces STT+LLM+TTS pipeline.
  *
- * Audio flow (conference = single mixed stream from Twilio):
- *   mixed audio → STT (language auto-detect or configured) → detect language →
- *   translate → TTS → inject back into stream
+ * Audio flow:
+ *   mixed audio (mulaw 8kHz) → Grok Voice Agent → translated audio (mulaw 8kHz) → inject
  */
 export class ConferenceTranslator extends EventEmitter {
   private callId: string;
@@ -54,14 +49,9 @@ export class ConferenceTranslator extends EventEmitter {
   private mode: 'voice' | 'text' | 'both';
   private whoHears: 'subscriber' | 'both';
 
-  private stt: STTProvider | null = null;
-  private tts: TTSProvider | null = null;
-  private llm: LLMProvider | null = null;
-  private llmProviderName: string = 'openai';
-
-  private socket: WebSocket;
+  private grokWs: WebSocket | null = null;
+  private twilioSocket: WebSocket;
   private streamSid: string;
-  private ttsProviderName: string;
   private ttsVoiceId?: string;
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
@@ -70,9 +60,9 @@ export class ConferenceTranslator extends EventEmitter {
   private saved: boolean = false;
   private safetyTimer?: ReturnType<typeof setTimeout>;
 
-  // Accumulate final segments for utterance-level processing
-  private accum: string = '';
-  private lastDetectedLang: string = '';
+  // Accumulate transcript text from Grok responses
+  private currentInputTranscript: string = '';
+  private currentOutputTranscript: string = '';
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -83,44 +73,22 @@ export class ConferenceTranslator extends EventEmitter {
     this.targetLang = options.targetLanguage;
     this.mode = options.mode;
     this.whoHears = options.whoHears;
-    this.socket = options.socket;
+    this.twilioSocket = options.socket;
     this.streamSid = options.streamSid;
-    this.ttsProviderName = options.ttsProvider;
     this.ttsVoiceId = options.ttsVoiceId;
   }
 
   async start(): Promise<void> {
-    // Resolve providers
-    for (const provider of ['openai', 'xai'] as const) {
-      try {
-        this.llm = await createLLMProvider(this.workspaceId, provider);
-        this.llmProviderName = provider;
-        break;
-      } catch { /* try next */ }
-    }
-    if (!this.llm) throw new Error('No LLM provider available for translator');
-
-    // OpenAI Whisper required for conference translator (auto language detection for mixed ru/en)
-    this.stt = await createSTTProvider(this.workspaceId, 'openai');
-
-    try {
-      this.tts = await createTTSProvider(
-        this.workspaceId,
-        this.ttsProviderName as 'elevenlabs' | 'openai' | 'xai',
-        this.ttsVoiceId,
-        this.targetLang,
-      );
-    } catch {
-      // Fallback TTS
-      for (const fb of ['elevenlabs', 'openai', 'xai'] as const) {
-        try {
-          this.tts = await createTTSProvider(this.workspaceId, fb, undefined, this.targetLang);
-          this.ttsProviderName = fb;
-          break;
-        } catch { /* next */ }
-      }
-    }
-    if (!this.tts) throw new Error('No TTS provider available for translator');
+    // Get xAI API key
+    const [row] = await db.select({ credential_data: providerCredentials.credential_data })
+      .from(providerCredentials)
+      .where(and(
+        eq(providerCredentials.workspace_id, this.workspaceId),
+        eq(providerCredentials.provider, 'xai'),
+      ));
+    if (!row) throw new Error('xAI credentials not configured — required for conference translator');
+    const creds = JSON.parse(decrypt(row.credential_data)) as { api_key: string };
+    const apiKey = creds.api_key;
 
     // Create translator session record
     const [session] = await db
@@ -133,13 +101,57 @@ export class ConferenceTranslator extends EventEmitter {
       .returning();
     this.sessionId = session.id;
 
-    // Wire STT events
-    this.stt.on('transcript', (evt: TranscriptEvent) => this.handleTranscript(evt));
-    this.stt.on('utterance_end', () => this.handleUtteranceEnd());
-    this.stt.on('error', (err: Error) => log.error({ err, callId: this.callId }, 'Translator STT error'));
+    // Connect to Grok Voice Agent API
+    const myLangName = LANG_NAMES[this.myLang] || this.myLang;
+    const targetLangName = LANG_NAMES[this.targetLang] || this.targetLang;
 
-    // Connect STT — Whisper auto-detects language, no language param needed
-    this.stt.connect({});
+    this.grokWs = new WebSocket('wss://api.x.ai/v1/realtime', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    this.grokWs.on('open', () => {
+      log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket connected');
+
+      this.grokWs!.send(JSON.stringify({
+        type: 'session.update',
+        session: {
+          voice: this.ttsVoiceId || 'eve',
+          instructions: `You are a live phone interpreter. Your ONLY job is to translate speech between ${myLangName} and ${targetLangName}.
+
+Rules:
+- When you hear ${myLangName}, translate it to ${targetLangName} and speak the translation.
+- When you hear ${targetLangName}, translate it to ${myLangName} and speak the translation.
+- ONLY speak the translation. Do NOT add any commentary, greetings, or explanations.
+- Be natural and concise, matching the speaker's tone.
+- If you cannot understand something, stay silent.`,
+          turn_detection: {
+            type: 'server_vad',
+            threshold: 0.5,
+            silence_duration_ms: 400,
+            prefix_padding_ms: 200,
+          },
+          audio: {
+            input: { format: { type: 'audio/pcmu', rate: 8000 } },
+            output: { format: { type: 'audio/pcmu', rate: 8000 } },
+          },
+        },
+      }));
+    });
+
+    this.grokWs.on('message', (data: Buffer) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        this.handleGrokEvent(msg);
+      } catch { /* ignore parse errors */ }
+    });
+
+    this.grokWs.on('error', (err: Error) => {
+      log.error({ err, callId: this.callId }, 'Grok Voice Agent WebSocket error');
+    });
+
+    this.grokWs.on('close', () => {
+      log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket closed');
+    });
 
     // Safety timer (4 hours max)
     this.safetyTimer = setTimeout(() => {
@@ -153,164 +165,110 @@ export class ConferenceTranslator extends EventEmitter {
       myLang: this.myLang,
       targetLang: this.targetLang,
       mode: this.mode,
-    }, 'Conference translator started');
+    }, 'Conference translator started (Grok Voice Agent)');
 
-    // Send Telegram notification with live translate link (fire-and-forget)
+    // Send Telegram notification
     this.sendTelegramNotification('start').catch(() => {});
   }
 
+  /** Forward telephony audio to Grok Voice Agent */
   sendAudio(audioBuffer: Buffer): void {
-    if (this.stt) {
-      this.stt.sendAudio(audioBuffer);
+    if (this.grokWs?.readyState === WebSocket.OPEN) {
+      this.grokWs.send(JSON.stringify({
+        type: 'input_audio_buffer.append',
+        audio: audioBuffer.toString('base64'),
+      }));
     }
   }
 
-  private handleTranscript(evt: TranscriptEvent): void {
-    const text = evt.text.trim();
-    if (!text) return;
+  private handleGrokEvent(msg: any): void {
+    switch (msg.type) {
+      case 'input_audio_buffer.speech_started':
+        // User started speaking — emit to UI
+        this.currentInputTranscript = '';
+        this.currentOutputTranscript = '';
+        break;
 
-    if (!evt.isFinal) {
-      // Emit interim transcript to UI (if text mode)
-      if (this.mode === 'text' || this.mode === 'both') {
-        const io = getIo();
-        if (io) {
-          io.to(`call:${this.callId}`).volatile.emit('call:transcript', {
-            call_id: this.callId,
-            speaker: 'conference',
-            text: this.accum ? this.accum + ' ' + text : text,
-            timestamp: new Date().toISOString(),
-            isFinal: false,
-          });
+      case 'response.output_audio.delta':
+        // Streaming translated audio — inject into Twilio stream
+        if (msg.delta && this.twilioSocket.readyState === 1) {
+          const audio = Buffer.from(msg.delta, 'base64');
+          const chunkSize = 640;
+          for (let i = 0; i < audio.length; i += chunkSize) {
+            this.twilioSocket.send(JSON.stringify({
+              event: 'media',
+              streamSid: this.streamSid,
+              media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+            }));
+          }
         }
-      }
-      return;
-    }
+        break;
 
-    // Final segment — accumulate
-    this.accum += (this.accum ? ' ' : '') + text;
+      case 'response.audio_transcript.delta':
+      case 'response.output_audio_transcript.delta':
+        // Accumulate output transcript (the translation)
+        if (msg.delta) {
+          this.currentOutputTranscript += msg.delta;
+        }
+        break;
 
-    // Detect language from text heuristic
-    this.lastDetectedLang = this.detectLanguage(text);
+      case 'conversation.item.input_audio_transcription.completed':
+        // Input speech transcribed — this is what was said
+        if (msg.transcript) {
+          this.currentInputTranscript = msg.transcript.trim();
+        }
+        break;
 
-    // Translate each final segment immediately
-    this.translateSegment(text, this.lastDetectedLang);
-  }
+      case 'response.done': {
+        // Translation turn complete — save transcript and emit to UI
+        const original = this.currentInputTranscript;
+        const translated = this.currentOutputTranscript.trim();
 
-  private handleUtteranceEnd(): void {
-    const text = this.accum.trim();
-    this.accum = '';
-    if (!text) return;
+        if (original && translated) {
+          // Detect direction
+          const cyrillicRatio = (original.match(/[\u0400-\u04FF]/g) || []).length / Math.max(original.length, 1);
+          const isMyLang = cyrillicRatio > 0.3 ? this.myLang === 'ru' : this.myLang !== 'ru';
+          const speaker = isMyLang ? 'subscriber' : 'other';
+          const detectedLang = isMyLang ? this.myLang : this.targetLang;
 
-    // Emit final transcript to UI
-    const io = getIo();
-    if (io) {
-      io.to(`call:${this.callId}`).emit('call:transcript', {
-        call_id: this.callId,
-        speaker: 'conference',
-        text,
-        timestamp: new Date().toISOString(),
-        isFinal: true,
-      });
-    }
-  }
+          this.transcript.push({
+            speaker,
+            text: original,
+            lang: detectedLang,
+            translated,
+            timestamp: new Date().toISOString(),
+          });
 
-  private detectLanguage(text: string): string {
-    // Simple heuristic: if text contains Cyrillic → it's Russian (subscriber's language)
-    const cyrillicRatio = (text.match(/[\u0400-\u04FF]/g) || []).length / text.length;
-    if (cyrillicRatio > 0.3) return this.myLang;
-
-    // Check for common CJK, Arabic, etc. — for now default to target language
-    return this.targetLang;
-  }
-
-  private translateSegment(text: string, detectedLang: string): void {
-    if (!this.llm) return;
-
-    // Determine translation direction
-    const isMyLanguage = detectedLang === this.myLang;
-    const translateTo = isMyLanguage ? this.targetLang : this.myLang;
-
-    const model = MODEL_MAP[this.llmProviderName] ?? 'gpt-4o-mini';
-
-    // Fire-and-forget translation pipeline
-    (async () => {
-      try {
-        const client = (this.llm as any).client;
-        const resp = await client.chat.completions.create({
-          model,
-          temperature: 0.3,
-          max_tokens: 200,
-          stream: false,
-          messages: [
-            {
-              role: 'system',
-              content: `Translate to ${translateTo}. Phone conversation. Be natural and concise.\nOnly output the translation, nothing else.`,
-            },
-            { role: 'user', content: `"${text}"` },
-          ],
-        });
-
-        const translated = resp.choices?.[0]?.message?.content?.trim();
-        if (!translated) return;
-
-        // Save to transcript
-        this.transcript.push({
-          speaker: isMyLanguage ? 'subscriber' : 'other',
-          text,
-          lang: detectedLang,
-          translated,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Emit translation to UI (text mode)
-        if (this.mode === 'text' || this.mode === 'both') {
+          // Emit to UI
           const io = getIo();
           if (io) {
             io.to(`call:${this.callId}:translate`).emit('call:translation', {
               call_id: this.callId,
-              speaker: isMyLanguage ? 'subscriber' : 'other',
-              original: text,
+              speaker,
+              original,
               translated,
               detected_language: detectedLang,
               timestamp: new Date().toISOString(),
             });
+
+            io.to(`call:${this.callId}`).emit('call:transcript', {
+              call_id: this.callId,
+              speaker: 'conference',
+              text: original,
+              timestamp: new Date().toISOString(),
+              isFinal: true,
+            });
           }
         }
 
-        // Voice mode — synthesize and inject into stream
-        if (this.mode === 'voice' || this.mode === 'both') {
-          await this.synthesizeAndInject(translated, isMyLanguage);
-        }
-      } catch (err) {
-        log.error({ err, callId: this.callId }, 'Translation pipeline error');
-      }
-    })();
-  }
-
-  private async synthesizeAndInject(translatedText: string, isMyLanguage: boolean): Promise<void> {
-    if (!this.tts || !this.socket || this.socket.readyState !== 1) return;
-
-    try {
-      let audio = await this.tts.synthesize(translatedText);
-
-      // Convert PCM to mulaw if needed (ElevenLabs/xAI output mulaw directly)
-      const isNativeMulaw = this.ttsProviderName === 'elevenlabs' || this.ttsProviderName === 'xai';
-      if (!isNativeMulaw) {
-        const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
-        audio = pcmToMulaw(audio);
+        this.currentInputTranscript = '';
+        this.currentOutputTranscript = '';
+        break;
       }
 
-      // Inject into stream — in a conference, audio goes to all participants
-      const chunkSize = 640;
-      for (let i = 0; i < audio.length; i += chunkSize) {
-        this.socket.send(JSON.stringify({
-          event: 'media',
-          streamSid: this.streamSid,
-          media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
-        }));
-      }
-    } catch (err) {
-      log.error({ err, callId: this.callId }, 'TTS synthesis/inject error');
+      case 'error':
+        log.error({ error: msg.error, callId: this.callId }, 'Grok Voice Agent error');
+        break;
     }
   }
 
@@ -324,17 +282,17 @@ export class ConferenceTranslator extends EventEmitter {
       this.safetyTimer = undefined;
     }
 
-    // Close STT
-    try { this.stt?.close(); } catch { /* ignore */ }
+    // Close Grok WebSocket
+    try { this.grokWs?.close(); } catch { /* ignore */ }
 
     const durationSecs = Math.floor((Date.now() - this.startTime) / 1000);
     const durationMins = durationSecs / 60;
-    const minutesUsed = Math.ceil(durationMins * 100) / 100; // round up to 2 decimals
+    const minutesUsed = Math.ceil(durationMins * 100) / 100;
 
-    // Calculate costs
-    const costStt = calculateSTTCost('deepgram', durationMins);
+    // Calculate costs (Grok Voice Agent pricing: ~$0.05/min)
+    const costVoiceAgent = durationMins * 0.05;
     const costTelephony = calculateTelephonyCost('twilio', durationMins);
-    const costTotal = costStt + costTelephony;
+    const costTotal = costVoiceAgent + costTelephony;
 
     // Update translator session
     if (this.sessionId) {
@@ -351,7 +309,7 @@ export class ConferenceTranslator extends EventEmitter {
       }
     }
 
-    // Deduct balance from subscriber (legacy minutes)
+    // Deduct balance from subscriber
     try {
       await db.update(translatorSubscribers).set({
         balance_minutes: sql`GREATEST(${translatorSubscribers.balance_minutes} - ${minutesUsed}, 0)`,
@@ -361,7 +319,7 @@ export class ConferenceTranslator extends EventEmitter {
       log.error({ err, callId: this.callId }, 'Failed to deduct subscriber balance');
     }
 
-    // Deduct USD from workspace deposit (new billing system)
+    // Deduct USD from workspace deposit
     try {
       const { deductUsageCost } = await import('./billing.service.js');
       const [ws] = await db.select({ provider_config: workspacesSchema.provider_config })
@@ -371,11 +329,11 @@ export class ConferenceTranslator extends EventEmitter {
       await deductUsageCost({
         workspaceId: this.workspaceId,
         providerCosts: {
-          stt: costStt,
+          stt: costVoiceAgent, // Grok Voice Agent covers STT+LLM+TTS
           llm: 0,
           tts: 0,
           telephony: costTelephony,
-          sttProvider: 'deepgram',
+          sttProvider: 'xai',
         },
         providerConfig: (ws?.provider_config as any) || {},
         referenceType: 'translator_session',
@@ -391,19 +349,17 @@ export class ConferenceTranslator extends EventEmitter {
         duration_seconds: durationSecs,
       } as any);
 
-      // Update AI session with costs
       const aiSession = await callService.getAiSession(this.callId);
       if (aiSession) {
         await callService.updateAiSession(aiSession.id, {
           transcript: this.transcript as any,
           total_turns: this.transcript.length,
-          cost_stt: String(costStt),
+          cost_stt: String(costVoiceAgent),
           cost_telephony: String(costTelephony),
           cost_total: String(costTotal),
         } as any);
       }
 
-      // Queue post-call processing (summary)
       if (this.transcript.length > 0 && aiSession) {
         queuePostCallProcessing({
           callId: this.callId,
@@ -432,16 +388,13 @@ export class ConferenceTranslator extends EventEmitter {
       turns: this.transcript.length,
     }, 'Conference translator finalized');
 
-    // Send Telegram end notification
     this.sendTelegramNotification('end', durationSecs, minutesUsed).catch(() => {});
   }
 
   private async sendTelegramNotification(type: 'start' | 'end', durationSecs?: number, minutesUsed?: number): Promise<void> {
-    // Get subscriber's telegram_chat_id OR workspace telegram credentials
     const [sub] = await db.select().from(translatorSubscribers).where(eq(translatorSubscribers.id, this.subscriberId));
     if (!sub) return;
 
-    // Try subscriber's own telegram chat first, then workspace telegram
     let botToken: string | null = null;
     let chatId: string | null = sub.telegram_chat_id;
 
@@ -457,7 +410,6 @@ export class ConferenceTranslator extends EventEmitter {
     if (!botToken || !chatId) return;
 
     if (type === 'start') {
-      // Create share token for live translate page
       let liveUrl: string | undefined;
       try {
         const shareToken = await callService.createShareToken(this.callId);
