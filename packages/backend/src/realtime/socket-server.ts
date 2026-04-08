@@ -150,13 +150,15 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const session = getActiveVoiceTranslateSessions().get(call_id);
         if (session) {
           session.pttActive = active;
-          // PTT released → finalize STT to get last segment immediately, then flush audio
+          // PTT released → finalize STT to get last segment, wait for all translations, then flush
           if (!active && session.sequentialMode) {
             // Force Deepgram to emit buffered transcript without waiting for endpointing
             if (session.operatorStt && 'finalize' in session.operatorStt) {
               (session.operatorStt as any).finalize();
             }
-            flushPttAudio(call_id);
+            // Wait for in-flight translations+TTS to complete, then flush
+            const result = flushPttAudio(call_id);
+            if (result instanceof Promise) await result;
           }
         }
       } catch { /* ignore */ }

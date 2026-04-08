@@ -218,8 +218,8 @@ async function finalizeManualSession(callId: string): Promise<void> {
 
   activeManualSessions.delete(callId);
 }
-export function registerPttFlush(callId: string, cb: () => void) { pttFlushCallbacks.set(callId, cb); }
-export function flushPttAudio(callId: string) { pttFlushCallbacks.get(callId)?.(); }
+export function registerPttFlush(callId: string, cb: () => void | Promise<void>) { pttFlushCallbacks.set(callId, cb); }
+export function flushPttAudio(callId: string): void | Promise<void> { return pttFlushCallbacks.get(callId)?.(); }
 
 export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRealtimeOrchestrator | undefined {
   return activeOrchestrators.get(callId);
@@ -555,6 +555,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               // Pre-translate during PTT: translate+TTS each segment immediately, buffer audio
               const pttAudioBuffer: Buffer[] = []; // pre-generated TTS audio chunks
               let pttTranslatedTexts: string[] = []; // for UI display
+              const pendingTranslations: Promise<void>[] = []; // track in-flight translate+TTS pipelines
 
               operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
                 if (!evt.isFinal || !evt.text.trim()) return;
@@ -568,8 +569,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 // Always translate immediately — even during PTT (pre-buffer TTS audio)
                 const textToTranslate = segmentText;
 
-                // Fire-and-forget: translate + TTS this segment immediately
-                (async () => {
+                // Translate + TTS this segment immediately, track Promise for PTT flush
+                const p = (async () => {
                   try {
                     // Translate
                     const client = (translationLlm as any).client;
@@ -643,6 +644,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     logger.error({ err, callId }, 'Voice translate pipeline error');
                   }
                 })();
+                pendingTranslations.push(p);
+                p.finally(() => {
+                  const idx = pendingTranslations.indexOf(p);
+                  if (idx >= 0) pendingTranslations.splice(idx, 1);
+                });
               });
 
               // Send TTS audio to callee only (operator sees text subtitles instead)
@@ -674,7 +680,14 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 pttAudioBuffer.length = 0;
                 pttTranslatedTexts.length = 0;
               };
-              registerPttFlush(callId, flushPttAudioBuffer);
+              registerPttFlush(callId, async () => {
+                // Wait for all in-flight translate+TTS pipelines to finish
+                if (pendingTranslations.length > 0) {
+                  logger.info({ callId, pending: pendingTranslations.length }, 'Waiting for in-flight translations before flush');
+                  await Promise.all(pendingTranslations);
+                }
+                flushPttAudioBuffer();
+              });
 
               // Emit complete utterance to transcript UI on utterance_end
               operatorStt.on('utterance_end', () => {
