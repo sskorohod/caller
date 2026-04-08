@@ -193,13 +193,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        {[
-          { label: t('nav.sectionOverview') || 'Overview', items: navItems.filter(i => i.href === '/dashboard') },
-          { label: t('nav.sectionOperations') || 'Operations', items: navItems.filter(i => ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator', '/dashboard/missions'].includes(i.href)) },
-          { label: t('nav.sectionAi') || 'AI Config', items: navItems.filter(i => ['/dashboard/agents', '/dashboard/knowledge', '/dashboard/prompts', '/dashboard/skills'].includes(i.href)) },
-          { label: t('nav.sectionIntegrations') || 'Integrations', items: navItems.filter(i => ['/dashboard/connectors'].includes(i.href)) },
-          { label: t('nav.sectionSystem') || 'System', items: navItems.filter(i => ['/dashboard/audit', '/dashboard/settings'].includes(i.href)) },
-        ].filter(section => section.items.length > 0).map((section, si) => (
+        {(() => {
+          const plan = workspace?.plan || 'translator';
+          const isTranslatorOnly = plan === 'translator';
+
+          // Translator plan: only show relevant sections
+          const translatorOps = ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator'];
+          const fullOps = [...translatorOps, '/dashboard/missions'];
+
+          return [
+            { label: t('nav.sectionOverview') || 'Overview', items: navItems.filter(i => i.href === '/dashboard') },
+            { label: t('nav.sectionOperations') || 'Operations', items: navItems.filter(i => (isTranslatorOnly ? translatorOps : fullOps).includes(i.href)) },
+            ...(!isTranslatorOnly ? [
+              { label: t('nav.sectionAi') || 'AI Config', items: navItems.filter(i => ['/dashboard/agents', '/dashboard/knowledge', '/dashboard/prompts', '/dashboard/skills'].includes(i.href)) },
+              { label: t('nav.sectionIntegrations') || 'Integrations', items: navItems.filter(i => ['/dashboard/connectors'].includes(i.href)) },
+            ] : []),
+            { label: t('nav.sectionSystem') || 'System', items: navItems.filter(i => {
+              const systemItems = isTranslatorOnly
+                ? ['/dashboard/billing', '/dashboard/settings']
+                : ['/dashboard/audit', '/dashboard/billing', '/dashboard/settings'];
+              return systemItems.includes(i.href);
+            }) },
+          ];
+        })().filter(section => section.items.length > 0).map((section, si) => (
           <div key={si} className={si > 0 ? 'mt-4' : ''}>
             <div className="px-3 mb-2 text-[10px] font-semibold text-[var(--th-sidebar-label)] uppercase tracking-widest">{section.label}</div>
             <div className="space-y-0.5">

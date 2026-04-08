@@ -1821,8 +1821,9 @@ function TeamSection() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { setWorkspace } = useAuth();
+  const { setWorkspace, workspace: authWorkspace } = useAuth();
   const t = useT();
+  const plan = authWorkspace?.plan || 'translator';
   const searchParams = useSearchParams();
   const initialSection = (searchParams.get('section') as SectionId) || 'general';
   const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
@@ -1843,7 +1844,12 @@ export default function SettingsPage() {
       <div className="md:w-52 shrink-0">
         <nav className="md:space-y-0.5 md:sticky md:top-0 flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1 md:gap-0 pb-2 md:pb-0">
           <p className="hidden md:block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-widest px-3 mb-2">{t('settings.title')}</p>
-          {SECTIONS.map(s => {
+          {SECTIONS.filter(s => {
+            if (plan === 'translator') {
+              return ['general', 'appearance', 'providers'].includes(s.id);
+            }
+            return true;
+          }).map(s => {
             const Icon = s.icon;
             const active = activeSection === s.id;
             return (

@@ -55,24 +55,25 @@ export default function OverviewPage() {
 
   const s = stats;
   const avgDur = s ? `${Math.floor(s.avg_duration_seconds / 60)}:${String(Math.round(s.avg_duration_seconds) % 60).padStart(2, '0')}` : '0:00';
+  const isTranslatorOnly = plan === 'translator';
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Greeting + System Health */}
+      {/* Row 1: Greeting */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
         <div>
           <h2 className="text-xl font-bold text-[var(--th-text)]">
             {t('dashboard.greeting', { timeOfDay: t(`time.${getTimeOfDay()}`), name: workspace?.name ?? '' })}
           </h2>
-          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('dashboard.subtitle')}</p>
+          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{isTranslatorOnly ? 'Live Translator Service' : t('dashboard.subtitle')}</p>
         </div>
-        <SystemHealthStrip agents={agents} connections={connections} t={t} />
+        {!isTranslatorOnly && <SystemHealthStrip agents={agents} connections={connections} t={t} />}
       </div>
 
       {/* Row 2: Primary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className={`grid grid-cols-2 ${isTranslatorOnly ? 'lg:grid-cols-4' : 'lg:grid-cols-5'} gap-3`}>
         <KpiCard
-          label={t('dashboard.totalCalls')}
+          label={isTranslatorOnly ? 'Sessions' : t('dashboard.totalCalls')}
           value={String(s?.total_calls ?? 0)}
           sub={`${s?.today_calls ?? 0} ${t('dashboard.today')}`}
           icon={<IconPhone />}
@@ -80,20 +81,12 @@ export default function OverviewPage() {
           accentColor="#6366f1"
         />
         <KpiCard
-          label={t('dashboard.activeNow')}
+          label={isTranslatorOnly ? 'Active' : t('dashboard.activeNow')}
           value={String(s?.active_calls ?? 0)}
           sub={t('dashboard.liveRightNow')}
           icon={<IconSignal />}
           gradient="var(--th-gradient-emerald)"
           accentColor="#22c55e"
-        />
-        <KpiCard
-          label={t('dashboard.successRate')}
-          value={`${s?.success_rate ?? 0}%`}
-          sub={t('dashboard.last30Days')}
-          icon={<IconCheck />}
-          gradient="var(--th-gradient-blue)"
-          accentColor="#3b82f6"
         />
         <KpiCard
           label={t('dashboard.costTotal')}
@@ -116,34 +109,52 @@ export default function OverviewPage() {
           gradient="var(--th-gradient-emerald)"
           accentColor="#10b981"
         />
+        {!isTranslatorOnly && (
+          <KpiCard
+            label={t('dashboard.successRate')}
+            value={`${s?.success_rate ?? 0}%`}
+            sub={t('dashboard.last30Days')}
+            icon={<IconCheck />}
+            gradient="var(--th-gradient-blue)"
+            accentColor="#3b82f6"
+          />
+        )}
       </div>
 
-      {/* Row 3: Charts + Right Panel */}
+      {/* Row 3: Charts + Right Panel (hide AI-specific for translator) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-7">
+        <div className={isTranslatorOnly ? 'lg:col-span-12' : 'lg:col-span-7'}>
           <WeeklyChart dailyCalls={s?.daily_calls ?? []} t={t} />
         </div>
-        <div className="lg:col-span-5 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] divide-y divide-[var(--th-border-light)]">
-          <StatusDonut data={s?.status_breakdown ?? {}} t={t} />
-          <CostBreakdown
-            total={s?.cost_total_30d ?? 0}
-            llm={s?.cost_llm_30d ?? 0}
-            tts={s?.cost_tts_30d ?? 0}
-            stt={s?.cost_stt_30d ?? 0}
-            telephony={s?.cost_telephony_30d ?? 0}
-            t={t}
-          />
-          <SentimentStrip data={s?.sentiment_breakdown ?? {}} t={t} />
-        </div>
+        {!isTranslatorOnly && (
+          <div className="lg:col-span-5 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] divide-y divide-[var(--th-border-light)]">
+            <StatusDonut data={s?.status_breakdown ?? {}} t={t} />
+            <CostBreakdown
+              total={s?.cost_total_30d ?? 0}
+              llm={s?.cost_llm_30d ?? 0}
+              tts={s?.cost_tts_30d ?? 0}
+              stt={s?.cost_stt_30d ?? 0}
+              telephony={s?.cost_telephony_30d ?? 0}
+              t={t}
+            />
+            <SentimentStrip data={s?.sentiment_breakdown ?? {}} t={t} />
+          </div>
+        )}
       </div>
 
-      {/* Row 4: Secondary Stats */}
-      <MiniStatStrip items={[
-        { label: t('dashboard.qaScore'), value: String(s?.avg_qa_score ?? 0) },
-        { label: t('dashboard.weekCalls'), value: String(s?.week_calls ?? 0) },
-        { label: t('dashboard.agents'), value: `${agents.filter(a => a.is_active).length}/${agents.length}` },
-        { label: t('dashboard.avgDuration'), value: avgDur },
-      ]} />
+      {/* Row 4: Secondary Stats (simplified for translator) */}
+      <MiniStatStrip items={isTranslatorOnly
+        ? [
+          { label: 'Avg Duration', value: avgDur },
+          { label: 'This Week', value: String(s?.week_calls ?? 0) },
+        ]
+        : [
+          { label: t('dashboard.qaScore'), value: String(s?.avg_qa_score ?? 0) },
+          { label: t('dashboard.weekCalls'), value: String(s?.week_calls ?? 0) },
+          { label: t('dashboard.agents'), value: `${agents.filter(a => a.is_active).length}/${agents.length}` },
+          { label: t('dashboard.avgDuration'), value: avgDur },
+        ]
+      } />
 
       {/* Row 5: Recent Calls */}
       <RecentCallsTable calls={calls} t={t} />

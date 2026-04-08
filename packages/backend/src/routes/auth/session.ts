@@ -117,7 +117,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
     const [workspace] = await db
       .insert(workspaces)
       .values({ name: workspaceName, slug })
-      .returning({ id: workspaces.id, name: workspaces.name });
+      .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
     if (!workspace) throw new Error('Failed to create workspace');
 
@@ -148,7 +148,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(201).send({
       token,
       user: { id: user.id, email: user.email },
-      workspace: { id: workspace.id, name: workspace.name },
+      workspace: { id: workspace.id, name: workspace.name, plan: workspace.plan },
     });
   });
 
@@ -190,7 +190,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     let workspace = null;
     if (membership) {
-      const [ws] = await db.select({ id: workspaces.id, name: workspaces.name })
+      const [ws] = await db.select({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan })
         .from(workspaces)
         .where(eq(workspaces.id, membership.workspace_id));
       if (ws) workspace = ws;
@@ -274,7 +274,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       .where(eq(users.email, email))
       .limit(1);
 
-    let workspace: { id: string; name: string } | null = null;
+    let workspace: { id: string; name: string; plan: string } | null = null;
     let isNewUser = false;
 
     if (!user) {
@@ -302,7 +302,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
       const [ws] = await db.insert(workspaces)
         .values({ name: workspaceName, slug })
-        .returning({ id: workspaces.id, name: workspaces.name });
+        .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
       if (ws) {
         workspace = ws;
@@ -332,7 +332,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
         .limit(1);
 
       if (membership) {
-        const [ws] = await db.select({ id: workspaces.id, name: workspaces.name })
+        const [ws] = await db.select({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan })
           .from(workspaces)
           .where(eq(workspaces.id, membership.workspace_id));
         if (ws) workspace = ws;
