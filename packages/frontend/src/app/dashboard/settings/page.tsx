@@ -316,7 +316,7 @@ function SaveBar({ saving, saved, error, onSave }: { saving: boolean; saved: boo
 function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null; onUpdated: (w: Workspace) => void }) {
   const t = useT();
   const [name, setName]       = useState(workspace?.name ?? '');
-  const [phoneNum, setPhoneNum] = useState((workspace as any)?.phone_number ?? '');
+  const [phoneNums, setPhoneNums] = useState<string[]>((workspace as any)?.phone_numbers ?? []);
   const [industry, setIndustry] = useState(workspace?.industry ?? '');
   const [timezone, setTimezone] = useState(workspace?.timezone ?? '');
   const [convOwner, setConvOwner] = useState(workspace?.conversation_owner_default ?? 'internal');
@@ -327,7 +327,7 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
   useEffect(() => {
     if (workspace) {
       setName(workspace.name);
-      setPhoneNum((workspace as any).phone_number ?? '');
+      setPhoneNums((workspace as any).phone_numbers ?? []);
       setIndustry(workspace.industry ?? '');
       setTimezone(workspace.timezone ?? '');
       setConvOwner(workspace.conversation_owner_default ?? 'internal');
@@ -339,7 +339,7 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
     try {
       const updated = await api.patch<Workspace>('/workspaces/current', {
         name: name.trim(),
-        phone_number: phoneNum.trim() || null,
+        phone_numbers: phoneNums.filter(n => n.trim()),
         industry: industry || undefined,
         timezone: timezone || undefined,
         conversation_owner_default: convOwner,
@@ -360,10 +360,19 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
       <div className="space-y-4">
         <Field label={t('settings.workspaceName')} value={name} onChange={setName} placeholder="My Company" />
         <div>
-          <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">Phone Number</label>
-          <p className="text-[10px] text-[var(--th-text-muted)] mb-1.5">Your phone number for translator service identification</p>
-          <input type="tel" value={phoneNum} onChange={e => setPhoneNum(e.target.value)} placeholder="+1 (555) 123-4567"
-            className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] bg-[var(--th-card)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all" />
+          <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">Phone Numbers</label>
+          <p className="text-[10px] text-[var(--th-text-muted)] mb-1.5">Up to 3 phone numbers for translator service identification</p>
+          <div className="space-y-2">
+            {[0, 1, 2].map(i => (
+              <input key={i} type="tel" value={phoneNums[i] || ''} placeholder={i === 0 ? '+1 (555) 123-4567' : 'Optional'}
+                onChange={e => {
+                  const updated = [...phoneNums];
+                  updated[i] = e.target.value;
+                  setPhoneNums(updated.slice(0, 3));
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] bg-[var(--th-card)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all" />
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">

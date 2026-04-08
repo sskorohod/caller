@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../../config/db.js';
 import { telephonyConnections, workspaces, translatorSubscribers } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
@@ -92,7 +92,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
     const [callerWorkspace] = await db
       .select()
       .from(workspaces)
-      .where(eq(workspaces.phone_number, callerNormalized))
+      .where(sql`${workspaces.phone_numbers} @> ${JSON.stringify([callerNormalized])}::jsonb`)
       .limit(1);
 
     // Fallback: legacy translator_subscribers

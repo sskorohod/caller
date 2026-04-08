@@ -117,7 +117,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     const [workspace] = await db
       .insert(workspaces)
-      .values({ name: workspaceName, slug, phone_number: body.phone_number ?? null })
+      .values({ name: workspaceName, slug, phone_numbers: body.phone_number ? [body.phone_number] : [] })
       .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
     if (!workspace) throw new Error('Failed to create workspace');
@@ -303,7 +303,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
         .slice(0, 50) + '-' + randomBytes(3).toString('hex');
 
       const [ws] = await db.insert(workspaces)
-        .values({ name: workspaceName, slug, phone_number: link.phone_number ?? null })
+        .values({ name: workspaceName, slug, phone_numbers: link.phone_number ? [link.phone_number] : [] })
         .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
       if (ws) {
