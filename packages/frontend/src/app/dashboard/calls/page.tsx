@@ -24,8 +24,9 @@ interface Call {
 }
 
 interface TranscriptEntry {
-  role: 'agent' | 'caller';
+  role: string;
   content: string;
+  translated?: string;
   timestamp?: string;
 }
 
@@ -34,16 +35,35 @@ interface RawTranscriptEntry {
   role?: string;
   text?: string;
   content?: string;
+  translated?: string;
   timestamp?: string;
 }
 
 function normalizeTranscript(raw: RawTranscriptEntry[]): TranscriptEntry[] {
-  return raw.map(entry => ({
-    role: (entry.role ?? entry.speaker ?? 'caller') as 'agent' | 'caller',
-    content: entry.content ?? entry.text ?? '',
-    timestamp: entry.timestamp,
-  }));
+  return raw.map(entry => {
+    const rawRole = entry.role ?? entry.speaker ?? 'caller';
+    // Normalize speaker names
+    const role = rawRole === 'subscriber' ? 'you'
+      : rawRole === 'other' ? 'other'
+      : rawRole === 'operator' ? 'you'
+      : rawRole === 'agent' ? 'agent'
+      : rawRole === 'caller' ? 'caller'
+      : rawRole;
+    return {
+      role,
+      content: entry.content ?? entry.text ?? '',
+      translated: entry.translated,
+      timestamp: entry.timestamp,
+    };
+  });
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  you: 'You',
+  other: 'Other party',
+  caller: 'Caller',
+  agent: 'Agent',
+};
 
 interface AiSession {
   id: string;
@@ -476,9 +496,10 @@ export default function CallsPage() {
   function handleDownloadTranscript() {
     if (!detail?.session?.transcript?.length) return;
     const lines = detail.session.transcript.map(e => {
-      const speaker = e.role === 'agent' ? t('calls.agentRole') : t('calls.callerRole');
+      const speaker = ROLE_LABELS[e.role] || e.role;
       const ts = e.timestamp ? ` [${e.timestamp}]` : '';
-      return `${speaker}${ts}: ${e.content}`;
+      const translation = e.translated ? ` → ${e.translated}` : '';
+      return `${speaker}${ts}: ${e.content}${translation}`;
     });
     const phone = selected?.direction === 'outbound' ? selected?.to_number : selected?.from_number;
     downloadFile(lines.join('\n'), `transcript-${phone ?? 'call'}-${new Date(selected?.created_at ?? '').toISOString().slice(0, 10)}.txt`, 'text/plain');
@@ -906,23 +927,29 @@ export default function CallsPage() {
                         <p className="text-sm text-[var(--th-text-muted)] italic">{t('calls.noTranscript')}</p>
                       ) : (
                         <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                          {session.transcript.map((entry, i) => (
-                            <div key={i} className={`flex flex-col ${entry.role === 'agent' ? 'items-end' : 'items-start'}`}>
+                          {session.transcript.map((entry, i) => {
+                            const isRight = ['agent', 'you', 'operator', 'subscriber'].includes(entry.role);
+                            return (
+                            <div key={i} className={`flex flex-col ${isRight ? 'items-end' : 'items-start'}`}>
                               <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${
-                                entry.role === 'agent'
+                                isRight
                                   ? 'bg-[var(--th-primary)] text-white'
                                   : 'bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-[var(--th-text)]'
                               }`}>
                                 <p className={`text-[10px] font-semibold uppercase tracking-wide mb-0.5 ${
-                                  entry.role === 'agent' ? 'text-white/60' : 'text-[var(--th-text-muted)]'
+                                  isRight ? 'text-white/60' : 'text-[var(--th-text-muted)]'
                                 }`}>
-                                  {entry.role === 'agent' ? t('calls.agentRole') : t('calls.callerRole')}
+                                  {ROLE_LABELS[entry.role] || entry.role}
                                   {entry.timestamp && <span className="ml-1.5 font-normal normal-case tracking-normal">{entry.timestamp}</span>}
                                 </p>
                                 <p className="text-sm leading-relaxed">{entry.content}</p>
+                                {entry.translated && (
+                                  <p className="text-xs mt-1 opacity-70 italic">{entry.translated}</p>
+                                )}
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

@@ -334,19 +334,23 @@ export default function TranslatorPage() {
                           <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
                             {(session.transcript || []).length === 0 ? (
                               <p className="text-xs text-[var(--th-text-muted)] py-4 text-center">No transcript available</p>
-                            ) : session.transcript.map((entry, i) => (
-                              <div key={i} className={`flex gap-2 ${entry.speaker === 'caller' ? '' : 'flex-row-reverse'}`}>
+                            ) : session.transcript.map((entry, i) => {
+                              const isYou = ['subscriber', 'you', 'operator'].includes(entry.speaker || '');
+                              const label = entry.speaker === 'subscriber' ? 'You' : entry.speaker === 'other' ? 'Other party' : entry.speaker || 'speaker';
+                              return (
+                              <div key={i} className={`flex gap-2 ${isYou ? 'flex-row-reverse' : ''}`}>
                                 <div className={`max-w-[75%] rounded-xl px-3 py-2 text-xs ${
-                                  entry.speaker === 'caller'
-                                    ? 'bg-[var(--th-input)] text-[var(--th-text)]'
-                                    : 'bg-[var(--th-primary)]/15 text-[var(--th-text)]'
+                                  isYou
+                                    ? 'bg-[var(--th-primary)]/15 text-[var(--th-text)]'
+                                    : 'bg-[var(--th-input)] text-[var(--th-text)]'
                                 }`}>
-                                  <span className="font-bold text-[10px] uppercase text-[var(--th-text-muted)] block mb-0.5">{entry.speaker || 'speaker'}</span>
+                                  <span className="font-bold text-[10px] uppercase text-[var(--th-text-muted)] block mb-0.5">{label}</span>
                                   <p>{entry.original || entry.text || ''}</p>
                                   {entry.translated && <p className="mt-1 opacity-70 italic">{entry.translated}</p>}
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
