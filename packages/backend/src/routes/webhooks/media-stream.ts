@@ -647,7 +647,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                       transcript.push({ speaker: 'operator', text: original, timestamp: new Date().toISOString() });
                       if (io) {
                         io.to(`call:${callId}:translate`).emit('call:translation', {
-                          call_id: callId, speaker: 'you', original, translated,
+                          call_id: callId, speaker: 'operator', original, translated,
                           timestamp: new Date().toISOString(),
                         });
                         io.to(`call:${callId}`).emit('call:transcript', {
