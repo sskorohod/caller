@@ -339,7 +339,7 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
     try {
       const updated = await api.patch<Workspace>('/workspaces/current', {
         name: name.trim(),
-        phone_numbers: phoneNums.filter(n => n.trim()),
+        phone_numbers: phoneNums.map(n => n.replace(/[\s\-\(\)\.]/g, '')).filter(n => n && /^\+[1-9]\d{1,14}$/.test(n)),
         industry: industry || undefined,
         timezone: timezone || undefined,
         conversation_owner_default: convOwner,
@@ -361,17 +361,44 @@ function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null;
         <Field label={t('settings.workspaceName')} value={name} onChange={setName} placeholder="My Company" />
         <div>
           <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">Phone Numbers</label>
-          <p className="text-[10px] text-[var(--th-text-muted)] mb-1.5">Up to 3 phone numbers for translator service identification</p>
+          <p className="text-[10px] text-[var(--th-text-muted)] mb-1.5">Up to 3 phone numbers for translator service identification (E.164: +1...)</p>
           <div className="space-y-2">
-            {[0, 1, 2].map(i => (
-              <input key={i} type="tel" value={phoneNums[i] || ''} placeholder={i === 0 ? '+1 (555) 123-4567' : 'Optional'}
-                onChange={e => {
-                  const updated = [...phoneNums];
-                  updated[i] = e.target.value;
-                  setPhoneNums(updated.slice(0, 3));
-                }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] bg-[var(--th-card)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all" />
-            ))}
+            {[0, 1, 2].map(i => {
+              const val = phoneNums[i] || '';
+              const normalized = val.replace(/[\s\-\(\)\.]/g, '');
+              const isValid = !val || /^\+[1-9]\d{1,14}$/.test(normalized);
+              return (
+                <div key={i} className="relative">
+                  <input type="tel" value={val} placeholder={i === 0 ? '+14155551234' : 'Optional'}
+                    onChange={e => {
+                      let v = e.target.value;
+                      // Auto-add + if user types digits without it
+                      if (v && !v.startsWith('+') && /^\d/.test(v)) v = '+' + v;
+                      const updated = [...phoneNums];
+                      updated[i] = v;
+                      setPhoneNums(updated.slice(0, 3));
+                    }}
+                    onBlur={() => {
+                      // Normalize on blur
+                      if (!val) return;
+                      const clean = val.replace(/[\s\-\(\)\.]/g, '');
+                      if (clean !== val) {
+                        const updated = [...phoneNums];
+                        updated[i] = clean;
+                        setPhoneNums(updated.slice(0, 3));
+                      }
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-[var(--th-text)] bg-[var(--th-card)] focus:outline-none focus:ring-2 transition-all ${
+                      isValid
+                        ? 'border-[var(--th-card-border-subtle)] focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]'
+                        : 'border-red-500/50 focus:ring-red-500/20 focus:border-red-500'
+                    }`} />
+                  {val && !isValid && (
+                    <p className="text-[10px] text-red-400 mt-0.5">Invalid format. Use E.164: +14155551234</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">

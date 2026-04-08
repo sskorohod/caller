@@ -38,7 +38,8 @@ function LoginContent() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/magic-link', { email, phone_number: phoneNumber || undefined });
+      const cleanPhone = phoneNumber.replace(/[\s\-\(\)\.]/g, '');
+      await api.post('/auth/magic-link', { email, phone_number: cleanPhone || undefined });
       setMagicLinkSent(true);
     } catch (err: any) {
       setError(err.message || 'Failed to send magic link');
@@ -213,10 +214,16 @@ function LoginContent() {
                   <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Phone Number</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>phone</span>
-                    <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
-                      placeholder="+1 (555) 123-4567" className="input-field" style={{ paddingLeft: '40px' }} />
+                    <input type="tel" value={phoneNumber}
+                      onChange={e => {
+                        let v = e.target.value;
+                        if (v && !v.startsWith('+') && /^\d/.test(v)) v = '+' + v;
+                        setPhoneNumber(v);
+                      }}
+                      onBlur={() => setPhoneNumber(phoneNumber.replace(/[\s\-\(\)\.]/g, ''))}
+                      placeholder="+14155551234" className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
-                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>Your phone number for translator service identification</p>
+                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>Your phone number for translator service (E.164 format)</p>
                 </div>
 
                 {error && (
