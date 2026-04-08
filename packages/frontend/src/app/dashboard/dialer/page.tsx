@@ -414,13 +414,10 @@ export default function DialerPage() {
 
       call.on('ringing', () => setCallState('ringing'));
       call.on('accept', () => {
-        if (voiceTranslate) {
-          setCallState('connecting');
-          if (socket) socket.emit('call:listen:start', { call_id: result.call_id });
-          // In PTT mode, start muted — operator must hold button to speak
+        setCallState('connecting'); // Browser connected, waiting for callee to answer
+        if (voiceTranslate && socket) {
+          socket.emit('call:listen:start', { call_id: result.call_id });
           if (pttMode) call.mute(true);
-        } else {
-          setCallState('in_call');
         }
       });
       call.on('disconnect', () => setCallState('ended'));

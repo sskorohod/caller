@@ -795,11 +795,15 @@ const callRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
-    // Hang up callee call in voice translate session
-    const { getActiveVoiceTranslateSessions } = await import('../../routes/webhooks/media-stream.js');
+    // Hang up callee call in voice translate or manual session
+    const { getActiveVoiceTranslateSessions, getActiveManualSessions } = await import('../../routes/webhooks/media-stream.js');
     const vt = getActiveVoiceTranslateSessions().get(id);
     if (vt?.calleeCallSid) {
       await telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: unknown) => { request.log.warn({ err, callId: id }, 'Failed to hangup callee in VT session'); });
+    }
+    const manual = getActiveManualSessions().get(id);
+    if (manual?.calleeCallSid) {
+      await telephonyService.hangupCall(manual.workspaceId, manual.calleeCallSid).catch((err: unknown) => { request.log.warn({ err, callId: id }, 'Failed to hangup callee in manual session'); });
     }
 
     // Also try to complete via call record

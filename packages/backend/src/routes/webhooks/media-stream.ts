@@ -59,6 +59,7 @@ interface ManualSession {
   operatorStt: import('../../services/stt.service.js').STTProvider;  // inbound track — operator in browser
   transcript: Array<{ speaker: string; text: string; timestamp: string }>;
   callId: string;
+  calleeCallSid?: string; // Twilio SID for callee call (to hang up)
   sessionId?: string;
   workspaceId: string;
   saved: boolean;
@@ -91,6 +92,7 @@ const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 
 export function getActiveTranslators() { return activeTranslators; }
 export function getActiveVoiceTranslateSessions() { return activeVoiceTranslateSessions; }
+export function getActiveManualSessions() { return activeManualSessions; }
 
 // Conference translators (Grok Voice Agent) — indexed by callId
 const activeConferenceTranslators = new Map<string, any>();
@@ -868,7 +870,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               const calleeStreamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}-callee`;
               const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
               try {
-                await telephonyService.initiateOutboundCall({
+                const calleeSid = await telephonyService.initiateOutboundCall({
                   workspaceId: call.workspace_id,
                   to: call.to_number,
                   from: call.from_number,
@@ -876,7 +878,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   statusCallbackUrl,
                   streamUrl: calleeStreamUrl,
                 });
-                logger.info({ callId, to: call.to_number }, 'Manual call: callee outbound initiated');
+                manualSession.calleeCallSid = calleeSid;
+                logger.info({ callId, to: call.to_number, calleeSid }, 'Manual call: callee outbound initiated');
               } catch (err) {
                 logger.error({ err, callId }, 'Manual call: failed to initiate callee outbound');
               }
