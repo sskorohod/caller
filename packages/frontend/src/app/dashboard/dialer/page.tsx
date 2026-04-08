@@ -202,21 +202,28 @@ export default function DialerPage() {
 
         if (prev.length > 0) {
           const last = prev[prev.length - 1];
-          // Update interim from same speaker
-          if (!data.isFinal && last.speaker === speaker && !last.isFinal) {
-            return [...prev.slice(0, -1), { ...last, text: data.text, timestamp: data.timestamp }];
-          }
-          // Final replacing an interim
-          if (data.isFinal && last.speaker === speaker && !last.isFinal) {
-            return [...prev.slice(0, -1), { speaker, text: data.text, timestamp: data.timestamp, isFinal: true }];
-          }
-          // Merge consecutive final segments from same speaker (callee STT sends many small segments)
-          if (data.isFinal && last.speaker === speaker && last.isFinal) {
-            const timeDiff = new Date(data.timestamp).getTime() - new Date(last.timestamp).getTime();
-            if (timeDiff < 5000) { // within 5 seconds = same utterance
-              const updated = [...prev];
-              updated[prev.length - 1] = { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp };
-              return updated;
+
+          if (last.speaker === speaker) {
+            // Same speaker — always update/merge instead of creating new bubble
+            if (!data.isFinal) {
+              // Interim: replace last bubble text (whether interim or final within same utterance)
+              if (!last.isFinal || !last.translated) {
+                return [...prev.slice(0, -1), { ...last, text: data.text, timestamp: data.timestamp, isFinal: false }];
+              }
+            } else {
+              // Final: replace interim or merge with recent final
+              if (!last.isFinal) {
+                return [...prev.slice(0, -1), { speaker, text: data.text, timestamp: data.timestamp, isFinal: true }];
+              }
+              // Merge consecutive finals from same speaker (within 8 seconds)
+              if (!last.translated) {
+                const timeDiff = new Date(data.timestamp).getTime() - new Date(last.timestamp).getTime();
+                if (timeDiff < 8000) {
+                  const updated = [...prev];
+                  updated[prev.length - 1] = { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp };
+                  return updated;
+                }
+              }
             }
           }
         }
