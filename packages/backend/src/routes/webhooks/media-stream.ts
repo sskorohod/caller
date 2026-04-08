@@ -600,61 +600,86 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     // TTS → generate audio with runtime fallback (use session.tts for mid-call changes)
                     const vtSession = activeVoiceTranslateSessions.get(callId);
                     const currentTts = vtSession?.tts ?? tts;
-                    let audio: Buffer | null = null;
                     // Detect current TTS provider dynamically (handles mid-call changes)
                     const currentTtsName = (currentTts as any).constructor?.name;
                     let actualTtsProvider = currentTtsName === 'ElevenLabsTTS' ? 'elevenlabs'
                       : currentTtsName === 'XaiTTS' ? 'xai' : 'openai';
-                    try {
-                      audio = await currentTts.synthesize(translated);
-                    } catch (ttsErr) {
-                      logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
-                      // Try fallback providers — match voice gender + pass voiceId
-                      const xaiVoice = ttsVoiceId ?? 'ara';
-                      const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
-                      const openaiVoice = isMale ? 'onyx' : 'nova';
-                      const elevenVoice = ttsVoiceId; // keep same ElevenLabs voice if configured
-                      for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
-                        try {
-                          const fbVoice = fallback === 'openai' ? openaiVoice
-                            : fallback === 'elevenlabs' ? elevenVoice
-                            : xaiVoice;
-                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
-                          audio = await fallbackTts.synthesize(translated);
-                          actualTtsProvider = fallback;
-                          // Lock session to fallback provider for rest of call (stable voice)
-                          const vtSessFb = activeVoiceTranslateSessions.get(callId);
-                          if (vtSessFb) vtSessFb.tts = fallbackTts;
-                          logger.info({ callId, fallback, voice: fbVoice }, 'TTS fallback succeeded — locked for call');
-                          break;
-                        } catch { /* try next */ }
-                      }
-                    }
-                    if (!audio) {
-                      logger.error({ callId }, 'All TTS providers failed');
-                      return;
-                    }
-                    // ElevenLabs and xAI output mulaw directly; OpenAI outputs PCM needing conversion
                     const skipConversion = actualTtsProvider === 'elevenlabs' || actualTtsProvider === 'xai';
-                    if (!skipConversion) {
-                      audio = pcmToMulaw(audio);
-                    }
 
-                    // Check if PTT is active — buffer audio for instant playback on release
+                    // Check mode before starting TTS
                     const vtSessNow = activeVoiceTranslateSessions.get(callId);
-                    if (vtSessNow?.sequentialMode) {
-                      // Always buffer in sequential mode
+                    const useStreaming = !vtSessNow?.sequentialMode; // stream chunks in non-sequential mode
+
+                    if (useStreaming) {
+                      // Streaming TTS: inject audio chunks as they arrive (low latency)
+                      const onChunk = (chunk: { audio: Buffer; index: number }) => {
+                        let chunkAudio = chunk.audio;
+                        if (!skipConversion) chunkAudio = pcmToMulaw(chunkAudio);
+                        sendTtsAudioToBoth(chunkAudio);
+                      };
+                      currentTts.on('chunk', onChunk);
+                      try {
+                        await currentTts.synthesize(translated);
+                      } catch (ttsErr) {
+                        logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
+                        const xaiVoice = ttsVoiceId ?? 'ara';
+                        const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
+                        const openaiVoice = isMale ? 'onyx' : 'nova';
+                        for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
+                          try {
+                            const fbVoice = fallback === 'openai' ? openaiVoice
+                              : fallback === 'elevenlabs' ? ttsVoiceId : xaiVoice;
+                            const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
+                            const fbSkipConv = fallback === 'elevenlabs' || fallback === 'xai';
+                            const onFbChunk = (chunk: { audio: Buffer }) => {
+                              let a = chunk.audio;
+                              if (!fbSkipConv) a = pcmToMulaw(a);
+                              sendTtsAudioToBoth(a);
+                            };
+                            fallbackTts.on('chunk', onFbChunk);
+                            await fallbackTts.synthesize(translated);
+                            fallbackTts.removeListener('chunk', onFbChunk);
+                            actualTtsProvider = fallback;
+                            const vtSessFb = activeVoiceTranslateSessions.get(callId);
+                            if (vtSessFb) vtSessFb.tts = fallbackTts;
+                            logger.info({ callId, fallback }, 'TTS fallback succeeded — locked for call');
+                            break;
+                          } catch { /* try next */ }
+                        }
+                      } finally {
+                        currentTts.removeListener('chunk', onChunk);
+                      }
+                      logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation streamed');
+                    } else {
+                      // Sequential/PTT mode: buffer full audio then flush on release
+                      let audio: Buffer | null = null;
+                      try {
+                        audio = await currentTts.synthesize(translated);
+                      } catch (ttsErr) {
+                        logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
+                        const xaiVoice = ttsVoiceId ?? 'ara';
+                        const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
+                        const openaiVoice = isMale ? 'onyx' : 'nova';
+                        for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
+                          try {
+                            const fbVoice = fallback === 'openai' ? openaiVoice
+                              : fallback === 'elevenlabs' ? ttsVoiceId : xaiVoice;
+                            const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
+                            audio = await fallbackTts.synthesize(translated);
+                            actualTtsProvider = fallback;
+                            const vtSessFb = activeVoiceTranslateSessions.get(callId);
+                            if (vtSessFb) vtSessFb.tts = fallbackTts;
+                            logger.info({ callId, fallback }, 'TTS fallback succeeded — locked for call');
+                            break;
+                          } catch { /* try next */ }
+                        }
+                      }
+                      if (!audio) { logger.error({ callId }, 'All TTS providers failed'); return; }
+                      if (!skipConversion) audio = pcmToMulaw(audio);
                       pttAudioBuffer.push(audio);
                       pttTranslatedTexts.push(translated);
-                      logger.info({ callId, original: textToTranslate.slice(0, 40), pttActive: vtSessNow.pttActive }, 'TTS pre-buffered');
-                      // If PTT already released — flush immediately
-                      if (!vtSessNow.pttActive) {
-                        flushPttAudioBuffer();
-                      }
-                    } else {
-                      // Inject TTS audio into callee + operator streams immediately
-                      sendTtsAudioToBoth(audio);
-                      logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent');
+                      logger.info({ callId, original: textToTranslate.slice(0, 40), pttActive: vtSessNow?.pttActive }, 'TTS pre-buffered');
+                      if (vtSessNow && !vtSessNow.pttActive) flushPttAudioBuffer();
                     }
                   } catch (err) {
                     logger.error({ err, callId }, 'Voice translate pipeline error');
