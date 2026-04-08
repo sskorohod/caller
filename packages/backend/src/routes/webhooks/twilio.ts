@@ -87,9 +87,16 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
 
     const { connection, workspace } = row;
 
-    // --- Check if caller is a translator subscriber ---
+    // --- Check if caller has a workspace with phone_number (translator user) ---
     const callerNormalized = callerNumber.replace(/[\s\-\(\)]/g, '');
-    const [translatorSub] = await db
+    const [callerWorkspace] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.phone_number, callerNormalized))
+      .limit(1);
+
+    // Fallback: legacy translator_subscribers
+    const [translatorSub] = !callerWorkspace ? await db
       .select()
       .from(translatorSubscribers)
       .where(and(
@@ -97,15 +104,21 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         eq(translatorSubscribers.phone_number, callerNormalized),
         eq(translatorSubscribers.enabled, true),
       ))
-      .limit(1);
+      .limit(1) : [undefined];
 
-    if (translatorSub) {
-      const balance = parseFloat(translatorSub.balance_minutes as string);
-      if (balance <= 0) {
-        // No balance — inform and hang up
+    const isTranslatorCall = !!(callerWorkspace || translatorSub);
+    const translatorWorkspaceId = callerWorkspace?.id || workspace.id;
+    const translatorBalance = callerWorkspace
+      ? parseFloat(callerWorkspace.balance_usd as string)
+      : translatorSub ? parseFloat(translatorSub.balance_minutes as string) : 0;
+    const translatorDefaults = (callerWorkspace?.translator_defaults as Record<string, string>) || {};
+
+    if (isTranslatorCall) {
+      if (translatorBalance <= 0) {
+        const myLang = translatorDefaults.my_language || translatorSub?.my_language || 'en';
         const noBalanceTwiml = new (await import('twilio')).default.twiml.VoiceResponse();
-        noBalanceTwiml.say({ voice: translatorSub.my_language === 'ru' ? 'Polly.Tatyana' : 'Polly.Joanna' },
-          translatorSub.my_language === 'ru'
+        noBalanceTwiml.say({ voice: myLang === 'ru' ? 'Polly.Tatyana' : 'Polly.Joanna' },
+          myLang === 'ru'
             ? 'Ваш баланс исчерпан. Пожалуйста, пополните баланс для использования переводчика.'
             : 'Your balance is depleted. Please top up to use the translator service.');
         noBalanceTwiml.hangup();
@@ -121,7 +134,11 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         toNumber: calledNumber,
         telephonyConnectionId: connection.id,
         conversationOwnerRequested: 'internal',
-        metadata: { call_type: 'translator', subscriber_id: translatorSub.id },
+        metadata: {
+          call_type: 'translator',
+          subscriber_id: translatorSub?.id,
+          caller_workspace_id: callerWorkspace?.id,
+        },
       });
 
       await callService.updateCallStatus(translatorCall.id, 'in_progress', {
@@ -147,14 +164,14 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           if (!telegramCreds) return;
 
           const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
-          const chatId = translatorSub.telegram_chat_id || creds.chat_id;
+          const chatId = translatorSub?.telegram_chat_id || creds.chat_id;
           if (!creds.bot_token || !chatId) return;
 
           const shareToken = await callService.createShareToken(translatorCall.id);
           const liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
 
           await sendTranslatorSessionStart(creds.bot_token, chatId, {
-            subscriberName: translatorSub.name,
+            subscriberName: callerWorkspace?.name || translatorSub?.name || 'Unknown',
             liveUrl,
           });
           app.log.info({ callId: translatorCall.id, liveUrl }, 'Telegram notification sent immediately');
@@ -163,15 +180,17 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         }
       })();
 
-      // Merge workspace-level translator defaults with subscriber settings
-      const wsDefaults = (workspace.translator_defaults as Record<string, string>) || {};
-      const greetingText = wsDefaults.greeting_text || translatorSub.greeting_text;
+      // Use caller workspace defaults, or connection workspace defaults, or subscriber settings
+      const wsDefaults = callerWorkspace
+        ? (callerWorkspace.translator_defaults as Record<string, string>) || {}
+        : (workspace.translator_defaults as Record<string, string>) || {};
+      const greetingText = wsDefaults.greeting_text || translatorSub?.greeting_text || 'Hello, I am your live translator.';
 
       // Return TwiML: greeting + connect to media stream
       const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
       const pollyVoices: Record<string, string> = { ru: 'Polly.Tatyana', en: 'Polly.Joanna', es: 'Polly.Conchita', de: 'Polly.Marlene', fr: 'Polly.Celine' };
       const hasCyrillic = /[а-яА-ЯёЁ]/.test(greetingText);
-      const greetingLang = hasCyrillic ? 'ru' : (/[a-zA-Z]/.test(greetingText) ? 'en' : translatorSub.my_language);
+      const greetingLang = hasCyrillic ? 'ru' : (/[a-zA-Z]/.test(greetingText) ? 'en' : (translatorDefaults.my_language || translatorSub?.my_language || 'en'));
       twiml.say({ voice: (pollyVoices[greetingLang] || 'Polly.Joanna') as any },
         greetingText);
       // Connect to media stream for live translation
@@ -181,7 +200,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         name: `translator-${translatorCall.id}`,
       });
 
-      app.log.info({ callId: translatorCall.id, subscriber: translatorSub.name, phone: callerNormalized }, 'Translator subscriber call connected');
+      app.log.info({ callId: translatorCall.id, subscriber: callerWorkspace?.name || translatorSub?.name, phone: callerNormalized }, 'Translator call connected');
       reply.type('text/xml').send(twiml.toString());
       return;
     }

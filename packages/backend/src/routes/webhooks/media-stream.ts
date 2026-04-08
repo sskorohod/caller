@@ -476,31 +476,46 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
           // --- Conference Translator call ---
           const callMeta = call.metadata as any;
-          if (callMeta?.call_type === 'translator' && callMeta?.subscriber_id) {
-            logger.info({ callId, subscriberId: callMeta.subscriber_id }, 'Translator call — starting conference translator');
+          if (callMeta?.call_type === 'translator') {
+            const callerWsId = callMeta.caller_workspace_id;
+            const subId = callMeta.subscriber_id;
+            logger.info({ callId, callerWsId, subId }, 'Translator call — starting conference translator');
             try {
               const { translatorSubscribers, workspaces: wsTable } = await import('../../db/schema.js');
-              const [sub] = await db.select().from(translatorSubscribers)
-                .where(eq(translatorSubscribers.id, callMeta.subscriber_id));
-              if (sub) {
-                // Load workspace translator defaults (dashboard settings override subscriber defaults)
-                const [ws] = await db.select({ translator_defaults: wsTable.translator_defaults })
-                  .from(wsTable).where(eq(wsTable.id, call.workspace_id));
-                const wsDefs = (ws?.translator_defaults as Record<string, string>) || {};
 
+              // Load caller workspace (new flow) or subscriber (legacy)
+              let wsDefs: Record<string, string> = {};
+              let sub: any = null;
+              if (callerWsId) {
+                const [callerWs] = await db.select({ translator_defaults: wsTable.translator_defaults })
+                  .from(wsTable).where(eq(wsTable.id, callerWsId));
+                wsDefs = (callerWs?.translator_defaults as Record<string, string>) || {};
+              }
+              if (subId) {
+                const [s] = await db.select().from(translatorSubscribers)
+                  .where(eq(translatorSubscribers.id, subId));
+                sub = s;
+                if (!callerWsId) {
+                  const [ws] = await db.select({ translator_defaults: wsTable.translator_defaults })
+                    .from(wsTable).where(eq(wsTable.id, call.workspace_id));
+                  wsDefs = (ws?.translator_defaults as Record<string, string>) || {};
+                }
+              }
+
+              {
                 const { ConferenceTranslator } = await import('../../services/conference-translator.js');
                 const translator = new ConferenceTranslator({
                   callId,
-                  workspaceId: call.workspace_id,
-                  subscriberId: sub.id,
-                  myLanguage: wsDefs.my_language || sub.my_language,
-                  targetLanguage: wsDefs.target_language || sub.target_language,
-                  mode: (wsDefs.translation_mode as any) || sub.mode as 'voice' | 'text' | 'both',
-                  whoHears: sub.who_hears as 'subscriber' | 'both',
+                  workspaceId: callerWsId || call.workspace_id,
+                  subscriberId: sub?.id || callerWsId || 'workspace',
+                  myLanguage: wsDefs.my_language || sub?.my_language || 'ru',
+                  targetLanguage: wsDefs.target_language || sub?.target_language || 'en',
+                  mode: (wsDefs.translation_mode as any) || sub?.mode || 'voice',
+                  whoHears: sub?.who_hears || 'both',
                   ttsProvider: 'xai',
-                  ttsVoiceId: wsDefs.tts_voice_id || sub.tts_voice_id || 'eve',
-                  tone: wsDefs.tone || (sub as any).tone || 'neutral',
-                  personalContext: wsDefs.personal_context || (sub as any).personal_context || '',
+                  ttsVoiceId: wsDefs.tts_voice_id || sub?.tts_voice_id || 'eve',
+                  tone: wsDefs.tone || sub?.tone || 'business',
+                  personalContext: wsDefs.personal_context || sub?.personal_context || '',
                   socket: socket as any,
                   streamSid: streamSid!,
                 });

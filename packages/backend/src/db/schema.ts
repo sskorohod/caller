@@ -51,6 +51,7 @@ export const workspaces = pgTable('workspaces', {
   stripe_subscription_id: text('stripe_subscription_id'),
   subscription_status: text('subscription_status').notNull().default('none'), // 'none' | 'active' | 'past_due' | 'canceled' | 'trialing'
   subscription_current_period_end: timestamp('subscription_current_period_end', { withTimezone: true }),
+  phone_number: text('phone_number'), // subscriber's phone for translator identification
   provider_config: jsonb('provider_config').notNull().default({}), // { twilio: 'platform'|'own', deepgram: ... }
   translator_defaults: jsonb('translator_defaults').notNull().default({}), // { greeting_text, tts_provider, tts_voice_id, my_language, target_language, translation_mode }
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -689,6 +690,7 @@ export const depositTransactions = pgTable('deposit_transactions', {
 export const magicLinks = pgTable('magic_links', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull(),
+  phone_number: text('phone_number'),
   token: text('token').notNull().unique(),
   expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
   used_at: timestamp('used_at', { withTimezone: true }),

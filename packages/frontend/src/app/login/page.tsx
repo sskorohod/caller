@@ -13,6 +13,7 @@ function LoginContent() {
   const [mode, setMode] = useState<'login' | 'register'>(modeParam === 'register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
@@ -37,7 +38,7 @@ function LoginContent() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/magic-link', { email });
+      await api.post('/auth/magic-link', { email, phone_number: phoneNumber || undefined });
       setMagicLinkSent(true);
     } catch (err: any) {
       setError(err.message || 'Failed to send magic link');
@@ -207,6 +208,15 @@ function LoginContent() {
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
                       placeholder="you@company.com" className="input-field" style={{ paddingLeft: '40px' }} autoFocus />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Phone Number</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>phone</span>
+                    <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
+                      placeholder="+1 (555) 123-4567" className="input-field" style={{ paddingLeft: '40px' }} />
+                  </div>
+                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>Your phone number for translator service identification</p>
                 </div>
 
                 {error && (

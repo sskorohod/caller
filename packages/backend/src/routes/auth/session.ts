@@ -38,6 +38,7 @@ const registerBody = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   workspace_name: z.string().min(1).max(100).optional(),
+  phone_number: z.string().regex(/^\+[1-9]\d{1,14}$/).optional(),
 });
 
 const loginBody = z.object({
@@ -116,7 +117,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     const [workspace] = await db
       .insert(workspaces)
-      .values({ name: workspaceName, slug })
+      .values({ name: workspaceName, slug, phone_number: body.phone_number ?? null })
       .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
     if (!workspace) throw new Error('Failed to create workspace');
@@ -215,7 +216,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       },
     },
   }, async (request, reply) => {
-    const body = z.object({ email: z.string().email() }).parse(request.body);
+    const body = z.object({ email: z.string().email(), phone_number: z.string().regex(/^\+[1-9]\d{1,14}$/).optional() }).parse(request.body);
 
     // Generate secure token
     const token = randomBytes(32).toString('hex');
@@ -224,6 +225,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
     // Save magic link
     await db.insert(magicLinks).values({
       email: body.email.toLowerCase(),
+      phone_number: body.phone_number ?? null,
       token,
       expires_at: expiresAt,
     });
@@ -301,7 +303,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
         .slice(0, 50) + '-' + randomBytes(3).toString('hex');
 
       const [ws] = await db.insert(workspaces)
-        .values({ name: workspaceName, slug })
+        .values({ name: workspaceName, slug, phone_number: link.phone_number ?? null })
         .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
       if (ws) {
