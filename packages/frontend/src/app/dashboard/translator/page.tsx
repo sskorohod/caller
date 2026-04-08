@@ -11,6 +11,7 @@ interface TranslatorDefaults {
   greeting_text?: string;
   tts_voice_id?: string;
   tone?: string;
+  personal_context?: string;
   my_language?: string;
   target_language?: string;
   translation_mode?: string;
@@ -264,6 +265,14 @@ export default function TranslatorPage() {
                 {VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
               </optgroup>
             </select>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">Personal Context</h3>
+            <p className="text-xs text-[var(--th-text-muted)] mb-3">Personal details the translator will use when relevant — names, insurance, addresses, etc.</p>
+            <textarea value={defaults.personal_context || ''} onChange={e => setDefaults({ ...defaults, personal_context: e.target.value })}
+              placeholder={"Name: John Smith (spell as \"John Smith\")\nDOB: March 15, 1990\nInsurance: Blue Cross, ID: XYZ123456\nPharmacy: CVS, 123 Main St, Austin TX\nAddress: 456 Oak Ave, Apt 2B, Austin TX 78701"}
+              className={selectCls + ' min-h-[120px] resize-y font-mono text-xs'} rows={5} />
           </div>
 
           <div className="flex items-center gap-3 pt-2">

@@ -26,6 +26,7 @@ interface ConferenceTranslatorOptions {
   ttsProvider: string;
   ttsVoiceId?: string;
   tone?: string;
+  personalContext?: string;
   socket: WebSocket;        // Twilio media stream WebSocket
   streamSid: string;        // Twilio stream SID
 }
@@ -63,6 +64,7 @@ export class ConferenceTranslator extends EventEmitter {
   private streamSid: string;
   private ttsVoiceId?: string;
   private tone: string;
+  private personalContext: string;
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
   private sessionId: string | null = null;
@@ -87,6 +89,7 @@ export class ConferenceTranslator extends EventEmitter {
     this.streamSid = options.streamSid;
     this.ttsVoiceId = options.ttsVoiceId;
     this.tone = options.tone || 'neutral';
+    this.personalContext = options.personalContext || '';
   }
 
   async start(): Promise<void> {
@@ -135,7 +138,10 @@ Rules:
 - ONLY speak the translation. Do NOT add any commentary, greetings, or explanations.
 - If you cannot understand something, stay silent.
 
-Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}`,
+Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}${this.personalContext ? `
+
+Personal information about the subscriber (use when relevant — spell names carefully, dictate numbers clearly):
+${this.personalContext}` : ''}`,
           turn_detection: {
             type: 'server_vad',
             threshold: 0.5,

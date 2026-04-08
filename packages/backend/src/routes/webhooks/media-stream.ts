@@ -489,6 +489,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   ttsProvider: sub.tts_provider,
                   ttsVoiceId: sub.tts_voice_id ?? undefined,
                   tone: (sub as any).tone ?? 'neutral',
+                  personalContext: (sub as any).personal_context ?? '',
                   socket: socket as any,
                   streamSid: streamSid!,
                 });
