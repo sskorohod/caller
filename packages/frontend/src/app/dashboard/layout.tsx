@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
+import { api } from '@/lib/api';
 import { useT, useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { SocketProvider, useSocket } from '@/lib/socket';
@@ -149,7 +150,7 @@ function ConnectionIndicator() {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { token, isLoading, user, workspace, logout } = useAuth();
+  const { token, isLoading, user, workspace, logout, setWorkspace } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const t = useT();
@@ -160,6 +161,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!isLoading && !token) router.replace('/login');
   }, [token, isLoading, router]);
+
+  // Fetch current workspace plan + role (may be stale in localStorage)
+  useEffect(() => {
+    if (!token) return;
+    api.get<{ role?: string; workspaceId?: string }>('/auth/me')
+      .then(data => {
+        if (data.role && workspace && data.role !== workspace.role) {
+          setWorkspace({ ...workspace, role: data.role });
+        }
+      })
+      .catch(() => {});
+    api.get<{ plan: string }>('/billing/balance')
+      .then(data => {
+        if (data.plan && workspace && data.plan !== workspace.plan) {
+          setWorkspace({ ...workspace, plan: data.plan });
+        }
+      })
+      .catch(() => {});
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close sidebar on route change
   useEffect(() => {
