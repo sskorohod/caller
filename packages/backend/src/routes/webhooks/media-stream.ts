@@ -473,23 +473,28 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           if (callMeta?.call_type === 'translator' && callMeta?.subscriber_id) {
             logger.info({ callId, subscriberId: callMeta.subscriber_id }, 'Translator call — starting conference translator');
             try {
-              const { translatorSubscribers } = await import('../../db/schema.js');
+              const { translatorSubscribers, workspaces: wsTable } = await import('../../db/schema.js');
               const [sub] = await db.select().from(translatorSubscribers)
                 .where(eq(translatorSubscribers.id, callMeta.subscriber_id));
               if (sub) {
+                // Load workspace translator defaults (dashboard settings override subscriber defaults)
+                const [ws] = await db.select({ translator_defaults: wsTable.translator_defaults })
+                  .from(wsTable).where(eq(wsTable.id, call.workspace_id));
+                const wsDefs = (ws?.translator_defaults as Record<string, string>) || {};
+
                 const { ConferenceTranslator } = await import('../../services/conference-translator.js');
                 const translator = new ConferenceTranslator({
                   callId,
                   workspaceId: call.workspace_id,
                   subscriberId: sub.id,
-                  myLanguage: sub.my_language,
-                  targetLanguage: sub.target_language,
-                  mode: sub.mode as 'voice' | 'text' | 'both',
+                  myLanguage: wsDefs.my_language || sub.my_language,
+                  targetLanguage: wsDefs.target_language || sub.target_language,
+                  mode: (wsDefs.translation_mode as any) || sub.mode as 'voice' | 'text' | 'both',
                   whoHears: sub.who_hears as 'subscriber' | 'both',
-                  ttsProvider: sub.tts_provider,
-                  ttsVoiceId: sub.tts_voice_id ?? undefined,
-                  tone: (sub as any).tone ?? 'neutral',
-                  personalContext: (sub as any).personal_context ?? '',
+                  ttsProvider: 'xai',
+                  ttsVoiceId: wsDefs.tts_voice_id || sub.tts_voice_id || 'eve',
+                  tone: wsDefs.tone || (sub as any).tone || 'neutral',
+                  personalContext: wsDefs.personal_context || (sub as any).personal_context || '',
                   socket: socket as any,
                   streamSid: streamSid!,
                 });

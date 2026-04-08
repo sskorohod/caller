@@ -135,14 +135,17 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         conversationOwner: 'internal',
       });
 
+      // Merge workspace-level translator defaults with subscriber settings
+      const wsDefaults = (workspace.translator_defaults as Record<string, string>) || {};
+      const greetingText = wsDefaults.greeting_text || translatorSub.greeting_text;
+
       // Return TwiML: greeting + connect to media stream
       const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
-      // Detect greeting language from text (Cyrillic = ru, else match my_language or fallback to en)
       const pollyVoices: Record<string, string> = { ru: 'Polly.Tatyana', en: 'Polly.Joanna', es: 'Polly.Conchita', de: 'Polly.Marlene', fr: 'Polly.Celine' };
-      const hasCyrillic = /[а-яА-ЯёЁ]/.test(translatorSub.greeting_text);
-      const greetingLang = hasCyrillic ? 'ru' : (/[a-zA-Z]/.test(translatorSub.greeting_text) ? 'en' : translatorSub.my_language);
+      const hasCyrillic = /[а-яА-ЯёЁ]/.test(greetingText);
+      const greetingLang = hasCyrillic ? 'ru' : (/[a-zA-Z]/.test(greetingText) ? 'en' : translatorSub.my_language);
       twiml.say({ voice: (pollyVoices[greetingLang] || 'Polly.Joanna') as any },
-        translatorSub.greeting_text);
+        greetingText);
       // Connect to media stream for live translation
       const connect = twiml.connect();
       connect.stream({
