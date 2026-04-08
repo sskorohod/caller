@@ -55,8 +55,7 @@ export default function OverviewPage() {
 
   const s = stats;
   const avgDur = s ? `${Math.floor(s.avg_duration_seconds / 60)}:${String(Math.round(s.avg_duration_seconds) % 60).padStart(2, '0')}` : '0:00';
-  const isOwner = workspace?.role === 'owner';
-  const isTranslatorOnly = plan === 'translator' && !isOwner;
+  const isTranslatorOnly = plan === 'translator';
 
   return (
     <div className="space-y-4">

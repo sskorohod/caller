@@ -211,8 +211,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {(() => {
           const plan = workspace?.plan || 'translator';
-          const isOwner = workspace?.role === 'owner';
-          const isTranslatorOnly = plan === 'translator' && !isOwner;
+          const isTranslatorOnly = plan === 'translator';
 
           // Translator plan: only show relevant sections
           const translatorOps = ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator'];
