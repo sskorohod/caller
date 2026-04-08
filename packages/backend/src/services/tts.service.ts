@@ -208,7 +208,7 @@ export async function createTTSProvider(
   voiceId?: string,
   language?: string,
 ): Promise<TTSProvider> {
-  const [row] = await db
+  let [row] = await db
     .select({ credential_data: providerCredentials.credential_data })
     .from(providerCredentials)
     .where(
@@ -217,6 +217,21 @@ export async function createTTSProvider(
         eq(providerCredentials.provider, provider),
       ),
     );
+
+  if (!row) {
+    // Fallback: owner workspace credentials
+    const { workspaceMembers } = await import('../db/schema.js');
+    const [ownerRow] = await db
+      .select({ credential_data: providerCredentials.credential_data })
+      .from(providerCredentials)
+      .innerJoin(workspaceMembers, and(
+        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+        eq(workspaceMembers.role, 'owner'),
+      ))
+      .where(eq(providerCredentials.provider, provider))
+      .limit(1);
+    if (ownerRow) row = ownerRow;
+  }
 
   if (!row) throw new Error(`${provider} TTS credentials not configured`);
 

@@ -214,7 +214,8 @@ export class OpenAISTT extends EventEmitter {
 export type STTProvider = DeepgramSTT | OpenAISTT;
 
 export async function createSTTProvider(workspaceId: string, provider: 'deepgram' | 'openai'): Promise<STTProvider> {
-  const [row] = await db
+  // Try own credentials first, then fallback to platform (owner workspace) credentials
+  let [row] = await db
     .select({ credential_data: providerCredentials.credential_data })
     .from(providerCredentials)
     .where(
@@ -223,6 +224,21 @@ export async function createSTTProvider(workspaceId: string, provider: 'deepgram
         eq(providerCredentials.provider, provider),
       ),
     );
+
+  if (!row) {
+    // Fallback: find owner workspace with this provider configured
+    const { workspaceMembers } = await import('../db/schema.js');
+    const [ownerRow] = await db
+      .select({ credential_data: providerCredentials.credential_data })
+      .from(providerCredentials)
+      .innerJoin(workspaceMembers, and(
+        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+        eq(workspaceMembers.role, 'owner'),
+      ))
+      .where(eq(providerCredentials.provider, provider))
+      .limit(1);
+    if (ownerRow) row = ownerRow;
+  }
 
   if (!row) throw new Error(`${provider} credentials not configured`);
 
