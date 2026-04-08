@@ -58,24 +58,13 @@ const PRICING = {
   llm_translation: 0.00003, // ~estimate per translation (50 in + 150 out tokens at gpt-4o-mini rates)
 };
 
-const TTS_VOICES: Record<string, Array<{ value: string; label: string }>> = {
-  openai: [
-    { value: 'alloy', label: 'Alloy' },
-    { value: 'echo', label: 'Echo' },
-    { value: 'fable', label: 'Fable' },
-    { value: 'onyx', label: 'Onyx' },
-    { value: 'nova', label: 'Nova' },
-    { value: 'shimmer', label: 'Shimmer' },
-  ],
-  xai: [
-    { value: 'ara', label: 'Ara' },
-    { value: 'rex', label: 'Rex' },
-    { value: 'sal', label: 'Sal' },
-    { value: 'eve', label: 'Eve' },
-    { value: 'leo', label: 'Leo' },
-  ],
-  elevenlabs: [],
-};
+const GROK_VOICES = [
+  { value: 'ara', label: 'Ara', gender: 'Female' },
+  { value: 'eve', label: 'Eve', gender: 'Female' },
+  { value: 'rex', label: 'Rex', gender: 'Male' },
+  { value: 'sal', label: 'Sal', gender: 'Male' },
+  { value: 'leo', label: 'Leo', gender: 'Male' },
+];
 
 export default function DialerPage() {
   const t = useT();
@@ -84,7 +73,7 @@ export default function DialerPage() {
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [sttLanguage, setSttLanguage] = useState('en');
-  const [sttProvider, setSttProvider] = useState<'deepgram' | 'openai'>('deepgram');
+  const [sttProvider] = useState<'deepgram' | 'openai'>('deepgram');
   const [phonePlaceholder, setPhonePlaceholder] = useState('+1');
   const [callState, setCallState] = useState<CallState>('idle');
   const [callId, setCallId] = useState<string | null>(null);
@@ -95,7 +84,6 @@ export default function DialerPage() {
   const [error, setError] = useState<string | null>(null);
   const [voiceTranslate, setVoiceTranslate] = useState(false);
   const [speakDirect, setSpeakDirect] = useState(false); // temporary bypass in voice translate mode
-  const [ttsProvider, setTtsProvider] = useState<'elevenlabs' | 'openai' | 'xai'>('xai');
   const [ttsVoice, setTtsVoice] = useState('ara');
   const [ttsTargetLang, setTtsTargetLang] = useState('en'); // language to translate operator's speech INTO
   const [pttMode, setPttMode] = useState(true); // push-to-talk vs always-on
@@ -249,7 +237,7 @@ export default function DialerPage() {
     const onTranslation = (data: { call_id: string; speaker: string; original: string; translated: string; timestamp: string }) => {
       if (data.call_id !== callId) return;
       // Add event-based cost: TTS + LLM translation
-      const ttsRate = (PRICING.tts as any)[ttsProvider] ?? PRICING.tts.openai;
+      const ttsRate = PRICING.tts.xai;
       eventCostRef.current += (data.translated.length / 1000) * ttsRate + PRICING.llm_translation;
       setTranscript(prev => {
         const speaker = data.speaker as TranscriptEntry['speaker'];
@@ -392,7 +380,7 @@ export default function DialerPage() {
           stt_provider: sttProvider,
           voice_translate: voiceTranslate,
           voice_translate_mode: voiceTranslate && speakDirect ? 'sequential' : undefined,
-          tts_provider: voiceTranslate ? ttsProvider : undefined,
+          tts_provider: voiceTranslate ? 'xai' : undefined,
           tts_voice_id: voiceTranslate && ttsVoice ? ttsVoice : undefined,
           translate_to_language: voiceTranslate ? ttsTargetLang : undefined,
         },
@@ -564,7 +552,7 @@ export default function DialerPage() {
                 <div className="flex-1">
                   <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.yourLanguage')}</label>
                   <select value={sttLanguage} onChange={e => setSttLanguage(e.target.value)} disabled={isInCall} className={selectCls}>
-                    {sttProvider === 'openai' && <option value="auto">Auto-detect</option>}
+                    <option value="auto">Auto-detect</option>
                     {STT_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                   </select>
                 </div>
@@ -585,7 +573,7 @@ export default function DialerPage() {
                 <div className="flex-1">
                   <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.sttLanguage')}</label>
                   <select value={sttLanguage} onChange={e => setSttLanguage(e.target.value)} disabled={isInCall} className={selectCls}>
-                    {sttProvider === 'openai' && <option value="auto">Auto-detect</option>}
+                    <option value="auto">Auto-detect</option>
                     {STT_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                   </select>
                 </div>
@@ -598,30 +586,6 @@ export default function DialerPage() {
               </div>
             )}
 
-            {/* STT Engine toggle */}
-            <div>
-              <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">STT Engine</label>
-              <div className="flex gap-2">
-                {([
-                  { value: 'deepgram' as const, label: 'Deepgram', desc: 'Fast, low cost' },
-                  { value: 'openai' as const, label: 'Whisper', desc: 'Auto-detect' },
-                ]).map(p => (
-                  <button
-                    key={p.value}
-                    onClick={() => setSttProvider(p.value)}
-                    disabled={isInCall}
-                    className={`flex-1 px-3 py-2 rounded-xl border text-xs transition-all disabled:opacity-40 ${
-                      sttProvider === p.value
-                        ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)] shadow-[0_0_0_1px_var(--th-primary)]'
-                        : 'border-[var(--th-border)] bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary-muted)]'
-                    }`}
-                  >
-                    <div className="font-semibold">{p.label}</div>
-                    <div className="text-[10px] opacity-60 mt-0.5">{p.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Voice Translate */}
@@ -663,39 +627,23 @@ export default function DialerPage() {
             {voiceTranslate && (
               <div className="mt-3 space-y-2.5 pl-1">
                 <p className="text-[10px] text-purple-400/80">{t('dialer.voiceTranslateHint')}</p>
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">TTS</label>
-                    <select
-                      value={ttsProvider}
-                      onChange={e => {
-                        const p = e.target.value as 'openai' | 'elevenlabs' | 'xai';
-                        const newVoice = TTS_VOICES[p]?.[0]?.value ?? '';
-                        setTtsProvider(p); setTtsVoice(newVoice);
-                        if (callId && socket) socket.emit('call:tts:change', { call_id: callId, provider: p, voice: newVoice, language: ttsTargetLang });
-                      }}
-                      className={selectSmCls}
-                    >
-                      <option value="openai">OpenAI</option>
-                      <option value="xai">xAI (Grok)</option>
-                      <option value="elevenlabs">ElevenLabs</option>
-                    </select>
-                  </div>
-                  {TTS_VOICES[ttsProvider]?.length > 0 && (
-                    <div className="flex-1">
-                      <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.voice')}</label>
-                      <select
-                        value={ttsVoice}
-                        onChange={e => {
-                          setTtsVoice(e.target.value);
-                          if (callId && socket) socket.emit('call:tts:change', { call_id: callId, provider: ttsProvider, voice: e.target.value, language: ttsTargetLang });
-                        }}
-                        className={selectSmCls}
-                      >
-                        {TTS_VOICES[ttsProvider].map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-                      </select>
-                    </div>
-                  )}
+                <div>
+                  <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.voice') || 'Voice'}</label>
+                  <select
+                    value={ttsVoice}
+                    onChange={e => {
+                      setTtsVoice(e.target.value);
+                      if (callId && socket) socket.emit('call:tts:change', { call_id: callId, provider: 'xai', voice: e.target.value, language: ttsTargetLang });
+                    }}
+                    className={selectSmCls}
+                  >
+                    <optgroup label="Female">
+                      {GROK_VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </optgroup>
+                    <optgroup label="Male">
+                      {GROK_VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </optgroup>
+                  </select>
                 </div>
               </div>
             )}
