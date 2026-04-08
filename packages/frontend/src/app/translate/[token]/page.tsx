@@ -137,13 +137,23 @@ export default function LiveTranslatePage() {
     }
   }, [callId]);
 
-  const changeLanguages = useCallback((my: string, target: string) => {
-    setMyLang(my);
-    setTargetLang(target);
+  const changeMyLang = useCallback((newMy: string) => {
+    const newTarget = newMy === targetLang ? myLang : targetLang; // auto-swap if same
+    setMyLang(newMy);
+    setTargetLang(newTarget);
     if (socketRef.current && callId) {
-      socketRef.current.emit('translator:set-languages', { call_id: callId, my_language: my, target_language: target });
+      socketRef.current.emit('translator:set-languages', { call_id: callId, my_language: newMy, target_language: newTarget });
     }
-  }, [callId]);
+  }, [callId, myLang, targetLang]);
+
+  const changeTargetLang = useCallback((newTarget: string) => {
+    const newMy = newTarget === myLang ? targetLang : myLang; // auto-swap if same
+    setMyLang(newMy);
+    setTargetLang(newTarget);
+    if (socketRef.current && callId) {
+      socketRef.current.emit('translator:set-languages', { call_id: callId, my_language: newMy, target_language: newTarget });
+    }
+  }, [callId, myLang, targetLang]);
 
   const changeVoice = useCallback((v: string) => {
     setVoice(v);
@@ -226,16 +236,22 @@ export default function LiveTranslatePage() {
               ))}
             </div>
             {/* Language selectors */}
-            <div className="flex items-center gap-1">
-              <select value={myLang} onChange={e => changeLanguages(e.target.value, targetLang)}
-                className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
-              <span className="text-gray-600 text-[10px]">→</span>
-              <select value={targetLang} onChange={e => changeLanguages(myLang, e.target.value)}
-                className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
+            <div className="flex items-center gap-1.5">
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] uppercase tracking-wider text-gray-600 mb-0.5">You</span>
+                <select value={myLang} onChange={e => changeMyLang(e.target.value)}
+                  className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
+              <span className="text-gray-600 text-[10px] mt-3">→</span>
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] uppercase tracking-wider text-gray-600 mb-0.5">Other</span>
+                <select value={targetLang} onChange={e => changeTargetLang(e.target.value)}
+                  className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
             </div>
             {/* Voice select */}
             <select value={voice} onChange={e => changeVoice(e.target.value)}
