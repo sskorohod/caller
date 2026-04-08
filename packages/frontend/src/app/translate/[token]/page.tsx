@@ -268,22 +268,22 @@ export default function LiveTranslatePage() {
           </div>
         ))}
 
-        {/* Interim: streaming translation */}
+        {/* Interim: streaming translation (show immediately, same size as final) */}
         {(isSpeaking || interimTranslated) && (
-          <div className="mb-5 opacity-80">
+          <div className="mb-5">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400/70">
-                Speaking...
+                {interimTranslated ? 'Translating...' : 'Listening...'}
               </span>
             </div>
             {interimTranslated && (
-              <div className="text-[17px] leading-relaxed font-medium text-white/60">
-                {interimTranslated}
+              <div className="text-[17px] leading-relaxed font-medium text-white">
+                {interimTranslated}<span className="inline-block w-0.5 h-4 bg-indigo-400 ml-0.5 animate-pulse" />
               </div>
             )}
             {interimOriginal && (
-              <div className="text-[13px] text-gray-600 leading-snug">
+              <div className="text-[13px] text-gray-500 leading-snug mt-1">
                 {interimOriginal}
               </div>
             )}

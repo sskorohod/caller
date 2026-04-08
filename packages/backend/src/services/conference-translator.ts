@@ -208,9 +208,10 @@ ${this.personalContext}` : ''}`;
           turn_detection: {
             type: 'server_vad',
             threshold: 0.5,
-            silence_duration_ms: 400,
-            prefix_padding_ms: 200,
+            silence_duration_ms: 200,
+            prefix_padding_ms: 150,
           },
+          input_audio_transcription: { model: 'whisper-1' },
           audio: {
             input: { format: { type: 'audio/pcmu', rate: 8000 } },
             output: { format: { type: 'audio/pcmu', rate: 8000 } },
