@@ -12,6 +12,14 @@ interface TranslationEntry {
 
 type Mode = 'bidirectional' | 'unidirectional';
 
+const LANGUAGES = [
+  { value: 'en', label: 'EN' },
+  { value: 'ru', label: 'RU' },
+  { value: 'es', label: 'ES' },
+  { value: 'de', label: 'DE' },
+  { value: 'fr', label: 'FR' },
+];
+
 const VOICES = [
   { value: 'ara', label: 'Ara', gender: 'F' },
   { value: 'eve', label: 'Eve', gender: 'F' },
@@ -34,6 +42,8 @@ export default function LiveTranslatePage() {
   const [cost, setCost] = useState(0);
   const [mode, setMode] = useState<Mode>('bidirectional');
   const [voice, setVoice] = useState('eve');
+  const [myLang, setMyLang] = useState('ru');
+  const [targetLang, setTargetLang] = useState('en');
   const [callId, setCallId] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -127,6 +137,14 @@ export default function LiveTranslatePage() {
     }
   }, [callId]);
 
+  const changeLanguages = useCallback((my: string, target: string) => {
+    setMyLang(my);
+    setTargetLang(target);
+    if (socketRef.current && callId) {
+      socketRef.current.emit('translator:set-languages', { call_id: callId, my_language: my, target_language: target });
+    }
+  }, [callId]);
+
   const changeVoice = useCallback((v: string) => {
     setVoice(v);
     if (socketRef.current && callId) {
@@ -206,6 +224,18 @@ export default function LiveTranslatePage() {
                   {m === 'bidirectional' ? 'Both ways' : 'One way'}
                 </button>
               ))}
+            </div>
+            {/* Language selectors */}
+            <div className="flex items-center gap-1">
+              <select value={myLang} onChange={e => changeLanguages(e.target.value, targetLang)}
+                className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+              <span className="text-gray-600 text-[10px]">→</span>
+              <select value={targetLang} onChange={e => changeLanguages(myLang, e.target.value)}
+                className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
             </div>
             {/* Voice select */}
             <select value={voice} onChange={e => changeVoice(e.target.value)}

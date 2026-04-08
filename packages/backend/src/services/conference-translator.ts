@@ -77,6 +77,7 @@ export class ConferenceTranslator extends EventEmitter {
   // Accumulate transcript text from Grok responses
   private currentInputTranscript: string = '';
   private currentOutputTranscript: string = '';
+  private currentResponseAudio: Buffer[] = []; // buffer audio for one-way filtering
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -155,6 +156,26 @@ export class ConferenceTranslator extends EventEmitter {
   private buildInstructions(): string {
     const myLangName = LANG_NAMES[this.myLang] || this.myLang;
     const targetLangName = LANG_NAMES[this.targetLang] || this.targetLang;
+    const isOneWay = this.mode === 'text' || this.mode === 'unidirectional' as any;
+
+    if (isOneWay) {
+      // One-way: only voice-translate subscriber's speech for the other party.
+      // Other party's speech is translated as TEXT only (shown on screen, not spoken).
+      return `You are a live phone interpreter.
+
+Rules:
+- When you hear ${myLangName}, translate it to ${targetLangName} and SPEAK the translation aloud.
+- When you hear ${targetLangName}, translate it to ${myLangName} but ONLY output text — do NOT speak. Just provide a silent text translation.
+- ONLY output the translation. Do NOT add any commentary, greetings, or explanations.
+- If you cannot understand something, stay silent.
+
+Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}${this.personalContext ? `
+
+Personal information about the subscriber (use when relevant — spell names carefully, dictate numbers clearly):
+${this.personalContext}` : ''}`;
+    }
+
+    // Bidirectional: translate both directions with voice
     return `You are a live phone interpreter. Your ONLY job is to translate speech between ${myLangName} and ${targetLangName}.
 
 Rules:
@@ -221,6 +242,14 @@ ${this.personalContext}` : ''}`;
     this.connectGrok();
   }
 
+  /** Update languages on the fly — reconnects Grok */
+  updateLanguages(myLang: string, targetLang: string): void {
+    this.myLang = myLang;
+    this.targetLang = targetLang;
+    log.info({ callId: this.callId, myLang, targetLang }, 'Translator languages updated — reconnecting Grok');
+    this.connectGrok();
+  }
+
   /** Update voice on the fly — reconnects Grok with new voice */
   updateVoice(voice: string): void {
     this.ttsVoiceId = voice;
@@ -244,6 +273,7 @@ ${this.personalContext}` : ''}`;
         // User started speaking — emit "Speaking..." to UI
         this.currentInputTranscript = '';
         this.currentOutputTranscript = '';
+        this.currentResponseAudio = [];
         const io0 = getIo();
         if (io0) {
           io0.to(`call:${this.callId}`).volatile.emit('call:transcript', {
@@ -254,16 +284,24 @@ ${this.personalContext}` : ''}`;
       }
 
       case 'response.output_audio.delta':
-        // Streaming translated audio — inject into Twilio stream
-        if (msg.delta && this.twilioSocket.readyState === 1) {
-          const audio = Buffer.from(msg.delta, 'base64');
-          const chunkSize = 640;
-          for (let i = 0; i < audio.length; i += chunkSize) {
-            this.twilioSocket.send(JSON.stringify({
-              event: 'media',
-              streamSid: this.streamSid,
-              media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
-            }));
+        if (msg.delta) {
+          const isOneWay = this.mode === 'text' || this.mode === ('unidirectional' as any);
+          if (isOneWay) {
+            // Buffer audio — inject only after we know it's subscriber's speech (in response.done)
+            this.currentResponseAudio.push(Buffer.from(msg.delta, 'base64'));
+          } else {
+            // Bidirectional — inject immediately
+            if (this.twilioSocket.readyState === 1) {
+              const audio = Buffer.from(msg.delta, 'base64');
+              const chunkSize = 640;
+              for (let i = 0; i < audio.length; i += chunkSize) {
+                this.twilioSocket.send(JSON.stringify({
+                  event: 'media',
+                  streamSid: this.streamSid,
+                  media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+                }));
+              }
+            }
           }
         }
         break;
@@ -319,7 +357,26 @@ ${this.personalContext}` : ''}`;
             timestamp: new Date().toISOString(),
           });
 
-          // Emit to UI
+          // One-way mode: inject buffered audio only if subscriber spoke
+          const isOneWay = this.mode === 'text' || this.mode === ('unidirectional' as any);
+          if (isOneWay && this.currentResponseAudio.length > 0) {
+            if (isMyLang && this.twilioSocket.readyState === 1) {
+              // Subscriber spoke → inject translated voice for other party
+              const chunkSize = 640;
+              for (const buf of this.currentResponseAudio) {
+                for (let i = 0; i < buf.length; i += chunkSize) {
+                  this.twilioSocket.send(JSON.stringify({
+                    event: 'media',
+                    streamSid: this.streamSid,
+                    media: { payload: buf.subarray(i, i + chunkSize).toString('base64') },
+                  }));
+                }
+              }
+            }
+            // Other party spoke → no audio injection (text-only on screen)
+          }
+
+          // Emit to UI (always — both directions show as text)
           const io = getIo();
           if (io) {
             io.to(`call:${this.callId}:translate`).emit('call:translation', {
@@ -343,6 +400,7 @@ ${this.personalContext}` : ''}`;
 
         this.currentInputTranscript = '';
         this.currentOutputTranscript = '';
+        this.currentResponseAudio = [];
         break;
       }
 

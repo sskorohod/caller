@@ -128,6 +128,14 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       } catch { /* ignore */ }
     });
 
+    socket.on('translator:set-languages', async ({ call_id, my_language, target_language }: { call_id: string; my_language: string; target_language: string }) => {
+      try {
+        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
+        const ct = getActiveConferenceTranslators().get(call_id);
+        if (ct) ct.updateLanguages(my_language, target_language);
+      } catch { /* ignore */ }
+    });
+
     socket.on('translator:set-voice', async ({ call_id, voice }: { call_id: string; voice: string }) => {
       try {
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
