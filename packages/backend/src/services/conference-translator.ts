@@ -149,7 +149,9 @@ export class ConferenceTranslator extends EventEmitter {
     }, 'Conference translator started (Grok Voice Agent)');
 
     // Send Telegram notification
-    this.sendTelegramNotification('start').catch(() => {});
+    this.sendTelegramNotification('start').catch(err => {
+      log.error({ err, callId: this.callId }, 'Failed to send Telegram start notification');
+    });
   }
 
   private buildInstructions(): string {
@@ -488,14 +490,20 @@ ${this.personalContext}` : ''}`;
       if (!chatId) chatId = creds.chat_id;
     }
 
-    if (!botToken || !chatId) return;
+    if (!botToken || !chatId) {
+      log.warn({ callId: this.callId, hasBotToken: !!botToken, hasChatId: !!chatId }, 'Telegram notification skipped — missing credentials');
+      return;
+    }
 
     if (type === 'start') {
       let liveUrl: string | undefined;
       try {
         const shareToken = await callService.createShareToken(this.callId);
         liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
-      } catch { /* no live URL */ }
+        log.info({ callId: this.callId, liveUrl }, 'Share token created for Telegram');
+      } catch (err) {
+        log.error({ err, callId: this.callId }, 'Failed to create share token');
+      }
 
       await sendTranslatorSessionStart(botToken, chatId, {
         subscriberName: sub.name,
