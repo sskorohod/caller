@@ -48,16 +48,6 @@ export default function LiveTranslatePage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
-  const startTimeRef = useRef(Date.now());
-
-  // Local duration timer (backup for stats gaps)
-  useEffect(() => {
-    if (status !== 'live') return;
-    const interval = setInterval(() => {
-      setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [status]);
 
   useEffect(() => {
     if (!token) { setError('Missing token'); setStatus('error'); return; }
@@ -73,7 +63,6 @@ export default function LiveTranslatePage() {
     s.on('connect', () => {
       s.emit('call:translate:join:token', { token });
       setStatus('live');
-      startTimeRef.current = Date.now();
     });
 
     s.on('connect_error', () => {
@@ -187,85 +176,61 @@ export default function LiveTranslatePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0e1a] text-white flex flex-col">
-      {/* ─── Header ─── */}
-      <div className="sticky top-0 z-20 bg-[#0a0e1a]/95 backdrop-blur-sm border-b border-white/5">
-        <div className="px-4 py-3 max-w-2xl mx-auto">
-          {/* Row 1: Logo + Status */}
-          <div className="flex items-center justify-between mb-2">
+      {/* ─── Compact Header + Controls ─── */}
+      <div className="sticky top-0 z-20 bg-[#0a0e1a]/95 backdrop-blur-sm border-b border-white/5 px-3 py-2">
+        <div className="max-w-2xl mx-auto space-y-1.5">
+          {/* Row 1: Status + Timer + Cost */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3" />
-                </svg>
+              {status === 'live' && <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />}
+              {status === 'ended' && <span className="w-2 h-2 bg-gray-500 rounded-full" />}
+              {status === 'connecting' && <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />}
+              <span className="font-mono text-xs text-gray-400">{formatTime(duration)}</span>
+            </div>
+            <span className="font-mono text-xs text-gray-400">${cost.toFixed(2)}</span>
+          </div>
+          {/* Row 2: Controls */}
+          {status === 'live' && (
+            <div className="flex items-center gap-2">
+              {/* Mode */}
+              <div className="flex rounded-md border border-white/10 overflow-hidden">
+                {(['bidirectional', 'unidirectional'] as const).map(m => (
+                  <button key={m} onClick={() => changeMode(m)}
+                    className={`px-2.5 py-1 text-[10px] font-medium transition-all ${
+                      mode === m ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'
+                    }`}>
+                    {m === 'bidirectional' ? '2-way' : '1-way'}
+                  </button>
+                ))}
               </div>
-              <span className="font-bold text-sm">Translator</span>
+              {/* Languages */}
+              <div className="flex items-center gap-1">
+                <select value={myLang} onChange={e => changeMyLang(e.target.value)}
+                  className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-12"
+                  title="Your language">
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+                <span className="text-gray-600 text-[9px]">→</span>
+                <select value={targetLang} onChange={e => changeTargetLang(e.target.value)}
+                  className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-12"
+                  title="Other party language">
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
+              {/* Voice */}
+              <select value={voice} onChange={e => changeVoice(e.target.value)}
+                className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none ml-auto">
+                <optgroup label="F">
+                  {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                </optgroup>
+                <optgroup label="M">
+                  {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                </optgroup>
+              </select>
             </div>
-            <div className="flex items-center gap-3">
-              {status === 'live' && (
-                <span className="flex items-center gap-1.5 text-xs">
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                  <span className="text-emerald-400 font-medium">Live</span>
-                </span>
-              )}
-              {status === 'ended' && <span className="text-xs text-gray-500">Ended</span>}
-              {status === 'connecting' && <span className="text-xs text-amber-400">Connecting...</span>}
-            </div>
-          </div>
-
-          {/* Row 2: Duration + Cost */}
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-mono text-gray-400">{formatTime(duration)}</span>
-            <span className="font-mono text-gray-400">${cost.toFixed(2)}</span>
-          </div>
+          )}
         </div>
       </div>
-
-      {/* ─── Controls ─── */}
-      {status === 'live' && (
-        <div className="sticky top-[76px] z-10 bg-[#0a0e1a]/95 backdrop-blur-sm border-b border-white/5 px-4 py-2.5">
-          <div className="max-w-2xl mx-auto flex items-center gap-3">
-            {/* Mode toggle */}
-            <div className="flex rounded-lg border border-white/10 overflow-hidden flex-1">
-              {(['bidirectional', 'unidirectional'] as const).map(m => (
-                <button key={m} onClick={() => changeMode(m)}
-                  className={`flex-1 px-3 py-1.5 text-[11px] font-medium transition-all ${
-                    mode === m ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
-                  }`}>
-                  {m === 'bidirectional' ? 'Both ways' : 'One way'}
-                </button>
-              ))}
-            </div>
-            {/* Language selectors */}
-            <div className="flex items-center gap-1.5">
-              <div className="flex flex-col items-center">
-                <span className="text-[8px] uppercase tracking-wider text-gray-600 mb-0.5">You</span>
-                <select value={myLang} onChange={e => changeMyLang(e.target.value)}
-                  className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
-                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-              </div>
-              <span className="text-gray-600 text-[10px] mt-3">→</span>
-              <div className="flex flex-col items-center">
-                <span className="text-[8px] uppercase tracking-wider text-gray-600 mb-0.5">Other</span>
-                <select value={targetLang} onChange={e => changeTargetLang(e.target.value)}
-                  className="px-2 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
-                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-              </div>
-            </div>
-            {/* Voice select */}
-            <select value={voice} onChange={e => changeVoice(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none">
-              <optgroup label="Female">
-                {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-              </optgroup>
-              <optgroup label="Male">
-                {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-              </optgroup>
-            </select>
-          </div>
-        </div>
-      )}
 
       {/* ─── Translations ─── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 max-w-2xl mx-auto w-full">
