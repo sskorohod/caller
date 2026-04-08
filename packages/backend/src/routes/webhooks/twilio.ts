@@ -137,9 +137,11 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
 
       // Return TwiML: greeting + connect to media stream
       const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
-      // Play greeting via Twilio TTS (fast, no external API call)
+      // Detect greeting language from text (Cyrillic = ru, else match my_language or fallback to en)
       const pollyVoices: Record<string, string> = { ru: 'Polly.Tatyana', en: 'Polly.Joanna', es: 'Polly.Conchita', de: 'Polly.Marlene', fr: 'Polly.Celine' };
-      twiml.say({ voice: (pollyVoices[translatorSub.my_language] || 'Polly.Joanna') as any },
+      const hasCyrillic = /[а-яА-ЯёЁ]/.test(translatorSub.greeting_text);
+      const greetingLang = hasCyrillic ? 'ru' : (/[a-zA-Z]/.test(translatorSub.greeting_text) ? 'en' : translatorSub.my_language);
+      twiml.say({ voice: (pollyVoices[greetingLang] || 'Polly.Joanna') as any },
         translatorSub.greeting_text);
       // Connect to media stream for live translation
       const connect = twiml.connect();
