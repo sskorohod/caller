@@ -510,9 +510,9 @@ export default function DialerPage() {
           </a>
         </div>
       )}
-      <div className="flex-1 flex flex-col lg:flex-row gap-5">
+      <div className="flex-1 flex flex-col lg:flex-row lg:items-start gap-5 overflow-y-auto">
       {/* ──── Left: Dialer ──── */}
-      <div className="lg:w-[440px] shrink-0 flex flex-col gap-4">
+      <div className="lg:w-[440px] shrink-0 flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start lg:max-h-screen lg:overflow-y-auto lg:scrollbar-none">
 
         {/* Main dialer card */}
         <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
