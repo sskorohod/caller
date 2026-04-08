@@ -863,6 +863,24 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               };
 
               activeManualSessions.set(callId, manualSession);
+
+              // Initiate callee call via Twilio REST API
+              const calleeStreamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}-callee`;
+              const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
+              try {
+                await telephonyService.initiateOutboundCall({
+                  workspaceId: call.workspace_id,
+                  to: call.to_number,
+                  from: call.from_number,
+                  callId,
+                  statusCallbackUrl,
+                  streamUrl: calleeStreamUrl,
+                });
+                logger.info({ callId, to: call.to_number }, 'Manual call: callee outbound initiated');
+              } catch (err) {
+                logger.error({ err, callId }, 'Manual call: failed to initiate callee outbound');
+              }
+
               manualSafetyTimers.set(callId, setTimeout(() => {
                 logger.warn({ callId }, 'Manual session safety timer fired — force-finalizing');
                 finalizeManualSession(callId).catch(() => {});
