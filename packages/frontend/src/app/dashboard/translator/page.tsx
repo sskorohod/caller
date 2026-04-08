@@ -9,8 +9,8 @@ type Tab = 'settings' | 'sessions' | 'live';
 
 interface TranslatorDefaults {
   greeting_text?: string;
-  tts_provider?: string;
   tts_voice_id?: string;
+  tone?: string;
   my_language?: string;
   target_language?: string;
   translation_mode?: string;
@@ -58,30 +58,21 @@ const LANGUAGES = [
   { value: 'fr', label: 'Français' },
 ];
 
-const TTS_PROVIDERS = [
-  { value: 'elevenlabs', label: 'ElevenLabs' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'xai', label: 'xAI / Grok' },
+const VOICES = [
+  { value: 'eve', label: 'Eve', gender: 'Female' },
+  { value: 'sal', label: 'Sal', gender: 'Female' },
+  { value: 'ara', label: 'Ara', gender: 'Male' },
+  { value: 'rex', label: 'Rex', gender: 'Male' },
+  { value: 'leo', label: 'Leo', gender: 'Male' },
 ];
 
-const TTS_VOICES: Record<string, Array<{ value: string; label: string }>> = {
-  openai: [
-    { value: 'alloy', label: 'Alloy' },
-    { value: 'echo', label: 'Echo' },
-    { value: 'nova', label: 'Nova' },
-    { value: 'shimmer', label: 'Shimmer' },
-    { value: 'onyx', label: 'Onyx' },
-    { value: 'fable', label: 'Fable' },
-  ],
-  xai: [
-    { value: 'ara', label: 'Ara' },
-    { value: 'rex', label: 'Rex' },
-    { value: 'sal', label: 'Sal' },
-    { value: 'eve', label: 'Eve' },
-    { value: 'leo', label: 'Leo' },
-  ],
-  elevenlabs: [],
-};
+const TONES = [
+  { value: 'neutral', label: 'Neutral', desc: 'Natural translation, preserves original tone.' },
+  { value: 'business', label: 'Business', desc: 'Formal, professional. Removes filler words (um, uh).' },
+  { value: 'friendly', label: 'Friendly', desc: 'Warm, casual, conversational.' },
+  { value: 'medical', label: 'Medical', desc: 'Precise medical terminology.' },
+  { value: 'legal', label: 'Legal', desc: 'Precise legal terminology, formal tone.' },
+];
 
 const selectCls = "w-full px-3 py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] transition-all appearance-none";
 
@@ -244,28 +235,35 @@ export default function TranslatorPage() {
               className={selectCls + ' min-h-[80px] resize-y'} rows={3} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">TTS Provider</label>
-              <select value={defaults.tts_provider || 'elevenlabs'} onChange={e => setDefaults({ ...defaults, tts_provider: e.target.value, tts_voice_id: '' })} className={selectCls}>
-                {TTS_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
+          <div>
+            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">Tone</h3>
+            <p className="text-xs text-[var(--th-text-muted)] mb-3">Communication style for translations.</p>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+              {TONES.map(tone => (
+                <button key={tone.value}
+                  onClick={() => setDefaults({ ...defaults, tone: tone.value })}
+                  className="p-3 rounded-xl border text-left transition-all"
+                  style={(defaults.tone || 'neutral') === tone.value
+                    ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.06)' }
+                    : { borderColor: 'var(--th-border)' }
+                  }>
+                  <div className="text-sm font-medium text-[var(--th-text)]">{tone.label}</div>
+                  <div className="text-[10px] mt-0.5 text-[var(--th-text-muted)]">{tone.desc}</div>
+                </button>
+              ))}
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">TTS Voice</label>
-              {(TTS_VOICES[defaults.tts_provider || 'elevenlabs'] || []).length > 0 ? (
-                <select value={defaults.tts_voice_id || ''} onChange={e => setDefaults({ ...defaults, tts_voice_id: e.target.value })} className={selectCls}>
-                  <option value="">Default</option>
-                  {(TTS_VOICES[defaults.tts_provider || 'elevenlabs'] || []).map(v => (
-                    <option key={v.value} value={v.value}>{v.label}</option>
-                  ))}
-                </select>
-              ) : (
-                <input value={defaults.tts_voice_id || ''} onChange={e => setDefaults({ ...defaults, tts_voice_id: e.target.value })}
-                  placeholder="Voice ID (e.g. ElevenLabs voice ID)"
-                  className={selectCls} />
-              )}
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">Voice</label>
+            <select value={defaults.tts_voice_id || 'eve'} onChange={e => setDefaults({ ...defaults, tts_voice_id: e.target.value })} className={selectCls}>
+              <optgroup label="Female">
+                {VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </optgroup>
+              <optgroup label="Male">
+                {VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </optgroup>
+            </select>
           </div>
 
           <div className="flex items-center gap-3 pt-2">

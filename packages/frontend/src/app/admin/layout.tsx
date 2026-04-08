@@ -14,7 +14,6 @@ const navSections = [
     label: 'Management',
     items: [
       { href: '/admin/subscribers', icon: 'group', label: 'Subscribers' },
-      { href: '/admin/translator', icon: 'translate', label: 'Translator' },
       { href: '/admin/sessions', icon: 'history', label: 'Sessions' },
       { href: '/admin/promo', icon: 'confirmation_number', label: 'Promo Codes' },
     ],

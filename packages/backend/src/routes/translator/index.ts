@@ -260,8 +260,8 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
   }, async (request) => {
     const body = z.object({
       greeting_text: z.string().max(500).optional(),
-      tts_provider: z.enum(['elevenlabs', 'openai', 'xai']).optional(),
       tts_voice_id: z.string().max(100).optional(),
+      tone: z.enum(['neutral', 'business', 'friendly', 'medical', 'legal']).optional(),
       my_language: z.string().min(2).max(10).optional(),
       target_language: z.string().min(2).max(10).optional(),
       translation_mode: z.enum(['bidirectional', 'unidirectional']).optional(),
