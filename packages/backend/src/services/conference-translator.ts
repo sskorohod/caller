@@ -100,7 +100,14 @@ export class ConferenceTranslator extends EventEmitter {
     }
     if (!this.llm) throw new Error('No LLM provider available for translator');
 
-    this.stt = await createSTTProvider(this.workspaceId, 'deepgram');
+    // Use OpenAI Whisper for auto language detection (supports ru+en mixed audio)
+    // Fallback to Deepgram if OpenAI not available
+    try {
+      this.stt = await createSTTProvider(this.workspaceId, 'openai');
+    } catch {
+      log.warn({ callId: this.callId }, 'OpenAI STT unavailable, falling back to Deepgram');
+      this.stt = await createSTTProvider(this.workspaceId, 'deepgram');
+    }
 
     try {
       this.tts = await createTTSProvider(
@@ -137,10 +144,9 @@ export class ConferenceTranslator extends EventEmitter {
     this.stt.on('utterance_end', () => this.handleUtteranceEnd());
     this.stt.on('error', (err: Error) => log.error({ err, callId: this.callId }, 'Translator STT error'));
 
-    // Connect STT — use multi-language or subscriber's target language
-    // Deepgram `language=multi` enables auto language detection
-    const sttLang = this.targetLang === 'auto' ? 'multi' : 'multi';
-    this.stt.connect({ language: sttLang });
+    // Connect STT — Whisper auto-detects language, Deepgram uses 'multi'
+    const isWhisper = this.stt.constructor.name === 'OpenAISTT';
+    this.stt.connect({ language: isWhisper ? undefined : 'multi' });
 
     // Safety timer (4 hours max)
     this.safetyTimer = setTimeout(() => {
