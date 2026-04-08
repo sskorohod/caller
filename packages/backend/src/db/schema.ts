@@ -52,6 +52,7 @@ export const workspaces = pgTable('workspaces', {
   subscription_status: text('subscription_status').notNull().default('none'), // 'none' | 'active' | 'past_due' | 'canceled' | 'trialing'
   subscription_current_period_end: timestamp('subscription_current_period_end', { withTimezone: true }),
   provider_config: jsonb('provider_config').notNull().default({}), // { twilio: 'platform'|'own', deepgram: ... }
+  translator_defaults: jsonb('translator_defaults').notNull().default({}), // { greeting_text, tts_provider, tts_voice_id, my_language, target_language, translation_mode }
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -547,6 +548,7 @@ export const translatorSubscribers = pgTable('translator_subscribers', {
   target_language: text('target_language').notNull().default('en'),
   mode: text('mode').notNull().default('voice'), // 'voice' | 'text' | 'both'
   who_hears: text('who_hears').notNull().default('subscriber'), // 'subscriber' | 'both'
+  translation_mode: text('translation_mode').notNull().default('bidirectional'), // 'bidirectional' | 'unidirectional'
   greeting_text: text('greeting_text').notNull().default('Hello, I am your live translator. I will be translating this conversation.'),
   tts_provider: text('tts_provider').notNull().default('elevenlabs'),
   tts_voice_id: text('tts_voice_id'),
@@ -618,6 +620,21 @@ export const balanceTransactions = pgTable('balance_transactions', {
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('idx_balance_tx_subscriber').on(t.subscriber_id),
+]);
+
+// ============================================================
+// SUBSCRIBER PORTAL TOKENS (magic link auth)
+// ============================================================
+export const subscriberPortalTokens = pgTable('subscriber_portal_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  subscriber_id: uuid('subscriber_id').notNull().references(() => translatorSubscribers.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
+  used_at: timestamp('used_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_portal_tokens_token').on(t.token),
+  index('idx_portal_tokens_subscriber').on(t.subscriber_id),
 ]);
 
 // ============================================================

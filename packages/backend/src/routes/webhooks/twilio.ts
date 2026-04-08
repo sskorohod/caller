@@ -104,7 +104,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       if (balance <= 0) {
         // No balance — inform and hang up
         const noBalanceTwiml = new (await import('twilio')).default.twiml.VoiceResponse();
-        noBalanceTwiml.say({ voice: 'Polly.Joanna' },
+        noBalanceTwiml.say({ voice: translatorSub.my_language === 'ru' ? 'Polly.Tatyana' : 'Polly.Joanna' },
           translatorSub.my_language === 'ru'
             ? 'Ваш баланс исчерпан. Пожалуйста, пополните баланс для использования переводчика.'
             : 'Your balance is depleted. Please top up to use the translator service.');
@@ -138,7 +138,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       // Return TwiML: greeting + connect to media stream
       const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
       // Play greeting via Twilio TTS (fast, no external API call)
-      twiml.say({ voice: translatorSub.my_language === 'ru' ? 'Polly.Tatyana' : 'Polly.Joanna' },
+      const pollyVoices: Record<string, string> = { ru: 'Polly.Tatyana', en: 'Polly.Joanna', es: 'Polly.Conchita', de: 'Polly.Marlene', fr: 'Polly.Celine' };
+      twiml.say({ voice: (pollyVoices[translatorSub.my_language] || 'Polly.Joanna') as any },
         translatorSub.greeting_text);
       // Connect to media stream for live translation
       const connect = twiml.connect();
