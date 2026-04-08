@@ -50,7 +50,8 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const body = createSchema.parse(request.body);
-    const greeting = body.greeting_text || DEFAULT_GREETINGS[body.my_language] || DEFAULT_GREETINGS.en;
+    // Greeting is heard by the OTHER party, so use target_language
+    const greeting = body.greeting_text || DEFAULT_GREETINGS[body.target_language] || DEFAULT_GREETINGS.en;
     const [row] = await db
       .insert(translatorSubscribers)
       .values({
