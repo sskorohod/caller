@@ -33,24 +33,17 @@ async function resolveTwilioWorkspaceId(workspaceId: string): Promise<string> {
     ));
   if (own) return workspaceId;
 
-  // Check platform fallback
-  const [ws] = await db.select({ provider_config: workspaces.provider_config })
-    .from(workspaces)
-    .where(eq(workspaces.id, workspaceId));
-
-  const config = (ws?.provider_config as Record<string, string>) || {};
-  if (config.twilio === 'platform') {
-    const [ownerRow] = await db
-      .select({ workspace_id: providerCredentials.workspace_id })
-      .from(providerCredentials)
-      .innerJoin(workspaceMembers, and(
-        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-        eq(workspaceMembers.role, 'owner'),
-      ))
-      .where(eq(providerCredentials.provider, 'twilio'))
-      .limit(1);
-    if (ownerRow) return ownerRow.workspace_id;
-  }
+  // Fallback: find any owner workspace with twilio credentials (platform shared)
+  const [ownerRow] = await db
+    .select({ workspace_id: providerCredentials.workspace_id })
+    .from(providerCredentials)
+    .innerJoin(workspaceMembers, and(
+      eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+      eq(workspaceMembers.role, 'owner'),
+    ))
+    .where(eq(providerCredentials.provider, 'twilio'))
+    .limit(1);
+  if (ownerRow) return ownerRow.workspace_id;
 
   throw new ValidationError('Twilio credentials not configured');
 }
@@ -103,13 +96,9 @@ export async function getOutboundConnection(workspaceId: string): Promise<Teleph
 
   if (row) return row as unknown as TelephonyConnection;
 
-  // Platform fallback — use owner workspace connections
-  const [ws] = await db.select({ provider_config: workspaces.provider_config })
-    .from(workspaces)
-    .where(eq(workspaces.id, workspaceId));
-
-  const config = (ws?.provider_config as Record<string, string>) || {};
-  if (config.twilio === 'platform') {
+  // Fallback — use owner workspace connections (platform shared Twilio)
+  // Always try fallback if no own connection found
+  {
     const [ownerRow] = await db
       .select({ workspace_id: workspaceMembers.workspace_id })
       .from(workspaceMembers)
