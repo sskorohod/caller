@@ -210,6 +210,15 @@ export default function DialerPage() {
           if (data.isFinal && last.speaker === speaker && !last.isFinal) {
             return [...prev.slice(0, -1), { speaker, text: data.text, timestamp: data.timestamp, isFinal: true }];
           }
+          // Merge consecutive final segments from same speaker (callee STT sends many small segments)
+          if (data.isFinal && last.speaker === speaker && last.isFinal) {
+            const timeDiff = new Date(data.timestamp).getTime() - new Date(last.timestamp).getTime();
+            if (timeDiff < 5000) { // within 5 seconds = same utterance
+              const updated = [...prev];
+              updated[prev.length - 1] = { ...last, text: last.text + ' ' + data.text, timestamp: data.timestamp };
+              return updated;
+            }
+          }
         }
         return [...prev, { speaker, text: data.text, timestamp: data.timestamp, isFinal: data.isFinal }];
       });
