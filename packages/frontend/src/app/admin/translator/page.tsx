@@ -40,10 +40,10 @@ const LANGUAGES = [
 ];
 
 const VOICES = [
+  { value: 'ara', label: 'Ara', gender: 'Female' },
   { value: 'eve', label: 'Eve', gender: 'Female' },
-  { value: 'sal', label: 'Sal', gender: 'Female' },
-  { value: 'ara', label: 'Ara', gender: 'Male' },
   { value: 'rex', label: 'Rex', gender: 'Male' },
+  { value: 'sal', label: 'Sal', gender: 'Male' },
   { value: 'leo', label: 'Leo', gender: 'Male' },
 ];
 
