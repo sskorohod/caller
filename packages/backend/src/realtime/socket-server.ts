@@ -148,23 +148,18 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       socket.leave(`call:${call_id}:translate`);
     });
 
-    // Change TTS provider/voice mid-call
-    socket.on('call:tts:change', async ({ call_id, provider, voice, language }: { call_id: string; provider: string; voice?: string; language?: string }) => {
+    // Change voice mid-call (Grok Voice Agent reconnect)
+    socket.on('call:tts:change', async ({ call_id, voice }: { call_id: string; provider?: string; voice?: string; language?: string }) => {
       try {
-        const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
-        const session = getActiveVoiceTranslateSessions().get(call_id);
-        if (!session) return;
-        const { createTTSProvider } = await import('../services/tts.service.js');
-        const newTts = await createTTSProvider(
-          session.workspaceId,
-          provider as 'elevenlabs' | 'openai' | 'xai',
-          voice || (provider === 'openai' ? 'alloy' : undefined),
-          language,
-        );
-        session.tts = newTts;
-        console.log(`[Socket.IO] TTS changed: call=${call_id} provider=${provider} voice=${voice}`);
+        // Try conference translator first
+        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
+        const ct = getActiveConferenceTranslators().get(call_id);
+        if (ct && voice) { ct.updateVoice(voice); return; }
+
+        // Dialer VT: reconnect Grok with new voice (not supported yet — would need session.update)
+        console.log(`[Socket.IO] Voice change requested: call=${call_id} voice=${voice}`);
       } catch (err) {
-        console.error(`[Socket.IO] TTS change failed:`, err);
+        console.error(`[Socket.IO] Voice change failed:`, err);
       }
     });
 
@@ -175,13 +170,9 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const session = getActiveVoiceTranslateSessions().get(call_id);
         if (session) {
           session.pttActive = active;
-          // PTT released → finalize STT to get last segment, wait for all translations, then flush
+          // PTT released → flush buffered audio
           if (!active && session.sequentialMode) {
-            // Force Deepgram to emit buffered transcript without waiting for endpointing
-            if (session.operatorStt && 'finalize' in session.operatorStt) {
-              (session.operatorStt as any).finalize();
-            }
-            // Wait for in-flight translations+TTS to complete, then flush
+            // Grok handles VAD — just flush accumulated audio buffer
             const result = flushPttAudio(call_id);
             if (result instanceof Promise) await result;
           }

@@ -11,6 +11,7 @@ import * as telephonyService from '../../services/telephony.service.js';
 import { createSTTProvider } from '../../services/stt.service.js';
 import { createTTSProvider } from '../../services/tts.service.js';
 import { createLLMProvider } from '../../services/llm.service.js';
+import { decrypt } from '../../lib/crypto.js';
 import { CallOrchestrator } from '../../services/call-orchestrator.js';
 import { GrokRealtimeOrchestrator } from '../../services/grok-realtime.service.js';
 import { sendBootstrapWebhook, ExternalAgentSession } from '../../services/external-handoff.service.js';
@@ -68,7 +69,7 @@ const activeManualSessions = new Map<string, ManualSession>();
 interface VoiceTranslateSession {
   operatorSocket: import('ws').WebSocket;
   operatorStreamSid: string;
-  operatorStt: import('../../services/stt.service.js').STTProvider;
+  grokWs: import('ws').WebSocket | null; // Grok Voice Agent WebSocket
   calleeSocket: import('ws').WebSocket | null;
   calleeStreamSid: string | null;
   calleeStt: import('../../services/stt.service.js').STTProvider | null;
@@ -76,13 +77,15 @@ interface VoiceTranslateSession {
   workspaceId: string;
   transcript: Array<{ speaker: string; text: string; timestamp: string }>;
   sessionId?: string;
-  tts: import('../../services/tts.service.js').TTSProvider;
-  translationLlm: import('../../services/llm.service.js').LLMProvider | null;
   pttActive: boolean;
   sequentialMode: boolean;
   translationEnabled: boolean;
   saved: boolean;
   safetyTimer?: ReturnType<typeof setTimeout>;
+  // Grok event accumulators
+  currentInputTranscript: string;
+  currentOutputTranscript: string;
+  pttAudioBuffer: Buffer[];
 }
 const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 
@@ -111,8 +114,8 @@ async function finalizeVTSession(callId: string): Promise<void> {
   // Clear safety timer
   if (vt.safetyTimer) { clearTimeout(vt.safetyTimer); vt.safetyTimer = undefined; }
 
-  // Close STT connections
-  try { vt.operatorStt.close(); } catch { /* ignore */ }
+  // Close Grok Voice Agent + callee STT
+  try { vt.grokWs?.close(); } catch { /* ignore */ }
   try { if (vt.calleeStt) vt.calleeStt.close(); } catch { /* ignore */ }
 
   // Save transcript + costs + queue post-call
@@ -121,20 +124,19 @@ async function finalizeVTSession(callId: string): Promise<void> {
     try {
       const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
       if (callRow) {
-        const meta = callRow.metadata as any;
         const durationSecs = callRow.connected_at
           ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
           : 0;
         const durationMins = durationSecs / 60;
-        const sttProv = meta?.stt_provider ?? 'deepgram';
-        const costStt = calculateSTTCost(sttProv, durationMins) * 2;
+        // Grok Voice Agent: $0.05/min + Twilio telephony for both legs
+        const costGrok = durationMins * 0.05;
         const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2;
-        const costTotal = costStt + costTelephony;
+        const costTotal = costGrok + costTelephony;
 
         await callService.updateAiSession(sessionId, {
           transcript: vt.transcript as any,
           total_turns: vt.transcript.length,
-          cost_stt: String(costStt),
+          cost_stt: String(costGrok),
           cost_telephony: String(costTelephony),
           cost_total: String(costTotal),
         } as any);
@@ -146,7 +148,7 @@ async function finalizeVTSession(callId: string): Promise<void> {
         if (vt.transcript.length > 0) {
           queuePostCallProcessing({ callId, workspaceId: vt.workspaceId, sessionId });
         }
-        logger.info({ callId, turns: vt.transcript.length, costTotal }, 'VT session finalized');
+        logger.info({ callId, turns: vt.transcript.length, costTotal }, 'VT session finalized (Grok)');
       }
     } catch (err) {
       logger.error({ err, callId }, 'Failed to finalize VT session');
@@ -513,157 +515,42 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
             return;
           }
 
-          // --- Dialer call: always use bidirectional <Connect><Stream> (supports mid-call translate toggle) ---
+          // --- Dialer call: Voice Translate via Grok Voice Agent ---
           if (call.conversation_owner_requested === 'manual') {
             const vtEnabled = !!(call.metadata as any)?.voice_translate;
-            logger.info({ callId, vtEnabled }, 'Dialer call — bidirectional stream mode');
+            logger.info({ callId, vtEnabled }, 'Dialer call — Grok Voice Agent mode');
             try {
               const meta = call.metadata as any;
               const operatorLang = meta.stt_language ?? 'ru';
               const calleeLang = meta.translate_to_language ?? 'en';
-              const ttsVoiceId = meta.tts_voice_id;
-              const sttProviderName = (meta.stt_provider ?? 'deepgram') as 'deepgram' | 'openai';
+              const ttsVoiceId = meta.tts_voice_id ?? 'ara';
               const io = getIo();
-
-              // STT for operator's voice (operator speaks in their language)
-              const operatorStt = await createSTTProvider(call.workspace_id, sttProviderName);
               const transcript: ManualSession['transcript'] = [];
               const aiSession = await callService.getAiSession(callId);
 
-              // LLM for translation
-              let translationLlm: import('../../services/llm.service.js').LLMProvider | null = null;
-              let translationProvider = 'openai';
-              for (const provider of ['openai', 'xai'] as const) {
-                try {
-                  translationLlm = await createLLMProvider(call.workspace_id, provider);
-                  translationProvider = provider;
-                  break;
-                } catch { /* try next */ }
-              }
+              // Get xAI API key for Grok Voice Agent
+              const { providerCredentials: pcTable } = await import('../../db/schema.js');
+              const [xaiRow] = await db.select({ credential_data: pcTable.credential_data })
+                .from(pcTable)
+                .where(and(eq(pcTable.workspace_id, call.workspace_id), eq(pcTable.provider, 'xai')));
+              if (!xaiRow) throw new Error('xAI credentials not configured');
+              const xaiApiKey = JSON.parse(decrypt(xaiRow.credential_data)).api_key;
 
-              // TTS for translated speech (callee hears this)
-              // TTS: use selected provider or fallback chain
-              const preferredTts = meta.tts_provider as string | undefined;
-              let tts: import('../../services/tts.service.js').TTSProvider | null = null;
-              let ttsProviderUsed = 'elevenlabs';
-              const ttsOrder = preferredTts
-                ? [preferredTts as 'elevenlabs' | 'openai' | 'xai']
-                : (['elevenlabs', 'openai', 'xai'] as const);
-              for (const ttsProv of ttsOrder) {
-                try {
-                  tts = await createTTSProvider(call.workspace_id, ttsProv, ttsVoiceId ?? (ttsProv === 'openai' ? 'alloy' : undefined), calleeLang);
-                  ttsProviderUsed = ttsProv;
-                  break;
-                } catch { /* try next */ }
-              }
-              if (!tts) throw new Error('No TTS provider available');
+              const LANG_NAMES: Record<string, string> = { en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French' };
+              const opLangName = LANG_NAMES[operatorLang] || operatorLang;
+              const clLangName = LANG_NAMES[calleeLang] || calleeLang;
 
-              // Wire operator STT — stream mode: translate+TTS each isFinal segment immediately
-              let operatorAccum = ''; // for transcript display only
-              operatorStt.on('error', (err: Error) => logger.error({ err, callId }, 'Voice translate operator STT error'));
-
-              const translationModel = process.env.OPENAI_OAUTH_PROXY_URL ? 'gpt-5.4-mini' : 'gpt-4o-mini';
-
-              // Pre-translate during PTT: translate+TTS each segment immediately, buffer audio
-              const pttAudioBuffer: Buffer[] = []; // pre-generated TTS audio chunks
-              let pttTranslatedTexts: string[] = []; // for UI display
-              const pendingTranslations: Promise<void>[] = []; // track in-flight translate+TTS pipelines
-
-              operatorStt.on('transcript', (evt: import('../../services/stt.service.js').TranscriptEvent) => {
-                if (!evt.isFinal || !evt.text.trim()) return;
-                const segmentText = evt.text.trim();
-                operatorAccum += (operatorAccum ? ' ' : '') + segmentText;
-
-                // Check if translation is enabled (can be toggled mid-call)
-                const vtSessCheck = activeVoiceTranslateSessions.get(callId);
-                if (!translationLlm || !vtSessCheck?.translationEnabled) return;
-
-                // Always translate immediately — even during PTT (pre-buffer TTS audio)
-                const textToTranslate = segmentText;
-
-                // Translate + TTS this segment immediately, track Promise for PTT flush
-                const p = (async () => {
-                  try {
-                    // Translate
-                    const client = (translationLlm as any).client;
-                    const resp = await client.chat.completions.create({
-                      model: translationModel,
-                      temperature: 0.3,
-                      max_tokens: 150,
-                      stream: false,
-                      messages: [
-                        { role: 'system', content: `Translate to ${calleeLang}. Phone call. Be natural.\nOnly output the translation.` },
-                        { role: 'user', content: `"${textToTranslate}"` },
-                      ],
-                    });
-                    const translated = resp.choices?.[0]?.message?.content?.trim();
-                    if (!translated) return;
-
-                    // Emit translation to UI
-                    if (io) {
-                      io.to(`call:${callId}:translate`).emit('call:translation', {
-                        call_id: callId, speaker: 'operator', original: textToTranslate,
-                        translated, timestamp: new Date().toISOString(),
-                      });
-                    }
-
-                    // Save to transcript for persistence
-                    transcript.push({ speaker: 'operator', text: textToTranslate, timestamp: new Date().toISOString() });
-
-                    // TTS → generate audio with runtime fallback (use session.tts for mid-call changes)
-                    const vtSession = activeVoiceTranslateSessions.get(callId);
-                    const currentTts = vtSession?.tts ?? tts;
-                    const currentTtsName = (currentTts as any).constructor?.name;
-                    let actualTtsProvider = currentTtsName === 'ElevenLabsTTS' ? 'elevenlabs'
-                      : currentTtsName === 'XaiTTS' ? 'xai' : 'openai';
-                    let audio: Buffer | null = null;
-                    try {
-                      audio = await currentTts.synthesize(translated);
-                    } catch (ttsErr) {
-                      logger.warn({ err: ttsErr, callId, provider: actualTtsProvider }, 'TTS synthesis failed, trying fallback');
-                      const xaiVoice = ttsVoiceId ?? 'ara';
-                      const isMale = ['ara', 'rex', 'leo'].includes(xaiVoice);
-                      const openaiVoice = isMale ? 'onyx' : 'nova';
-                      for (const fallback of (['openai', 'elevenlabs', 'xai'] as const).filter(p => p !== actualTtsProvider)) {
-                        try {
-                          const fbVoice = fallback === 'openai' ? openaiVoice
-                            : fallback === 'elevenlabs' ? ttsVoiceId : xaiVoice;
-                          const fallbackTts = await createTTSProvider(call.workspace_id, fallback, fbVoice, calleeLang);
-                          audio = await fallbackTts.synthesize(translated);
-                          actualTtsProvider = fallback;
-                          const vtSessFb = activeVoiceTranslateSessions.get(callId);
-                          if (vtSessFb) vtSessFb.tts = fallbackTts;
-                          logger.info({ callId, fallback }, 'TTS fallback succeeded — locked for call');
-                          break;
-                        } catch { /* try next */ }
-                      }
-                    }
-                    if (!audio) { logger.error({ callId }, 'All TTS providers failed'); return; }
-                    const skipConversion = actualTtsProvider === 'elevenlabs' || actualTtsProvider === 'xai';
-                    if (!skipConversion) audio = pcmToMulaw(audio);
-
-                    const vtSessNow = activeVoiceTranslateSessions.get(callId);
-                    if (vtSessNow?.sequentialMode) {
-                      pttAudioBuffer.push(audio);
-                      pttTranslatedTexts.push(translated);
-                      logger.info({ callId, original: textToTranslate.slice(0, 40), pttActive: vtSessNow.pttActive }, 'TTS pre-buffered');
-                      if (!vtSessNow.pttActive) flushPttAudioBuffer();
-                    } else {
-                      sendTtsToCallee(audio);
-                      logger.info({ callId, original: textToTranslate.slice(0, 40), translated: translated.slice(0, 40) }, 'Voice translation sent to callee');
-                    }
-                  } catch (err) {
-                    logger.error({ err, callId }, 'Voice translate pipeline error');
-                  }
-                })();
-                pendingTranslations.push(p);
-                p.finally(() => {
-                  const idx = pendingTranslations.indexOf(p);
-                  if (idx >= 0) pendingTranslations.splice(idx, 1);
-                });
+              // Connect Grok Voice Agent
+              const { WebSocket: WsClient } = await import('ws');
+              let grokWs: import('ws').WebSocket | null = new WsClient('wss://api.x.ai/v1/realtime', {
+                headers: { Authorization: `Bearer ${xaiApiKey}` },
               });
 
-              // Send TTS audio to callee only (operator sees text subtitles instead)
+              let currentInputTranscript = '';
+              let currentOutputTranscript = '';
+              const pttAudioBuffer: Buffer[] = [];
+
+              // Send TTS audio to callee only
               const sendTtsToCallee = (audio: Buffer) => {
                 const vtSess = activeVoiceTranslateSessions.get(callId);
                 if (!vtSess) return;
@@ -680,42 +567,109 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 }
               };
 
-              // Flush pre-buffered TTS audio to callee+operator (called when PTT released)
               const flushPttAudioBuffer = () => {
                 if (pttAudioBuffer.length === 0) return;
-                for (const audio of pttAudioBuffer) {
-                  sendTtsToCallee(audio);
-                }
-                logger.info({ callId, chunks: pttAudioBuffer.length }, 'PTT audio buffer flushed instantly');
-                // Translation already emitted per-segment in transcript handler (line 410)
-                // Only clear buffers here — no duplicate UI emit
+                for (const audio of pttAudioBuffer) sendTtsToCallee(audio);
+                logger.info({ callId, chunks: pttAudioBuffer.length }, 'PTT audio buffer flushed');
                 pttAudioBuffer.length = 0;
-                pttTranslatedTexts.length = 0;
               };
-              registerPttFlush(callId, async () => {
-                // Wait for all in-flight translate+TTS pipelines to finish
-                if (pendingTranslations.length > 0) {
-                  logger.info({ callId, pending: pendingTranslations.length }, 'Waiting for in-flight translations before flush');
-                  await Promise.all(pendingTranslations);
-                }
-                flushPttAudioBuffer();
+              registerPttFlush(callId, flushPttAudioBuffer);
+
+              grokWs.on('open', () => {
+                logger.info({ callId }, 'Grok Voice Agent connected for dialer VT');
+                grokWs!.send(JSON.stringify({
+                  type: 'session.update',
+                  session: {
+                    voice: ttsVoiceId,
+                    instructions: `You are a live phone interpreter. Translate ${opLangName} to ${clLangName}. ONLY speak the translation, nothing else. Be natural and concise.`,
+                    turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: 200, prefix_padding_ms: 150 },
+                    input_audio_transcription: { model: 'whisper-1' },
+                    audio: {
+                      input: { format: { type: 'audio/pcmu', rate: 8000 } },
+                      output: { format: { type: 'audio/pcmu', rate: 8000 } },
+                    },
+                  },
+                }));
               });
 
-              // Emit complete utterance to transcript UI on utterance_end
-              operatorStt.on('utterance_end', () => {
-                const text = operatorAccum.trim();
-                operatorAccum = '';
-                if (!text) return;
-                if (io) {
-                  io.to(`call:${callId}`).emit('call:transcript', {
-                    call_id: callId, speaker: 'operator', text,
-                    timestamp: new Date().toISOString(), isFinal: true,
-                  });
-                }
-                // transcript.push moved to per-segment translation handler above
+              grokWs.on('message', (data: Buffer) => {
+                try {
+                  const msg = JSON.parse(data.toString());
+                  const vtSess = activeVoiceTranslateSessions.get(callId);
+
+                  if (msg.type === 'input_audio_buffer.speech_started') {
+                    currentInputTranscript = '';
+                    currentOutputTranscript = '';
+                    if (io) {
+                      io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                        call_id: callId, speaker: 'operator', text: '', timestamp: new Date().toISOString(), isFinal: false,
+                      });
+                    }
+                  }
+
+                  if (msg.type === 'response.output_audio.delta' && msg.delta) {
+                    const audio = Buffer.from(msg.delta, 'base64');
+                    if (vtSess?.sequentialMode) {
+                      pttAudioBuffer.push(audio);
+                    } else {
+                      sendTtsToCallee(audio);
+                    }
+                  }
+
+                  if (msg.type === 'response.audio_transcript.delta' || msg.type === 'response.output_audio_transcript.delta') {
+                    if (msg.delta) {
+                      currentOutputTranscript += msg.delta;
+                      if (io) {
+                        io.to(`call:${callId}:translate`).volatile.emit('call:translation:interim', {
+                          call_id: callId, original: currentInputTranscript, translated: currentOutputTranscript,
+                          timestamp: new Date().toISOString(),
+                        });
+                      }
+                    }
+                  }
+
+                  if (msg.type === 'conversation.item.input_audio_transcription.completed') {
+                    if (msg.transcript) {
+                      currentInputTranscript = msg.transcript.trim();
+                      if (io) {
+                        io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                          call_id: callId, speaker: 'operator', text: currentInputTranscript,
+                          timestamp: new Date().toISOString(), isFinal: false,
+                        });
+                      }
+                    }
+                  }
+
+                  if (msg.type === 'response.done') {
+                    const original = currentInputTranscript;
+                    const translated = currentOutputTranscript.trim();
+                    if (original && translated) {
+                      transcript.push({ speaker: 'operator', text: original, timestamp: new Date().toISOString() });
+                      if (io) {
+                        io.to(`call:${callId}:translate`).emit('call:translation', {
+                          call_id: callId, speaker: 'you', original, translated,
+                          timestamp: new Date().toISOString(),
+                        });
+                        io.to(`call:${callId}`).emit('call:transcript', {
+                          call_id: callId, speaker: 'operator', text: original,
+                          timestamp: new Date().toISOString(), isFinal: true,
+                        });
+                      }
+                    }
+                    // Flush PTT buffer if needed
+                    if (vtSess?.sequentialMode && !vtSess.pttActive) flushPttAudioBuffer();
+                    currentInputTranscript = '';
+                    currentOutputTranscript = '';
+                  }
+
+                  if (msg.type === 'error') {
+                    logger.error({ error: msg.error, callId }, 'Grok Voice Agent error (dialer VT)');
+                  }
+                } catch { /* ignore parse errors */ }
               });
 
-              operatorStt.connect({ language: operatorLang === 'auto' ? undefined : operatorLang });
+              grokWs.on('error', (err: Error) => logger.error({ err, callId }, 'Grok VT WebSocket error'));
+              grokWs.on('close', () => logger.info({ callId }, 'Grok VT WebSocket closed'));
 
               // Initiate callee call via Twilio REST API
               const calleeStreamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}-callee`;
@@ -730,16 +684,15 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 streamUrl: calleeStreamUrl,
               });
 
-              // Update call with twilio SID
               await callService.updateCallStatus(callId, 'in_progress', {
                 twilio_call_sid: twilioCallSid,
               } as any);
 
-              // Store session for callee WS to connect to
+              // Store session
               activeVoiceTranslateSessions.set(callId, {
                 operatorSocket: socket as any,
                 operatorStreamSid: streamSid!,
-                operatorStt,
+                grokWs,
                 calleeSocket: null,
                 calleeStreamSid: null,
                 calleeStt: null,
@@ -747,23 +700,21 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 workspaceId: call.workspace_id,
                 transcript,
                 sessionId: aiSession?.id,
-                tts,
-                translationLlm,
                 pttActive: false,
                 sequentialMode: meta?.voice_translate_mode === 'sequential',
                 translationEnabled: vtEnabled,
                 saved: false,
+                currentInputTranscript: '',
+                currentOutputTranscript: '',
+                pttAudioBuffer,
                 safetyTimer: setTimeout(() => {
                   logger.warn({ callId }, 'VT safety timer fired — force-finalizing session');
                   finalizeVTSession(callId).catch(() => {});
-                }, 4 * 60 * 60 * 1000), // 4 hours max
+                }, 4 * 60 * 60 * 1000),
               });
 
-              // Forward operator audio to STT
-              // (handled in media event below)
-
             } catch (err) {
-              logger.error({ err, callId }, 'Failed to start voice translate mode');
+              logger.error({ err, callId }, 'Failed to start Grok Voice Translate');
             }
             return;
           }
@@ -970,8 +921,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 media: { payload: msg.media.payload },
               }));
             }
-            // Always send to STT for transcription + translation
-            vtSession.operatorStt.sendAudio(audioBuffer);
+            // Send to Grok Voice Agent for translation
+            if (vtSession.grokWs?.readyState === 1) {
+              vtSession.grokWs.send(JSON.stringify({
+                type: 'input_audio_buffer.append',
+                audio: audioBuffer.toString('base64'),
+              }));
+            }
             return;
           }
 
