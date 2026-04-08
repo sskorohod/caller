@@ -119,6 +119,23 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       } catch { /* ignore */ }
     });
 
+    // Translator controls — change mode/voice on the fly
+    socket.on('translator:set-mode', async ({ call_id, mode }: { call_id: string; mode: string }) => {
+      try {
+        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
+        const ct = getActiveConferenceTranslators().get(call_id);
+        if (ct) ct.updateMode(mode);
+      } catch { /* ignore */ }
+    });
+
+    socket.on('translator:set-voice', async ({ call_id, voice }: { call_id: string; voice: string }) => {
+      try {
+        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
+        const ct = getActiveConferenceTranslators().get(call_id);
+        if (ct) ct.updateVoice(voice);
+      } catch { /* ignore */ }
+    });
+
     socket.on('call:translate:leave', ({ call_id }: { call_id: string }) => {
       socket.leave(`call:${call_id}:translate`);
     });

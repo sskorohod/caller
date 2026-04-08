@@ -89,6 +89,10 @@ const activeVoiceTranslateSessions = new Map<string, VoiceTranslateSession>();
 export function getActiveTranslators() { return activeTranslators; }
 export function getActiveVoiceTranslateSessions() { return activeVoiceTranslateSessions; }
 
+// Conference translators (Grok Voice Agent) — indexed by callId
+const activeConferenceTranslators = new Map<string, any>();
+export function getActiveConferenceTranslators() { return activeConferenceTranslators; }
+
 // PTT audio buffer flush callbacks (registered per call, called when PTT released)
 const pttFlushCallbacks = new Map<string, () => void>();
 
@@ -499,8 +503,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   streamSid: streamSid!,
                 });
                 await translator.start();
-                // Store reference for media/stop/close events
+                // Store reference for media/stop/close events + global map for Socket.IO control
                 (socket as any).__conferenceTranslator = translator;
+                activeConferenceTranslators.set(callId, translator);
               }
             } catch (err) {
               logger.error({ err, callId }, 'Failed to start conference translator');
@@ -1025,7 +1030,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         if (msg.event === 'stop') {
           // Conference translator
           const ct = (socket as any).__conferenceTranslator;
-          if (ct) ct.stop();
+          if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); }
           finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on stop'));
           finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on stop'));
           if (orchestrator) orchestrator.stop('stream_stopped');
@@ -1040,7 +1045,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       logger.info({ callId, code, reason: reason?.toString() }, 'Twilio MediaStream WebSocket closed');
       // Finalize all session types (idempotent — safe to call even if already finalized in stop)
       const ct = (socket as any).__conferenceTranslator;
-      if (ct) ct.stop();
+      if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); }
       finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on close'));
       finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on close'));
       if (orchestrator) orchestrator.stop('ws_closed');

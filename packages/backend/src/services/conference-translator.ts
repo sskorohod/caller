@@ -71,6 +71,8 @@ export class ConferenceTranslator extends EventEmitter {
   private startTime: number = Date.now();
   private saved: boolean = false;
   private safetyTimer?: ReturnType<typeof setTimeout>;
+  private statsTimer?: ReturnType<typeof setInterval>;
+  private xaiApiKey: string = '';
 
   // Accumulate transcript text from Grok responses
   private currentInputTranscript: string = '';
@@ -103,6 +105,7 @@ export class ConferenceTranslator extends EventEmitter {
     if (!row) throw new Error('xAI credentials not configured — required for conference translator');
     const creds = JSON.parse(decrypt(row.credential_data)) as { api_key: string };
     const apiKey = creds.api_key;
+    this.xaiApiKey = apiKey;
 
     // Create translator session record
     const [session] = await db
@@ -116,21 +119,43 @@ export class ConferenceTranslator extends EventEmitter {
     this.sessionId = session.id;
 
     // Connect to Grok Voice Agent API
+    this.connectGrok();
+
+    // Safety timer (4 hours max)
+    this.safetyTimer = setTimeout(() => {
+      log.warn({ callId: this.callId }, 'Translator safety timer fired');
+      this.finalize().catch(() => {});
+    }, 4 * 60 * 60 * 1000);
+
+    // Stats emitter — send duration + cost every 5 seconds
+    this.statsTimer = setInterval(() => {
+      const io = getIo();
+      if (io) {
+        const secs = Math.floor((Date.now() - this.startTime) / 1000);
+        io.to(`call:${this.callId}`).volatile.emit('translator:stats', {
+          call_id: this.callId,
+          duration_seconds: secs,
+          cost_usd: (secs / 60) * 0.05,
+        });
+      }
+    }, 5000);
+
+    log.info({
+      callId: this.callId,
+      subscriber: this.subscriberId,
+      myLang: this.myLang,
+      targetLang: this.targetLang,
+      mode: this.mode,
+    }, 'Conference translator started (Grok Voice Agent)');
+
+    // Send Telegram notification
+    this.sendTelegramNotification('start').catch(() => {});
+  }
+
+  private buildInstructions(): string {
     const myLangName = LANG_NAMES[this.myLang] || this.myLang;
     const targetLangName = LANG_NAMES[this.targetLang] || this.targetLang;
-
-    this.grokWs = new WebSocket('wss://api.x.ai/v1/realtime', {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-
-    this.grokWs.on('open', () => {
-      log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket connected');
-
-      this.grokWs!.send(JSON.stringify({
-        type: 'session.update',
-        session: {
-          voice: this.ttsVoiceId || 'eve',
-          instructions: `You are a live phone interpreter. Your ONLY job is to translate speech between ${myLangName} and ${targetLangName}.
+    return `You are a live phone interpreter. Your ONLY job is to translate speech between ${myLangName} and ${targetLangName}.
 
 Rules:
 - When you hear ${myLangName}, translate it to ${targetLangName} and speak the translation.
@@ -141,7 +166,24 @@ Rules:
 Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}${this.personalContext ? `
 
 Personal information about the subscriber (use when relevant — spell names carefully, dictate numbers clearly):
-${this.personalContext}` : ''}`,
+${this.personalContext}` : ''}`;
+  }
+
+  private connectGrok(): void {
+    // Close existing connection if any
+    try { this.grokWs?.close(); } catch { /* ignore */ }
+
+    this.grokWs = new WebSocket('wss://api.x.ai/v1/realtime', {
+      headers: { Authorization: `Bearer ${this.xaiApiKey}` },
+    });
+
+    this.grokWs.on('open', () => {
+      log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket connected');
+      this.grokWs!.send(JSON.stringify({
+        type: 'session.update',
+        session: {
+          voice: this.ttsVoiceId || 'eve',
+          instructions: this.buildInstructions(),
           turn_detection: {
             type: 'server_vad',
             threshold: 0.5,
@@ -170,23 +212,20 @@ ${this.personalContext}` : ''}`,
     this.grokWs.on('close', () => {
       log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket closed');
     });
+  }
 
-    // Safety timer (4 hours max)
-    this.safetyTimer = setTimeout(() => {
-      log.warn({ callId: this.callId }, 'Translator safety timer fired');
-      this.finalize().catch(() => {});
-    }, 4 * 60 * 60 * 1000);
+  /** Update translation mode on the fly — reconnects Grok with new instructions */
+  updateMode(mode: string): void {
+    this.mode = mode as any;
+    log.info({ callId: this.callId, mode }, 'Translator mode updated — reconnecting Grok');
+    this.connectGrok();
+  }
 
-    log.info({
-      callId: this.callId,
-      subscriber: this.subscriberId,
-      myLang: this.myLang,
-      targetLang: this.targetLang,
-      mode: this.mode,
-    }, 'Conference translator started (Grok Voice Agent)');
-
-    // Send Telegram notification
-    this.sendTelegramNotification('start').catch(() => {});
+  /** Update voice on the fly — reconnects Grok with new voice */
+  updateVoice(voice: string): void {
+    this.ttsVoiceId = voice;
+    log.info({ callId: this.callId, voice }, 'Translator voice updated — reconnecting Grok');
+    this.connectGrok();
   }
 
   /** Forward telephony audio to Grok Voice Agent */
@@ -201,11 +240,18 @@ ${this.personalContext}` : ''}`,
 
   private handleGrokEvent(msg: any): void {
     switch (msg.type) {
-      case 'input_audio_buffer.speech_started':
-        // User started speaking — emit to UI
+      case 'input_audio_buffer.speech_started': {
+        // User started speaking — emit "Speaking..." to UI
         this.currentInputTranscript = '';
         this.currentOutputTranscript = '';
+        const io0 = getIo();
+        if (io0) {
+          io0.to(`call:${this.callId}`).volatile.emit('call:transcript', {
+            call_id: this.callId, speaker: 'conference', text: '', timestamp: new Date().toISOString(), isFinal: false,
+          });
+        }
         break;
+      }
 
       case 'response.output_audio.delta':
         // Streaming translated audio — inject into Twilio stream
@@ -224,16 +270,32 @@ ${this.personalContext}` : ''}`,
 
       case 'response.audio_transcript.delta':
       case 'response.output_audio_transcript.delta':
-        // Accumulate output transcript (the translation)
+        // Accumulate output transcript + emit interim translation
         if (msg.delta) {
           this.currentOutputTranscript += msg.delta;
+          const io3 = getIo();
+          if (io3) {
+            io3.to(`call:${this.callId}:translate`).volatile.emit('call:translation:interim', {
+              call_id: this.callId,
+              original: this.currentInputTranscript,
+              translated: this.currentOutputTranscript,
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
         break;
 
       case 'conversation.item.input_audio_transcription.completed':
-        // Input speech transcribed — this is what was said
+        // Input speech transcribed — show original text on UI
         if (msg.transcript) {
           this.currentInputTranscript = msg.transcript.trim();
+          const io2 = getIo();
+          if (io2) {
+            io2.to(`call:${this.callId}`).volatile.emit('call:transcript', {
+              call_id: this.callId, speaker: 'conference', text: this.currentInputTranscript,
+              timestamp: new Date().toISOString(), isFinal: false,
+            });
+          }
         }
         break;
 
@@ -300,8 +362,9 @@ ${this.personalContext}` : ''}`,
       this.safetyTimer = undefined;
     }
 
-    // Close Grok WebSocket
+    // Close Grok WebSocket + stats timer
     try { this.grokWs?.close(); } catch { /* ignore */ }
+    if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
 
     const durationSecs = Math.floor((Date.now() - this.startTime) / 1000);
     const durationMins = durationSecs / 60;
