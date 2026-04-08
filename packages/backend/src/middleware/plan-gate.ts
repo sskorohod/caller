@@ -21,6 +21,8 @@ export function requireFeature(feature: keyof PlanFeatures) {
  */
 export function requireBalance() {
   return async (request: FastifyRequest, _reply: FastifyReply) => {
+    // Owner (admin) has unlimited balance
+    if (request.auth.role === 'owner') return;
     if (!hasSufficientBalance(request.auth.balanceUsd, request.auth.providerConfig)) {
       throw new ForbiddenError('Insufficient deposit balance. Please top up to continue using platform providers.');
     }
