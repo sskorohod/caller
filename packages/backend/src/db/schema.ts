@@ -549,6 +549,7 @@ export const translatorSubscribers = pgTable('translator_subscribers', {
   mode: text('mode').notNull().default('voice'), // 'voice' | 'text' | 'both'
   who_hears: text('who_hears').notNull().default('subscriber'), // 'subscriber' | 'both'
   translation_mode: text('translation_mode').notNull().default('bidirectional'), // 'bidirectional' | 'unidirectional'
+  tone: text('tone').notNull().default('neutral'), // 'neutral' | 'business' | 'friendly' | 'medical' | 'legal'
   greeting_text: text('greeting_text').notNull().default('Hello, I am your live translator. I will be translating this conversation.'),
   tts_provider: text('tts_provider').notNull().default('elevenlabs'),
   tts_voice_id: text('tts_voice_id'),

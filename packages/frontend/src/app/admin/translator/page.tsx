@@ -11,6 +11,7 @@ interface Subscriber {
   target_language: string;
   mode: string;
   who_hears: string;
+  tone: string;
   greeting_text: string;
   tts_provider: string;
   tts_voice_id: string | null;
@@ -38,10 +39,12 @@ const LANGUAGES = [
   { value: 'fr', label: 'Français' },
 ];
 
-const TTS_PROVIDERS = [
-  { value: 'elevenlabs', label: 'ElevenLabs' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'xai', label: 'xAI / Grok' },
+const VOICES = [
+  { value: 'eve', label: 'Eve', gender: 'Female' },
+  { value: 'sal', label: 'Sal', gender: 'Female' },
+  { value: 'ara', label: 'Ara', gender: 'Male' },
+  { value: 'rex', label: 'Rex', gender: 'Male' },
+  { value: 'leo', label: 'Leo', gender: 'Male' },
 ];
 
 const MODES = [
@@ -53,6 +56,14 @@ const MODES = [
 const WHO_HEARS = [
   { value: 'subscriber', label: 'Subscriber only' },
   { value: 'both', label: 'Both parties' },
+];
+
+const TONES = [
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'business', label: 'Business' },
+  { value: 'friendly', label: 'Friendly' },
+  { value: 'medical', label: 'Medical' },
+  { value: 'legal', label: 'Legal' },
 ];
 
 const inputCls = "w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50";
@@ -103,7 +114,7 @@ export default function AdminTranslator() {
 
   const startCreate = () => {
     setSelected(null);
-    setForm({ my_language: 'ru', target_language: 'en', mode: 'voice', who_hears: 'subscriber', tts_provider: 'elevenlabs', enabled: true });
+    setForm({ my_language: 'ru', target_language: 'en', mode: 'voice', who_hears: 'subscriber', tts_voice_id: 'eve', tone: 'neutral', enabled: true });
     setCreating(true);
     setEditMode(false);
   };
@@ -274,21 +285,26 @@ export default function AdminTranslator() {
                   </div>
                 </div>
                 <div>
+                  <label className={labelCls}>Tone</label>
+                  <select value={form.tone || 'neutral'} onChange={e => setForm({ ...form, tone: e.target.value })} className={selectCls}>
+                    {TONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label className={labelCls}>Greeting Text</label>
                   <textarea value={form.greeting_text || ''} onChange={e => setForm({ ...form, greeting_text: e.target.value })}
                     className={inputCls + ' min-h-[60px] resize-y'} rows={2} />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className={labelCls}>TTS Provider</label>
-                    <select value={form.tts_provider || 'elevenlabs'} onChange={e => setForm({ ...form, tts_provider: e.target.value })} className={selectCls}>
-                      {TTS_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>TTS Voice ID</label>
-                    <input value={form.tts_voice_id || ''} onChange={e => setForm({ ...form, tts_voice_id: e.target.value || undefined })} className={inputCls} placeholder="optional" />
-                  </div>
+                <div>
+                  <label className={labelCls}>Voice</label>
+                  <select value={form.tts_voice_id || 'eve'} onChange={e => setForm({ ...form, tts_voice_id: e.target.value })} className={selectCls}>
+                    <optgroup label="Female">
+                      {VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </optgroup>
+                    <optgroup label="Male">
+                      {VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </optgroup>
+                  </select>
                 </div>
                 <div>
                   <label className={labelCls}>Telegram Chat ID</label>
@@ -338,7 +354,8 @@ export default function AdminTranslator() {
                 <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Languages</span><span>{selected.my_language} → {selected.target_language}</span></div>
                 <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Mode</span><span className="capitalize">{selected.mode}</span></div>
                 <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Who Hears</span><span className="capitalize">{selected.who_hears}</span></div>
-                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>TTS</span><span>{selected.tts_provider}{selected.tts_voice_id ? ` / ${selected.tts_voice_id}` : ''}</span></div>
+                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Tone</span><span className="capitalize">{selected.tone || 'neutral'}</span></div>
+                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Voice</span><span className="capitalize">{selected.tts_voice_id || 'eve'}</span></div>
                 {selected.telegram_chat_id && <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Telegram</span><span className="font-mono">{selected.telegram_chat_id}</span></div>}
               </div>
 

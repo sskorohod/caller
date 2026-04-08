@@ -25,12 +25,21 @@ interface ConferenceTranslatorOptions {
   whoHears: 'subscriber' | 'both';
   ttsProvider: string;
   ttsVoiceId?: string;
+  tone?: string;
   socket: WebSocket;        // Twilio media stream WebSocket
   streamSid: string;        // Twilio stream SID
 }
 
 const LANG_NAMES: Record<string, string> = {
   en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French',
+};
+
+const TONE_INSTRUCTIONS: Record<string, string> = {
+  neutral: 'Translate naturally, preserving the original tone and meaning.',
+  business: 'Use a professional, formal business tone. Remove filler words (um, uh, er, hmm). Use clear, precise language appropriate for business meetings and appointments.',
+  friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
+  medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
+  legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
 };
 
 /**
@@ -53,6 +62,7 @@ export class ConferenceTranslator extends EventEmitter {
   private twilioSocket: WebSocket;
   private streamSid: string;
   private ttsVoiceId?: string;
+  private tone: string;
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
   private sessionId: string | null = null;
@@ -76,6 +86,7 @@ export class ConferenceTranslator extends EventEmitter {
     this.twilioSocket = options.socket;
     this.streamSid = options.streamSid;
     this.ttsVoiceId = options.ttsVoiceId;
+    this.tone = options.tone || 'neutral';
   }
 
   async start(): Promise<void> {
@@ -122,8 +133,9 @@ Rules:
 - When you hear ${myLangName}, translate it to ${targetLangName} and speak the translation.
 - When you hear ${targetLangName}, translate it to ${myLangName} and speak the translation.
 - ONLY speak the translation. Do NOT add any commentary, greetings, or explanations.
-- Be natural and concise, matching the speaker's tone.
-- If you cannot understand something, stay silent.`,
+- If you cannot understand something, stay silent.
+
+Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}`,
           turn_detection: {
             type: 'server_vad',
             threshold: 0.5,

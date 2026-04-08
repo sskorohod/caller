@@ -22,6 +22,7 @@ const createSchema = z.object({
   mode: z.enum(['voice', 'text', 'both']).default('voice'),
   who_hears: z.enum(['subscriber', 'both']).default('subscriber'),
   translation_mode: z.enum(['bidirectional', 'unidirectional']).default('bidirectional'),
+  tone: z.enum(['neutral', 'business', 'friendly', 'medical', 'legal']).default('neutral'),
   greeting_text: z.string().max(500).optional(),
   tts_provider: z.enum(['elevenlabs', 'openai', 'xai']).default('elevenlabs'),
   tts_voice_id: z.string().max(100).optional(),
