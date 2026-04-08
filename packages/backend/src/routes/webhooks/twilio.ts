@@ -135,6 +135,34 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         conversationOwner: 'internal',
       });
 
+      // Send Telegram notification IMMEDIATELY (fire-and-forget, no delay)
+      (async () => {
+        try {
+          const { providerCredentials } = await import('../../db/schema.js');
+          const { decrypt } = await import('../../lib/crypto.js');
+          const { sendTranslatorSessionStart } = await import('../../services/telegram.service.js');
+
+          const [telegramCreds] = await db.select().from(providerCredentials)
+            .where(and(eq(providerCredentials.workspace_id, workspace.id), eq(providerCredentials.provider, 'telegram')));
+          if (!telegramCreds) return;
+
+          const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+          const chatId = translatorSub.telegram_chat_id || creds.chat_id;
+          if (!creds.bot_token || !chatId) return;
+
+          const shareToken = await callService.createShareToken(translatorCall.id);
+          const liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
+
+          await sendTranslatorSessionStart(creds.bot_token, chatId, {
+            subscriberName: translatorSub.name,
+            liveUrl,
+          });
+          app.log.info({ callId: translatorCall.id, liveUrl }, 'Telegram notification sent immediately');
+        } catch (err) {
+          app.log.error({ err }, 'Failed to send immediate Telegram notification');
+        }
+      })();
+
       // Merge workspace-level translator defaults with subscriber settings
       const wsDefaults = (workspace.translator_defaults as Record<string, string>) || {};
       const greetingText = wsDefaults.greeting_text || translatorSub.greeting_text;

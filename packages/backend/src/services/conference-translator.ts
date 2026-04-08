@@ -148,10 +148,8 @@ export class ConferenceTranslator extends EventEmitter {
       mode: this.mode,
     }, 'Conference translator started (Grok Voice Agent)');
 
-    // Send Telegram notification
-    this.sendTelegramNotification('start').catch(err => {
-      log.error({ err, callId: this.callId }, 'Failed to send Telegram start notification');
-    });
+    // Telegram start notification is sent earlier (in twilio.ts inbound handler)
+    // Only end notification is sent from here
   }
 
   private buildInstructions(): string {
