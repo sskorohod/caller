@@ -356,11 +356,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   return;
                 }
 
-                // Final segment → accumulate and translate immediately
+                // Final segment → accumulate (save only on utterance_end for clean transcript)
                 calleeAccum += (calleeAccum ? ' ' : '') + text;
-
-                // Save each final segment to transcript immediately (don't rely on utterance_end)
-                session.transcript.push({ speaker: 'caller', text, timestamp: new Date().toISOString() });
 
                 // Translate each final segment right away (don't wait for utterance_end)
                 const translator = activeTranslators.get(callId);
@@ -371,6 +368,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 const text = calleeAccum.trim();
                 calleeAccum = '';
                 if (!text) return;
+
+                // Save complete utterance to transcript (not individual segments)
+                session.transcript.push({ speaker: 'caller', text, timestamp: new Date().toISOString() });
 
                 // Emit final transcript for UI display
                 logger.info({ callId, speaker: 'caller', text: text.slice(0, 50) }, 'Callee transcript emitted');
