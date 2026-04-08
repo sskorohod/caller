@@ -516,9 +516,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           }
 
           // --- Dialer call: Voice Translate via Grok Voice Agent ---
-          if (call.conversation_owner_requested === 'manual') {
-            const vtEnabled = !!(call.metadata as any)?.voice_translate;
-            logger.info({ callId, vtEnabled }, 'Dialer call — Grok Voice Agent mode');
+          if (call.conversation_owner_requested === 'manual' && !!(call.metadata as any)?.voice_translate) {
+            logger.info({ callId }, 'Dialer call — Grok Voice Agent mode');
             try {
               const meta = call.metadata as any;
               const operatorLang = meta.stt_language ?? 'ru';
@@ -702,7 +701,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 sessionId: aiSession?.id,
                 pttActive: false,
                 sequentialMode: meta?.voice_translate_mode === 'sequential',
-                translationEnabled: vtEnabled,
+                translationEnabled: true,
                 saved: false,
                 currentInputTranscript: '',
                 currentOutputTranscript: '',
