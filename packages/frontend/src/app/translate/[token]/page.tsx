@@ -203,28 +203,27 @@ export default function LiveTranslatePage() {
                   </button>
                 ))}
               </div>
-              {/* Languages */}
+              {/* Languages: I speak → They speak */}
               <div className="flex items-center gap-1">
+                <span className="text-[9px] text-gray-500">I speak</span>
                 <select value={myLang} onChange={e => changeMyLang(e.target.value)}
-                  className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-12"
-                  title="Your language">
+                  className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-12">
                   {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>
-                <span className="text-gray-600 text-[9px]">→</span>
+                <span className="text-[9px] text-gray-500">they</span>
                 <select value={targetLang} onChange={e => changeTargetLang(e.target.value)}
-                  className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-12"
-                  title="Other party language">
+                  className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-12">
                   {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>
               </div>
               {/* Voice */}
               <select value={voice} onChange={e => changeVoice(e.target.value)}
                 className="px-1.5 py-1 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none ml-auto">
-                <optgroup label="F">
-                  {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                <optgroup label="Female voice">
+                  {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label} (F)</option>)}
                 </optgroup>
-                <optgroup label="M">
-                  {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                <optgroup label="Male voice">
+                  {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label} (M)</option>)}
                 </optgroup>
               </select>
             </div>
