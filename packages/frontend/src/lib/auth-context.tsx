@@ -32,6 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(t);
       setUser(JSON.parse(u));
       if (w) setWorkspaceState(JSON.parse(w));
+      // Sync cookie if token exists in localStorage but not in cookie
+      if (!document.cookie.includes('caller_token=')) {
+        document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+      }
     }
     setIsLoading(false);
   }, []);
@@ -40,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('caller_token', t);
     localStorage.setItem('caller_user', JSON.stringify(u));
     if (w) localStorage.setItem('caller_workspace', JSON.stringify(w));
+    // Set cookie so Next.js middleware can read the token server-side
+    document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
     setToken(t);
     setUser(u);
     if (w) setWorkspaceState(w);
@@ -50,6 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('caller_token');
     localStorage.removeItem('caller_user');
     localStorage.removeItem('caller_workspace');
+    // Clear the auth cookie
+    document.cookie = 'caller_token=; path=/; max-age=0';
     setToken(null);
     setUser(null);
     setWorkspaceState(null);

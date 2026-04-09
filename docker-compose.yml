@@ -112,6 +112,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      INTERNAL_API_URL: http://backend:3011
     deploy:
       resources:
         limits:
