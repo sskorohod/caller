@@ -170,7 +170,7 @@ Respond in JSON format:
                 llmProvider: model.includes('claude') ? 'anthropic' : model.includes('gpt') ? 'openai' : 'xai',
               },
               providerConfig: (ws?.provider_config as any) || {},
-              referenceType: 'post_call_analysis',
+              referenceType: 'call_session' as any,
               referenceId: sessionId,
             });
           } catch (err) {
