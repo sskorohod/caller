@@ -373,7 +373,6 @@ export default function TranslatorPage() {
         <div className="flex-1 min-w-0 hidden lg:block">
           <LiveSidebar />
         </div>
-        </div>
       </div>
     </div>
   );
