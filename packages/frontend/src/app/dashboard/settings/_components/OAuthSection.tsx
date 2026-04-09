@@ -67,12 +67,18 @@ export function OAuthSection() {
 
   return (
     <div className="space-y-5">
+      {/* Section header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-[var(--th-text)]">OAuth 2.0 Applications</h3>
-          <p className="text-xs text-[var(--th-text-muted)] mt-1">
-            {t('settings.oauthHint') || 'Register apps (ChatGPT GPT Actions, custom integrations) to connect via OAuth.'}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-[0_2px_8px_rgba(6,182,212,0.3)]">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-[var(--th-text)]">OAuth 2.0 Applications</h2>
+            <p className="text-xs text-[var(--th-text-muted)]">{t('settings.oauthHint')}</p>
+          </div>
         </div>
         <button
           onClick={() => { setModal(true); setNewClient(null); }}

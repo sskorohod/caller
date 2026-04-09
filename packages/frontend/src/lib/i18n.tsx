@@ -540,6 +540,8 @@ const en: Record<string, string> = {
   'settings.complianceWarning': 'We recommend keeping both disclosures enabled. Disabling them may expose you to legal liability depending on your jurisdiction.',
   'settings.apiKeysHint': 'Allow external AI agents (Claude, ChatGPT) to make calls on behalf of your workspace.',
   'settings.oauthHint': 'Register apps (ChatGPT GPT Actions, custom integrations) to connect via OAuth.',
+  'settings.generalHint': 'Configure your workspace identity and preferences.',
+  'settings.preferences': 'Preferences',
 
   // Login
   'login.signIn': 'Sign In',
@@ -1343,6 +1345,8 @@ const ru: Record<string, string> = {
   'settings.complianceWarning': 'Рекомендуем оставить оба уведомления включёнными. Их отключение может повлечь юридическую ответственность.',
   'settings.apiKeysHint': 'Разрешите внешним AI-агентам (Claude, ChatGPT) совершать звонки от имени вашего пространства.',
   'settings.oauthHint': 'Зарегистрируйте приложения (ChatGPT GPT Actions, интеграции) для подключения через OAuth.',
+  'settings.generalHint': 'Настройте идентификацию и предпочтения рабочего пространства.',
+  'settings.preferences': 'Предпочтения',
 
   // Login
   'login.signIn': 'Войти',
