@@ -44,7 +44,7 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
   friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
   medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
   legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
-  intelligent: 'IMPORTANT: Before translating, first rephrase the speaker\'s words to sound maximally intelligent, polite, and respectful. Remove any slang, filler words, rough expressions, or grammatical errors. Restructure the sentence to be eloquent and well-spoken while preserving the full original meaning. Only THEN translate the refined version. The listener should perceive the speaker as highly educated and articulate.',
+  intelligent: 'IMPORTANT two-step process: Step 1 — mentally rephrase the speaker\'s words to sound maximally intelligent, polite, respectful and eloquent. Remove slang, filler words (um, uh), rough expressions, grammatical errors. Step 2 — TRANSLATE the refined version into THE OTHER LANGUAGE. You MUST always output speech in the TARGET language, never in the same language as the speaker. If the speaker speaks English, your output MUST be in Russian (or the other configured language). If the speaker speaks Russian, your output MUST be in English. Never just rephrase without translating.',
 };
 
 /**
@@ -190,8 +190,9 @@ ${this.personalContext}` : ''}`;
     return `You are a live phone interpreter. Your ONLY job is to translate speech between ${myLangName} and ${targetLangName}.
 
 Rules:
-- When you hear ${myLangName}, translate it to ${targetLangName} and speak the translation.
-- When you hear ${targetLangName}, translate it to ${myLangName} and speak the translation.
+- When you hear ${myLangName}, you MUST translate it to ${targetLangName} and speak the translation in ${targetLangName}.
+- When you hear ${targetLangName}, you MUST translate it to ${myLangName} and speak the translation in ${myLangName}.
+- CRITICAL: Your output language must ALWAYS be different from the input language. Never output in the same language as the speaker.
 ${commonRules}
 
 Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}${this.personalContext ? `
