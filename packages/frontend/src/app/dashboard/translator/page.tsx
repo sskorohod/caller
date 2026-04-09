@@ -82,6 +82,18 @@ export default function TranslatorPage() {
   const { socket } = useSocket();
   const [tab, setTab] = useState<Tab>('settings');
 
+  // ─── Translator Phone Number ────────────────────────────────────
+  const [translatorPhone, setTranslatorPhone] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<Array<{ phone_number: string; ai_answering_enabled: boolean }>>('/connectors')
+      .then(conns => {
+        const active = conns.find(c => c.ai_answering_enabled);
+        if (active) setTranslatorPhone(active.phone_number);
+      })
+      .catch(() => {});
+  }, []);
+
   // ─── Settings ──────────────────────────────────────────────────
   const [defaults, setDefaults] = useState<TranslatorDefaults>({});
   const [saving, setSaving] = useState(false);
@@ -173,19 +185,33 @@ export default function TranslatorPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header + Tabs */}
-      <div className="flex items-center justify-between">
+      {/* Header + Phone + Tabs */}
+      <div className="flex items-center justify-between gap-4">
         <h2 className="text-xl font-bold text-[var(--th-text)]">Translator</h2>
-        <div className="flex rounded-xl border border-[var(--th-border)] overflow-hidden">
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-4 py-2 text-sm font-medium transition-all ${tab === t.id
-                ? 'bg-[var(--th-primary)] text-white'
-                : 'text-[var(--th-text-muted)] hover:bg-[var(--th-card)]'
-              }`}>
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-4">
+          {translatorPhone && (
+            <a href={`tel:${translatorPhone}`}
+              className="text-2xl font-extrabold tracking-wide"
+              style={{
+                background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.5)) drop-shadow(0 0 24px rgba(139,92,246,0.25))',
+              }}>
+              {translatorPhone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
+            </a>
+          )}
+          <div className="flex rounded-xl border border-[var(--th-border)] overflow-hidden">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`px-4 py-2 text-sm font-medium transition-all ${tab === t.id
+                  ? 'bg-[var(--th-primary)] text-white'
+                  : 'text-[var(--th-text-muted)] hover:bg-[var(--th-card)]'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
