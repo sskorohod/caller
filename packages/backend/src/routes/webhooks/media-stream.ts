@@ -496,7 +496,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 subscriberId: callerWsId || call.workspace_id,
                 myLanguage: wsDefs.my_language || 'ru',
                 targetLanguage: wsDefs.target_language || 'en',
-                mode: (wsDefs.translation_mode as any) || 'voice',
+                mode: wsDefs.translation_mode === 'unidirectional' ? 'text' : 'voice',
                 whoHears: (wsDefs.who_hears as any) || 'both',
                 ttsProvider: 'xai',
                 ttsVoiceId: wsDefs.tts_voice_id || 'eve',
