@@ -545,11 +545,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               const transcript: ManualSession['transcript'] = [];
               const aiSession = await callService.getAiSession(callId);
 
-              // Get xAI API key for Grok Voice Agent
+              // Get xAI API key — own workspace first, fallback to platform
               const { providerCredentials: pcTable } = await import('../../db/schema.js');
-              const [xaiRow] = await db.select({ credential_data: pcTable.credential_data })
+              let [xaiRow] = await db.select({ credential_data: pcTable.credential_data })
                 .from(pcTable)
                 .where(and(eq(pcTable.workspace_id, call.workspace_id), eq(pcTable.provider, 'xai')));
+              if (!xaiRow) {
+                [xaiRow] = await db.select({ credential_data: pcTable.credential_data })
+                  .from(pcTable)
+                  .where(eq(pcTable.provider, 'xai'))
+                  .limit(1);
+              }
               if (!xaiRow) throw new Error('xAI credentials not configured');
               const xaiApiKey = JSON.parse(decrypt(xaiRow.credential_data)).api_key;
 
