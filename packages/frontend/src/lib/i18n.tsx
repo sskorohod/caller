@@ -119,7 +119,6 @@ const en: Record<string, string> = {
   'dashboard.qaSettings': 'Settings',
   'dashboard.translatorService': 'Live Translator Service',
   'dashboard.callToTranslate': 'Call to connect live translator',
-  'dashboard.avgDuration': 'Avg Duration',
   'dashboard.thisWeek': 'This Week',
   'dashboard.period30d': '30d',
 
@@ -777,7 +776,6 @@ const ru: Record<string, string> = {
   'dashboard.qaSettings': 'Настройки',
   'dashboard.translatorService': 'Сервис живого перевода',
   'dashboard.callToTranslate': 'Позвоните для подключения переводчика',
-  'dashboard.avgDuration': 'Сред. длительность',
   'dashboard.thisWeek': 'За неделю',
   'dashboard.period30d': '30д',
 
