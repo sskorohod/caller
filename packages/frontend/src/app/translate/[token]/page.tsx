@@ -201,18 +201,67 @@ export default function LiveTranslatePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0e1a] text-white flex flex-col">
-      {/* ─── Header: Timer + Cost only ─── */}
-      <div className="sticky top-0 z-20 bg-[#0a0e1a]/95 backdrop-blur-sm border-b border-white/5 px-3 py-2.5">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      {/* ─── Header: Timer + Languages + Tone + Cost ─── */}
+      <div className="sticky top-0 z-20 bg-[#0a0e1a]/95 backdrop-blur-sm border-b border-white/5 px-3 py-2">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
+          {/* Left: status + timer */}
+          <div className="flex items-center gap-1.5 shrink-0">
             {status === 'live' && !paused && <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />}
             {status === 'live' && paused && <span className="w-2 h-2 bg-amber-400 rounded-full" />}
             {status === 'ended' && <span className="w-2 h-2 bg-gray-500 rounded-full" />}
             {status === 'connecting' && <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />}
-            <span className="font-mono text-sm text-gray-300">{formatTime(duration)}</span>
-            {paused && <span className="text-[10px] font-medium text-amber-400 uppercase">Paused</span>}
+            <span className="font-mono text-xs text-gray-400">{formatTime(duration)}</span>
           </div>
-          <span className="font-mono text-sm text-gray-300">${cost.toFixed(2)}</span>
+
+          {/* Center: Languages + Tone */}
+          {status === 'live' && (
+            <div className="flex items-center gap-1.5">
+              <select value={myLang} onChange={e => changeMyLang(e.target.value)}
+                className="px-1 py-1 rounded text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-11">
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+              <span className="text-[10px] text-gray-600">⇄</span>
+              <select value={targetLang} onChange={e => changeTargetLang(e.target.value)}
+                className="px-1 py-1 rounded text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none w-11">
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+
+              {/* Tone */}
+              <div className="relative">
+                <button onClick={() => setShowToneMenu(!showToneMenu)}
+                  title="Tone"
+                  className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-medium border transition-all ${
+                    tone !== 'neutral'
+                      ? 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300'
+                      : 'bg-white/5 border-white/10 text-gray-400'
+                  }`}>
+                  <span>{currentTone?.icon}</span>
+                  <span>{currentTone?.label}</span>
+                </button>
+                {showToneMenu && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowToneMenu(false)} />
+                    <div className="absolute top-full left-0 mt-1 z-40 bg-[#161b2e] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px]">
+                      {TONES.map(t => (
+                        <button key={t.value} onClick={() => changeTone(t.value)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] text-left transition-all ${
+                            tone === t.value
+                              ? 'bg-indigo-500/15 text-indigo-300'
+                              : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                          }`}>
+                          <span>{t.icon}</span>
+                          <span>{t.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Right: cost */}
+          <span className="font-mono text-xs text-gray-400 shrink-0">${cost.toFixed(2)}</span>
         </div>
       </div>
 
@@ -278,109 +327,44 @@ export default function LiveTranslatePage() {
       {/* ─── Bottom Controls ─── */}
       {status === 'live' && (
         <div className="sticky bottom-0 z-20 bg-[#0a0e1a]/95 backdrop-blur-sm border-t border-white/5 px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-2xl mx-auto space-y-2">
-            {/* Row 1: Mode + Languages + Pause */}
-            <div className="flex items-center gap-2">
-              {/* Mode toggle */}
-              <div className="flex rounded-md border border-white/10 overflow-hidden">
-                {(['bidirectional', 'unidirectional'] as const).map(m => (
-                  <button key={m} onClick={() => changeMode(m)}
-                    className={`px-2.5 py-1.5 text-[10px] font-medium transition-all ${
-                      mode === m ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
-                    }`}>
-                    {m === 'bidirectional' ? '2-way' : '1-way'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Languages */}
-              <div className="flex items-center gap-1">
-                <select value={myLang} onChange={e => changeMyLang(e.target.value)}
-                  className="px-1.5 py-1.5 rounded-md text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
-                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-                <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                </svg>
-                <select value={targetLang} onChange={e => changeTargetLang(e.target.value)}
-                  className="px-1.5 py-1.5 rounded-md text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none w-14">
-                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-              </div>
-
-              {/* Pause button */}
-              <button onClick={togglePause}
-                className={`ml-auto p-1.5 rounded-lg border transition-all ${
-                  paused
-                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-300'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-                }`}
-                title={paused ? 'Resume' : 'Pause'}>
-                {paused ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-
-            {/* Row 2: Voice + Tone */}
-            <div className="flex items-center gap-2">
-              {/* Voice selector */}
-              <div className="flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
-                </svg>
-                <select value={voice} onChange={e => changeVoice(e.target.value)}
-                  className="px-1.5 py-1.5 rounded-md text-[11px] bg-white/5 border border-white/10 text-gray-300 outline-none">
-                  <optgroup label="Female">
-                    {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-                  </optgroup>
-                  <optgroup label="Male">
-                    {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-                  </optgroup>
-                </select>
-              </div>
-
-              {/* Tone selector */}
-              <div className="relative ml-auto">
-                <button onClick={() => setShowToneMenu(!showToneMenu)}
-                  title="Communication style for translations"
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-all ${
-                    tone !== 'neutral'
-                      ? 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300'
-                      : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-300'
+          <div className="max-w-2xl mx-auto flex items-center gap-2">
+            {/* Mode toggle */}
+            <div className="flex rounded-md border border-white/10 overflow-hidden">
+              {(['bidirectional', 'unidirectional'] as const).map(m => (
+                <button key={m} onClick={() => changeMode(m)}
+                  className={`px-2.5 py-1.5 text-[10px] font-medium transition-all ${
+                    mode === m ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
                   }`}>
-                  <span>{currentTone?.icon}</span>
-                  <span>{currentTone?.label || 'Tone'}</span>
-                  <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                  </svg>
+                  {m === 'bidirectional' ? '2-way' : '1-way'}
                 </button>
-                {showToneMenu && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setShowToneMenu(false)} />
-                    <div className="absolute bottom-full right-0 mb-1 z-40 bg-[#161b2e] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[160px]">
-                      {TONES.map(t => (
-                        <button key={t.value} onClick={() => changeTone(t.value)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] text-left transition-all ${
-                            tone === t.value
-                              ? 'bg-indigo-500/15 text-indigo-300'
-                              : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
-                          }`}>
-                          <span>{t.icon}</span>
-                          <span>{t.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+              ))}
             </div>
+
+            {/* Voice selector */}
+            <select value={voice} onChange={e => changeVoice(e.target.value)}
+              className="px-1.5 py-1.5 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none">
+              <optgroup label="F">
+                {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </optgroup>
+              <optgroup label="M">
+                {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </optgroup>
+            </select>
+
+            {/* Pause button */}
+            <button onClick={togglePause}
+              className={`ml-auto p-1.5 rounded-lg border transition-all ${
+                paused
+                  ? 'bg-amber-500/20 border-amber-500/30 text-amber-300'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+              }`}
+              title={paused ? 'Resume' : 'Pause'}>
+              {paused ? (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+              )}
+            </button>
           </div>
         </div>
       )}
