@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { authenticateUser, authenticateApiKey, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, authenticateApiKey, authenticateAny, requireRole } from '../../middleware/auth.js';
+import { requireMcpAccess } from '../../middleware/plan-gate.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
@@ -39,7 +40,7 @@ const listCallsSchema = z.object({
 const callRoutes: FastifyPluginAsync = async (app) => {
   // MCP route: POST /api/calls/start (API key auth)
   app.post('/start', {
-    preHandler: [authenticateApiKey],
+    preHandler: [authenticateApiKey, requireMcpAccess()],
   }, async (request, reply) => {
     const body = startCallSchema.parse(request.body);
 
@@ -208,7 +209,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/calls/:id/status (supports both auth methods)
   app.get('/:id/status', {
-    preHandler: [authenticateApiKey],
+    preHandler: [authenticateApiKey, requireMcpAccess()],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const call = await callService.getCall(request.auth.workspaceId, id);
@@ -228,7 +229,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/calls/:id/artifacts
   app.get('/:id/artifacts', {
-    preHandler: [authenticateApiKey],
+    preHandler: [authenticateApiKey, requireMcpAccess()],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const call = await callService.getCall(request.auth.workspaceId, id);
@@ -359,15 +360,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/calls (list) — supports both JWT (dashboard) and API key (MCP)
   app.get('/', {
-    preHandler: [
-      async (request, reply) => {
-        const token = request.headers.authorization?.replace('Bearer ', '') ?? '';
-        if (token.startsWith('mcp_')) {
-          return authenticateApiKey(request, reply);
-        }
-        return authenticateUser(request, reply);
-      },
-    ],
+    preHandler: [authenticateAny, requireMcpAccess()],
   }, async (request) => {
     const query = listCallsSchema.parse(request.query);
     return callService.listCalls(request.auth.workspaceId, query);

@@ -1,20 +1,18 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, authenticateAny, requireRole } from '../../middleware/auth.js';
 import * as knowledgeService from '../../services/knowledge.service.js';
 
 const knowledgeRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', authenticateUser);
-
-  // GET /api/knowledge
-  app.get('/', async (request) => {
+  // GET /api/knowledge — supports both JWT (dashboard) and API key (MCP)
+  app.get('/', { preHandler: [authenticateAny] }, async (request) => {
     const rows = await knowledgeService.listKnowledgeBases(request.auth.workspaceId);
     return { knowledge_bases: rows };
   });
 
   // POST /api/knowledge
   app.post('/', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const body = z.object({
       name: z.string().min(1).max(100),
@@ -28,7 +26,7 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/knowledge/:kbId
   app.delete('/:kbId', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { kbId } = z.object({ kbId: z.string().uuid() }).parse(request.params);
     await knowledgeService.deleteKnowledgeBase(request.auth.workspaceId, kbId);
@@ -36,7 +34,7 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // GET /api/knowledge/:kbId/documents
-  app.get('/:kbId/documents', async (request) => {
+  app.get('/:kbId/documents', { preHandler: [authenticateAny] }, async (request) => {
     const { kbId } = z.object({ kbId: z.string().uuid() }).parse(request.params);
     const rows = await knowledgeService.listDocuments(request.auth.workspaceId, kbId);
     return { documents: rows };
@@ -44,7 +42,7 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/knowledge/:kbId/documents
   app.post('/:kbId/documents', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const { kbId } = z.object({ kbId: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -66,14 +64,14 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // GET /api/knowledge/documents/:docId
-  app.get('/documents/:docId', async (request) => {
+  app.get('/documents/:docId', { preHandler: [authenticateAny] }, async (request) => {
     const { docId } = z.object({ docId: z.string().uuid() }).parse(request.params);
     return knowledgeService.getDocument(request.auth.workspaceId, docId);
   });
 
   // PATCH /api/knowledge/documents/:docId
   app.patch('/documents/:docId', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { docId } = z.object({ docId: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -87,7 +85,7 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/knowledge/documents/:docId
   app.delete('/documents/:docId', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { docId } = z.object({ docId: z.string().uuid() }).parse(request.params);
     await knowledgeService.deleteDocument(request.auth.workspaceId, docId);
@@ -96,7 +94,7 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/knowledge/enhance — AI-assisted content formatting
   app.post('/enhance', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const body = z.object({
       content: z.string().min(1).max(50000),
@@ -107,7 +105,7 @@ const knowledgeRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // POST /api/knowledge/search
-  app.post('/search', async (request) => {
+  app.post('/search', { preHandler: [authenticateAny] }, async (request) => {
     const body = z.object({
       query: z.string().min(1),
       limit: z.number().min(1).max(20).optional(),

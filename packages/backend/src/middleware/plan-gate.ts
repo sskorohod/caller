@@ -16,6 +16,19 @@ export function requireFeature(feature: keyof PlanFeatures) {
 }
 
 /**
+ * Require MCP access — only enforced for API key auth (not dashboard users).
+ * Workspaces on 'agents_mcp' plan have mcpAccess, others don't.
+ */
+export function requireMcpAccess() {
+  return async (request: FastifyRequest, _reply: FastifyReply) => {
+    if (request.auth.authMethod !== 'api_key') return; // dashboard users skip
+    if (!hasFeature(request.auth.plan, 'mcpAccess')) {
+      throw new ForbiddenError('MCP API access requires the Agents + MCP plan. Please upgrade.');
+    }
+  };
+}
+
+/**
  * Require workspace to have positive deposit balance (for platform provider usage).
  * Skips check if workspace uses only own keys.
  */

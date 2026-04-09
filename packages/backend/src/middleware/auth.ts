@@ -115,6 +115,15 @@ export async function authenticateApiKey(request: FastifyRequest, reply: Fastify
   };
 }
 
+/** Authenticate via JWT or API key — tries API key first if token starts with mcp_ */
+export async function authenticateAny(request: FastifyRequest, reply: FastifyReply) {
+  const token = request.headers.authorization?.replace('Bearer ', '') ?? '';
+  if (token.startsWith('mcp_')) {
+    return authenticateApiKey(request, reply);
+  }
+  return authenticateUser(request, reply);
+}
+
 /** Require specific roles */
 export function requireRole(...roles: AuthContext['role'][]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {

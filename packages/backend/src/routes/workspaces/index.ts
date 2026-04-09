@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq, inArray } from 'drizzle-orm';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, authenticateAny, requireRole } from '../../middleware/auth.js';
 import * as workspaceService from '../../services/workspace.service.js';
 import { normalizePhone } from '../../lib/phone.js';
 import * as auditService from '../../services/audit.service.js';
@@ -37,11 +37,8 @@ const updateWorkspaceSchema = z.object({
 });
 
 const workspaceRoutes: FastifyPluginAsync = async (app) => {
-  // All routes require authentication
-  app.addHook('onRequest', authenticateUser);
-
-  // GET /api/workspaces/current
-  app.get('/current', async (request) => {
+  // GET /api/workspaces/current — supports both JWT and API key (MCP)
+  app.get('/current', { preHandler: [authenticateAny] }, async (request) => {
     const workspace = await workspaceService.getWorkspace(request.auth.workspaceId);
     return {
       ...workspace,
@@ -51,7 +48,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
   // PATCH /api/workspaces/current
   app.patch('/current', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const body = updateWorkspaceSchema.parse(request.body);
     const workspace = await workspaceService.updateWorkspace(request.auth.workspaceId, body);
@@ -69,7 +66,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // GET /api/workspaces/members — list members with email
-  app.get('/members', async (request) => {
+  app.get('/members', { preHandler: [authenticateUser] }, async (request) => {
     const members = await workspaceService.getWorkspaceMembers(request.auth.workspaceId);
 
     // Enrich with user email (single query instead of N+1)
@@ -84,7 +81,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/workspaces/members — add by user_id
   app.post('/members', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const body = z.object({
       user_id: z.string().uuid(),
@@ -111,7 +108,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/workspaces/members/invite — invite by email
   app.post('/members/invite', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const body = z.object({
       email: z.string().email(),
@@ -144,7 +141,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/workspaces/members/:id — remove member
   app.delete('/members/:id', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
@@ -163,7 +160,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/workspaces/test-telegram — send test message via Telegram bot
   app.post('/test-telegram', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const { getProviderCredential } = await import('../../services/provider.service.js');
     const { testBot } = await import('../../services/telegram.service.js');
@@ -189,7 +186,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/workspaces/test-storage — test MinIO connection
   app.post('/test-storage', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async () => {
     const { testConnection, isMinioConfigured } = await import('../../services/recording-storage.service.js');
     if (!isMinioConfigured()) {

@@ -1,20 +1,18 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { authenticateUser } from '../../middleware/auth.js';
+import { authenticateUser, authenticateAny } from '../../middleware/auth.js';
 
 const missionRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', authenticateUser);
-
-  // POST /api/missions — create new mission
-  app.post('/', async (request, reply) => {
+  // POST /api/missions — create new mission (supports MCP)
+  app.post('/', { preHandler: [authenticateAny] }, async (request, reply) => {
     const { createMission, addMessage } = await import('../../services/mission.service.js');
     const mission = await createMission(request.auth.workspaceId, request.auth.userId);
     reply.status(201);
     return { mission };
   });
 
-  // GET /api/missions — list missions
-  app.get('/', async (request) => {
+  // GET /api/missions — list missions (supports MCP)
+  app.get('/', { preHandler: [authenticateAny] }, async (request) => {
     const { listMissions } = await import('../../services/mission.service.js');
     const query = request.query as Record<string, string>;
     const missions = await listMissions(request.auth.workspaceId, {
@@ -24,8 +22,8 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
     return { missions };
   });
 
-  // GET /api/missions/:id — get mission detail + messages
-  app.get('/:id', async (request) => {
+  // GET /api/missions/:id — get mission detail + messages (supports MCP)
+  app.get('/:id', { preHandler: [authenticateAny] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const { getMission, getMessages } = await import('../../services/mission.service.js');
     const mission = await getMission(request.auth.workspaceId, id);
@@ -33,8 +31,8 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
     return { mission, messages };
   });
 
-  // POST /api/missions/:id/messages — send chat message (triggers AI processing)
-  app.post('/:id/messages', async (request) => {
+  // POST /api/missions/:id/messages — send chat message (supports MCP)
+  app.post('/:id/messages', { preHandler: [authenticateAny] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({ content: z.string().min(1) }).parse(request.body);
     const { processChatMessage, getMission } = await import('../../services/mission.service.js');
@@ -45,16 +43,16 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
     return { ai_response: aiResponse, mission };
   });
 
-  // POST /api/missions/:id/execute — start the call
-  app.post('/:id/execute', async (request) => {
+  // POST /api/missions/:id/execute — start the call (supports MCP)
+  app.post('/:id/execute', { preHandler: [authenticateAny] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const { executeMission } = await import('../../services/mission.service.js');
     await executeMission(request.auth.workspaceId, id);
     return { ok: true };
   });
 
-  // PATCH /api/missions/:id — update mission
-  app.patch('/:id', async (request) => {
+  // PATCH /api/missions/:id — update mission (dashboard only)
+  app.patch('/:id', { preHandler: [authenticateUser] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
       title: z.string().optional(),
@@ -71,16 +69,16 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
     return { mission };
   });
 
-  // DELETE /api/missions/:id — cancel/delete mission
-  app.delete('/:id', async (request) => {
+  // DELETE /api/missions/:id — cancel/delete mission (dashboard only)
+  app.delete('/:id', { preHandler: [authenticateUser] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const { deleteMission } = await import('../../services/mission.service.js');
     await deleteMission(request.auth.workspaceId, id);
     return { deleted: true };
   });
 
-  // POST /api/missions/:id/retry — retry the call
-  app.post('/:id/retry', async (request) => {
+  // POST /api/missions/:id/retry — retry the call (supports MCP)
+  app.post('/:id/retry', { preHandler: [authenticateAny] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const { executeMission, updateMission } = await import('../../services/mission.service.js');
     await updateMission(id, { status: 'ready', retry_count: 0 } as any);

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, authenticateAny, requireRole } from '../../middleware/auth.js';
 import * as agentService from '../../services/agent.service.js';
 import * as auditService from '../../services/audit.service.js';
 import * as uploadService from '../../services/upload.service.js';
@@ -27,10 +27,8 @@ const createAgentSchema = z.object({
 });
 
 const agentRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', authenticateUser);
-
-  // GET /api/agents
-  app.get('/', async (request) => {
+  // GET /api/agents — supports both JWT (dashboard) and API key (MCP)
+  app.get('/', { preHandler: [authenticateAny] }, async (request) => {
     const agents = await agentService.listAgentProfiles(request.auth.workspaceId);
 
     // Resolve presigned URLs for MinIO avatars
@@ -46,8 +44,8 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     return { agents: resolved };
   });
 
-  // GET /api/agents/:id
-  app.get('/:id', async (request) => {
+  // GET /api/agents/:id — supports both JWT (dashboard) and API key (MCP)
+  app.get('/:id', { preHandler: [authenticateAny] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const profile = await agentService.getAgentProfile(request.auth.workspaceId, id);
 
@@ -71,7 +69,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/agents
   app.post('/', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const body = createAgentSchema.parse(request.body);
     const profile = await agentService.createAgentProfile(request.auth.workspaceId, body as any);
@@ -91,7 +89,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // PATCH /api/agents/:id
   app.patch('/:id', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = createAgentSchema.partial().parse(request.body);
@@ -112,7 +110,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/agents/:id
   app.delete('/:id', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     await agentService.deleteAgentProfile(request.auth.workspaceId, id);
@@ -130,7 +128,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/agents/:id/prompt-packs — detach all prompt packs
   app.delete('/:id/prompt-packs', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     await agentService.detachAllPromptPacks(id);
@@ -139,7 +137,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/agents/:id/prompt-packs/:packId — detach single prompt pack
   app.delete('/:id/prompt-packs/:packId', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id, packId } = z.object({ id: z.string().uuid(), packId: z.string().uuid() }).parse(request.params);
     await agentService.detachPromptPack(id, packId);
@@ -148,7 +146,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/agents/:id/skill-packs — detach all skill packs
   app.delete('/:id/skill-packs', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     await agentService.detachAllSkillPacks(id);
@@ -157,7 +155,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/agents/:id/skill-packs/:packId — detach single skill pack
   app.delete('/:id/skill-packs/:packId', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id, packId } = z.object({ id: z.string().uuid(), packId: z.string().uuid() }).parse(request.params);
     await agentService.detachSkillPack(id, packId);
@@ -166,7 +164,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/agents/:id/knowledge-bases — attach a knowledge base
   app.post('/:id/knowledge-bases', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -179,7 +177,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/agents/:id/knowledge-bases — detach all knowledge bases
   app.delete('/:id/knowledge-bases', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     await agentService.detachAllKnowledgeBases(id);
@@ -188,7 +186,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/agents/:id/prompt-packs
   app.post('/:id/prompt-packs', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -202,7 +200,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/agents/:id/skill-packs
   app.post('/:id/skill-packs', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -216,7 +214,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // PUT /api/agents/:id/skill-packs — batch sync skill packs (atomic)
   app.put('/:id/skill-packs', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -229,7 +227,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // PUT /api/agents/:id/prompt-packs — batch sync prompt packs (atomic)
   app.put('/:id/prompt-packs', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -242,7 +240,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/agents/:id/avatar — upload avatar image
   app.post('/:id/avatar', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const workspaceId = request.auth.workspaceId;
@@ -269,7 +267,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /api/agents/:id/avatar — remove avatar
   app.delete('/:id/avatar', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const workspaceId = request.auth.workspaceId;
@@ -285,7 +283,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/agents/:id/suggest-skills — AI-powered skill recommendations
   app.post('/:id/suggest-skills', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const workspaceId = request.auth.workspaceId;

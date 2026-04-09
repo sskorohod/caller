@@ -8,7 +8,7 @@ const API_KEY = process.env.CALLER_API_KEY || '';
 
 const server = new McpServer({
   name: 'caller',
-  version: '0.1.0',
+  version: '0.2.0',
 });
 
 async function apiRequest(path: string, options: RequestInit = {}) {
@@ -30,7 +30,14 @@ async function apiRequest(path: string, options: RequestInit = {}) {
   return res.json();
 }
 
-// Tool: start_call
+function jsonResponse(data: unknown) {
+  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+}
+
+// ============================================================
+// CALL TOOLS
+// ============================================================
+
 server.tool(
   'start_call',
   'Start an outbound phone call. The platform will either use its internal AI agent or connect an external agent to conduct the conversation.',
@@ -49,49 +56,33 @@ server.tool(
       method: 'POST',
       body: JSON.stringify(params),
     });
-
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-    };
+    return jsonResponse(result);
   },
 );
 
-// Tool: get_call_status
 server.tool(
   'get_call_status',
-  'Get current status of a phone call.',
-  {
-    call_id: z.string().describe('The call ID to check'),
-  },
+  'Get current status of a phone call including timing and ownership details.',
+  { call_id: z.string().describe('The call ID (UUID)') },
   async ({ call_id }) => {
     const result = await apiRequest(`/api/calls/${call_id}/status`);
-
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-    };
+    return jsonResponse(result);
   },
 );
 
-// Tool: get_call_artifacts
 server.tool(
   'get_call_artifacts',
-  'Get post-call artifacts including recording, transcript, summary, and structured outcomes.',
-  {
-    call_id: z.string().describe('The call ID to get artifacts for'),
-  },
+  'Get post-call artifacts including recording URL, transcript, summary, structured outcomes, action items, and sentiment analysis.',
+  { call_id: z.string().describe('The call ID (UUID)') },
   async ({ call_id }) => {
     const result = await apiRequest(`/api/calls/${call_id}/artifacts`);
-
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-    };
+    return jsonResponse(result);
   },
 );
 
-// Tool: list_recent_calls
 server.tool(
   'list_recent_calls',
-  'List recent calls in the workspace.',
+  'List recent calls in the workspace with optional filters by direction and status.',
   {
     limit: z.number().min(1).max(100).optional().describe('Max number of calls to return (default: 20)'),
     direction: z.enum(['inbound', 'outbound']).optional().describe('Filter by call direction'),
@@ -102,16 +93,15 @@ server.tool(
     if (params.limit) query.set('limit', String(params.limit));
     if (params.direction) query.set('direction', params.direction);
     if (params.status) query.set('status', params.status);
-
     const result = await apiRequest(`/api/calls?${query.toString()}`);
-
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-    };
+    return jsonResponse(result);
   },
 );
 
-// Tool: list_agents
+// ============================================================
+// AGENT TOOLS
+// ============================================================
+
 server.tool(
   'list_agents',
   'List all AI phone agents in the workspace with their descriptions, skills, and configuration. Use this to find the right agent for a specific task.',
@@ -128,14 +118,118 @@ server.tool(
       llm_model: a.llm_model,
       voice_provider: a.voice_provider,
     }));
-
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(agents, null, 2) }],
-    };
+    return jsonResponse(agents);
   },
 );
 
-// Start server
+server.tool(
+  'get_agent',
+  'Get detailed information about a specific AI agent including attached prompt packs, skill packs, and knowledge bases.',
+  { agent_id: z.string().describe('Agent profile ID (UUID)') },
+  async ({ agent_id }) => {
+    const result = await apiRequest(`/api/agents/${agent_id}`);
+    return jsonResponse(result);
+  },
+);
+
+// ============================================================
+// KNOWLEDGE BASE TOOLS
+// ============================================================
+
+server.tool(
+  'list_knowledge_bases',
+  'List all knowledge bases in the workspace. Knowledge bases contain documents that agents can reference during calls.',
+  {},
+  async () => {
+    const result = await apiRequest('/api/knowledge');
+    return jsonResponse(result);
+  },
+);
+
+server.tool(
+  'search_knowledge',
+  'Search across all knowledge bases for relevant information. Uses semantic search to find the most relevant documents and passages.',
+  {
+    query: z.string().describe('Search query text'),
+    limit: z.number().min(1).max(20).optional().describe('Max results (default: 5)'),
+  },
+  async (params) => {
+    const result = await apiRequest('/api/knowledge/search', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    return jsonResponse(result);
+  },
+);
+
+// ============================================================
+// MISSION TOOLS
+// ============================================================
+
+server.tool(
+  'list_missions',
+  'List missions (call tasks) in the workspace. Missions are pre-configured call plans that can be executed on demand.',
+  {
+    status: z.string().optional().describe('Filter by status (draft, ready, executing, completed, failed)'),
+    limit: z.number().min(1).max(100).optional().describe('Max results'),
+  },
+  async (params) => {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.limit) query.set('limit', String(params.limit));
+    const result = await apiRequest(`/api/missions?${query.toString()}`);
+    return jsonResponse(result);
+  },
+);
+
+server.tool(
+  'get_mission',
+  'Get detailed information about a specific mission including its messages and execution history.',
+  { mission_id: z.string().describe('Mission ID (UUID)') },
+  async ({ mission_id }) => {
+    const result = await apiRequest(`/api/missions/${mission_id}`);
+    return jsonResponse(result);
+  },
+);
+
+server.tool(
+  'execute_mission',
+  'Execute a mission — start the planned phone call. The mission must be in "ready" status with a target phone number and agent assigned.',
+  { mission_id: z.string().describe('Mission ID (UUID)') },
+  async ({ mission_id }) => {
+    const result = await apiRequest(`/api/missions/${mission_id}/execute`, { method: 'POST' });
+    return jsonResponse(result);
+  },
+);
+
+// ============================================================
+// WORKSPACE & BILLING TOOLS
+// ============================================================
+
+server.tool(
+  'get_workspace',
+  'Get current workspace configuration including name, settings, plan, and telephony configuration.',
+  {},
+  async () => {
+    const result = await apiRequest('/api/workspaces/current');
+    return jsonResponse(result);
+  },
+);
+
+server.tool(
+  'get_balance',
+  'Get workspace billing information including current USD balance, plan, subscription status, and feature availability.',
+  {},
+  async () => {
+    const result = await apiRequest('/api/billing/balance');
+    return jsonResponse(result);
+  },
+);
+
+// ============================================================
+// START SERVER
+// ============================================================
+
 async function main() {
   if (!API_KEY) {
     console.error('CALLER_API_KEY environment variable is required');

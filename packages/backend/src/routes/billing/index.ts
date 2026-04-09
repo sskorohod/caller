@@ -3,17 +3,15 @@ import { z } from 'zod';
 import { eq, desc } from 'drizzle-orm';
 import { db } from '../../config/db.js';
 import { workspaces, depositTransactions } from '../../db/schema.js';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, authenticateAny, requireRole } from '../../middleware/auth.js';
 import { creditDeposit } from '../../services/billing.service.js';
 import { createDepositCheckout, createSubscription, cancelSubscription, createPortalSession } from '../../services/stripe.service.js';
 import { getPlanConfig, PLANS } from '../../config/plans.js';
 import type { WorkspacePlan } from '../../models/types.js';
 
 const billingRoutes: FastifyPluginAsync = async (app) => {
-  app.addHook('onRequest', authenticateUser);
-
-  // ─── GET /balance ───────────────────────────────────────────────────
-  app.get('/balance', async (request) => {
+  // ─── GET /balance ─── supports both JWT and API key (MCP)
+  app.get('/balance', { preHandler: [authenticateAny] }, async (request) => {
     const [ws] = await db.select({
       balance_usd: workspaces.balance_usd,
       plan: workspaces.plan,
@@ -38,7 +36,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ─── GET /transactions ──────────────────────────────────────────────
-  app.get('/transactions', async (request) => {
+  app.get('/transactions', { preHandler: [authenticateAny] }, async (request) => {
     const query = request.query as { limit?: string; offset?: string };
     const limit = Math.min(parseInt(query.limit || '50'), 100);
     const offset = parseInt(query.offset || '0');
@@ -59,7 +57,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── POST /deposit/checkout ─────────────────────────────────────────
   app.post('/deposit/checkout', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const body = z.object({
       amount_usd: z.number().min(1).max(10000),
@@ -78,7 +76,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── POST /subscription ────────────────────────────────────────────
   app.post('/subscription', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const body = z.object({
       plan: z.enum(['agents', 'agents_mcp']),
@@ -105,14 +103,14 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── DELETE /subscription ──────────────────────────────────────────
   app.delete('/subscription', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     await cancelSubscription(request.auth.workspaceId);
     return { success: true };
   });
 
   // ─── GET /provider-config ──────────────────────────────────────────
-  app.get('/provider-config', async (request) => {
+  app.get('/provider-config', { preHandler: [authenticateAny] }, async (request) => {
     const [ws] = await db.select({ provider_config: workspaces.provider_config })
       .from(workspaces)
       .where(eq(workspaces.id, request.auth.workspaceId));
@@ -121,7 +119,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── PATCH /provider-config ────────────────────────────────────────
   app.patch('/provider-config', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const body = z.record(z.enum(['platform', 'own'])).parse(request.body);
 
@@ -143,7 +141,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── POST /portal-session ──────────────────────────────────────────
   app.post('/portal-session', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const origin = (request.headers.origin || request.headers.referer || '').replace(/\/$/, '');
     const result = await createPortalSession({
