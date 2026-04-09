@@ -117,7 +117,7 @@ export class ConferenceTranslator extends EventEmitter {
     const [session] = await db
       .insert(translatorSessions)
       .values({
-        subscriber_id: this.subscriberId,
+        subscriber_id: null as any,
         call_id: this.callId,
         workspace_id: this.workspaceId,
       })
