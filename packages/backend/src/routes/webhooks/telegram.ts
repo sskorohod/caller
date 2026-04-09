@@ -88,12 +88,12 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
           const creds = JSON.parse(decrypt(row.credential_data)) as { bot_token: string; chat_id?: string };
           if (!creds.chat_id || creds.chat_id === '') {
             // This workspace has a bot_token but no chat_id — pair it!
-            const { encrypt } = await import('../../lib/crypto.js');
             const { saveProviderCredential } = await import('../../services/provider.service.js');
-            await saveProviderCredential(row.workspace_id, 'telegram', JSON.stringify({
-              bot_token: creds.bot_token,
-              chat_id: chatId,
-            }));
+            await saveProviderCredential({
+              workspaceId: row.workspace_id,
+              provider: 'telegram',
+              credentials: { bot_token: creds.bot_token, chat_id: chatId },
+            });
 
             // Setup commands for this bot
             await setupTelegramBotCommands(creds.bot_token);
