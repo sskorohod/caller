@@ -135,9 +135,7 @@ export default function OverviewPage() {
           value={
             balanceUsd > 10000
               ? (lang === 'ru' ? 'Безлимит' : 'Unlimited')
-              : isTranslatorOnly
-                ? `${Math.floor(balanceUsd / 0.05)} ${lang === 'ru' ? 'мин' : 'min'}`
-                : `$${balanceUsd.toFixed(2)}`
+              : `$${balanceUsd.toFixed(2)}`
           }
           sub={
             (plan === 'translator' ? 'Translator' : plan === 'agents' ? 'Agents' : plan === 'agents_mcp' ? 'Agents + MCP' : '')

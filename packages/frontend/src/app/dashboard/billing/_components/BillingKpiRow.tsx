@@ -4,7 +4,6 @@ import { IconWallet, IconDollar, IconTrending, IconSparkle } from '../../_lib/ic
 
 function fmtBal(balance: number, plan: string, lang: string): string {
   if (balance > 10000) return lang === 'ru' ? 'Безлимит' : 'Unlimited';
-  if (plan === 'translator') return `${Math.floor(balance / 0.05)} ${lang === 'ru' ? 'мин' : 'min'}`;
   return `$${balance.toFixed(2)}`;
 }
 
