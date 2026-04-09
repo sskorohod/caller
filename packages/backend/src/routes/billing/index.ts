@@ -5,7 +5,7 @@ import { db } from '../../config/db.js';
 import { workspaces, depositTransactions } from '../../db/schema.js';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { creditDeposit } from '../../services/billing.service.js';
-import { createDepositCheckout, createSubscription, cancelSubscription } from '../../services/stripe.service.js';
+import { createDepositCheckout, createSubscription, cancelSubscription, createPortalSession } from '../../services/stripe.service.js';
 import { getPlanConfig, PLANS } from '../../config/plans.js';
 import type { WorkspacePlan } from '../../models/types.js';
 
@@ -93,15 +93,12 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     const result = await createSubscription({
       workspaceId: request.auth.workspaceId,
       priceId: planConfig.stripePriceId,
+      plan: body.plan,
       successUrl: `${origin}/dashboard/billing?subscribed=true`,
       cancelUrl: `${origin}/dashboard/billing?canceled=true`,
     });
 
-    // Update plan immediately (will be confirmed by webhook)
-    await db.update(workspaces).set({
-      plan: body.plan,
-      updated_at: new Date(),
-    }).where(eq(workspaces.id, request.auth.workspaceId));
+    // Plan is NOT updated here — it will be set by the webhook after payment confirms
 
     return result;
   });
@@ -142,6 +139,18 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     }).where(eq(workspaces.id, request.auth.workspaceId));
 
     return updated;
+  });
+
+  // ─── POST /portal-session ──────────────────────────────────────────
+  app.post('/portal-session', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const origin = (request.headers.origin || request.headers.referer || '').replace(/\/$/, '');
+    const result = await createPortalSession({
+      workspaceId: request.auth.workspaceId,
+      returnUrl: `${origin}/dashboard/billing`,
+    });
+    return result;
   });
 
 };

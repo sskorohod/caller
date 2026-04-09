@@ -650,6 +650,15 @@ export const platformSettings = pgTable('platform_settings', {
 });
 
 // ============================================================
+// STRIPE PROCESSED EVENTS (webhook idempotency)
+// ============================================================
+export const stripeProcessedEvents = pgTable('stripe_processed_events', {
+  event_id: text('event_id').primaryKey(),
+  event_type: text('event_type').notNull(),
+  processed_at: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================================
 // ADMIN AUDIT LOG
 // ============================================================
 export const adminAuditLog = pgTable('admin_audit_log', {

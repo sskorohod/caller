@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
+import rawBody from 'fastify-raw-body';
 import http from 'node:http';
 import { Server as SocketServer } from 'socket.io';
 import { eq } from 'drizzle-orm';
@@ -50,6 +51,14 @@ await app.register(cors, {
 // Multipart file uploads (avatars, etc.)
 await app.register(multipart, {
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+});
+
+// Raw body for Stripe webhook signature verification
+await app.register(rawBody, {
+  field: 'rawBody',
+  global: false,
+  encoding: 'utf8',
+  runFirst: true,
 });
 
 // Rate limiting

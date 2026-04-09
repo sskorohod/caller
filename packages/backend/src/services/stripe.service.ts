@@ -1,13 +1,19 @@
 import pino from 'pino';
+import crypto from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { translatorSubscribers } from '../db/schema.js';
+import { translatorSubscribers, workspaces } from '../db/schema.js';
 import { getProviderCredential } from './provider.service.js';
+import type { WorkspacePlan } from '../models/types.js';
 
 const log = pino({ name: 'stripe' });
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? '';
+
+// ============================================================
+// STRIPE API HELPERS
+// ============================================================
 
 async function getStripeKey(workspaceId?: string): Promise<string> {
   if (workspaceId) {
@@ -36,6 +42,58 @@ async function stripeRequest(path: string, method: string, body?: Record<string,
   if (!res.ok) throw new Error(data.error?.message ?? `Stripe error ${res.status}`);
   return data;
 }
+
+export function isStripeConfigured(): boolean {
+  return !!STRIPE_SECRET_KEY;
+}
+
+// ============================================================
+// WEBHOOK SIGNATURE VERIFICATION
+// ============================================================
+
+/**
+ * Verify Stripe webhook signature with replay protection.
+ */
+export function verifyWebhookSignature(payload: string, signature: string): boolean {
+  if (!STRIPE_WEBHOOK_SECRET) return false;
+  const parts = signature.split(',').reduce((acc, part) => {
+    const [k, v] = part.split('=');
+    acc[k] = v;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const timestamp = parts['t'];
+  const v1 = parts['v1'];
+  if (!timestamp || !v1) return false;
+
+  // Replay protection: reject events older than 5 minutes
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - parseInt(timestamp)) > 300) {
+    log.warn({ timestamp, now }, 'Stripe webhook timestamp too old, rejecting');
+    return false;
+  }
+
+  const expected = crypto
+    .createHmac('sha256', STRIPE_WEBHOOK_SECRET)
+    .update(`${timestamp}.${payload}`)
+    .digest('hex');
+
+  return crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
+}
+
+// ============================================================
+// PLAN ↔ PRICE ID MAPPING
+// ============================================================
+
+function planFromPriceId(priceId: string): WorkspacePlan | null {
+  if (process.env.STRIPE_AGENTS_PRICE_ID && priceId === process.env.STRIPE_AGENTS_PRICE_ID) return 'agents';
+  if (process.env.STRIPE_AGENTS_MCP_PRICE_ID && priceId === process.env.STRIPE_AGENTS_MCP_PRICE_ID) return 'agents_mcp';
+  return null;
+}
+
+// ============================================================
+// TRANSLATOR MINUTES CHECKOUT
+// ============================================================
 
 /**
  * Create a Stripe Checkout session for buying translator minutes.
@@ -89,30 +147,6 @@ export async function createCheckoutSession(params: {
 }
 
 /**
- * Verify Stripe webhook signature (simplified — uses timing-safe comparison).
- */
-export function verifyWebhookSignature(payload: string, signature: string): boolean {
-  if (!STRIPE_WEBHOOK_SECRET) return false;
-  const parts = signature.split(',').reduce((acc, part) => {
-    const [k, v] = part.split('=');
-    acc[k] = v;
-    return acc;
-  }, {} as Record<string, string>);
-
-  const timestamp = parts['t'];
-  const v1 = parts['v1'];
-  if (!timestamp || !v1) return false;
-
-  const crypto = require('crypto');
-  const expected = crypto
-    .createHmac('sha256', STRIPE_WEBHOOK_SECRET)
-    .update(`${timestamp}.${payload}`)
-    .digest('hex');
-
-  return crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
-}
-
-/**
  * Handle checkout.session.completed — add minutes to subscriber balance.
  */
 export async function handleCheckoutCompleted(session: any): Promise<void> {
@@ -133,15 +167,9 @@ export async function handleCheckoutCompleted(session: any): Promise<void> {
   log.info({ subscriberId, minutes, sessionId: session.id }, 'Minutes added from Stripe checkout');
 }
 
-export function isStripeConfigured(): boolean {
-  return !!STRIPE_SECRET_KEY;
-}
-
 // ============================================================
 // DEPOSIT CHECKOUT (workspace-level USD deposit)
 // ============================================================
-
-import { workspaces } from '../db/schema.js';
 
 /**
  * Create a Stripe Checkout session for workspace USD deposit top-up.
@@ -220,11 +248,13 @@ export async function handleDepositCheckoutCompleted(session: any): Promise<void
 // ============================================================
 
 /**
- * Create Stripe subscription for workspace.
+ * Create Stripe subscription checkout for workspace.
+ * NOTE: Plan is NOT changed here — it's updated only after webhook confirms payment.
  */
 export async function createSubscription(params: {
   workspaceId: string;
   priceId: string;
+  plan: string;
   successUrl: string;
   cancelUrl: string;
 }): Promise<{ url: string; sessionId: string }> {
@@ -252,11 +282,42 @@ export async function createSubscription(params: {
     'line_items[0][quantity]': '1',
     'metadata[workspace_id]': params.workspaceId,
     'metadata[type]': 'subscription',
+    'metadata[intended_plan]': params.plan,
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
   }, key);
 
   return { url: session.url, sessionId: session.id };
+}
+
+/**
+ * Handle subscription checkout completed — upgrade plan after payment confirmed.
+ */
+export async function handleSubscriptionCheckoutCompleted(session: any): Promise<void> {
+  const workspaceId = session.metadata?.workspace_id;
+  const intendedPlan = session.metadata?.intended_plan as WorkspacePlan | undefined;
+
+  if (!workspaceId) {
+    log.warn({ session: session.id }, 'Subscription checkout completed but missing workspace_id');
+    return;
+  }
+
+  const subscriptionId = session.subscription;
+  const updates: Record<string, any> = {
+    subscription_status: 'active',
+    updated_at: new Date(),
+  };
+
+  if (subscriptionId) {
+    updates.stripe_subscription_id = subscriptionId;
+  }
+
+  if (intendedPlan && ['agents', 'agents_mcp'].includes(intendedPlan)) {
+    updates.plan = intendedPlan;
+  }
+
+  await db.update(workspaces).set(updates).where(eq(workspaces.id, workspaceId));
+  log.info({ workspaceId, plan: intendedPlan, subscriptionId }, 'Subscription activated from checkout');
 }
 
 /**
@@ -280,7 +341,7 @@ export async function cancelSubscription(workspaceId: string): Promise<void> {
 }
 
 /**
- * Handle subscription webhook events.
+ * Handle subscription webhook events (created, updated, deleted).
  */
 export async function handleSubscriptionEvent(event: any): Promise<void> {
   const subscription = event.data?.object;
@@ -298,17 +359,91 @@ export async function handleSubscriptionEvent(event: any): Promise<void> {
 
   const updates: Record<string, any> = {
     stripe_subscription_id: subscription.id,
-    subscription_status: subscription.status === 'active' ? 'active'
-      : subscription.status === 'past_due' ? 'past_due'
-      : subscription.cancel_at_period_end ? 'canceled'
-      : subscription.status,
     updated_at: new Date(),
   };
 
-  if (subscription.current_period_end) {
-    updates.subscription_current_period_end = new Date(subscription.current_period_end * 1000);
+  if (event.type === 'customer.subscription.deleted') {
+    // Subscription ended — downgrade to free plan
+    updates.subscription_status = 'none';
+    updates.stripe_subscription_id = null;
+    updates.subscription_current_period_end = null;
+    updates.plan = 'translator';
+    log.info({ workspaceId: ws.id }, 'Subscription deleted — downgraded to translator plan');
+  } else {
+    // created or updated
+    updates.subscription_status = subscription.status === 'active' ? 'active'
+      : subscription.status === 'past_due' ? 'past_due'
+      : subscription.cancel_at_period_end ? 'canceled'
+      : subscription.status;
+
+    if (subscription.current_period_end) {
+      updates.subscription_current_period_end = new Date(subscription.current_period_end * 1000);
+    }
+
+    // Determine plan from subscription price
+    const priceId = subscription.items?.data?.[0]?.price?.id;
+    if (priceId) {
+      const plan = planFromPriceId(priceId);
+      if (plan) updates.plan = plan;
+    }
   }
 
   await db.update(workspaces).set(updates).where(eq(workspaces.id, ws.id));
-  log.info({ workspaceId: ws.id, status: updates.subscription_status }, 'Subscription updated');
+  log.info({ workspaceId: ws.id, status: updates.subscription_status, plan: updates.plan }, 'Subscription updated');
+}
+
+/**
+ * Handle invoice events (paid, payment_failed).
+ */
+export async function handleInvoiceEvent(event: any): Promise<void> {
+  const invoice = event.data?.object;
+  if (!invoice) return;
+
+  const customerId = invoice.customer;
+  const [ws] = await db.select().from(workspaces)
+    .where(eq(workspaces.stripe_customer_id, customerId));
+  if (!ws) {
+    log.warn({ customerId }, 'Invoice event for unknown customer');
+    return;
+  }
+
+  if (event.type === 'invoice.payment_failed') {
+    await db.update(workspaces).set({
+      subscription_status: 'past_due',
+      updated_at: new Date(),
+    }).where(eq(workspaces.id, ws.id));
+    log.warn({ workspaceId: ws.id, invoiceId: invoice.id }, 'Invoice payment failed — subscription past_due');
+  } else if (event.type === 'invoice.paid') {
+    // Renewal succeeded — ensure status is active
+    if (ws.subscription_status !== 'active') {
+      await db.update(workspaces).set({
+        subscription_status: 'active',
+        updated_at: new Date(),
+      }).where(eq(workspaces.id, ws.id));
+      log.info({ workspaceId: ws.id, invoiceId: invoice.id }, 'Invoice paid — subscription reactivated');
+    }
+  }
+}
+
+// ============================================================
+// CUSTOMER PORTAL
+// ============================================================
+
+/**
+ * Create a Stripe Customer Portal session for managing payment methods & invoices.
+ */
+export async function createPortalSession(params: {
+  workspaceId: string;
+  returnUrl: string;
+}): Promise<{ url: string }> {
+  const key = await getStripeKey(params.workspaceId);
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, params.workspaceId));
+  if (!ws?.stripe_customer_id) throw new Error('No Stripe customer — make a purchase first');
+
+  const session = await stripeRequest('/billing_portal/sessions', 'POST', {
+    customer: ws.stripe_customer_id,
+    return_url: params.returnUrl,
+  }, key);
+
+  return { url: session.url };
 }

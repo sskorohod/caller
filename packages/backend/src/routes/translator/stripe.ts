@@ -1,8 +1,23 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
-import { createCheckoutSession, handleCheckoutCompleted, handleDepositCheckoutCompleted, handleSubscriptionEvent, verifyWebhookSignature, isStripeConfigured } from '../../services/stripe.service.js';
+import {
+  createCheckoutSession,
+  handleCheckoutCompleted,
+  handleDepositCheckoutCompleted,
+  handleSubscriptionCheckoutCompleted,
+  handleSubscriptionEvent,
+  handleInvoiceEvent,
+  verifyWebhookSignature,
+  isStripeConfigured,
+} from '../../services/stripe.service.js';
 import { env } from '../../config/env.js';
+import { db } from '../../config/db.js';
+import { stripeProcessedEvents } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
+import pino from 'pino';
+
+const log = pino({ name: 'stripe-webhook' });
 
 const stripeRoutes: FastifyPluginAsync = async (app) => {
   // POST /api/translator/checkout — create Stripe checkout session (authenticated)
@@ -41,7 +56,7 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
     return { url: session.url, session_id: session.sessionId };
   });
 
-  // POST /webhooks/stripe — Stripe webhook (no auth, uses signature)
+  // POST /api/translator/webhook — Stripe webhook (no auth, uses signature)
   app.post('/webhook', {
     config: { rawBody: true },
   }, async (request, reply) => {
@@ -55,20 +70,62 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
 
     const event = typeof request.body === 'string' ? JSON.parse(request.body) : request.body;
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      if (session.metadata?.type === 'deposit') {
-        await handleDepositCheckoutCompleted(session);
-      } else {
-        await handleCheckoutCompleted(session);
+    // Idempotency check — skip if already processed
+    const eventId = event.id as string;
+    if (eventId) {
+      const [existing] = await db.select({ event_id: stripeProcessedEvents.event_id })
+        .from(stripeProcessedEvents)
+        .where(eq(stripeProcessedEvents.event_id, eventId))
+        .limit(1);
+      if (existing) {
+        log.info({ eventId }, 'Stripe event already processed, skipping');
+        reply.status(200).send({ received: true, duplicate: true });
+        return;
       }
-    } else if (
-      event.type === 'customer.subscription.updated' ||
-      event.type === 'customer.subscription.deleted' ||
-      event.type === 'invoice.payment_failed' ||
-      event.type === 'invoice.paid'
-    ) {
-      await handleSubscriptionEvent(event);
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object;
+          const metaType = session.metadata?.type;
+          if (metaType === 'deposit') {
+            await handleDepositCheckoutCompleted(session);
+          } else if (metaType === 'subscription') {
+            await handleSubscriptionCheckoutCompleted(session);
+          } else {
+            // Legacy: translator minutes checkout (no metadata.type)
+            await handleCheckoutCompleted(session);
+          }
+          break;
+        }
+
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+          await handleSubscriptionEvent(event);
+          break;
+
+        case 'invoice.paid':
+        case 'invoice.payment_failed':
+          await handleInvoiceEvent(event);
+          break;
+
+        default:
+          log.info({ type: event.type }, 'Unhandled Stripe event type');
+      }
+
+      // Mark event as processed
+      if (eventId) {
+        await db.insert(stripeProcessedEvents).values({
+          event_id: eventId,
+          event_type: event.type,
+        }).onConflictDoNothing();
+      }
+    } catch (err) {
+      log.error({ err, eventId, type: event.type }, 'Stripe webhook handler error');
+      reply.status(500).send({ error: 'Webhook handler failed' });
+      return;
     }
 
     reply.status(200).send({ received: true });
