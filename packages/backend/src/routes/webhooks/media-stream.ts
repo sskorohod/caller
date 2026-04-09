@@ -558,6 +558,15 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               await translator.start();
               (socket as any).__conferenceTranslator = translator;
               activeConferenceTranslators.set(callId, translator);
+
+              // Notify workspace that translator call started (for live sidebar)
+              const io = getIo();
+              if (io) {
+                io.to(`workspace:${callerWsId || call.workspace_id}`).emit('call:status', {
+                  call_id: callId,
+                  status: 'in_progress',
+                });
+              }
             } catch (err) {
               logger.error({ err, callId }, 'Failed to start conference translator');
             }

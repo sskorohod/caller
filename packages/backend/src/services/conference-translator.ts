@@ -567,10 +567,14 @@ ${this.personalContext}` : ''}`;
       log.error({ err, callId: this.callId }, 'Failed to finalize call status');
     }
 
-    // Notify frontend
+    // Notify frontend — both call room and workspace room
     const io = getIo();
     if (io) {
       io.to(`call:${this.callId}`).emit('call:status', {
+        call_id: this.callId,
+        status: 'completed',
+      });
+      io.to(`workspace:${this.workspaceId}`).emit('call:status', {
         call_id: this.callId,
         status: 'completed',
       });

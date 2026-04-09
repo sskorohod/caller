@@ -109,7 +109,27 @@ export default function TranslatorPage() {
       .catch(() => {});
   }, []);
 
-  // Live transcript via Socket.IO
+  // Listen for NEW calls — always active, even without liveCallId
+  useEffect(() => {
+    if (!socket) return;
+
+    const onNewCall = (data: { call_id: string; status: string }) => {
+      if (data.status === 'in_progress' && data.call_id) {
+        setLiveCallId(prev => {
+          if (prev === data.call_id) return prev; // already tracking
+          return data.call_id;
+        });
+        setLiveTranscript([]);
+        setLiveInterim(null);
+        setCallEnded(false);
+      }
+    };
+
+    socket.on('call:status', onNewCall);
+    return () => { socket.off('call:status', onNewCall); };
+  }, [socket]);
+
+  // Live transcript for active call
   useEffect(() => {
     if (!socket || !liveCallId) return;
 
@@ -135,34 +155,20 @@ export default function TranslatorPage() {
     const onCallEnd = (data: { call_id: string; status: string }) => {
       if (data.call_id !== liveCallId) return;
       if (data.status === 'completed' || data.status === 'failed') {
-        // Don't clear transcript — keep it visible until next call
         setCallEnded(true);
         setLiveInterim(null);
-      }
-    };
-
-    // Listen for new translator calls to auto-switch
-    const onNewCall = (data: { call_id: string; status: string }) => {
-      if (data.status === 'in_progress' && data.call_id !== liveCallId) {
-        // New call started — switch to it, clear old transcript
-        setLiveCallId(data.call_id);
-        setLiveTranscript([]);
-        setLiveInterim(null);
-        setCallEnded(false);
       }
     };
 
     socket.on('call:translation', onTranslation);
     socket.on('call:translation:interim', onInterim);
     socket.on('call:status', onCallEnd);
-    socket.on('call:status', onNewCall);
 
     return () => {
       socket.emit('call:translate:leave', { call_id: liveCallId });
       socket.off('call:translation', onTranslation);
       socket.off('call:translation:interim', onInterim);
       socket.off('call:status', onCallEnd);
-      socket.off('call:status', onNewCall);
     };
   }, [socket, liveCallId, callEnded]);
 
