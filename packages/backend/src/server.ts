@@ -5,8 +5,9 @@ import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
 import http from 'node:http';
 import { Server as SocketServer } from 'socket.io';
+import { eq } from 'drizzle-orm';
 import { env } from './config/env.js';
-import { pool } from './config/db.js';
+import { db, pool } from './config/db.js';
 import { AppError } from './lib/errors.js';
 import { initSocketServer } from './realtime/socket-server.js';
 
@@ -101,6 +102,7 @@ await app.register(import('./routes/workspaces/index.js'), { prefix: '/api/works
 await app.register(import('./routes/agents/index.js'), { prefix: '/api/agents' });
 await app.register(import('./routes/calls/index.js'), { prefix: '/api/calls' });
 await app.register(import('./routes/webhooks/index.js'), { prefix: '/webhooks' });
+await app.register(import('./routes/webhooks/telegram.js'), { prefix: '/webhooks' });
 await app.register(import('./routes/prompt-packs/index.js'), { prefix: '/api/prompt-packs' });
 await app.register(import('./routes/skill-packs/index.js'), { prefix: '/api/skill-packs' });
 await app.register(import('./routes/knowledge/index.js'), { prefix: '/api/knowledge' });
@@ -140,6 +142,27 @@ try {
   initSocketServer(httpServer);
   app.log.info('Socket.IO server initialized');
   app.log.info(`Server running at http://${env.HOST}:${env.PORT}`);
+
+  // Auto-setup Telegram bot webhook + commands
+  (async () => {
+    try {
+      const { setupTelegramWebhook, setupTelegramBotCommands } = await import('./routes/webhooks/telegram.js');
+      const { providerCredentials } = await import('./db/schema.js');
+      const { decrypt } = await import('./lib/crypto.js');
+      const rows = await db.select({ credential_data: providerCredentials.credential_data })
+        .from(providerCredentials)
+        .where(eq(providerCredentials.provider, 'telegram'));
+      for (const row of rows) {
+        const creds = JSON.parse(decrypt(row.credential_data)) as { bot_token: string };
+        if (creds.bot_token) {
+          await setupTelegramWebhook(creds.bot_token, `https://${env.API_DOMAIN}/webhooks/telegram`);
+          await setupTelegramBotCommands(creds.bot_token);
+        }
+      }
+    } catch (err) {
+      app.log.warn({ err }, 'Telegram bot setup skipped');
+    }
+  })();
 } catch (err) {
   app.log.fatal(err);
   process.exit(1);
