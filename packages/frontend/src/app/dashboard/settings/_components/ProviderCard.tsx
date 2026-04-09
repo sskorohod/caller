@@ -33,7 +33,8 @@ export function ProviderCard({
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const mode = providerConfig[providerKey] || 'platform';
+  const isOwnOnly = !!(meta as any).ownOnly;
+  const mode = isOwnOnly ? 'own' : (providerConfig[providerKey] || 'platform');
   const isConnected = !!existingProvider;
 
   async function handleSave() {
@@ -104,22 +105,24 @@ export function ProviderCard({
         )}
       </div>
 
-      {/* Platform / Own toggle */}
-      <div className="flex items-center gap-1 mb-4 p-0.5 bg-[var(--th-surface)] rounded-lg border border-[var(--th-card-border-subtle)]">
-        {(['platform', 'own'] as const).map(m => (
-          <button
-            key={m}
-            onClick={() => onConfigChange(providerKey, m)}
-            className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
-              mode === m
-                ? 'bg-[var(--th-card)] text-[var(--th-text)] shadow-sm'
-                : 'text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)]'
-            }`}
-          >
-            {m === 'platform' ? t('settings.usePlatform') || 'Platform' : t('settings.useOwnKey') || 'Own Key'}
-          </button>
-        ))}
-      </div>
+      {/* Platform / Own toggle — hidden for ownOnly providers */}
+      {!isOwnOnly && (
+        <div className="flex items-center gap-1 mb-4 p-0.5 bg-[var(--th-surface)] rounded-lg border border-[var(--th-card-border-subtle)]">
+          {(['platform', 'own'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => onConfigChange(providerKey, m)}
+              className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all ${
+                mode === m
+                  ? 'bg-[var(--th-card)] text-[var(--th-text)] shadow-sm'
+                  : 'text-[var(--th-text-muted)] hover:text-[var(--th-text-secondary)]'
+              }`}
+            >
+              {m === 'platform' ? t('settings.usePlatform') || 'Platform' : t('settings.useOwnKey') || 'Own Key'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Credential fields — shown when "Own Key" selected */}
       {mode === 'own' && (
@@ -154,7 +157,19 @@ export function ProviderCard({
         </>
       )}
 
-      {mode === 'platform' && (
+      {/* Telegram pairing hint */}
+      {providerKey === 'telegram' && isConnected && (
+        <div className="mt-3 p-3 rounded-xl bg-[#0088cc]/5 border border-[#0088cc]/15">
+          <p className="text-xs text-[var(--th-text)]">
+            <span className="font-semibold">Pairing:</span> Open your bot in Telegram and send <code className="px-1.5 py-0.5 rounded bg-[var(--th-surface)] font-mono text-[11px]">/start</code> — chat ID will be saved automatically.
+          </p>
+          {existingProvider && (existingProvider as any).verify_error && (
+            <p className="text-xs text-[var(--th-warning-text)] mt-1">Waiting for /start...</p>
+          )}
+        </div>
+      )}
+
+      {mode === 'platform' && !isOwnOnly && (
         <p className="text-xs text-[var(--th-text-muted)] italic">
           {t('settings.platformModeHint') || 'Using platform-managed credentials. Usage is billed to your account.'}
         </p>

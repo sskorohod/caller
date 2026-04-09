@@ -12,7 +12,7 @@ export const SECTIONS: { id: SectionId; labelKey: string; icon: React.FC<{ class
 
 export const TRANSLATOR_SECTIONS: SectionId[] = ['general', 'appearance', 'providers'];
 
-export const PROVIDER_META: Record<string, { label: string; color: string; fields: { key: string; label: string; placeholder: string; secret?: boolean }[] }> = {
+export const PROVIDER_META: Record<string, { label: string; color: string; ownOnly?: boolean; fields: { key: string; label: string; placeholder: string; secret?: boolean }[] }> = {
   twilio: {
     label: 'Twilio',
     color: 'bg-[#f22f46]/10 text-[#f22f46]',
@@ -49,9 +49,9 @@ export const PROVIDER_META: Record<string, { label: string; color: string; field
   telegram: {
     label: 'Telegram Bot',
     color: 'bg-[#0088cc]/10 text-[#0088cc]',
+    ownOnly: true,
     fields: [
       { key: 'bot_token', label: 'Bot Token', placeholder: '123456:ABC-DEF...', secret: true },
-      { key: 'chat_id', label: 'Chat ID', placeholder: '-1001234567890' },
     ],
   },
 };

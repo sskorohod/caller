@@ -70,7 +70,58 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
     if (!command) return reply.send({ ok: true });
 
-    const ws = await findWorkspaceByChatId(chatId);
+    // Try to find workspace by existing chat_id
+    let ws = await findWorkspaceByChatId(chatId);
+
+    // /start pairing: if chat not recognized, try to pair by matching bot token
+    if (!ws && command === '/start') {
+      try {
+        // The webhook URL is per-bot, so find which workspace owns this bot
+        // by checking all telegram credentials and matching via getMe
+        const rows = await db.select({
+          workspace_id: providerCredentials.workspace_id,
+          credential_data: providerCredentials.credential_data,
+        }).from(providerCredentials)
+          .where(eq(providerCredentials.provider, 'telegram'));
+
+        for (const row of rows) {
+          const creds = JSON.parse(decrypt(row.credential_data)) as { bot_token: string; chat_id?: string };
+          if (!creds.chat_id || creds.chat_id === '') {
+            // This workspace has a bot_token but no chat_id — pair it!
+            const { encrypt } = await import('../../lib/crypto.js');
+            const { saveProviderCredential } = await import('../../services/provider.service.js');
+            await saveProviderCredential(row.workspace_id, 'telegram', JSON.stringify({
+              bot_token: creds.bot_token,
+              chat_id: chatId,
+            }));
+
+            // Setup commands for this bot
+            await setupTelegramBotCommands(creds.bot_token);
+
+            await sendReply(creds.bot_token, chatId,
+              '✅ <b>Paired successfully!</b>\n\n' +
+              'You will now receive translator notifications here.\n\n' +
+              'Commands:\n' +
+              '/live — Live translation link\n' +
+              '/hangup — End current call\n' +
+              '/pause — Pause translator\n' +
+              '/resume — Resume translator\n' +
+              '/summary — Last conversation summary'
+            );
+            log.info({ chatId, workspaceId: row.workspace_id }, 'Telegram bot paired via /start');
+            return reply.send({ ok: true });
+          }
+        }
+
+        // No unpaired bots found
+        log.warn({ chatId }, 'Telegram /start from unknown chat, no unpaired bots');
+        return reply.send({ ok: true });
+      } catch (err) {
+        log.error({ err, chatId }, 'Telegram pairing error');
+        return reply.send({ ok: true });
+      }
+    }
+
     if (!ws) {
       log.warn({ chatId, command }, 'Telegram command from unknown chat');
       return reply.send({ ok: true });

@@ -6,6 +6,7 @@ import * as apiKeyService from '../../services/api-key.service.js';
 import * as providerService from '../../services/provider.service.js';
 import * as auditService from '../../services/audit.service.js';
 import { requireRole } from '../../middleware/auth.js';
+import { env } from '../../config/env.js';
 
 const authRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
@@ -139,6 +140,15 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       } catch (e: any) {
         verifyError = e.message || 'Invalid Twilio credentials';
       }
+    }
+
+    // For Telegram: setup webhook so bot can receive /start for pairing
+    if (provider === 'telegram' && body.credentials.bot_token) {
+      try {
+        const { setupTelegramWebhook, setupTelegramBotCommands } = await import('../../routes/webhooks/telegram.js');
+        await setupTelegramWebhook(body.credentials.bot_token, `https://${env.API_DOMAIN}/webhooks/telegram`);
+        await setupTelegramBotCommands(body.credentials.bot_token);
+      } catch { /* non-critical */ }
     }
 
     return {
