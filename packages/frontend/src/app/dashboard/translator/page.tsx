@@ -141,8 +141,23 @@ export default function TranslatorPage() {
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [liveCallId, setLiveCallId] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<TranslationEntry[]>([]);
+  const [liveInterim, setLiveInterim] = useState<{ original: string; translated: string } | null>(null);
   const liveEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-detect active session for sidebar
+  useEffect(() => {
+    api.get<{ sessions: ActiveSession[] }>('/translator/sessions/active')
+      .then(r => {
+        setActiveSessions(r.sessions);
+        // Auto-connect to first active session for sidebar live view
+        if (r.sessions.length > 0 && r.sessions[0].call_id && !liveCallId) {
+          setLiveCallId(r.sessions[0].call_id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Refresh active sessions when switching to live tab
   useEffect(() => {
     if (tab === 'live') {
       api.get<{ sessions: ActiveSession[] }>('/translator/sessions/active')
@@ -154,31 +169,142 @@ export default function TranslatorPage() {
   useEffect(() => {
     if (!socket || !liveCallId) return;
     setLiveTranscript([]);
+    setLiveInterim(null);
 
     socket.emit('call:translate:join', { call_id: liveCallId });
 
     const onTranslation = (data: { call_id: string; speaker: string; original: string; translated: string; timestamp: string }) => {
       if (data.call_id !== liveCallId) return;
       setLiveTranscript(prev => [...prev, { speaker: data.speaker, original: data.original, translated: data.translated, timestamp: data.timestamp }]);
+      setLiveInterim(null);
+    };
+
+    const onInterim = (data: { call_id: string; original: string; translated: string }) => {
+      if (data.call_id !== liveCallId) return;
+      setLiveInterim({ original: data.original || '', translated: data.translated || '' });
+    };
+
+    const onCallEnd = (data: { call_id: string; status: string }) => {
+      if (data.call_id !== liveCallId) return;
+      if (data.status === 'completed' || data.status === 'failed') {
+        setLiveCallId(null);
+      }
     };
 
     socket.on('call:translation', onTranslation);
+    socket.on('call:translation:interim', onInterim);
+    socket.on('call:status', onCallEnd);
 
     return () => {
       socket.emit('call:translate:leave', { call_id: liveCallId });
       socket.off('call:translation', onTranslation);
+      socket.off('call:translation:interim', onInterim);
+      socket.off('call:status', onCallEnd);
     };
   }, [socket, liveCallId]);
 
   useEffect(() => {
     liveEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [liveTranscript]);
+  }, [liveTranscript, liveInterim]);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'settings', label: 'Settings' },
     { id: 'sessions', label: 'Sessions' },
     { id: 'live', label: 'Live' },
   ];
+
+  // ─── Live Translation Sidebar ──────────────────────────────────
+  const LiveSidebar = () => {
+    const hasLive = liveCallId && liveTranscript.length > 0;
+    const hasInterim = liveCallId && liveInterim;
+
+    return (
+      <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] flex flex-col h-[calc(100vh-10rem)] sticky top-4">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-[var(--th-border)] flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            {liveCallId ? (
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            ) : (
+              <span className="w-2.5 h-2.5 rounded-full bg-gray-500" />
+            )}
+            <span className="text-sm font-bold text-[var(--th-text)]">
+              {liveCallId ? 'Live Translation' : 'Translation'}
+            </span>
+          </div>
+          {/* Column labels */}
+          <div className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
+            <span>Other</span>
+            <span>You</span>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {!liveCallId && !hasLive && (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-14 h-14 rounded-2xl bg-[var(--th-surface)] flex items-center justify-center mb-3">
+                <svg className="w-7 h-7 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-[var(--th-text-muted)]">No active call</p>
+              <p className="text-[11px] text-[var(--th-text-muted)] mt-1 opacity-60">Translations will appear here during calls</p>
+            </div>
+          )}
+
+          {liveTranscript.map((entry, i) => {
+            const isYou = entry.speaker === 'subscriber';
+            return (
+              <div key={i} className={`flex ${isYou ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                  isYou
+                    ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/10 border border-indigo-500/20'
+                    : 'bg-[var(--th-surface)] border border-[var(--th-border)]'
+                }`}>
+                  <p className="text-[15px] font-semibold leading-relaxed text-[var(--th-text)]">
+                    {entry.translated}
+                  </p>
+                  <p className="text-[12px] mt-1.5 text-[var(--th-text-muted)] leading-snug">
+                    {entry.original}
+                  </p>
+                  <span className="text-[10px] text-[var(--th-text-muted)] mt-1 block opacity-50">
+                    {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Interim (typing indicator) */}
+          {hasInterim && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-[var(--th-surface)] border border-amber-500/20">
+                {liveInterim!.translated ? (
+                  <p className="text-[15px] font-semibold leading-relaxed text-[var(--th-text)]">
+                    {liveInterim!.translated}<span className="inline-block w-0.5 h-4 bg-amber-400 ml-0.5 animate-pulse" />
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse [animation-delay:150ms]" />
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse [animation-delay:300ms]" />
+                  </div>
+                )}
+                {liveInterim!.original && (
+                  <p className="text-[12px] mt-1.5 text-[var(--th-text-muted)] leading-snug">
+                    {liveInterim!.original}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div ref={liveEndRef} />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -215,9 +341,14 @@ export default function TranslatorPage() {
         </div>
       </div>
 
+      {/* Two-column layout: Content + Live Sidebar */}
+      <div className="flex gap-5">
+        {/* Left: Main content */}
+        <div className="flex-1 min-w-0">
+
       {/* ─── Settings Tab ──────────────────────────────────────── */}
       {tab === 'settings' && (
-        <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] space-y-6 max-w-2xl">
+        <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] space-y-6">
           <div>
             <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">Translation Mode</h3>
             <p className="text-xs text-[var(--th-text-muted)] mb-3">How the translator processes speech during calls.</p>
@@ -315,7 +446,6 @@ export default function TranslatorPage() {
       {/* ─── Sessions Tab ──────────────────────────────────────── */}
       {tab === 'sessions' && (
         <div className="space-y-4">
-          {/* Filter */}
           <div className="flex gap-3">
             <select value={subFilter} onChange={e => setSubFilter(e.target.value)} className={selectCls + ' max-w-xs'}>
               <option value="">All Subscribers</option>
@@ -323,7 +453,6 @@ export default function TranslatorPage() {
             </select>
           </div>
 
-          {/* Sessions list */}
           <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] overflow-hidden">
             {sessionsLoading ? (
               <div className="p-8 text-center opacity-50">Loading...</div>
@@ -400,47 +529,16 @@ export default function TranslatorPage() {
               <p className="text-sm text-[var(--th-text-muted)]">No active translator sessions</p>
               <p className="text-xs text-[var(--th-text-muted)] mt-1 opacity-60">Sessions will appear here when subscribers make calls</p>
             </div>
-          ) : liveCallId ? (
-            /* Live transcript view */
-            <div className="space-y-3">
-              <button onClick={() => { setLiveCallId(null); setLiveTranscript([]); }}
-                className="flex items-center gap-2 text-sm text-[var(--th-text-muted)] hover:text-[var(--th-text)] transition">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                </svg>
-                Back to sessions
-              </button>
-              <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] overflow-hidden">
-                <div className="px-5 py-3 border-b border-[var(--th-border)] flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-sm font-medium text-[var(--th-text)]">Live Transcript</span>
-                </div>
-                <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto min-h-[200px]">
-                  {liveTranscript.length === 0 && (
-                    <p className="text-xs text-[var(--th-text-muted)] text-center py-8">Waiting for speech...</p>
-                  )}
-                  {liveTranscript.map((entry, i) => (
-                    <div key={i} className={`flex gap-2 ${entry.speaker === 'caller' ? '' : 'flex-row-reverse'}`}>
-                      <div className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
-                        entry.speaker === 'caller'
-                          ? 'bg-[var(--th-input)] text-[var(--th-text)]'
-                          : 'bg-[var(--th-primary)]/15 text-[var(--th-text)]'
-                      }`}>
-                        <p>{entry.original}</p>
-                        <p className="mt-1 text-xs opacity-70 italic">{entry.translated}</p>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={liveEndRef} />
-                </div>
-              </div>
-            </div>
           ) : (
-            /* Active sessions list */
             <div className="grid gap-3">
               {activeSessions.map(session => (
                 <div key={session.id}
-                  className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 flex items-center gap-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+                  className={`rounded-2xl border bg-[var(--th-card)] p-4 flex items-center gap-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] cursor-pointer transition-all ${
+                    liveCallId === session.call_id
+                      ? 'border-indigo-500/40 ring-1 ring-indigo-500/20'
+                      : 'border-[var(--th-card-border-subtle)] hover:border-[var(--th-border)]'
+                  }`}
+                  onClick={() => session.call_id && setLiveCallId(session.call_id)}>
                   <span className="w-3 h-3 rounded-full bg-green-400 animate-pulse shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-[var(--th-text)]">{session.subscriber_name}</div>
@@ -449,18 +547,23 @@ export default function TranslatorPage() {
                   <div className="text-xs text-[var(--th-text-muted)]">
                     {Math.floor((session.duration_seconds || 0) / 60)}:{String((session.duration_seconds || 0) % 60).padStart(2, '0')}
                   </div>
-                  <button onClick={() => session.call_id && setLiveCallId(session.call_id)}
-                    disabled={!session.call_id}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-30"
-                    style={{ background: 'linear-gradient(135deg, var(--th-primary), var(--th-primary-hover))' }}>
-                    View Live
-                  </button>
+                  {liveCallId === session.call_id && (
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Viewing</span>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
+
+        </div>
+
+        {/* Right: Live Translation Sidebar */}
+        <div className="w-[380px] shrink-0 hidden lg:block">
+          <LiveSidebar />
+        </div>
+      </div>
     </div>
   );
 }
