@@ -68,7 +68,7 @@ export default function OverviewPage() {
           <h2 className="text-xl font-bold text-[var(--th-text)]">
             {t('dashboard.greeting', { timeOfDay: t(`time.${getTimeOfDay()}`), name: workspace?.name ?? '' })}
           </h2>
-          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{isTranslatorOnly ? 'Live Translator Service' : t('dashboard.subtitle')}</p>
+          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{isTranslatorOnly ? t('dashboard.translatorService') : t('dashboard.subtitle')}</p>
         </div>
         <div className="flex items-center gap-4">
           {translatorPhone && (
@@ -83,7 +83,7 @@ export default function OverviewPage() {
                 }}>
                 {translatorPhone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
               </a>
-              <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">Call to connect live translator</p>
+              <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">{t('dashboard.callToTranslate')}</p>
             </div>
           )}
           {!isTranslatorOnly && <SystemHealthStrip agents={agents} connections={connections} t={t} />}

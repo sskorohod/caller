@@ -32,7 +32,7 @@ export function CostBreakdown({ total, llm, tts, stt, telephony, t }: CostBreakd
         <h3 className="text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t('dashboard.costBreakdown')}</h3>
         <div className="flex items-baseline gap-1.5">
           <span className="text-lg font-bold text-[var(--th-text)]">{fmtCost(total)}</span>
-          <span className="text-[10px] text-[var(--th-text-muted)]">30d</span>
+          <span className="text-[10px] text-[var(--th-text-muted)]">{t('dashboard.period30d')}</span>
         </div>
       </div>
       <div className="space-y-2.5">

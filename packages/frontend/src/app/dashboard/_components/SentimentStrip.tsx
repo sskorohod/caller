@@ -6,7 +6,7 @@ interface SentimentStripProps {
 }
 
 const ORDER = ['positive', 'neutral', 'mixed', 'negative'];
-const LABELS: Record<string, string> = { positive: 'Positive', neutral: 'Neutral', mixed: 'Mixed', negative: 'Negative' };
+const LABEL_KEYS: Record<string, string> = { positive: 'sentiment.positive', neutral: 'sentiment.neutral', mixed: 'sentiment.mixed', negative: 'sentiment.negative' };
 const COLORS: Record<string, { bar: string; dot: string }> = {
   positive: { bar: '#22c55e', dot: '#4ade80' },
   neutral: { bar: '#64748b', dot: '#94a3b8' },
@@ -44,7 +44,7 @@ export function SentimentStrip({ data, t }: SentimentStripProps) {
           return (
             <div key={key} className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: COLORS[key].dot }} />
-              <span className="text-[10px] text-[var(--th-text-secondary)]">{LABELS[key]}</span>
+              <span className="text-[10px] text-[var(--th-text-secondary)]">{t(LABEL_KEYS[key])}</span>
               <span className="text-[10px] font-bold text-[var(--th-text)]">{pct}%</span>
             </div>
           );

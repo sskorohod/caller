@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import type { RecentCall } from '../_lib/types';
 import { fmtDuration, fmtDate, fmtCost, fmtPhone } from '../_lib/utils';
-import { STATUS_COLORS, STATUS_LABELS } from '../_lib/constants';
+import { STATUS_COLORS } from '../_lib/constants';
 import { IconPhone } from '../_lib/icons';
 
 interface RecentCallsTableProps {
@@ -48,12 +48,12 @@ export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
                         ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]'
                         : 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]'
                     }`}>
-                      {call.direction === 'outbound' ? '\u2191 Out' : '\u2193 In'}
+                      {call.direction === 'outbound' ? `\u2191 ${t('direction.outbound')}` : `\u2193 ${t('direction.inbound')}`}
                     </span>
                   </td>
                   <td className="px-5 py-3">
                     <span className={`inline-flex text-[10px] px-2.5 py-1 rounded-full font-semibold ${STATUS_COLORS[call.status] ?? STATUS_COLORS.cancelled}`}>
-                      {STATUS_LABELS[call.status] ?? call.status}
+                      {t(`status.${call.status}`)}
                     </span>
                   </td>
                   <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)] tabular-nums font-medium">{fmtDuration(call.duration_seconds)}</td>

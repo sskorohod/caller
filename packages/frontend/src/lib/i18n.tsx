@@ -117,6 +117,39 @@ const en: Record<string, string> = {
   'dashboard.qaViewCalls': 'View Calls',
   'dashboard.qaKnowledge': 'Knowledge',
   'dashboard.qaSettings': 'Settings',
+  'dashboard.translatorService': 'Live Translator Service',
+  'dashboard.callToTranslate': 'Call to connect live translator',
+  'dashboard.avgDuration': 'Avg Duration',
+  'dashboard.thisWeek': 'This Week',
+  'dashboard.period30d': '30d',
+
+  // Days of week
+  'day.sun': 'Sun',
+  'day.mon': 'Mon',
+  'day.tue': 'Tue',
+  'day.wed': 'Wed',
+  'day.thu': 'Thu',
+  'day.fri': 'Fri',
+  'day.sat': 'Sat',
+
+  // Call statuses
+  'status.completed': 'Completed',
+  'status.failed': 'Failed',
+  'status.in_progress': 'In Progress',
+  'status.initiated': 'Initiated',
+  'status.ringing': 'Ringing',
+  'status.cancelled': 'Cancelled',
+  'status.canceled': 'Cancelled',
+
+  // Sentiment
+  'sentiment.positive': 'Positive',
+  'sentiment.neutral': 'Neutral',
+  'sentiment.mixed': 'Mixed',
+  'sentiment.negative': 'Negative',
+
+  // Direction
+  'direction.inbound': 'In',
+  'direction.outbound': 'Out',
 
   // Time of day
   'time.morning': 'morning',
@@ -742,6 +775,39 @@ const ru: Record<string, string> = {
   'dashboard.qaViewCalls': 'Звонки',
   'dashboard.qaKnowledge': 'База знаний',
   'dashboard.qaSettings': 'Настройки',
+  'dashboard.translatorService': 'Сервис живого перевода',
+  'dashboard.callToTranslate': 'Позвоните для подключения переводчика',
+  'dashboard.avgDuration': 'Сред. длительность',
+  'dashboard.thisWeek': 'За неделю',
+  'dashboard.period30d': '30д',
+
+  // Days of week
+  'day.sun': 'Вс',
+  'day.mon': 'Пн',
+  'day.tue': 'Вт',
+  'day.wed': 'Ср',
+  'day.thu': 'Чт',
+  'day.fri': 'Пт',
+  'day.sat': 'Сб',
+
+  // Call statuses
+  'status.completed': 'Завершён',
+  'status.failed': 'Ошибка',
+  'status.in_progress': 'В процессе',
+  'status.initiated': 'Инициирован',
+  'status.ringing': 'Вызов',
+  'status.cancelled': 'Отменён',
+  'status.canceled': 'Отменён',
+
+  // Sentiment
+  'sentiment.positive': 'Позитивная',
+  'sentiment.neutral': 'Нейтральная',
+  'sentiment.mixed': 'Смешанная',
+  'sentiment.negative': 'Негативная',
+
+  // Direction
+  'direction.inbound': 'Вх.',
+  'direction.outbound': 'Исх.',
 
   // Time of day
   'time.morning': 'день',

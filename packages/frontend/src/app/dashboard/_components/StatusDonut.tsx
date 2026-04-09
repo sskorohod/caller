@@ -1,5 +1,5 @@
 'use client';
-import { DONUT_COLORS, STATUS_LABELS } from '../_lib/constants';
+import { DONUT_COLORS } from '../_lib/constants';
 
 interface StatusDonutProps {
   data: Record<string, number>;
@@ -43,7 +43,7 @@ export function StatusDonut({ data, t }: StatusDonutProps) {
               <div key={status} className="flex items-center justify-between group">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full shrink-0 ring-2 ring-[var(--th-card)]" style={{ backgroundColor: DONUT_COLORS[status] ?? 'var(--th-text-muted)' }} />
-                  <span className="text-[11px] text-[var(--th-text-secondary)] capitalize">{STATUS_LABELS[status] ?? status}</span>
+                  <span className="text-[11px] text-[var(--th-text-secondary)] capitalize">{t(`status.${status}`)}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-bold text-[var(--th-text)]">{count}</span>

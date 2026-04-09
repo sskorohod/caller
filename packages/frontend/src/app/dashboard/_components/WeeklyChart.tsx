@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { DAY_LABELS } from '../_lib/constants';
+
+const DAY_KEYS = ['day.sun', 'day.mon', 'day.tue', 'day.wed', 'day.thu', 'day.fri', 'day.sat'];
 
 interface WeeklyChartProps {
   dailyCalls: { day: string; count: number }[];
@@ -42,7 +43,7 @@ export function WeeklyChart({ dailyCalls, t }: WeeklyChartProps) {
       const dateStr = d.toISOString().slice(0, 10);
       const match = dailyCalls.find(dc => dc.day === dateStr);
       days.push({
-        label: DAY_LABELS[d.getDay()],
+        label: t(DAY_KEYS[d.getDay()]),
         date: dateStr,
         count: match?.count ?? 0,
         isToday: i === 0,
