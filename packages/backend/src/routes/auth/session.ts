@@ -9,6 +9,7 @@ import { users, workspaces, workspaceMembers, magicLinks } from '../../db/schema
 import { env } from '../../config/env.js';
 import { UnauthorizedError } from '../../lib/errors.js';
 import { sendEmail, buildMagicLinkEmail } from '../../services/email.service.js';
+import { validatePhoneNumbersUnique } from '../../services/workspace.service.js';
 
 const scryptAsync = promisify(scrypt);
 
@@ -115,9 +116,15 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       .replace(/^-|-$/g, '')
       .slice(0, 50) + '-' + randomBytes(3).toString('hex');
 
+    // Validate phone number is not already taken by another workspace
+    const phoneNumbers = body.phone_number ? [body.phone_number] : [];
+    if (phoneNumbers.length) {
+      await validatePhoneNumbersUnique(phoneNumbers, '00000000-0000-0000-0000-000000000000'); // dummy ID — new workspace has no ID yet
+    }
+
     const [workspace] = await db
       .insert(workspaces)
-      .values({ name: workspaceName, slug, phone_numbers: body.phone_number ? [body.phone_number] : [] })
+      .values({ name: workspaceName, slug, phone_numbers: phoneNumbers })
       .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
     if (!workspace) throw new Error('Failed to create workspace');
@@ -302,8 +309,13 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
         .replace(/^-|-$/g, '')
         .slice(0, 50) + '-' + randomBytes(3).toString('hex');
 
+      const invitePhoneNumbers = link.phone_number ? [link.phone_number] : [];
+      if (invitePhoneNumbers.length) {
+        await validatePhoneNumbersUnique(invitePhoneNumbers, '00000000-0000-0000-0000-000000000000');
+      }
+
       const [ws] = await db.insert(workspaces)
-        .values({ name: workspaceName, slug, phone_numbers: link.phone_number ? [link.phone_number] : [] })
+        .values({ name: workspaceName, slug, phone_numbers: invitePhoneNumbers })
         .returning({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan });
 
       if (ws) {

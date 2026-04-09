@@ -1,8 +1,34 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { workspaces, workspaceMembers } from '../db/schema.js';
 import { NotFoundError, ConflictError } from '../lib/errors.js';
 import type { Workspace, WorkspaceMember, MemberRole } from '../models/types.js';
+
+// Admin workspace is exempt from phone number uniqueness checks
+const ADMIN_WORKSPACE_ID = 'e077c696-e5c6-4d83-bb46-3729b6e650aa';
+
+/**
+ * Check that none of the given phone numbers are already used by another workspace.
+ * The admin workspace is exempt — its numbers are never considered conflicting.
+ */
+export async function validatePhoneNumbersUnique(phoneNumbers: string[], currentWorkspaceId: string): Promise<void> {
+  if (currentWorkspaceId === ADMIN_WORKSPACE_ID) return; // admin can use any numbers
+
+  for (const phone of phoneNumbers) {
+    const [conflict] = await db.select({ id: workspaces.id, name: workspaces.name })
+      .from(workspaces)
+      .where(and(
+        sql`${workspaces.phone_numbers} @> ${JSON.stringify([phone])}::jsonb`,
+        ne(workspaces.id, currentWorkspaceId),
+        ne(workspaces.id, ADMIN_WORKSPACE_ID), // ignore admin workspace
+      ))
+      .limit(1);
+
+    if (conflict) {
+      throw new ConflictError(`Phone number ${phone} is already registered to another account`);
+    }
+  }
+}
 
 export async function createWorkspace(params: {
   name: string;
@@ -51,10 +77,15 @@ export async function updateWorkspace(
     'external_inbound_webhook_url' | 'external_ready_timeout_ms' |
     'inbound_fallback_mode' | 'recording_retention_days' |
     'transcript_retention_days' | 'call_recording_disclosure' | 'ai_disclosure'
-  >>,
+  >> & { phone_numbers?: string[] },
 ): Promise<Workspace> {
+  // Validate phone number uniqueness before saving
+  if (updates.phone_numbers?.length) {
+    await validatePhoneNumbersUnique(updates.phone_numbers, workspaceId);
+  }
+
   const [row] = await db.update(workspaces)
-    .set(updates)
+    .set(updates as any)
     .where(eq(workspaces.id, workspaceId))
     .returning();
 
