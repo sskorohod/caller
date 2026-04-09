@@ -275,6 +275,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       directionRows,
       sentimentRows,
       costRow,
+      qaRow,
       avgDurationRow,
       dailyRows,
       topAgentRows,
@@ -293,13 +294,19 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       db.select({ direction: calls.direction, count: sql<number>`count(*)::int` }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, thirtyDaysAgo))).groupBy(calls.direction),
       // Sentiment (last 30 days)
       db.select({ sentiment: aiCallSessions.sentiment, count: sql<number>`count(*)::int` }).from(aiCallSessions).where(and(eq(aiCallSessions.workspace_id, wid), gte(aiCallSessions.created_at, thirtyDaysAgo))).groupBy(aiCallSessions.sentiment),
-      // Cost & quality (last 30 days)
+      // Cost from deposit_transactions (real client-facing cost with markup)
+      db.execute(sql`
+        SELECT
+          coalesce(abs(sum(CASE WHEN type = 'usage' THEN amount_usd::numeric ELSE 0 END)), 0)::text as total_cost,
+          coalesce(abs(sum(CASE WHEN type = 'usage' AND description ILIKE '%llm%' THEN amount_usd::numeric ELSE 0 END)), 0)::text as cost_llm,
+          coalesce(abs(sum(CASE WHEN type = 'usage' AND description ILIKE '%tts%' THEN amount_usd::numeric ELSE 0 END)), 0)::text as cost_tts,
+          coalesce(abs(sum(CASE WHEN type = 'usage' AND (description ILIKE '%stt%' OR description ILIKE '%translator%') THEN amount_usd::numeric ELSE 0 END)), 0)::text as cost_stt,
+          coalesce(abs(sum(CASE WHEN type = 'usage' AND description ILIKE '%telephony%' THEN amount_usd::numeric ELSE 0 END)), 0)::text as cost_telephony
+        FROM deposit_transactions
+        WHERE workspace_id = ${wid} AND created_at >= ${thirtyDaysAgo} AND type = 'usage'
+      `).then(r => r.rows),
+      // QA & turns from ai_call_sessions
       db.select({
-        total_cost: sql<string>`coalesce(sum(cost_total), 0)::text`,
-        cost_llm: sql<string>`coalesce(sum(cost_llm), 0)::text`,
-        cost_tts: sql<string>`coalesce(sum(cost_tts), 0)::text`,
-        cost_stt: sql<string>`coalesce(sum(cost_stt), 0)::text`,
-        cost_telephony: sql<string>`coalesce(sum(cost_telephony), 0)::text`,
         avg_qa: sql<string>`coalesce(avg(qa_score), 0)::text`,
         total_turns: sql<number>`coalesce(sum(total_turns), 0)::int`,
       }).from(aiCallSessions).where(and(eq(aiCallSessions.workspace_id, wid), gte(aiCallSessions.created_at, thirtyDaysAgo))),
@@ -343,8 +350,8 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       cost_tts_30d: parseFloat(costRow[0]?.cost_tts ?? '0'),
       cost_stt_30d: parseFloat(costRow[0]?.cost_stt ?? '0'),
       cost_telephony_30d: parseFloat(costRow[0]?.cost_telephony ?? '0'),
-      avg_qa_score: parseFloat(parseFloat(costRow[0]?.avg_qa ?? '0').toFixed(1)),
-      total_turns_30d: costRow[0]?.total_turns ?? 0,
+      avg_qa_score: parseFloat(parseFloat(qaRow[0]?.avg_qa ?? '0').toFixed(1)),
+      total_turns_30d: qaRow[0]?.total_turns ?? 0,
       daily_calls: dailyRows,
       top_agents: topAgentRows,
     };
