@@ -194,7 +194,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const sidebarContent = (
     <>
-      {/* Logo */}
+      {/* Logo + Live indicator */}
       <div className="px-5 h-16 flex items-center gap-3 border-b border-[var(--th-sidebar-border)]">
         <div className="w-8 h-8 bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 rounded-xl flex items-center justify-center shadow-[0_2px_8px_rgba(99,102,241,0.4)]">
           <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -204,6 +204,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div>
           <div className="text-white font-bold text-sm leading-tight">Caller</div>
           <div className="text-[var(--th-sidebar-label)] text-[10px] truncate max-w-[140px]">{workspace?.name ?? 'Workspace'}</div>
+        </div>
+        <div className="ml-auto">
+          <ConnectionIndicator />
         </div>
       </div>
 
@@ -342,27 +345,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Topbar */}
-        <header className="h-14 bg-[var(--th-topbar)] border-b border-[var(--th-card-border-subtle)] px-4 md:px-8 flex items-center justify-between shrink-0 shadow-[0_1px_3px_var(--th-shadow)]">
-          <div className="flex items-center gap-3">
-            {/* Hamburger — mobile only */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-2 rounded-lg hover:bg-[var(--th-surface)] md:hidden"
-              aria-label="Open menu"
-            >
-              <svg className="w-5 h-5 text-[var(--th-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <ConnectionIndicator />
-          </div>
-        </header>
+        {/* Mobile hamburger — only visible on small screens */}
+        <div className="md:hidden h-12 px-4 flex items-center border-b border-[var(--th-card-border-subtle)] bg-[var(--th-topbar)] shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 rounded-lg hover:bg-[var(--th-surface)]"
+            aria-label="Open menu"
+          >
+            <svg className="w-5 h-5 text-[var(--th-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+        </div>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-7">
+        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-5">
           {children}
         </main>
       </div>
