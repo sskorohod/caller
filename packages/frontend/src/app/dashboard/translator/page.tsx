@@ -191,10 +191,28 @@ export default function TranslatorPage() {
               {liveCallId && !callEnded ? t('translator.liveTranslation') : callEnded ? t('translator.translation') : t('translator.translation')}
             </span>
           </div>
-          {/* Column labels */}
-          <div className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
-            <span>{t('translator.other')}</span>
-            <span>{t('translator.you')}</span>
+          <div className="flex items-center gap-3">
+            {/* Column labels */}
+            <div className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
+              <span>{t('translator.other')}</span>
+              <span>{t('translator.you')}</span>
+            </div>
+            {/* Hangup button — only during active call */}
+            {liveCallId && !callEnded && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api.post(`/calls/${liveCallId}/hangup`, {});
+                  } catch { /* ignore */ }
+                }}
+                className="p-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-red-400 transition-all"
+                title="End call"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414M2.757 18.364a9 9 0 001.414 1.414M3.69 3.69L20.31 20.31" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
