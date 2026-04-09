@@ -49,6 +49,7 @@ const TONES = [
   { value: 'friendly', label: 'Friendly', desc: 'Warm, casual, conversational.' },
   { value: 'medical', label: 'Medical', desc: 'Precise medical terminology.' },
   { value: 'legal', label: 'Legal', desc: 'Precise legal terminology, formal tone.' },
+  { value: 'intelligent', label: 'Intelligent', desc: 'Rephrases speech to sound eloquent, polite, and well-spoken before translating.' },
 ];
 
 const selectCls = "w-full px-3 py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] transition-all appearance-none";

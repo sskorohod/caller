@@ -80,7 +80,7 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
     const body = z.object({
       greeting_text: z.string().max(500).optional(),
       tts_voice_id: z.string().max(100).optional(),
-      tone: z.enum(['neutral', 'business', 'friendly', 'medical', 'legal']).optional(),
+      tone: z.enum(['neutral', 'business', 'friendly', 'medical', 'legal', 'intelligent']).optional(),
       personal_context: z.string().max(2000).optional(),
       my_language: z.string().min(2).max(10).optional(),
       target_language: z.string().min(2).max(10).optional(),

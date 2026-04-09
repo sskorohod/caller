@@ -44,6 +44,7 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
   friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
   medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
   legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
+  intelligent: 'IMPORTANT: Before translating, first rephrase the speaker\'s words to sound maximally intelligent, polite, and respectful. Remove any slang, filler words, rough expressions, or grammatical errors. Restructure the sentence to be eloquent and well-spoken while preserving the full original meaning. Only THEN translate the refined version. The listener should perceive the speaker as highly educated and articulate.',
 };
 
 /**

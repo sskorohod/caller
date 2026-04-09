@@ -34,6 +34,7 @@ const TONES = [
   { value: 'friendly', label: 'Friendly', icon: '😊' },
   { value: 'medical', label: 'Medical', icon: '🏥' },
   { value: 'legal', label: 'Legal', icon: '⚖️' },
+  { value: 'intelligent', label: 'Intelligent', icon: '🎩' },
 ];
 
 export default function LiveTranslatePage() {
