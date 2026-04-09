@@ -584,10 +584,10 @@ ${this.personalContext}` : ''}`;
       turns: this.transcript.length,
     }, 'Conference translator finalized');
 
-    this.sendTelegramNotification('end', durationSecs, minutesUsed).catch(() => {});
+    this.sendTelegramNotification('end', durationSecs, costTotal).catch(() => {});
   }
 
-  private async sendTelegramNotification(type: 'start' | 'end', durationSecs?: number, minutesUsed?: number): Promise<void> {
+  private async sendTelegramNotification(type: 'start' | 'end', durationSecs?: number, costTotal?: number): Promise<void> {
     const [telegramCreds] = await db.select().from(providerCredentials)
       .where(and(eq(providerCredentials.workspace_id, this.workspaceId), eq(providerCredentials.provider, 'telegram')));
     if (!telegramCreds) return;
@@ -615,8 +615,8 @@ ${this.personalContext}` : ''}`;
       await sendTranslatorSessionEnd(creds.bot_token, creds.chat_id, {
         subscriberName: ws?.name || 'User',
         durationSecs: durationSecs ?? 0,
-        minutesUsed: minutesUsed ?? 0,
-        balanceRemaining: Math.round(balanceUsd / 0.05), // show remaining minutes
+        costUsd: costTotal ?? 0,
+        balanceUsd,
       });
     }
   }

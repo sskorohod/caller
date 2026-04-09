@@ -93,18 +93,18 @@ export async function sendTranslatorSessionStart(
 export async function sendTranslatorSessionEnd(
   botToken: string,
   chatId: string,
-  data: { subscriberName: string; durationSecs: number; minutesUsed: number; balanceRemaining: number },
+  data: { subscriberName: string; durationSecs: number; costUsd: number; balanceUsd: number },
 ): Promise<boolean> {
   const mins = Math.floor(data.durationSecs / 60);
   const secs = data.durationSecs % 60;
   const lines = [
     '\u{1F3C1} <b>Translator Session Ended</b>',
-    `Subscriber: ${escapeHtml(data.subscriberName)}`,
+    `User: ${escapeHtml(data.subscriberName)}`,
     `Duration: ${mins}m ${secs}s`,
-    `Minutes used: ${data.minutesUsed.toFixed(1)}`,
-    `Balance remaining: ${data.balanceRemaining.toFixed(1)} min`,
+    `Cost: $${data.costUsd.toFixed(4)}`,
+    `Balance: $${data.balanceUsd.toFixed(2)}`,
   ];
-  if (data.balanceRemaining < 5) {
+  if (data.balanceUsd < 5) {
     lines.push('');
     lines.push('\u26A0\uFE0F <b>Low balance!</b> Please top up.');
   }
