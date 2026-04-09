@@ -3,7 +3,7 @@ import pino from 'pino';
 import { WebSocket } from 'ws';
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { translatorSubscribers, translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
+import { translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
 import { getIo } from '../realtime/io.js';
 import * as callService from './call.service.js';
 import { queuePostCallProcessing } from '../workers/post-call.worker.js';
@@ -513,16 +513,6 @@ ${this.personalContext}` : ''}`;
       }
     }
 
-    // Deduct balance from subscriber
-    try {
-      await db.update(translatorSubscribers).set({
-        balance_minutes: sql`GREATEST(${translatorSubscribers.balance_minutes} - ${minutesUsed}, 0)`,
-        updated_at: new Date(),
-      }).where(eq(translatorSubscribers.id, this.subscriberId));
-    } catch (err) {
-      log.error({ err, callId: this.callId }, 'Failed to deduct subscriber balance');
-    }
-
     // Deduct USD from workspace deposit
     try {
       const { deductUsageCost } = await import('./billing.service.js');
@@ -596,47 +586,35 @@ ${this.personalContext}` : ''}`;
   }
 
   private async sendTelegramNotification(type: 'start' | 'end', durationSecs?: number, minutesUsed?: number): Promise<void> {
-    const [sub] = await db.select().from(translatorSubscribers).where(eq(translatorSubscribers.id, this.subscriberId));
-    if (!sub) return;
-
-    let botToken: string | null = null;
-    let chatId: string | null = sub.telegram_chat_id;
-
     const [telegramCreds] = await db.select().from(providerCredentials)
       .where(and(eq(providerCredentials.workspace_id, this.workspaceId), eq(providerCredentials.provider, 'telegram')));
+    if (!telegramCreds) return;
 
-    if (telegramCreds) {
-      const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
-      botToken = creds.bot_token;
-      if (!chatId) chatId = creds.chat_id;
-    }
+    const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+    if (!creds.bot_token || !creds.chat_id) return;
 
-    if (!botToken || !chatId) {
-      log.warn({ callId: this.callId, hasBotToken: !!botToken, hasChatId: !!chatId }, 'Telegram notification skipped — missing credentials');
-      return;
-    }
+    // Get workspace name for notification
+    const [ws] = await db.select({ name: workspacesSchema.name, balance_usd: workspacesSchema.balance_usd })
+      .from(workspacesSchema).where(eq(workspacesSchema.id, this.workspaceId)).limit(1);
 
     if (type === 'start') {
       let liveUrl: string | undefined;
       try {
         const shareToken = await callService.createShareToken(this.callId);
         liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
-        log.info({ callId: this.callId, liveUrl }, 'Share token created for Telegram');
-      } catch (err) {
-        log.error({ err, callId: this.callId }, 'Failed to create share token');
-      }
+      } catch { /* ignore */ }
 
-      await sendTranslatorSessionStart(botToken, chatId, {
-        subscriberName: sub.name,
+      await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, {
+        subscriberName: ws?.name || 'User',
         liveUrl,
       });
     } else {
-      const balance = parseFloat(sub.balance_minutes as string);
-      await sendTranslatorSessionEnd(botToken, chatId, {
-        subscriberName: sub.name,
+      const balanceUsd = parseFloat(ws?.balance_usd as string) || 0;
+      await sendTranslatorSessionEnd(creds.bot_token, creds.chat_id, {
+        subscriberName: ws?.name || 'User',
         durationSecs: durationSecs ?? 0,
         minutesUsed: minutesUsed ?? 0,
-        balanceRemaining: Math.max(balance - (minutesUsed ?? 0), 0),
+        balanceRemaining: Math.round(balanceUsd / 0.05), // show remaining minutes
       });
     }
   }

@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../../config/db.js';
-import { telephonyConnections, workspaces, translatorSubscribers } from '../../db/schema.js';
+import { telephonyConnections, workspaces } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
@@ -95,27 +95,14 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       .where(sql`${workspaces.phone_numbers} @> ${JSON.stringify([callerNormalized])}::jsonb`)
       .limit(1);
 
-    // Fallback: legacy translator_subscribers
-    const [translatorSub] = !callerWorkspace ? await db
-      .select()
-      .from(translatorSubscribers)
-      .where(and(
-        eq(translatorSubscribers.workspace_id, workspace.id),
-        eq(translatorSubscribers.phone_number, callerNormalized),
-        eq(translatorSubscribers.enabled, true),
-      ))
-      .limit(1) : [undefined];
-
-    const isTranslatorCall = !!(callerWorkspace || translatorSub);
-    const translatorWorkspaceId = callerWorkspace?.id || workspace.id;
-    const translatorBalance = callerWorkspace
-      ? parseFloat(callerWorkspace.balance_usd as string)
-      : translatorSub ? parseFloat(translatorSub.balance_minutes as string) : 0;
-    const translatorDefaults = (callerWorkspace?.translator_defaults as Record<string, string>) || {};
+    const isTranslatorCall = !!callerWorkspace;
 
     if (isTranslatorCall) {
+      const translatorBalance = parseFloat(callerWorkspace.balance_usd as string);
+      const wsDefs = (callerWorkspace.translator_defaults as Record<string, string>) || {};
+
       if (translatorBalance <= 0) {
-        const myLang = translatorDefaults.my_language || translatorSub?.my_language || 'en';
+        const myLang = wsDefs.my_language || 'en';
         const noBalanceTwiml = new (await import('twilio')).default.twiml.VoiceResponse();
         noBalanceTwiml.say({ voice: myLang === 'ru' ? 'Polly.Tatyana' : 'Polly.Joanna' },
           myLang === 'ru'
@@ -125,11 +112,6 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         reply.type('text/xml').send(noBalanceTwiml.toString());
         return;
       }
-
-      // Use caller workspace defaults, or connection workspace defaults, or subscriber settings
-      const wsDefaults0 = callerWorkspace
-        ? (callerWorkspace.translator_defaults as Record<string, string>) || {}
-        : (workspace.translator_defaults as Record<string, string>) || {};
 
       // Create call record for translator session
       const translatorCall = await callService.createCall({
@@ -141,9 +123,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         conversationOwnerRequested: 'internal',
         metadata: {
           call_type: 'translator',
-          subscriber_id: translatorSub?.id,
-          caller_workspace_id: callerWorkspace?.id,
-          greeting_text: wsDefaults0.greeting_text || translatorSub?.greeting_text || '',
+          caller_workspace_id: callerWorkspace.id,
+          greeting_text: wsDefs.greeting_text || '',
         },
       });
 
@@ -158,7 +139,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         conversationOwner: 'internal',
       });
 
-      // Send Telegram notification IMMEDIATELY (fire-and-forget, no delay)
+      // Send Telegram notification (fire-and-forget)
       (async () => {
         try {
           const { providerCredentials } = await import('../../db/schema.js');
@@ -170,32 +151,30 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           if (!telegramCreds) return;
 
           const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
-          const chatId = translatorSub?.telegram_chat_id || creds.chat_id;
-          if (!creds.bot_token || !chatId) return;
+          if (!creds.bot_token || !creds.chat_id) return;
 
           const shareToken = await callService.createShareToken(translatorCall.id);
           const liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
 
-          await sendTranslatorSessionStart(creds.bot_token, chatId, {
-            subscriberName: callerWorkspace?.name || translatorSub?.name || 'Unknown',
+          await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, {
+            subscriberName: callerWorkspace.name,
             liveUrl,
           });
-          app.log.info({ callId: translatorCall.id, liveUrl }, 'Telegram notification sent immediately');
+          app.log.info({ callId: translatorCall.id, liveUrl }, 'Telegram notification sent');
         } catch (err) {
-          app.log.error({ err }, 'Failed to send immediate Telegram notification');
+          app.log.error({ err }, 'Failed to send Telegram notification');
         }
       })();
 
       // Return TwiML: connect directly to media stream (greeting spoken by Grok Voice Agent)
       const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
-      // Connect to media stream for live translation
       const connect = twiml.connect();
       connect.stream({
         url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${translatorCall.id}`,
         name: `translator-${translatorCall.id}`,
       });
 
-      app.log.info({ callId: translatorCall.id, subscriber: callerWorkspace?.name || translatorSub?.name, phone: callerNormalized }, 'Translator call connected');
+      app.log.info({ callId: translatorCall.id, user: callerWorkspace.name, phone: callerNormalized }, 'Translator call connected');
       reply.type('text/xml').send(twiml.toString());
       return;
     }

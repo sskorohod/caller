@@ -38,9 +38,6 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [subsCount] = await db.select({ count: count() }).from(translatorSubscribers)
-      .where(and(eq(translatorSubscribers.workspace_id, wsId), eq(translatorSubscribers.enabled, true)));
-
     const [sessStats] = await db.select({
       count: count(),
       total_minutes: sum(translatorSessions.minutes_used),
@@ -56,11 +53,6 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       GROUP BY DATE(created_at) ORDER BY date
     `);
 
-    // Low balance subscribers
-    const lowBalance = await db.select({ id: translatorSubscribers.id, name: translatorSubscribers.name, balance_minutes: translatorSubscribers.balance_minutes })
-      .from(translatorSubscribers)
-      .where(and(eq(translatorSubscribers.workspace_id, wsId), eq(translatorSubscribers.enabled, true), sql`${translatorSubscribers.balance_minutes}::numeric < 5`));
-
     // Recent sessions
     const recentSessions = await db.select().from(translatorSessions)
       .where(eq(translatorSessions.workspace_id, wsId))
@@ -75,123 +67,22 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     return {
       kpi: {
         total_revenue: totalRevenue,
-        active_subscribers: subsCount.count,
+        active_users: 0, // legacy field
         minutes_used: totalMinutes,
         total_sessions: sessStats.count,
         margin: Math.round(margin),
         estimated_cost: estimatedCost,
       },
       revenue_by_day: revenueByDay.rows,
-      low_balance_alerts: lowBalance,
+      low_balance_alerts: [],
       recent_sessions: recentSessions,
-      subscribers: await db.select().from(translatorSubscribers)
-        .where(eq(translatorSubscribers.workspace_id, wsId))
-        .orderBy(desc(translatorSubscribers.created_at)),
     };
   });
 
-  // ─── Subscribers ──────────────────────────────────────────────────────
-
-  app.get('/subscribers', async (request) => {
-    const wsId = request.auth.workspaceId;
-    const q = z.object({
-      search: z.string().optional(),
-      status: z.enum(['all', 'active', 'blocked', 'disabled']).default('all'),
-      limit: z.coerce.number().int().min(1).max(200).default(100),
-      offset: z.coerce.number().int().min(0).default(0),
-    }).parse(request.query);
-
-    let conditions: any = eq(translatorSubscribers.workspace_id, wsId);
-    if (q.status === 'active') conditions = and(conditions, eq(translatorSubscribers.enabled, true), eq(translatorSubscribers.blocked, false));
-    if (q.status === 'blocked') conditions = and(conditions, eq(translatorSubscribers.blocked, true));
-    if (q.status === 'disabled') conditions = and(conditions, eq(translatorSubscribers.enabled, false));
-    if (q.search) {
-      conditions = and(conditions, or(
-        like(translatorSubscribers.name, `%${q.search}%`),
-        like(translatorSubscribers.phone_number, `%${q.search}%`),
-      ));
-    }
-
-    const rows = await db.select().from(translatorSubscribers).where(conditions)
-      .orderBy(desc(translatorSubscribers.created_at)).limit(q.limit).offset(q.offset);
-
-    const [total] = await db.select({ count: count() }).from(translatorSubscribers).where(conditions);
-
-    return { subscribers: rows, total: total.count };
-  });
-
-  app.get('/subscribers/:id', async (request) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
-    const wsId = request.auth.workspaceId;
-
-    const [sub] = await db.select().from(translatorSubscribers)
-      .where(and(eq(translatorSubscribers.id, id), eq(translatorSubscribers.workspace_id, wsId)));
-    if (!sub) throw { statusCode: 404, message: 'Subscriber not found' };
-
-    const sessions = await db.select().from(translatorSessions)
-      .where(eq(translatorSessions.subscriber_id, id)).orderBy(desc(translatorSessions.created_at)).limit(50);
-
-    const transactions = await db.select().from(balanceTransactions)
-      .where(eq(balanceTransactions.subscriber_id, id)).orderBy(desc(balanceTransactions.created_at)).limit(50);
-
-    const [stats] = await db.select({
-      total_minutes: sum(translatorSessions.minutes_used),
-      total_cost: sum(translatorSessions.cost_usd),
-      total_sessions: count(),
-    }).from(translatorSessions).where(eq(translatorSessions.subscriber_id, id));
-
-    return { subscriber: sub, sessions, transactions, stats };
-  });
-
-  // Balance adjustment
-  app.post('/subscribers/:id/balance', async (request) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
-    const body = z.object({
-      minutes: z.number().min(0.01).max(10000),
-      type: z.enum(['topup', 'gift', 'refund']),
-      comment: z.string().max(500).optional(),
-    }).parse(request.body);
-
-    const wsId = request.auth.workspaceId;
-    const [sub] = await db.select().from(translatorSubscribers)
-      .where(and(eq(translatorSubscribers.id, id), eq(translatorSubscribers.workspace_id, wsId)));
-    if (!sub) throw { statusCode: 404, message: 'Not found' };
-
-    await db.update(translatorSubscribers).set({
-      balance_minutes: sql`${translatorSubscribers.balance_minutes} + ${body.minutes}`,
-      updated_at: new Date(),
-    }).where(eq(translatorSubscribers.id, id));
-
-    await db.insert(balanceTransactions).values({
-      subscriber_id: id, type: body.type, minutes: String(body.minutes),
-      comment: body.comment, admin_user_id: request.auth.userId,
-    });
-
-    await auditLog(request.auth.userId, 'balance_added', 'subscriber', id,
-      { minutes: body.minutes, type: body.type, comment: body.comment }, request.ip);
-
-    return { ok: true };
-  });
-
-  // Block/unblock
-  app.post('/subscribers/:id/block', async (request) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
-    const body = z.object({
-      blocked: z.boolean(),
-      reason: z.string().max(500).optional(),
-    }).parse(request.body);
-
-    await db.update(translatorSubscribers).set({
-      blocked: body.blocked,
-      blocked_reason: body.blocked ? (body.reason ?? null) : null,
-      updated_at: new Date(),
-    }).where(and(eq(translatorSubscribers.id, id), eq(translatorSubscribers.workspace_id, request.auth.workspaceId)));
-
-    await auditLog(request.auth.userId, body.blocked ? 'subscriber_blocked' : 'subscriber_unblocked',
-      'subscriber', id, { reason: body.reason }, request.ip);
-
-    return { ok: true };
-  });
+  // ─── Subscribers (removed — merged into workspaces) ─────────────────
+  // Stub endpoints for backward compatibility
+  app.get('/subscribers', async () => ({ subscribers: [], total: 0 }));
+  app.get('/subscribers/:id', async () => { throw { statusCode: 410, message: 'Subscribers merged into user accounts' }; });
 
   // ─── Sessions ─────────────────────────────────────────────────────────
 

@@ -480,53 +480,35 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           const callMeta = call.metadata as any;
           if (callMeta?.call_type === 'translator') {
             const callerWsId = callMeta.caller_workspace_id;
-            const subId = callMeta.subscriber_id;
-            logger.info({ callId, callerWsId, subId }, 'Translator call — starting conference translator');
+            logger.info({ callId, callerWsId }, 'Translator call — starting conference translator');
             try {
-              const { translatorSubscribers, workspaces: wsTable } = await import('../../db/schema.js');
+              const { workspaces: wsTable } = await import('../../db/schema.js');
 
-              // Load caller workspace (new flow) or subscriber (legacy)
-              let wsDefs: Record<string, string> = {};
-              let sub: any = null;
-              if (callerWsId) {
-                const [callerWs] = await db.select({ translator_defaults: wsTable.translator_defaults })
-                  .from(wsTable).where(eq(wsTable.id, callerWsId));
-                wsDefs = (callerWs?.translator_defaults as Record<string, string>) || {};
-              }
-              if (subId) {
-                const [s] = await db.select().from(translatorSubscribers)
-                  .where(eq(translatorSubscribers.id, subId));
-                sub = s;
-                if (!callerWsId) {
-                  const [ws] = await db.select({ translator_defaults: wsTable.translator_defaults })
-                    .from(wsTable).where(eq(wsTable.id, call.workspace_id));
-                  wsDefs = (ws?.translator_defaults as Record<string, string>) || {};
-                }
-              }
+              // Load caller workspace settings
+              const [callerWs] = await db.select({ translator_defaults: wsTable.translator_defaults })
+                .from(wsTable).where(eq(wsTable.id, callerWsId || call.workspace_id));
+              const wsDefs = (callerWs?.translator_defaults as Record<string, string>) || {};
 
-              {
-                const { ConferenceTranslator } = await import('../../services/conference-translator.js');
-                const translator = new ConferenceTranslator({
-                  callId,
-                  workspaceId: callerWsId || call.workspace_id,
-                  subscriberId: sub?.id || callerWsId || 'workspace',
-                  myLanguage: wsDefs.my_language || sub?.my_language || 'ru',
-                  targetLanguage: wsDefs.target_language || sub?.target_language || 'en',
-                  mode: (wsDefs.translation_mode as any) || sub?.mode || 'voice',
-                  whoHears: sub?.who_hears || 'both',
-                  ttsProvider: 'xai',
-                  ttsVoiceId: wsDefs.tts_voice_id || sub?.tts_voice_id || 'eve',
-                  tone: wsDefs.tone || sub?.tone || 'business',
-                  personalContext: wsDefs.personal_context || sub?.personal_context || '',
-                  greetingText: callMeta.greeting_text || wsDefs.greeting_text || sub?.greeting_text || '',
-                  socket: socket as any,
-                  streamSid: streamSid!,
-                });
-                await translator.start();
-                // Store reference for media/stop/close events + global map for Socket.IO control
-                (socket as any).__conferenceTranslator = translator;
-                activeConferenceTranslators.set(callId, translator);
-              }
+              const { ConferenceTranslator } = await import('../../services/conference-translator.js');
+              const translator = new ConferenceTranslator({
+                callId,
+                workspaceId: callerWsId || call.workspace_id,
+                subscriberId: callerWsId || call.workspace_id,
+                myLanguage: wsDefs.my_language || 'ru',
+                targetLanguage: wsDefs.target_language || 'en',
+                mode: (wsDefs.translation_mode as any) || 'voice',
+                whoHears: wsDefs.who_hears || 'both',
+                ttsProvider: 'xai',
+                ttsVoiceId: wsDefs.tts_voice_id || 'eve',
+                tone: wsDefs.tone || 'business',
+                personalContext: wsDefs.personal_context || '',
+                greetingText: callMeta.greeting_text || wsDefs.greeting_text || '',
+                socket: socket as any,
+                streamSid: streamSid!,
+              });
+              await translator.start();
+              (socket as any).__conferenceTranslator = translator;
+              activeConferenceTranslators.set(callId, translator);
             } catch (err) {
               logger.error({ err, callId }, 'Failed to start conference translator');
             }
