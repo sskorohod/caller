@@ -59,7 +59,7 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Greeting */}
+      {/* Row 1: Greeting + Translator Phone */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
         <div>
           <h2 className="text-xl font-bold text-[var(--th-text)]">
@@ -67,7 +67,24 @@ export default function OverviewPage() {
           </h2>
           <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{isTranslatorOnly ? 'Live Translator Service' : t('dashboard.subtitle')}</p>
         </div>
-        {!isTranslatorOnly && <SystemHealthStrip agents={agents} connections={connections} t={t} />}
+        <div className="flex items-center gap-4">
+          {connections.find(c => c.ai_answering_enabled) && (
+            <div className="text-right">
+              <a href={`tel:${connections.find(c => c.ai_answering_enabled)!.phone_number}`}
+                className="text-2xl md:text-3xl font-extrabold tracking-wide"
+                style={{
+                  background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.5)) drop-shadow(0 0 24px rgba(139,92,246,0.25))',
+                }}>
+                {connections.find(c => c.ai_answering_enabled)!.phone_number.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
+              </a>
+              <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">Call to connect live translator</p>
+            </div>
+          )}
+          {!isTranslatorOnly && <SystemHealthStrip agents={agents} connections={connections} t={t} />}
+        </div>
       </div>
 
       {/* Row 2: Primary KPIs */}
