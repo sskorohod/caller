@@ -341,14 +341,10 @@ export default function TranslatorPage() {
         </div>
       </div>
 
-      {/* Two-column layout: Content + Live Sidebar */}
-      <div className="flex gap-5">
-        {/* Left: Main content */}
-        <div className="flex-1 min-w-0">
-
       {/* ─── Settings Tab ──────────────────────────────────────── */}
       {tab === 'settings' && (
-        <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] space-y-6">
+        <div className="flex gap-5">
+        <div className="flex-1 min-w-0 rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] space-y-6">
           <div>
             <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">Translation Mode</h3>
             <p className="text-xs text-[var(--th-text-muted)] mb-3">How the translator processes speech during calls.</p>
@@ -440,6 +436,11 @@ export default function TranslatorPage() {
             </button>
             {saved && <span className="text-sm text-[var(--th-success-text)]">Saved!</span>}
           </div>
+        </div>
+        {/* Live Translation Sidebar — right of settings */}
+        <div className="w-[380px] shrink-0 hidden lg:block">
+          <LiveSidebar />
+        </div>
         </div>
       )}
 
@@ -556,14 +557,6 @@ export default function TranslatorPage() {
           )}
         </div>
       )}
-
-        </div>
-
-        {/* Right: Live Translation Sidebar */}
-        <div className="w-[380px] shrink-0 hidden lg:block">
-          <LiveSidebar />
-        </div>
-      </div>
     </div>
   );
 }

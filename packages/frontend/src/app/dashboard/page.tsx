@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useT } from '@/lib/i18n';
@@ -100,14 +101,16 @@ export default function OverviewPage() {
           gradient="var(--th-gradient-indigo)"
           accentColor="#6366f1"
         />
-        <KpiCard
-          label={isTranslatorOnly ? 'Active' : t('dashboard.activeNow')}
-          value={String(s?.active_calls ?? 0)}
-          sub={t('dashboard.liveRightNow')}
-          icon={<IconSignal />}
-          gradient="var(--th-gradient-emerald)"
-          accentColor="#22c55e"
-        />
+        <Link href="/dashboard/translator" className="block">
+          <KpiCard
+            label={isTranslatorOnly ? 'Active' : t('dashboard.activeNow')}
+            value={String(s?.active_calls ?? 0)}
+            sub={t('dashboard.liveRightNow')}
+            icon={<IconSignal />}
+            gradient="var(--th-gradient-emerald)"
+            accentColor="#22c55e"
+          />
+        </Link>
         <KpiCard
           label={t('dashboard.costTotal')}
           value={fmtCost(s?.cost_total_30d ?? 0)}
