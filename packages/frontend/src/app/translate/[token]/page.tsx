@@ -50,7 +50,7 @@ export default function LiveTranslatePage() {
   const [cost, setCost] = useState(0);
   const [mode, setMode] = useState<Mode>('bidirectional');
   const [voice, setVoice] = useState('eve');
-  const [tone, setTone] = useState('neutral');
+  const [tone, setTone] = useState('business');
   const [myLang, setMyLang] = useState('ru');
   const [targetLang, setTargetLang] = useState('en');
   const [callId, setCallId] = useState<string | null>(null);
@@ -348,6 +348,7 @@ export default function LiveTranslatePage() {
               {/* Tone selector */}
               <div className="relative ml-auto">
                 <button onClick={() => setShowToneMenu(!showToneMenu)}
+                  title="Communication style for translations"
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-all ${
                     tone !== 'neutral'
                       ? 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300'

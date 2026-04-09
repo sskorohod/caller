@@ -91,7 +91,7 @@ export class ConferenceTranslator extends EventEmitter {
     this.twilioSocket = options.socket;
     this.streamSid = options.streamSid;
     this.ttsVoiceId = options.ttsVoiceId;
-    this.tone = options.tone || 'neutral';
+    this.tone = options.tone || 'business';
     this.personalContext = options.personalContext || '';
   }
 
