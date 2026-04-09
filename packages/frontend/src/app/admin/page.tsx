@@ -6,16 +6,13 @@ import Link from 'next/link';
 interface DashboardData {
   kpi: {
     total_revenue: number;
-    active_subscribers: number;
     minutes_used: number;
     total_sessions: number;
     margin: number;
     estimated_cost: number;
   };
   revenue_by_day: Array<{ date: string; revenue: string; minutes: string; sessions: string }>;
-  low_balance_alerts: Array<{ id: string; name: string; balance_minutes: string }>;
-  recent_sessions: Array<{ id: string; subscriber_id: string; duration_seconds: number; minutes_used: string; cost_usd: string; status: string; created_at: string }>;
-  subscribers: Array<{ id: string; name: string; phone_number: string; my_language: string; target_language: string; mode: string; balance_minutes: string; enabled: boolean; blocked: boolean; created_at: string }>;
+  recent_sessions: Array<{ id: string; duration_seconds: number; minutes_used: string; cost_usd: string; status: string; created_at: string }>;
 }
 
 export default function AdminDashboard() {
@@ -30,11 +27,10 @@ export default function AdminDashboard() {
   if (!data) return <div className="p-8 text-center opacity-50">Failed to load</div>;
 
   const kpiCards = [
-    { label: 'Total Revenue', value: `$${data.kpi.total_revenue.toFixed(2)}`, icon: 'payments', color: '#4d8eff' },
-    { label: 'Active Subscribers', value: data.kpi.active_subscribers.toString(), icon: 'group', color: '#adc6ff' },
-    { label: 'Minutes Used', value: data.kpi.minutes_used.toFixed(0), icon: 'schedule', color: '#d0bcff' },
-    { label: 'Margin', value: `${data.kpi.margin}%`, icon: 'trending_up', color: data.kpi.margin > 70 ? '#4ade80' : '#fbbf24' },
-    { label: 'Sessions', value: data.kpi.total_sessions.toString(), icon: 'call', color: '#a4c9ff' },
+    { label: 'Total Revenue', value: `$${(data.kpi.total_revenue ?? 0).toFixed(2)}`, icon: 'payments', color: '#4d8eff' },
+    { label: 'Minutes Used', value: (data.kpi.minutes_used ?? 0).toFixed(0), icon: 'schedule', color: '#d0bcff' },
+    { label: 'Margin', value: `${data.kpi.margin ?? 0}%`, icon: 'trending_up', color: (data.kpi.margin ?? 0) > 70 ? '#4ade80' : '#fbbf24' },
+    { label: 'Sessions', value: (data.kpi.total_sessions ?? 0).toString(), icon: 'call', color: '#a4c9ff' },
   ];
 
   return (
@@ -45,7 +41,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpiCards.map((card) => (
           <div key={card.label} className="glass-panel rounded-2xl p-5 relative overflow-hidden">
             <div className="absolute top-3 right-3">
@@ -57,7 +53,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Revenue Chart (simplified bar representation) */}
+      {/* Revenue Chart */}
       {data.revenue_by_day.length > 0 && (
         <div className="glass-panel rounded-2xl p-6">
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: '#c2c6d6' }}>Revenue by Day</h3>
@@ -79,85 +75,22 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Alerts */}
-        {data.low_balance_alerts.length > 0 && (
-          <div className="glass-panel rounded-2xl p-6" style={{ borderLeft: '3px solid #fbbf24' }}>
-            <h3 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm" style={{ color: '#fbbf24' }}>warning</span>
-              <span style={{ color: '#fbbf24' }}>Low Balance ({data.low_balance_alerts.length})</span>
-            </h3>
-            <div className="space-y-2">
-              {data.low_balance_alerts.map((alert) => (
-                <div key={alert.id} className="flex justify-between items-center text-sm">
-                  <span>{alert.name}</span>
-                  <span className="font-mono text-xs" style={{ color: '#fbbf24' }}>{parseFloat(alert.balance_minutes).toFixed(1)} min</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Recent Sessions */}
-        <div className="glass-panel rounded-2xl p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Recent Sessions</h3>
-            <Link href="/admin/sessions" className="text-xs" style={{ color: '#adc6ff' }}>View all</Link>
-          </div>
-          <div className="space-y-2">
-            {data.recent_sessions.slice(0, 8).map((sess) => (
-              <div key={sess.id} className="flex justify-between items-center text-sm py-1.5 border-b" style={{ borderColor: 'rgba(66, 71, 84, 0.15)' }}>
-                <span className="text-xs" style={{ color: '#c2c6d6' }}>{new Date(sess.created_at).toLocaleString()}</span>
-                <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
-                <span className="font-mono text-xs" style={{ color: '#4ade80' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
-              </div>
-            ))}
-            {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
-          </div>
-        </div>
-      </div>
-
-      {/* Subscribers */}
+      {/* Recent Sessions */}
       <div className="glass-panel rounded-2xl p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>All Subscribers ({data.subscribers.length})</h3>
-          <Link href="/admin/subscribers" className="text-xs" style={{ color: '#adc6ff' }}>Manage</Link>
+          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Recent Sessions</h3>
+          <Link href="/admin/sessions" className="text-xs" style={{ color: '#adc6ff' }}>View all</Link>
         </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left" style={{ color: '#c2c6d6' }}>
-              <th className="pb-2 font-medium">Name</th>
-              <th className="pb-2 font-medium">Phone</th>
-              <th className="pb-2 font-medium">Languages</th>
-              <th className="pb-2 font-medium">Balance</th>
-              <th className="pb-2 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.subscribers.map(s => (
-              <tr key={s.id} className="border-t" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
-                <td className="py-2 font-medium">{s.name}</td>
-                <td className="py-2 font-mono text-xs" style={{ color: '#c2c6d6' }}>{s.phone_number}</td>
-                <td className="py-2 text-xs">{s.my_language} &harr; {s.target_language}</td>
-                <td className="py-2">
-                  <span className="font-mono text-xs" style={{ color: parseFloat(s.balance_minutes) < 5 ? '#fbbf24' : '#4ade80' }}>
-                    {parseFloat(s.balance_minutes).toFixed(1)} min
-                  </span>
-                </td>
-                <td className="py-2">
-                  <span className="px-2 py-0.5 rounded text-xs font-bold" style={
-                    s.blocked ? { background: 'rgba(248,113,113,0.1)', color: '#f87171' }
-                    : s.enabled ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }
-                    : { background: 'rgba(107,114,128,0.1)', color: '#6b7280' }
-                  }>
-                    {s.blocked ? 'Blocked' : s.enabled ? 'Active' : 'Disabled'}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {data.subscribers.length === 0 && <tr><td colSpan={5} className="py-4 text-center opacity-50">No subscribers yet</td></tr>}
-          </tbody>
-        </table>
+        <div className="space-y-2">
+          {data.recent_sessions.slice(0, 10).map((sess) => (
+            <div key={sess.id} className="flex justify-between items-center text-sm py-1.5 border-b" style={{ borderColor: 'rgba(66, 71, 84, 0.15)' }}>
+              <span className="text-xs" style={{ color: '#c2c6d6' }}>{new Date(sess.created_at).toLocaleString()}</span>
+              <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
+              <span className="font-mono text-xs" style={{ color: '#4ade80' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
+            </div>
+          ))}
+          {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
+        </div>
       </div>
     </div>
   );
