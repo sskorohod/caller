@@ -107,13 +107,6 @@ export default function TranslatorPage() {
       .catch(() => {});
   }, []);
 
-  // Refresh active sessions when switching to live tab
-  useEffect(() => {
-    if (tab === 'live') {
-      api.get<{ sessions: ActiveSession[] }>('/translator/sessions/active')
-        .then(r => setActiveSessions(r.sessions));
-    }
-  }, [tab]);
 
   // Live transcript via Socket.IO
   useEffect(() => {
