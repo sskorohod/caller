@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
 
 import type { DashboardStats, RecentCall, Agent, TelConnection } from './_lib/types';
 import { fmtCost, getTimeOfDay } from './_lib/utils';
@@ -22,6 +22,7 @@ import { RecentCallsTable } from './_components/RecentCallsTable';
 export default function OverviewPage() {
   const { workspace } = useAuth();
   const t = useT();
+  const { lang } = useI18n();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [calls, setCalls] = useState<RecentCall[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -131,7 +132,13 @@ export default function OverviewPage() {
         />
         <KpiCard
           label={t('dashboard.balance') || 'Balance'}
-          value={`$${balanceUsd.toFixed(2)}`}
+          value={
+            balanceUsd > 10000
+              ? (lang === 'ru' ? 'Безлимит' : 'Unlimited')
+              : isTranslatorOnly
+                ? `${Math.floor(balanceUsd / 0.05)} ${lang === 'ru' ? 'мин' : 'min'}`
+                : `$${balanceUsd.toFixed(2)}`
+          }
           sub={
             (plan === 'translator' ? 'Translator' : plan === 'agents' ? 'Agents' : plan === 'agents_mcp' ? 'Agents + MCP' : '')
             + (subStatus === 'active' && subEnd ? ` · until ${new Date(subEnd).toLocaleDateString()}` : '')

@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useT } from '@/lib/i18n';
 import { useSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
-
-type Tab = 'settings' | 'sessions' | 'live';
 
 interface TranslatorDefaults {
   greeting_text?: string;
@@ -17,31 +15,9 @@ interface TranslatorDefaults {
   translation_mode?: string;
 }
 
-interface Session {
-  id: string;
-  subscriber_id: string;
-  call_id: string | null;
-  duration_seconds: number;
-  minutes_used: string;
-  cost_usd: string;
-  transcript: Array<{ speaker?: string; original?: string; translated?: string; text?: string; timestamp?: string }>;
-  status: string;
-  created_at: string;
-}
-
 interface ActiveSession {
   id: string;
-  subscriber_id: string;
   call_id: string | null;
-  duration_seconds: number;
-  created_at: string;
-  subscriber_name: string;
-  subscriber_phone: string;
-}
-
-interface Subscriber {
-  id: string;
-  name: string;
 }
 
 interface TranslationEntry {
@@ -80,7 +56,6 @@ const selectCls = "w-full px-3 py-2 rounded-xl border border-[var(--th-border)] 
 export default function TranslatorPage() {
   const t = useT();
   const { socket } = useSocket();
-  const [tab, setTab] = useState<Tab>('settings');
 
   // ─── Translator Phone Number ────────────────────────────────────
   const [translatorPhone, setTranslatorPhone] = useState<string | null>(null);
@@ -111,31 +86,6 @@ export default function TranslatorPage() {
       setSaving(false);
     }
   };
-
-  // ─── Sessions ──────────────────────────────────────────────────
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
-  const [subFilter, setSubFilter] = useState('');
-  const [expandedSession, setExpandedSession] = useState<string | null>(null);
-
-  const loadSessions = useCallback(() => {
-    setSessionsLoading(true);
-    const params = new URLSearchParams();
-    if (subFilter) params.set('subscriber_id', subFilter);
-    params.set('limit', '50');
-    api.get<{ sessions: Session[] }>(`/translator/sessions?${params}`)
-      .then(r => setSessions(r.sessions))
-      .finally(() => setSessionsLoading(false));
-  }, [subFilter]);
-
-  useEffect(() => {
-    if (tab === 'sessions') {
-      loadSessions();
-      api.get<{ subscribers: Subscriber[] }>('/translator/subscribers')
-        .then(r => setSubscribers(r.subscribers.map(s => ({ id: s.id, name: s.name }))));
-    }
-  }, [tab, loadSessions]);
 
   // ─── Live Monitor ──────────────────────────────────────────────
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
@@ -206,12 +156,6 @@ export default function TranslatorPage() {
   useEffect(() => {
     liveEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [liveTranscript, liveInterim]);
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'settings', label: t('translator.tabSettings') },
-    { id: 'sessions', label: t('translator.tabSessions') },
-    { id: 'live', label: t('translator.tabLive') },
-  ];
 
   // ─── Live Translation Sidebar ──────────────────────────────────
   const LiveSidebar = () => {
@@ -327,23 +271,11 @@ export default function TranslatorPage() {
               <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">{t('translator.callHint')}</p>
             </div>
           )}
-          <div className="flex rounded-xl border border-[var(--th-border)] overflow-hidden">
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`px-4 py-2 text-sm font-medium transition-all ${tab === t.id
-                  ? 'bg-[var(--th-primary)] text-white'
-                  : 'text-[var(--th-text-muted)] hover:bg-[var(--th-card)]'
-                }`}>
-                {t.label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* ─── Settings Tab ──────────────────────────────────────── */}
-      {tab === 'settings' && (
-        <div className="flex gap-5">
+      {/* ─── Settings + Live Sidebar ──────────────────────────────── */}
+      <div className="flex gap-5">
         <div className="flex-1 min-w-0 rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] space-y-6">
           <div>
             <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.translationMode')}</h3>
@@ -442,121 +374,7 @@ export default function TranslatorPage() {
           <LiveSidebar />
         </div>
         </div>
-      )}
-
-      {/* ─── Sessions Tab ──────────────────────────────────────── */}
-      {tab === 'sessions' && (
-        <div className="space-y-4">
-          <div className="flex gap-3">
-            <select value={subFilter} onChange={e => setSubFilter(e.target.value)} className={selectCls + ' max-w-xs'}>
-              <option value="">{t('translator.allSubscribers')}</option>
-              {subscribers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-
-          <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] overflow-hidden">
-            {sessionsLoading ? (
-              <div className="p-8 text-center opacity-50">{t('translator.loading')}</div>
-            ) : sessions.length === 0 ? (
-              <div className="p-8 text-center opacity-50">{t('translator.noSessions')}</div>
-            ) : (
-              <div className="divide-y divide-[var(--th-border)]">
-                {sessions.map(session => {
-                  const subName = subscribers.find(s => s.id === session.subscriber_id)?.name || 'Unknown';
-                  const expanded = expandedSession === session.id;
-                  return (
-                    <div key={session.id}>
-                      <button onClick={() => setExpandedSession(expanded ? null : session.id)}
-                        className="w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-[var(--th-card)]/80 transition-all">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-[var(--th-text)]">{subName}</div>
-                          <div className="text-xs text-[var(--th-text-muted)]">
-                            {new Date(session.created_at).toLocaleString()}
-                          </div>
-                        </div>
-                        <div className="text-xs text-[var(--th-text-muted)] text-right shrink-0">
-                          <div>{Math.floor((session.duration_seconds || 0) / 60)}:{String((session.duration_seconds || 0) % 60).padStart(2, '0')}</div>
-                          <div className="font-mono">${parseFloat(session.cost_usd || '0').toFixed(4)}</div>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded ${session.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-[var(--th-text-muted)]'}`}>
-                          {session.status}
-                        </span>
-                        <svg className={`w-4 h-4 shrink-0 text-[var(--th-text-muted)] transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                        </svg>
-                      </button>
-                      {expanded && (
-                        <div className="px-5 pb-4 border-t border-[var(--th-border)]">
-                          <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
-                            {(session.transcript || []).length === 0 ? (
-                              <p className="text-xs text-[var(--th-text-muted)] py-4 text-center">{t('translator.noTranscript')}</p>
-                            ) : session.transcript.map((entry, i) => {
-                              const isYou = ['subscriber', 'you', 'operator'].includes(entry.speaker || '');
-                              const label = entry.speaker === 'subscriber' ? t('translator.you') : entry.speaker === 'other' ? t('translator.otherParty') : entry.speaker || 'speaker';
-                              return (
-                              <div key={i} className={`flex gap-2 ${isYou ? 'flex-row-reverse' : ''}`}>
-                                <div className={`max-w-[75%] rounded-xl px-3 py-2 text-xs ${
-                                  isYou
-                                    ? 'bg-[var(--th-primary)]/15 text-[var(--th-text)]'
-                                    : 'bg-[var(--th-input)] text-[var(--th-text)]'
-                                }`}>
-                                  <span className="font-bold text-[10px] uppercase text-[var(--th-text-muted)] block mb-0.5">{label}</span>
-                                  <p>{entry.original || entry.text || ''}</p>
-                                  {entry.translated && <p className="mt-1 opacity-70 italic">{entry.translated}</p>}
-                                </div>
-                              </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ─── Live Monitor Tab ──────────────────────────────────── */}
-      {tab === 'live' && (
-        <div className="space-y-4">
-          {activeSessions.length === 0 && !liveCallId ? (
-            <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-12 text-center shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-              <svg className="w-12 h-12 mx-auto mb-3 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
-              </svg>
-              <p className="text-sm text-[var(--th-text-muted)]">{t('translator.noActiveSessions')}</p>
-              <p className="text-xs text-[var(--th-text-muted)] mt-1 opacity-60">{t('translator.sessionsHint')}</p>
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {activeSessions.map(session => (
-                <div key={session.id}
-                  className={`rounded-2xl border bg-[var(--th-card)] p-4 flex items-center gap-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] cursor-pointer transition-all ${
-                    liveCallId === session.call_id
-                      ? 'border-indigo-500/40 ring-1 ring-indigo-500/20'
-                      : 'border-[var(--th-card-border-subtle)] hover:border-[var(--th-border)]'
-                  }`}
-                  onClick={() => session.call_id && setLiveCallId(session.call_id)}>
-                  <span className="w-3 h-3 rounded-full bg-green-400 animate-pulse shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-[var(--th-text)]">{session.subscriber_name}</div>
-                    <div className="text-xs text-[var(--th-text-muted)] font-mono">{session.subscriber_phone}</div>
-                  </div>
-                  <div className="text-xs text-[var(--th-text-muted)]">
-                    {Math.floor((session.duration_seconds || 0) / 60)}:{String((session.duration_seconds || 0) % 60).padStart(2, '0')}
-                  </div>
-                  {liveCallId === session.call_id && (
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{t('translator.viewing')}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
