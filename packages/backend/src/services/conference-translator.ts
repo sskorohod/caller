@@ -158,16 +158,21 @@ export class ConferenceTranslator extends EventEmitter {
     const targetLangName = LANG_NAMES[this.targetLang] || this.targetLang;
     const isOneWay = this.mode === 'text' || this.mode === 'unidirectional' as any;
 
+    const commonRules = `
+- ALWAYS wait for the speaker to finish their complete thought before translating. A brief pause (1-2 seconds) does NOT mean the speaker is done — they may be thinking or breathing.
+- NEVER output a partial or incomplete translation. If you only received a fragment (e.g. ending with "and", "but", "that", "to"), wait for more input and combine it into one complete translation.
+- When translating numbers, be EXTREMELY precise. For numbers above 99, spell them out clearly (e.g. "one hundred thirty-eight dollars", NOT "three hundred thirty-eight"). Double-check that the number in your translation matches exactly what was spoken.
+- If someone interrupts while you are translating, finish your current translation first, then translate the new speech. Do NOT drop incomplete translations.
+- ONLY output the translation. Do NOT add any commentary, greetings, or explanations.
+- If you cannot understand something, stay silent.`;
+
     if (isOneWay) {
-      // One-way: only voice-translate subscriber's speech for the other party.
-      // Other party's speech is translated as TEXT only (shown on screen, not spoken).
       return `You are a live phone interpreter.
 
 Rules:
 - When you hear ${myLangName}, translate it to ${targetLangName} and SPEAK the translation aloud.
 - When you hear ${targetLangName}, translate it to ${myLangName} but ONLY output text — do NOT speak. Just provide a silent text translation.
-- ONLY output the translation. Do NOT add any commentary, greetings, or explanations.
-- If you cannot understand something, stay silent.
+${commonRules}
 
 Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}${this.personalContext ? `
 
@@ -181,8 +186,7 @@ ${this.personalContext}` : ''}`;
 Rules:
 - When you hear ${myLangName}, translate it to ${targetLangName} and speak the translation.
 - When you hear ${targetLangName}, translate it to ${myLangName} and speak the translation.
-- ONLY speak the translation. Do NOT add any commentary, greetings, or explanations.
-- If you cannot understand something, stay silent.
+${commonRules}
 
 Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}${this.personalContext ? `
 
@@ -207,9 +211,9 @@ ${this.personalContext}` : ''}`;
           instructions: this.buildInstructions(),
           turn_detection: {
             type: 'server_vad',
-            threshold: 0.5,
-            silence_duration_ms: 200,
-            prefix_padding_ms: 150,
+            threshold: 0.6,
+            silence_duration_ms: 1200,
+            prefix_padding_ms: 400,
           },
           input_audio_transcription: { model: 'whisper-1' },
           audio: {
@@ -251,6 +255,13 @@ ${this.personalContext}` : ''}`;
     this.connectGrok();
   }
 
+  /** Update tone on the fly — reconnects Grok with new instructions */
+  updateTone(tone: string): void {
+    this.tone = tone;
+    log.info({ callId: this.callId, tone }, 'Translator tone updated — reconnecting Grok');
+    this.connectGrok();
+  }
+
   /** Update voice on the fly — reconnects Grok with new voice */
   updateVoice(voice: string): void {
     this.ttsVoiceId = voice;
@@ -258,8 +269,30 @@ ${this.personalContext}` : ''}`;
     this.connectGrok();
   }
 
+  private paused: boolean = false;
+
+  /** Pause translation — audio is dropped, no translations produced */
+  pause(): void {
+    this.paused = true;
+    if (this.grokWs?.readyState === WebSocket.OPEN) {
+      this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
+    }
+    log.info({ callId: this.callId }, 'Translator paused');
+  }
+
+  /** Resume translation */
+  resume(): void {
+    this.paused = false;
+    log.info({ callId: this.callId }, 'Translator resumed');
+  }
+
+  isPaused(): boolean {
+    return this.paused;
+  }
+
   /** Forward telephony audio to Grok Voice Agent */
   sendAudio(audioBuffer: Buffer): void {
+    if (this.paused) return;
     if (this.grokWs?.readyState === WebSocket.OPEN) {
       this.grokWs.send(JSON.stringify({
         type: 'input_audio_buffer.append',
@@ -271,7 +304,17 @@ ${this.personalContext}` : ''}`;
   private handleGrokEvent(msg: any): void {
     switch (msg.type) {
       case 'input_audio_buffer.speech_started': {
-        // User started speaking — emit "Speaking..." to UI
+        // New speech detected — cancel any in-progress translation to prevent overlap
+        if (this.grokWs?.readyState === WebSocket.OPEN) {
+          this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
+        }
+        // Clear Twilio's audio playback buffer to stop stale translation audio
+        if (this.twilioSocket.readyState === 1) {
+          this.twilioSocket.send(JSON.stringify({
+            event: 'clear',
+            streamSid: this.streamSid,
+          }));
+        }
         this.currentInputTranscript = '';
         this.currentOutputTranscript = '';
         this.currentResponseAudio = [];

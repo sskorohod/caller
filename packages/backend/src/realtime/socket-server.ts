@@ -144,6 +144,32 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       } catch { /* ignore */ }
     });
 
+    // Translator pause/resume
+    socket.on('translator:pause', async ({ call_id }: { call_id: string }) => {
+      try {
+        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
+        const ct = getActiveConferenceTranslators().get(call_id);
+        if (ct) ct.pause();
+      } catch { /* ignore */ }
+    });
+
+    socket.on('translator:resume', async ({ call_id }: { call_id: string }) => {
+      try {
+        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
+        const ct = getActiveConferenceTranslators().get(call_id);
+        if (ct) ct.resume();
+      } catch { /* ignore */ }
+    });
+
+    // Translator set tone
+    socket.on('translator:set-tone', async ({ call_id, tone }: { call_id: string; tone: string }) => {
+      try {
+        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
+        const ct = getActiveConferenceTranslators().get(call_id);
+        if (ct) ct.updateTone(tone);
+      } catch { /* ignore */ }
+    });
+
     socket.on('call:translate:leave', ({ call_id }: { call_id: string }) => {
       socket.leave(`call:${call_id}:translate`);
     });

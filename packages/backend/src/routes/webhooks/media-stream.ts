@@ -598,7 +598,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   session: {
                     voice: ttsVoiceId,
                     instructions: `You are a live phone interpreter. Translate ${opLangName} to ${clLangName}. ONLY speak the translation, nothing else. Be natural and concise.`,
-                    turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: 200, prefix_padding_ms: 150 },
+                    turn_detection: { type: 'server_vad', threshold: 0.6, silence_duration_ms: 1200, prefix_padding_ms: 400 },
                     input_audio_transcription: { model: 'whisper-1' },
                     audio: {
                       input: { format: { type: 'audio/pcmu', rate: 8000 } },
