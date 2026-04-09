@@ -143,7 +143,7 @@ Respond in JSON format:
           qa_score: qaScore != null ? String(qaScore) : null,
         } as any);
 
-        // Increment LLM cost with post-call analysis tokens
+        // Increment LLM cost with post-call analysis tokens + deduct from balance
         if (postCallTokensIn > 0 || postCallTokensOut > 0) {
           const postCallCost = calculateLLMCost(model, postCallTokensIn, postCallTokensOut);
           await db.update(aiCallSessions)
@@ -154,7 +154,30 @@ Respond in JSON format:
               total_tokens_out: sql`coalesce(total_tokens_out, 0) + ${postCallTokensOut}`,
             })
             .where(eq(aiCallSessions.id, sessionId));
-          logger.info({ callId, postCallCost, postCallTokensIn, postCallTokensOut }, 'Post-call LLM cost added');
+
+          // Deduct post-call LLM cost from workspace balance
+          try {
+            const { deductUsageCost } = await import('../services/billing.service.js');
+            const [ws] = await db.select({ provider_config: workspaces.provider_config })
+              .from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
+            await deductUsageCost({
+              workspaceId,
+              providerCosts: {
+                llm: postCallCost,
+                stt: 0,
+                tts: 0,
+                telephony: 0,
+                llmProvider: model.includes('claude') ? 'anthropic' : model.includes('gpt') ? 'openai' : 'xai',
+              },
+              providerConfig: (ws?.provider_config as any) || {},
+              referenceType: 'post_call_analysis',
+              referenceId: sessionId,
+            });
+          } catch (err) {
+            logger.error({ err, callId }, 'Failed to deduct post-call LLM cost from balance');
+          }
+
+          logger.info({ callId, postCallCost, postCallTokensIn, postCallTokensOut }, 'Post-call LLM cost added and deducted');
         }
 
         // Insert QA evaluation
