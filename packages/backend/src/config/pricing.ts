@@ -40,7 +40,7 @@ const TTS_PRICING: Record<string, number> = {
 // ─── STT Pricing (per minute) ──────────────────────────────────────────────
 
 const STT_PRICING: Record<string, number> = {
-  deepgram: 0.0043,  // Nova-2 pay-as-you-go
+  deepgram: 0.0059,  // Nova-2 pay-as-you-go (updated Apr 2026)
   openai: 0.006,     // Whisper
 };
 
