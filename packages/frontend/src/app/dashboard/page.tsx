@@ -92,7 +92,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Row 2: Primary KPIs */}
-      <div className={`grid grid-cols-2 ${isTranslatorOnly ? 'lg:grid-cols-4' : 'lg:grid-cols-5'} gap-3`}>
+      <div className={`grid grid-cols-2 ${isTranslatorOnly ? 'lg:grid-cols-5' : 'lg:grid-cols-5'} gap-3`}>
         <KpiCard
           label={isTranslatorOnly ? 'Sessions' : t('dashboard.totalCalls')}
           value={String(s?.total_calls ?? 0)}
@@ -111,6 +111,16 @@ export default function OverviewPage() {
             accentColor="#22c55e"
           />
         </Link>
+        {isTranslatorOnly && (
+          <KpiCard
+            label={t('dashboard.avgDuration')}
+            value={avgDur}
+            sub={t('dashboard.last30Days')}
+            icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            gradient="var(--th-gradient-blue)"
+            accentColor="#3b82f6"
+          />
+        )}
         <KpiCard
           label={t('dashboard.costTotal')}
           value={fmtCost(s?.cost_total_30d ?? 0)}
@@ -165,19 +175,15 @@ export default function OverviewPage() {
         )}
       </div>
 
-      {/* Row 4: Secondary Stats (simplified for translator) */}
-      <MiniStatStrip items={isTranslatorOnly
-        ? [
-          { label: 'Avg Duration', value: avgDur },
-          { label: 'This Week', value: String(s?.week_calls ?? 0) },
-        ]
-        : [
+      {/* Row 4: Secondary Stats (agents only — translator has these in KPI row) */}
+      {!isTranslatorOnly && (
+        <MiniStatStrip items={[
           { label: t('dashboard.qaScore'), value: String(s?.avg_qa_score ?? 0) },
           { label: t('dashboard.weekCalls'), value: String(s?.week_calls ?? 0) },
           { label: t('dashboard.agents'), value: `${agents.filter(a => a.is_active).length}/${agents.length}` },
           { label: t('dashboard.avgDuration'), value: avgDur },
-        ]
-      } />
+        ]} />
+      )}
 
       {/* Row 5: Recent Calls */}
       <RecentCallsTable calls={calls} t={t} />
