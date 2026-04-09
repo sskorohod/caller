@@ -30,6 +30,7 @@ export default function OverviewPage() {
   const [plan, setPlan] = useState<string>('');
   const [subStatus, setSubStatus] = useState<string>('none');
   const [subEnd, setSubEnd] = useState<string | null>(null);
+  const [translatorPhone, setTranslatorPhone] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -38,7 +39,8 @@ export default function OverviewPage() {
       api.get<{ agents: Agent[] }>('/agents').then(r => (r?.agents ?? []).filter(Boolean)).catch(() => []),
       api.get<TelConnection[]>('/telephony/connections').catch(() => []),
       api.get<{ balance_usd: number; plan: string; subscription_status: string; subscription_current_period_end: string | null }>('/billing/balance').catch(() => ({ balance_usd: 0, plan: '', subscription_status: 'none', subscription_current_period_end: null })),
-    ]).then(([s, c, a, conn, billing]) => {
+      api.get<{ phone_number: string | null }>('/translator/phone').catch(() => ({ phone_number: null })),
+    ]).then(([s, c, a, conn, billing, phone]) => {
       setStats(s);
       setCalls(c);
       setAgents(a);
@@ -48,6 +50,7 @@ export default function OverviewPage() {
       setPlan(b?.plan ?? '');
       setSubStatus(b?.subscription_status ?? 'none');
       setSubEnd(b?.subscription_current_period_end ?? null);
+      setTranslatorPhone((phone as any)?.phone_number ?? null);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -68,9 +71,9 @@ export default function OverviewPage() {
           <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{isTranslatorOnly ? 'Live Translator Service' : t('dashboard.subtitle')}</p>
         </div>
         <div className="flex items-center gap-4">
-          {connections.find(c => c.ai_answering_enabled) && (
+          {translatorPhone && (
             <div className="text-right">
-              <a href={`tel:${connections.find(c => c.ai_answering_enabled)!.phone_number}`}
+              <a href={`tel:${translatorPhone}`}
                 className="text-2xl md:text-3xl font-extrabold tracking-wide"
                 style={{
                   background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
@@ -78,7 +81,7 @@ export default function OverviewPage() {
                   WebkitTextFillColor: 'transparent',
                   filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.5)) drop-shadow(0 0 24px rgba(139,92,246,0.25))',
                 }}>
-                {connections.find(c => c.ai_answering_enabled)!.phone_number.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
+                {translatorPhone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
               </a>
               <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">Call to connect live translator</p>
             </div>

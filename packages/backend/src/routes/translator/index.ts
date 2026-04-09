@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
-import { translatorSubscribers, translatorSessions, balanceTransactions, workspaces } from '../../db/schema.js';
+import { translatorSubscribers, translatorSessions, balanceTransactions, workspaces, telephonyConnections } from '../../db/schema.js';
 
 const DEFAULT_GREETINGS: Record<string, string> = {
   ru: 'Здравствуйте, я ваш живой переводчик. Я буду переводить этот разговор.',
@@ -36,6 +36,27 @@ const updateSchema = createSchema.partial();
 
 const translatorRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
+
+  // GET /api/translator/phone — get the phone number to call for translator
+  // Returns own workspace connection first, falls back to platform connection
+  app.get('/phone', async (request) => {
+    // Try own workspace telephony connection
+    const [own] = await db.select({ phone_number: telephonyConnections.phone_number })
+      .from(telephonyConnections)
+      .where(and(
+        eq(telephonyConnections.workspace_id, request.auth.workspaceId),
+        eq(telephonyConnections.ai_answering_enabled, true),
+      ))
+      .limit(1);
+    if (own) return { phone_number: own.phone_number };
+
+    // Fallback: platform connection (any workspace with ai_answering_enabled)
+    const [platform] = await db.select({ phone_number: telephonyConnections.phone_number })
+      .from(telephonyConnections)
+      .where(eq(telephonyConnections.ai_answering_enabled, true))
+      .limit(1);
+    return { phone_number: platform?.phone_number || null };
+  });
 
   // GET /api/translator/subscribers
   app.get('/subscribers', async (request) => {

@@ -86,11 +86,8 @@ export default function TranslatorPage() {
   const [translatorPhone, setTranslatorPhone] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Array<{ phone_number: string; ai_answering_enabled: boolean }>>('/telephony/connections')
-      .then(conns => {
-        const active = conns.find(c => c.ai_answering_enabled);
-        if (active) setTranslatorPhone(active.phone_number);
-      })
+    api.get<{ phone_number: string | null }>('/translator/phone')
+      .then(r => { if (r.phone_number) setTranslatorPhone(r.phone_number); })
       .catch(() => {});
   }, []);
 
