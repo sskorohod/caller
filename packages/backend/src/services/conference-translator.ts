@@ -171,7 +171,8 @@ export class ConferenceTranslator extends EventEmitter {
 - When translating numbers, be EXTREMELY precise. For numbers above 99, spell them out clearly (e.g. "one hundred thirty-eight dollars", NOT "three hundred thirty-eight"). Double-check that the number in your translation matches exactly what was spoken.
 - If someone interrupts while you are translating, finish your current translation first, then translate the new speech. Do NOT drop incomplete translations.
 - ONLY output the translation. Do NOT add any commentary, greetings, or explanations.
-- If you cannot understand something, stay silent.`;
+- If you hear ONLY filler sounds (um, uh, er, hmm, М, Э, А, мм, ммм, угу) with NO actual words, do NOT translate or respond — produce NO output at all. These are thinking pauses, not speech.
+- If you cannot understand something, stay silent — produce NO audio output.`;
 
     if (isOneWay) {
       return `You are a live phone interpreter.
@@ -219,8 +220,8 @@ ${this.personalContext}` : ''}`;
           instructions: this.buildInstructions(),
           turn_detection: {
             type: 'server_vad',
-            threshold: 0.6,
-            silence_duration_ms: 1200,
+            threshold: 0.7,
+            silence_duration_ms: 1500,
             prefix_padding_ms: 400,
           },
           input_audio_transcription: { model: 'whisper-1' },
