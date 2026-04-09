@@ -219,7 +219,7 @@ export default function TranslatorPage() {
     const hasInterim = liveCallId && liveInterim;
 
     return (
-      <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] flex flex-col h-[calc(100vh-10rem)] sticky top-4">
+      <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] flex flex-col h-full min-h-[500px]">
         {/* Header */}
         <div className="px-4 py-3 border-b border-[var(--th-border)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
@@ -437,8 +437,8 @@ export default function TranslatorPage() {
             {saved && <span className="text-sm text-[var(--th-success-text)]">Saved!</span>}
           </div>
         </div>
-        {/* Live Translation Sidebar — right of settings */}
-        <div className="w-[380px] shrink-0 hidden lg:block">
+        {/* Live Translation — equal half */}
+        <div className="flex-1 min-w-0 hidden lg:block">
           <LiveSidebar />
         </div>
         </div>
