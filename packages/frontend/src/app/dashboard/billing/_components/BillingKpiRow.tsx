@@ -2,20 +2,28 @@
 import { KpiCard } from '../../_components/KpiCard';
 import { IconWallet, IconDollar, IconTrending, IconSparkle } from '../../_lib/icons';
 
+function fmtBal(balance: number, plan: string, lang: string): string {
+  if (balance > 10000) return lang === 'ru' ? 'Безлимит' : 'Unlimited';
+  if (plan === 'translator') return `${Math.floor(balance / 0.05)} ${lang === 'ru' ? 'мин' : 'min'}`;
+  return `$${balance.toFixed(2)}`;
+}
+
 interface BillingKpiRowProps {
   balance: number;
   monthlySpend: number;
   monthlyTxCount: number;
   ownKeyCount: number;
+  plan: string;
+  lang: string;
   t: (k: string) => string;
 }
 
-export function BillingKpiRow({ balance, monthlySpend, monthlyTxCount, ownKeyCount, t }: BillingKpiRowProps) {
+export function BillingKpiRow({ balance, monthlySpend, monthlyTxCount, ownKeyCount, plan, lang, t }: BillingKpiRowProps) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <KpiCard
         label={t('billing.kpiBalance')}
-        value={`$${balance.toFixed(2)}`}
+        value={fmtBal(balance, plan, lang)}
         sub={t('billing.kpiBalanceSub')}
         icon={<IconWallet />}
         gradient="var(--th-gradient-emerald)"

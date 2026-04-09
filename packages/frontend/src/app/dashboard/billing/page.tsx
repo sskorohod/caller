@@ -1,5 +1,5 @@
 'use client';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
 import { useBillingData } from './_lib/useBillingData';
 
 import { BillingSkeleton } from './_components/BillingSkeleton';
@@ -15,6 +15,7 @@ import { TransactionHistory } from './_components/TransactionHistory';
 
 export default function BillingPage() {
   const t = useT();
+  const { lang } = useI18n();
   const {
     info,
     transactions,
@@ -50,6 +51,8 @@ export default function BillingPage() {
       {/* KPI row */}
       <BillingKpiRow
         balance={info.balance_usd}
+        plan={info.plan}
+        lang={lang}
         monthlySpend={monthlySpend}
         monthlyTxCount={monthlyTxCount}
         ownKeyCount={ownKeyCount}
@@ -69,6 +72,8 @@ export default function BillingPage() {
       {/* Deposit section */}
       <DepositSection
         balance={info.balance_usd}
+        plan={info.plan}
+        lang={lang}
         onTopUp={topUp}
         loading={topUpLoading}
         t={t}

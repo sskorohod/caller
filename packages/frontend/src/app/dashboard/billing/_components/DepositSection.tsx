@@ -2,14 +2,22 @@
 import { useState } from 'react';
 import { DEPOSIT_PRESETS } from '../_lib/constants';
 
+function fmtBal(balance: number, plan: string, lang: string): string {
+  if (balance > 10000) return lang === 'ru' ? 'Безлимит' : 'Unlimited';
+  if (plan === 'translator') return `${Math.floor(balance / 0.05)} ${lang === 'ru' ? 'мин' : 'min'}`;
+  return `$${balance.toFixed(2)}`;
+}
+
 interface DepositSectionProps {
   balance: number;
+  plan: string;
+  lang: string;
   onTopUp: (amount: number) => void;
   loading: boolean;
   t: (k: string) => string;
 }
 
-export function DepositSection({ balance, onTopUp, loading, t }: DepositSectionProps) {
+export function DepositSection({ balance, plan, lang, onTopUp, loading, t }: DepositSectionProps) {
   const [amount, setAmount] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
 
@@ -40,7 +48,7 @@ export function DepositSection({ balance, onTopUp, loading, t }: DepositSectionP
         <div className="text-right">
           <div className="text-[11px] text-[var(--th-text-muted)] uppercase tracking-wider font-semibold">{t('billing.currentBalance')}</div>
           <div className="text-lg font-bold tabular-nums" style={{ color: balance < 5 ? '#f59e0b' : '#10b981' }}>
-            ${balance.toFixed(2)}
+            {fmtBal(balance, plan, lang)}
           </div>
         </div>
       </div>
