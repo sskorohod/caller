@@ -44,7 +44,7 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
   friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
   medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
   legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
-  intelligent: 'IMPORTANT two-step process: Step 1 — mentally rephrase the speaker\'s words to sound maximally intelligent, polite, respectful and eloquent. Remove slang, filler words (um, uh), rough expressions, grammatical errors. Step 2 — TRANSLATE the refined version into THE OTHER LANGUAGE. You MUST always output speech in the TARGET language, never in the same language as the speaker. If the speaker speaks English, your output MUST be in Russian (or the other configured language). If the speaker speaks Russian, your output MUST be in English. Never just rephrase without translating.',
+  intelligent: 'IMPORTANT: Apply different rules depending on WHO is speaking. When the SUBSCRIBER speaks (their language): use a two-step process — Step 1: mentally rephrase their words to sound maximally intelligent, polite, respectful and eloquent, removing slang, filler words, rough expressions. Step 2: TRANSLATE the refined version into the other language. When the OTHER PARTY speaks (the other language): translate their words ACCURATELY and LITERALLY — do NOT rephrase, do NOT improve their speech. Only the subscriber\'s speech gets the intelligent treatment. You MUST always output in the TARGET language (different from the speaker).',
 };
 
 /**
