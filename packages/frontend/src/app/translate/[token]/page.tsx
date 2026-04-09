@@ -321,16 +321,16 @@ export default function LiveTranslatePage() {
           </div>
         )}
 
-        <div ref={bottomRef} />
+        <div ref={bottomRef} className="h-4" />
       </div>
 
       {/* ─── Bottom Controls ─── */}
       {status === 'live' && (
         <div className="sticky bottom-0 z-20 bg-[#0a0e1a]/95 backdrop-blur-sm border-t border-white/5 px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-2xl mx-auto flex items-center gap-2">
-            {/* Voice selector */}
+          <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
+            {/* Voice selector — left */}
             <select value={voice} onChange={e => changeVoice(e.target.value)}
-              className="px-1.5 py-1.5 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none">
+              className="px-1.5 py-1.5 rounded-md text-[10px] bg-white/5 border border-white/10 text-gray-300 outline-none shrink-0">
               <optgroup label="F">
                 {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
               </optgroup>
@@ -339,7 +339,7 @@ export default function LiveTranslatePage() {
               </optgroup>
             </select>
 
-            {/* Mode toggle */}
+            {/* Mode toggle — center */}
             <div className="flex rounded-md border border-white/10 overflow-hidden">
               {(['bidirectional', 'unidirectional'] as const).map(m => (
                 <button key={m} onClick={() => changeMode(m)}
@@ -351,9 +351,9 @@ export default function LiveTranslatePage() {
               ))}
             </div>
 
-            {/* Pause button */}
+            {/* Pause button — right */}
             <button onClick={togglePause}
-              className={`ml-auto p-1.5 rounded-lg border transition-all ${
+              className={`p-1.5 rounded-lg border transition-all shrink-0 ${
                 paused
                   ? 'bg-amber-500/20 border-amber-500/30 text-amber-300'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
