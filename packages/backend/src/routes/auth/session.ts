@@ -10,6 +10,7 @@ import { env } from '../../config/env.js';
 import { UnauthorizedError } from '../../lib/errors.js';
 import { sendEmail, buildMagicLinkEmail } from '../../services/email.service.js';
 import { validatePhoneNumbersUnique } from '../../services/workspace.service.js';
+import { normalizePhone } from '../../lib/phone.js';
 
 const scryptAsync = promisify(scrypt);
 
@@ -39,7 +40,7 @@ const registerBody = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   workspace_name: z.string().min(1).max(100).optional(),
-  phone_number: z.string().transform(s => s.replace(/[\s\-\(\)]/g, '')).pipe(z.string().regex(/^\+[1-9]\d{1,14}$/)).optional(),
+  phone_number: z.string().transform(normalizePhone).pipe(z.string().regex(/^\+[1-9]\d{1,14}$/)).optional(),
 });
 
 const loginBody = z.object({

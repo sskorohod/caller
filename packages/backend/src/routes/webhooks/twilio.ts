@@ -8,6 +8,7 @@ import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
 import { deliverWebhookEvent } from '../../services/webhook.service.js';
 import { env } from '../../config/env.js';
+import { normalizePhone } from '../../lib/phone.js';
 import { validateTwilioSignature } from '../../middleware/twilio-auth.js';
 import { calls, providerCredentials } from '../../db/schema.js';
 import { getIo } from '../../realtime/io.js';
@@ -88,7 +89,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
     const { connection, workspace } = row;
 
     // --- Check if caller has a workspace with phone_number (translator user) ---
-    const callerNormalized = callerNumber.replace(/[\s\-\(\)]/g, '');
+    const callerNormalized = normalizePhone(callerNumber);
     const [callerWorkspace] = await db
       .select()
       .from(workspaces)
