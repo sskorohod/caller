@@ -143,6 +143,29 @@ async function finalizeVTSession(callId: string): Promise<void> {
           cost_total: String(costTotal),
         } as any);
 
+        // Deduct VT usage cost from workspace balance
+        try {
+          const { deductUsageCost } = await import('../../services/billing.service.js');
+          const { workspaces: wsTable } = await import('../../db/schema.js');
+          const [ws] = await db.select({ provider_config: wsTable.provider_config })
+            .from(wsTable).where(eq(wsTable.id, call.workspace_id)).limit(1);
+          await deductUsageCost({
+            workspaceId: call.workspace_id,
+            providerCosts: {
+              stt: costGrok,
+              llm: 0,
+              tts: 0,
+              telephony: costTelephony,
+              sttProvider: 'xai',
+            },
+            providerConfig: (ws?.provider_config as any) || {},
+            referenceType: 'call_session' as any,
+            referenceId: sessionId,
+          });
+        } catch (err) {
+          logger.error({ err, callId }, 'Failed to deduct VT usage cost');
+        }
+
         await callService.updateCallStatus(callId, 'completed', {
           duration_seconds: durationSecs,
         } as any);
