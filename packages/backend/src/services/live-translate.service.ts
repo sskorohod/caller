@@ -260,7 +260,7 @@ export class LiveTranslator {
       [
         {
           role: 'system',
-          content: `Translate to ${this.targetLanguage}. Phone call fragment. Be natural and concise.\nOnly output the translation, nothing else.`,
+          content: `Translate to ${this.targetLanguage}. Phone call fragment. Be natural and concise.\nRemove all filler words and hesitation sounds (um, uh, er, hmm, ah, э, а, ну, типа, как бы, ммм, значит) — do NOT include them in the translation.\nIf the entire input is only filler sounds, output a single dash: -\nOnly output the translation, nothing else.`,
         },
         { role: 'user', content: `"${original}"` },
       ],
@@ -315,7 +315,7 @@ export class LiveTranslator {
       [
         {
           role: 'system',
-          content: `Translate to ${this.targetLanguage}. Phone call fragment. Be natural and concise.\nOnly output the translation, nothing else.`,
+          content: `Translate to ${this.targetLanguage}. Phone call fragment. Be natural and concise.\nRemove all filler words and hesitation sounds (um, uh, er, hmm, ah, э, а, ну, типа, как бы, ммм, значит) — do NOT include them in the translation.\nIf the entire input is only filler sounds, output a single dash: -\nOnly output the translation, nothing else.`,
         },
         { role: 'user', content: `"${original}"` },
       ],
