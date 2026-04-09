@@ -27,6 +27,7 @@ interface ConferenceTranslatorOptions {
   ttsVoiceId?: string;
   tone?: string;
   personalContext?: string;
+  greetingText?: string;
   socket: WebSocket;        // Twilio media stream WebSocket
   streamSid: string;        // Twilio stream SID
 }
@@ -34,6 +35,8 @@ interface ConferenceTranslatorOptions {
 const LANG_NAMES: Record<string, string> = {
   en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French',
 };
+
+const DEFAULT_GREETING = `A live interpreter has joined this call. I will translate between your languages. Please speak naturally, then pause briefly after finishing your thought so I can translate. Let's begin.`;
 
 const TONE_INSTRUCTIONS: Record<string, string> = {
   neutral: 'Translate naturally, preserving the original tone and meaning.',
@@ -65,6 +68,7 @@ export class ConferenceTranslator extends EventEmitter {
   private ttsVoiceId?: string;
   private tone: string;
   private personalContext: string;
+  private greetingText: string;
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
   private sessionId: string | null = null;
@@ -93,6 +97,7 @@ export class ConferenceTranslator extends EventEmitter {
     this.ttsVoiceId = options.ttsVoiceId;
     this.tone = options.tone || 'business';
     this.personalContext = options.personalContext || '';
+    this.greetingText = options.greetingText || DEFAULT_GREETING;
   }
 
   async start(): Promise<void> {
@@ -222,6 +227,22 @@ ${this.personalContext}` : ''}`;
           },
         },
       }));
+
+      // Speak greeting 3 seconds after connecting (let the line settle)
+      if (this.greetingText) {
+        setTimeout(() => {
+          if (this.grokWs?.readyState === WebSocket.OPEN) {
+            this.grokWs.send(JSON.stringify({
+              type: 'response.create',
+              response: {
+                modalities: ['audio', 'text'],
+                instructions: `Say the following greeting exactly as written, in a warm professional tone. Do NOT translate it, just read it aloud: "${this.greetingText}"`,
+              },
+            }));
+            log.info({ callId: this.callId }, 'Greeting sent to Grok Voice Agent');
+          }
+        }, 3000);
+      }
     });
 
     this.grokWs.on('message', (data: Buffer) => {

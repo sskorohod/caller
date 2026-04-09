@@ -518,6 +518,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   ttsVoiceId: wsDefs.tts_voice_id || sub?.tts_voice_id || 'eve',
                   tone: wsDefs.tone || sub?.tone || 'business',
                   personalContext: wsDefs.personal_context || sub?.personal_context || '',
+                  greetingText: callMeta.greeting_text || wsDefs.greeting_text || sub?.greeting_text || '',
                   socket: socket as any,
                   streamSid: streamSid!,
                 });

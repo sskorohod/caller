@@ -261,7 +261,7 @@ export default function TranslatorPage() {
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">Default Greeting Text</label>
             <textarea value={defaults.greeting_text || ''} onChange={e => setDefaults({ ...defaults, greeting_text: e.target.value })}
-              placeholder="The message the translator says when connecting to a call..."
+              placeholder="A live interpreter has joined this call. I will translate between your languages. Please speak naturally, then pause briefly after finishing your thought so I can translate. Let's begin."
               className={selectCls + ' min-h-[80px] resize-y'} rows={3} />
           </div>
 

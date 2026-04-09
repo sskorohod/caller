@@ -126,6 +126,11 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         return;
       }
 
+      // Use caller workspace defaults, or connection workspace defaults, or subscriber settings
+      const wsDefaults0 = callerWorkspace
+        ? (callerWorkspace.translator_defaults as Record<string, string>) || {}
+        : (workspace.translator_defaults as Record<string, string>) || {};
+
       // Create call record for translator session
       const translatorCall = await callService.createCall({
         workspaceId: workspace.id,
@@ -138,6 +143,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           call_type: 'translator',
           subscriber_id: translatorSub?.id,
           caller_workspace_id: callerWorkspace?.id,
+          greeting_text: wsDefaults0.greeting_text || translatorSub?.greeting_text || '',
         },
       });
 
@@ -180,19 +186,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         }
       })();
 
-      // Use caller workspace defaults, or connection workspace defaults, or subscriber settings
-      const wsDefaults = callerWorkspace
-        ? (callerWorkspace.translator_defaults as Record<string, string>) || {}
-        : (workspace.translator_defaults as Record<string, string>) || {};
-      const greetingText = wsDefaults.greeting_text || translatorSub?.greeting_text || 'Hello, I am your live translator.';
-
-      // Return TwiML: greeting + connect to media stream
+      // Return TwiML: connect directly to media stream (greeting spoken by Grok Voice Agent)
       const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
-      const pollyVoices: Record<string, string> = { ru: 'Polly.Tatyana', en: 'Polly.Joanna', es: 'Polly.Conchita', de: 'Polly.Marlene', fr: 'Polly.Celine' };
-      const hasCyrillic = /[а-яА-ЯёЁ]/.test(greetingText);
-      const greetingLang = hasCyrillic ? 'ru' : (/[a-zA-Z]/.test(greetingText) ? 'en' : (translatorDefaults.my_language || translatorSub?.my_language || 'en'));
-      twiml.say({ voice: (pollyVoices[greetingLang] || 'Polly.Joanna') as any },
-        greetingText);
       // Connect to media stream for live translation
       const connect = twiml.connect();
       connect.stream({
