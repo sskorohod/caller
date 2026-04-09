@@ -208,9 +208,9 @@ export default function TranslatorPage() {
   }, [liveTranscript, liveInterim]);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'settings', label: 'Settings' },
-    { id: 'sessions', label: 'Sessions' },
-    { id: 'live', label: 'Live' },
+    { id: 'settings', label: t('translator.tabSettings') },
+    { id: 'sessions', label: t('translator.tabSessions') },
+    { id: 'live', label: t('translator.tabLive') },
   ];
 
   // ─── Live Translation Sidebar ──────────────────────────────────
@@ -229,13 +229,13 @@ export default function TranslatorPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-gray-500" />
             )}
             <span className="text-sm font-bold text-[var(--th-text)]">
-              {liveCallId ? 'Live Translation' : 'Translation'}
+              {liveCallId ? t('translator.liveTranslation') : t('translator.translation')}
             </span>
           </div>
           {/* Column labels */}
           <div className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
-            <span>Other</span>
-            <span>You</span>
+            <span>{t('translator.other')}</span>
+            <span>{t('translator.you')}</span>
           </div>
         </div>
 
@@ -248,8 +248,8 @@ export default function TranslatorPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-[var(--th-text-muted)]">No active call</p>
-              <p className="text-[11px] text-[var(--th-text-muted)] mt-1 opacity-60">Translations will appear here during calls</p>
+              <p className="text-sm font-medium text-[var(--th-text-muted)]">{t('translator.noActiveCall')}</p>
+              <p className="text-[11px] text-[var(--th-text-muted)] mt-1 opacity-60">{t('translator.waitingHint')}</p>
             </div>
           )}
 
@@ -310,7 +310,7 @@ export default function TranslatorPage() {
     <div className="space-y-5">
       {/* Header + Phone + Tabs */}
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold text-[var(--th-text)]">Translator</h2>
+        <h2 className="text-xl font-bold text-[var(--th-text)]">{t('translator.title')}</h2>
         <div className="flex items-center gap-4">
           {translatorPhone && (
             <div className="text-right">
@@ -324,7 +324,7 @@ export default function TranslatorPage() {
                 }}>
                 {translatorPhone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
               </a>
-              <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">Call this number to connect the live translator</p>
+              <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">{t('translator.callHint')}</p>
             </div>
           )}
           <div className="flex rounded-xl border border-[var(--th-border)] overflow-hidden">
@@ -346,12 +346,12 @@ export default function TranslatorPage() {
         <div className="flex gap-5">
         <div className="flex-1 min-w-0 rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] space-y-6">
           <div>
-            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">Translation Mode</h3>
-            <p className="text-xs text-[var(--th-text-muted)] mb-3">How the translator processes speech during calls.</p>
+            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.translationMode')}</h3>
+            <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.modeDesc')}</p>
             <div className="flex gap-3">
               {[
-                { value: 'bidirectional', label: 'Bidirectional', desc: 'Both directions translated via voice. All participants hear translations.' },
-                { value: 'unidirectional', label: 'Unidirectional', desc: 'Incoming speech → text on screen. Subscriber\'s speech → voice translation for the other party.' },
+                { value: 'bidirectional', label: t('translator.bidirectional'), desc: t('translator.bidirectionalDesc') },
+                { value: 'unidirectional', label: t('translator.unidirectional'), desc: t('translator.unidirectionalDesc') },
               ].map(m => (
                 <button key={m.value}
                   onClick={() => setDefaults({ ...defaults, translation_mode: m.value })}
@@ -369,13 +369,13 @@ export default function TranslatorPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">Default My Language</label>
+              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.myLanguage')}</label>
               <select value={defaults.my_language || 'ru'} onChange={e => setDefaults({ ...defaults, my_language: e.target.value })} className={selectCls}>
                 {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">Default Target Language</label>
+              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.targetLanguage')}</label>
               <select value={defaults.target_language || 'en'} onChange={e => setDefaults({ ...defaults, target_language: e.target.value })} className={selectCls}>
                 {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
               </select>
@@ -383,15 +383,15 @@ export default function TranslatorPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">Default Greeting Text</label>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.greetingText')}</label>
             <textarea value={defaults.greeting_text || ''} onChange={e => setDefaults({ ...defaults, greeting_text: e.target.value })}
-              placeholder="A live interpreter has joined this call. I will translate between your languages. Please speak naturally, then pause briefly after finishing your thought so I can translate. Let's begin."
+              placeholder={t('translator.greetingPlaceholder')}
               className={selectCls + ' min-h-[80px] resize-y'} rows={3} />
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">Tone</h3>
-            <p className="text-xs text-[var(--th-text-muted)] mb-3">Communication style for translations.</p>
+            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.tone')}</h3>
+            <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.toneDesc')}</p>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               {TONES.map(tone => (
                 <button key={tone.value}
@@ -409,7 +409,7 @@ export default function TranslatorPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">Voice</label>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.voice')}</label>
             <select value={defaults.tts_voice_id || 'eve'} onChange={e => setDefaults({ ...defaults, tts_voice_id: e.target.value })} className={selectCls}>
               <optgroup label="Female">
                 {VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
@@ -421,8 +421,8 @@ export default function TranslatorPage() {
           </div>
 
           <div>
-            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">Personal Context</h3>
-            <p className="text-xs text-[var(--th-text-muted)] mb-3">Personal details the translator will use when relevant — names, insurance, addresses, etc.</p>
+            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.personalContext')}</h3>
+            <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.personalContextDesc')}</p>
             <textarea value={defaults.personal_context || ''} onChange={e => setDefaults({ ...defaults, personal_context: e.target.value })}
               placeholder={"Name: John Smith (spell as \"John Smith\")\nDOB: March 15, 1990\nInsurance: Blue Cross, ID: XYZ123456\nPharmacy: CVS, 123 Main St, Austin TX\nAddress: 456 Oak Ave, Apt 2B, Austin TX 78701"}
               className={selectCls + ' min-h-[120px] resize-y font-mono text-xs'} rows={5} />
@@ -432,9 +432,9 @@ export default function TranslatorPage() {
             <button onClick={saveDefaults} disabled={saving}
               className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, var(--th-primary), var(--th-primary-hover))' }}>
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? t('translator.saving') : t('translator.saveSettings')}
             </button>
-            {saved && <span className="text-sm text-[var(--th-success-text)]">Saved!</span>}
+            {saved && <span className="text-sm text-[var(--th-success-text)]">{t('translator.saved')}</span>}
           </div>
         </div>
         {/* Live Translation — equal half */}
@@ -449,16 +449,16 @@ export default function TranslatorPage() {
         <div className="space-y-4">
           <div className="flex gap-3">
             <select value={subFilter} onChange={e => setSubFilter(e.target.value)} className={selectCls + ' max-w-xs'}>
-              <option value="">All Subscribers</option>
+              <option value="">{t('translator.allSubscribers')}</option>
               {subscribers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
           <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] overflow-hidden">
             {sessionsLoading ? (
-              <div className="p-8 text-center opacity-50">Loading...</div>
+              <div className="p-8 text-center opacity-50">{t('translator.loading')}</div>
             ) : sessions.length === 0 ? (
-              <div className="p-8 text-center opacity-50">No sessions found</div>
+              <div className="p-8 text-center opacity-50">{t('translator.noSessions')}</div>
             ) : (
               <div className="divide-y divide-[var(--th-border)]">
                 {sessions.map(session => {
@@ -489,10 +489,10 @@ export default function TranslatorPage() {
                         <div className="px-5 pb-4 border-t border-[var(--th-border)]">
                           <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
                             {(session.transcript || []).length === 0 ? (
-                              <p className="text-xs text-[var(--th-text-muted)] py-4 text-center">No transcript available</p>
+                              <p className="text-xs text-[var(--th-text-muted)] py-4 text-center">{t('translator.noTranscript')}</p>
                             ) : session.transcript.map((entry, i) => {
                               const isYou = ['subscriber', 'you', 'operator'].includes(entry.speaker || '');
-                              const label = entry.speaker === 'subscriber' ? 'You' : entry.speaker === 'other' ? 'Other party' : entry.speaker || 'speaker';
+                              const label = entry.speaker === 'subscriber' ? t('translator.you') : entry.speaker === 'other' ? t('translator.otherParty') : entry.speaker || 'speaker';
                               return (
                               <div key={i} className={`flex gap-2 ${isYou ? 'flex-row-reverse' : ''}`}>
                                 <div className={`max-w-[75%] rounded-xl px-3 py-2 text-xs ${
@@ -527,8 +527,8 @@ export default function TranslatorPage() {
               <svg className="w-12 h-12 mx-auto mb-3 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
               </svg>
-              <p className="text-sm text-[var(--th-text-muted)]">No active translator sessions</p>
-              <p className="text-xs text-[var(--th-text-muted)] mt-1 opacity-60">Sessions will appear here when subscribers make calls</p>
+              <p className="text-sm text-[var(--th-text-muted)]">{t('translator.noActiveSessions')}</p>
+              <p className="text-xs text-[var(--th-text-muted)] mt-1 opacity-60">{t('translator.sessionsHint')}</p>
             </div>
           ) : (
             <div className="grid gap-3">
@@ -549,7 +549,7 @@ export default function TranslatorPage() {
                     {Math.floor((session.duration_seconds || 0) / 60)}:{String((session.duration_seconds || 0) % 60).padStart(2, '0')}
                   </div>
                   {liveCallId === session.call_id && (
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Viewing</span>
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{t('translator.viewing')}</span>
                   )}
                 </div>
               ))}
