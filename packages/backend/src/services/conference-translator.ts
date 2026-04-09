@@ -78,6 +78,7 @@ export class ConferenceTranslator extends EventEmitter {
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private statsTimer?: ReturnType<typeof setInterval>;
   private xaiApiKey: string = '';
+  private greetingSent: boolean = false;
 
   // Accumulate transcript text from Grok responses
   private currentInputTranscript: string = '';
@@ -230,8 +231,9 @@ ${this.personalContext}` : ''}`;
         },
       }));
 
-      // Speak greeting 3 seconds after connecting (let the line settle)
-      if (this.greetingText) {
+      // Speak greeting only on the first connection (not on reconnects for tone/voice/mode changes)
+      if (this.greetingText && !this.greetingSent) {
+        this.greetingSent = true;
         setTimeout(() => {
           if (this.grokWs?.readyState === WebSocket.OPEN) {
             this.grokWs.send(JSON.stringify({
