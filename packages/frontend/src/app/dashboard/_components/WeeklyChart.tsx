@@ -8,8 +8,9 @@ interface WeeklyChartProps {
   t: (k: string) => string;
 }
 
-function smoothPath(points: { x: number; y: number }[]): string {
+function smoothPath(points: { x: number; y: number }[], minY: number, maxY: number): string {
   if (points.length < 2) return '';
+  const clampY = (v: number) => Math.min(Math.max(v, minY), maxY);
   let d = `M ${points[0].x} ${points[0].y}`;
   for (let i = 0; i < points.length - 1; i++) {
     const p0 = points[Math.max(i - 1, 0)];
@@ -18,9 +19,9 @@ function smoothPath(points: { x: number; y: number }[]): string {
     const p3 = points[Math.min(i + 2, points.length - 1)];
     const tension = 0.3;
     const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
+    const cp1y = clampY(p1.y + (p2.y - p0.y) * tension);
     const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = p2.y - (p3.y - p1.y) * tension;
+    const cp2y = clampY(p2.y - (p3.y - p1.y) * tension);
     d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
   }
   return d;
@@ -63,7 +64,7 @@ export function WeeklyChart({ dailyCalls, t }: WeeklyChartProps) {
     }));
   }, [chartData, maxCount]);
 
-  const curvePath = useMemo(() => smoothPath(points), [points]);
+  const curvePath = useMemo(() => smoothPath(points, PAD_Y, CHART_H - PAD_Y), [points]);
   const areaPath = useMemo(() => {
     if (!curvePath) return '';
     return `${curvePath} L ${points[points.length - 1].x} ${CHART_H} L ${points[0].x} ${CHART_H} Z`;

@@ -62,9 +62,9 @@ export default function OverviewPage() {
   const isTranslatorOnly = plan === 'translator';
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden gap-3">
       {/* Row 1: Greeting + Translator Phone */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 shrink-0">
         <div>
           <h2 className="text-xl font-bold text-[var(--th-text)]">
             {t('dashboard.greeting', { timeOfDay: t(`time.${getTimeOfDay()}`), name: workspace?.name ?? '' })}
@@ -92,7 +92,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Row 2: Primary KPIs */}
-      <div className={`grid grid-cols-2 ${isTranslatorOnly ? 'lg:grid-cols-5' : 'lg:grid-cols-5'} gap-3`}>
+      <div className={`grid grid-cols-2 lg:grid-cols-5 gap-3 shrink-0`}>
         <KpiCard
           label={isTranslatorOnly ? 'Sessions' : t('dashboard.totalCalls')}
           value={String(s?.total_calls ?? 0)}
@@ -155,7 +155,7 @@ export default function OverviewPage() {
       </div>
 
       {/* Row 3: Charts + Right Panel (hide AI-specific for translator) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 shrink-0">
         <div className={isTranslatorOnly ? 'lg:col-span-12' : 'lg:col-span-7'}>
           <WeeklyChart dailyCalls={s?.daily_calls ?? []} t={t} />
         </div>
@@ -185,8 +185,10 @@ export default function OverviewPage() {
         ]} />
       )}
 
-      {/* Row 5: Recent Calls */}
-      <RecentCallsTable calls={calls} t={t} />
+      {/* Row 5: Recent Calls — scrollable */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <RecentCallsTable calls={calls} t={t} />
+      </div>
     </div>
   );
 }
