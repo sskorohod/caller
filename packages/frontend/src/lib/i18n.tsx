@@ -934,7 +934,7 @@ const ru: Record<string, string> = {
   'translator.myLanguage': 'Мой язык',
   'translator.targetLanguage': 'Язык собеседника',
   'translator.greetingText': 'Текст приветствия',
-  'translator.greetingPlaceholder': 'Живой переводчик подключился к звонку. Я буду переводить между вашими языками. Говорите естественно, затем сделайте паузу, чтобы я перевёл.',
+  'translator.greetingPlaceholder': 'A live interpreter has joined this call. I will translate between your languages. Please speak naturally, then pause briefly after finishing your thought so I can translate.',
   'translator.tone': 'Тон',
   'translator.toneDesc': 'Стиль общения при переводе.',
   'translator.voice': 'Голос',
