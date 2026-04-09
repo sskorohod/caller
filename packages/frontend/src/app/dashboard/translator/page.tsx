@@ -190,16 +190,19 @@ export default function TranslatorPage() {
         <h2 className="text-xl font-bold text-[var(--th-text)]">Translator</h2>
         <div className="flex items-center gap-4">
           {translatorPhone && (
-            <a href={`tel:${translatorPhone}`}
-              className="text-2xl font-extrabold tracking-wide"
-              style={{
-                background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.5)) drop-shadow(0 0 24px rgba(139,92,246,0.25))',
-              }}>
-              {translatorPhone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
-            </a>
+            <div className="text-right">
+              <a href={`tel:${translatorPhone}`}
+                className="text-2xl font-extrabold tracking-wide"
+                style={{
+                  background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.5)) drop-shadow(0 0 24px rgba(139,92,246,0.25))',
+                }}>
+                {translatorPhone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
+              </a>
+              <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">Call this number to connect the live translator</p>
+            </div>
           )}
           <div className="flex rounded-xl border border-[var(--th-border)] overflow-hidden">
             {tabs.map(t => (
