@@ -92,6 +92,7 @@ export default function TranslatorPage() {
   const [liveCallId, setLiveCallId] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<TranslationEntry[]>([]);
   const [liveInterim, setLiveInterim] = useState<{ original: string; translated: string } | null>(null);
+  const [callEnded, setCallEnded] = useState(false);
   const liveEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-detect active session for sidebar
@@ -99,20 +100,23 @@ export default function TranslatorPage() {
     api.get<{ sessions: ActiveSession[] }>('/translator/sessions/active')
       .then(r => {
         setActiveSessions(r.sessions);
-        // Auto-connect to first active session for sidebar live view
         if (r.sessions.length > 0 && r.sessions[0].call_id && !liveCallId) {
           setLiveCallId(r.sessions[0].call_id);
+          setCallEnded(false);
         }
       })
       .catch(() => {});
   }, []);
 
-
   // Live transcript via Socket.IO
   useEffect(() => {
     if (!socket || !liveCallId) return;
-    setLiveTranscript([]);
-    setLiveInterim(null);
+
+    // Only clear transcript when connecting to a NEW call (not when ended)
+    if (!callEnded) {
+      setLiveTranscript([]);
+      setLiveInterim(null);
+    }
 
     socket.emit('call:translate:join', { call_id: liveCallId });
 
@@ -130,21 +134,36 @@ export default function TranslatorPage() {
     const onCallEnd = (data: { call_id: string; status: string }) => {
       if (data.call_id !== liveCallId) return;
       if (data.status === 'completed' || data.status === 'failed') {
-        setLiveCallId(null);
+        // Don't clear transcript — keep it visible until next call
+        setCallEnded(true);
+        setLiveInterim(null);
+      }
+    };
+
+    // Listen for new translator calls to auto-switch
+    const onNewCall = (data: { call_id: string; status: string }) => {
+      if (data.status === 'in_progress' && data.call_id !== liveCallId) {
+        // New call started — switch to it, clear old transcript
+        setLiveCallId(data.call_id);
+        setLiveTranscript([]);
+        setLiveInterim(null);
+        setCallEnded(false);
       }
     };
 
     socket.on('call:translation', onTranslation);
     socket.on('call:translation:interim', onInterim);
     socket.on('call:status', onCallEnd);
+    socket.on('call:status', onNewCall);
 
     return () => {
       socket.emit('call:translate:leave', { call_id: liveCallId });
       socket.off('call:translation', onTranslation);
       socket.off('call:translation:interim', onInterim);
       socket.off('call:status', onCallEnd);
+      socket.off('call:status', onNewCall);
     };
-  }, [socket, liveCallId]);
+  }, [socket, liveCallId, callEnded]);
 
   useEffect(() => {
     liveEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -160,13 +179,15 @@ export default function TranslatorPage() {
         {/* Header */}
         <div className="px-4 py-3 border-b border-[var(--th-border)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            {liveCallId ? (
+            {liveCallId && !callEnded ? (
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            ) : callEnded ? (
+              <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
             ) : (
               <span className="w-2.5 h-2.5 rounded-full bg-gray-500" />
             )}
             <span className="text-sm font-bold text-[var(--th-text)]">
-              {liveCallId ? t('translator.liveTranslation') : t('translator.translation')}
+              {liveCallId && !callEnded ? t('translator.liveTranslation') : callEnded ? t('translator.translation') : t('translator.translation')}
             </span>
           </div>
           {/* Column labels */}
