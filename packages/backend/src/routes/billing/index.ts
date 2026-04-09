@@ -144,13 +144,28 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     return updated;
   });
 
-  // ─── GET /plans ────────────────────────────────────────────────────
+  // ─── GET /plans — dynamic prices from platform_settings ────────────
   app.get('/plans', async () => {
+    const { platformSettings } = await import('../../db/schema.js');
+    const { inArray } = await import('drizzle-orm');
+    const priceKeys = ['billing_agents_monthly_price', 'billing_agents_mcp_monthly_price'];
+    const rows = await db.select().from(platformSettings).where(inArray(platformSettings.key, priceKeys));
+    const prices: Record<string, number> = {};
+    for (const row of rows) {
+      const val = (row.value as any)?.value;
+      if (val != null) prices[row.key] = Number(val);
+    }
+
     return Object.values(PLANS).map(p => ({
       id: p.id,
       name: p.name,
       has_subscription: p.hasSubscription,
       features: p.features,
+      monthly_price: p.id === 'agents'
+        ? (prices['billing_agents_monthly_price'] ?? 49)
+        : p.id === 'agents_mcp'
+          ? (prices['billing_agents_mcp_monthly_price'] ?? 99)
+          : 0,
     }));
   });
 };

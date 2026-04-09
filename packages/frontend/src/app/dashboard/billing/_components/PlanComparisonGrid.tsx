@@ -1,15 +1,16 @@
 'use client';
-import { PLAN_FEATURES, PLAN_PRICES, PLAN_ACCENTS } from '../_lib/constants';
+import { PLAN_FEATURES, PLAN_ACCENTS } from '../_lib/constants';
 
 interface PlanComparisonGridProps {
   currentPlan: string;
   onSubscribe: (planId: string) => void;
+  planPrices: Record<string, number>;
   t: (k: string) => string;
 }
 
 const PLANS = ['translator', 'agents', 'agents_mcp'] as const;
 
-export function PlanComparisonGrid({ currentPlan, onSubscribe, t }: PlanComparisonGridProps) {
+export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: PlanComparisonGridProps) {
   return (
     <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
       <h3 className="text-sm font-semibold text-[var(--th-text)] mb-4">{t('billing.comparePlans')}</h3>
@@ -17,7 +18,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, t }: PlanComparis
         {PLANS.map(planId => {
           const isCurrent = currentPlan === planId;
           const isPopular = planId === 'agents';
-          const price = PLAN_PRICES[planId];
+          const price = planPrices[planId] ?? 0;
           const features = PLAN_FEATURES[planId];
           const accent = PLAN_ACCENTS[planId];
           const canUpgrade = !isCurrent && PLANS.indexOf(planId) > PLANS.indexOf(currentPlan as typeof PLANS[number]);

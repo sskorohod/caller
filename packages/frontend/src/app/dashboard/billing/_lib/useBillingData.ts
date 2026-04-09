@@ -102,10 +102,20 @@ export function useBillingData() {
     return cats;
   }, [transactions]);
 
+  // Derived: plan prices from API (dynamic, set in admin)
+  const planPrices = useMemo(() => {
+    const prices: Record<string, number> = { translator: 0, agents: 49, agents_mcp: 99 };
+    for (const p of plans) {
+      if ((p as any).monthly_price != null) prices[p.id] = (p as any).monthly_price;
+    }
+    return prices;
+  }, [plans]);
+
   return {
     info,
     transactions,
     plans,
+    planPrices,
     loading,
     topUpLoading,
     cancelConfirm,

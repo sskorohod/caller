@@ -31,6 +31,7 @@ export default function BillingPage() {
     ownKeyCount,
     dailySpending,
     usageBreakdown,
+    planPrices,
   } = useBillingData();
 
   if (loading || !info) return <BillingSkeleton />;
@@ -83,6 +84,7 @@ export default function BillingPage() {
       <PlanComparisonGrid
         currentPlan={info.plan}
         onSubscribe={subscribe}
+        planPrices={planPrices}
         t={t}
       />
 

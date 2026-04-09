@@ -1,76 +1,58 @@
-import type { Metadata } from 'next';
+'use client';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-export const metadata: Metadata = {
-  title: 'Pricing | Caller Platform',
-  description: 'AI Phone Agent and Live Translator plans — choose what fits your needs.',
-};
+interface PlanData {
+  id: string;
+  name: string;
+  monthly_price: number;
+}
 
-const plans = [
-  {
-    id: 'translator',
-    name: 'Translator',
+const PLAN_META: Record<string, { tagline: string; highlight: boolean; cta: string; priceNote: string; features: string[]; excluded: string[] }> = {
+  translator: {
     tagline: 'Live translation on any call',
-    price: null, // deposit-only
-    priceLabel: 'Deposit-only',
     priceNote: 'No monthly fee — pay only for what you use',
     highlight: false,
     cta: 'Get Started',
-    features: [
-      '$2 free credit on signup',
-      'Live translator (merge to call)',
-      '10+ language pairs',
-      'Real-time text translation',
-      'Telegram notifications',
-      'Pay-as-you-go from deposit',
-    ],
+    features: ['$2 free credit on signup', 'Live translator (merge to call)', '10+ language pairs', 'Real-time text translation', 'Telegram notifications', 'Pay-as-you-go from deposit'],
     excluded: ['AI Phone Agents', 'MCP API Access', 'Custom agent profiles'],
   },
-  {
-    id: 'agents',
-    name: 'Agents',
+  agents: {
     tagline: 'AI phone agents for your business',
-    price: 49,
-    priceLabel: '$49/mo',
     priceNote: '+ deposit for platform provider usage',
     highlight: true,
     cta: 'Subscribe',
-    features: [
-      'Everything in Translator',
-      'AI Phone Agents (up to 10)',
-      'Up to 5 phone numbers',
-      'Inbound & outbound calls',
-      'Call recording & transcription',
-      'Knowledge base & prompts',
-      'Missions & workflows',
-      'Use your own API keys (free)',
-      'Or use platform providers (from deposit)',
-    ],
+    features: ['Everything in Translator', 'AI Phone Agents (up to 10)', 'Up to 5 phone numbers', 'Inbound & outbound calls', 'Call recording & transcription', 'Knowledge base & prompts', 'Missions & workflows', 'Use your own API keys (free)', 'Or use platform providers (from deposit)'],
     excluded: ['MCP API Access'],
   },
-  {
-    id: 'agents_mcp',
-    name: 'Agents + MCP',
+  agents_mcp: {
     tagline: 'Full platform with API access',
-    price: 99,
-    priceLabel: '$99/mo',
     priceNote: '+ deposit for platform provider usage',
     highlight: false,
     cta: 'Subscribe',
-    features: [
-      'Everything in Agents',
-      'MCP Server API Access',
-      'Unlimited agent profiles',
-      'Unlimited phone numbers',
-      'OAuth 2.0 integration',
-      'Webhooks & connectors',
-      'Priority support',
-    ],
+    features: ['Everything in Agents', 'MCP Server API Access', 'Unlimited agent profiles', 'Unlimited phone numbers', 'OAuth 2.0 integration', 'Webhooks & connectors', 'Priority support'],
     excluded: [],
   },
-];
+};
 
 export default function PricingPage() {
+  const [plans, setPlans] = useState<PlanData[]>([]);
+
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? window.location.origin + '/api' : '/api');
+    fetch(`${apiUrl}/billing/plans`)
+      .then(r => r.json())
+      .then(data => setPlans(Array.isArray(data) ? data : []))
+      .catch(() => {
+        // Fallback defaults
+        setPlans([
+          { id: 'translator', name: 'Translator', monthly_price: 0 },
+          { id: 'agents', name: 'Agents', monthly_price: 49 },
+          { id: 'agents_mcp', name: 'Agents + MCP', monthly_price: 99 },
+        ]);
+      });
+  }, []);
+
   return (
     <div className="min-h-screen" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <style>{`
@@ -118,15 +100,19 @@ export default function PricingPage() {
 
           {/* Plan Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {plans.map(plan => (
+            {plans.map(plan => {
+              const meta = PLAN_META[plan.id];
+              if (!meta) return null;
+              const price = plan.monthly_price;
+              return (
               <div key={plan.id}
                 className="glass-panel rounded-2xl p-8 flex flex-col relative"
-                style={plan.highlight ? {
+                style={meta.highlight ? {
                   border: '1px solid rgba(77, 142, 255, 0.4)',
                   boxShadow: '0 0 40px rgba(77, 142, 255, 0.08)',
                 } : undefined}>
 
-                {plan.highlight && (
+                {meta.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold"
                     style={{ background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }}>
                     Most Popular
@@ -135,37 +121,37 @@ export default function PricingPage() {
 
                 <div className="mb-6">
                   <h3 className="text-xl font-headline font-bold mb-1">{plan.name}</h3>
-                  <p className="text-sm" style={{ color: '#c2c6d6' }}>{plan.tagline}</p>
+                  <p className="text-sm" style={{ color: '#c2c6d6' }}>{meta.tagline}</p>
                 </div>
 
                 <div className="mb-6">
-                  {plan.price !== null ? (
+                  {price > 0 ? (
                     <>
-                      <span className="text-4xl font-headline font-extrabold">${plan.price}</span>
+                      <span className="text-4xl font-headline font-extrabold">${price}</span>
                       <span className="text-sm" style={{ color: '#c2c6d6' }}>/month</span>
                     </>
                   ) : (
                     <span className="text-2xl font-headline font-bold" style={{ color: '#4ade80' }}>Free to start</span>
                   )}
-                  <div className="text-xs mt-1" style={{ color: '#c2c6d6' }}>{plan.priceNote}</div>
+                  <div className="text-xs mt-1" style={{ color: '#c2c6d6' }}>{meta.priceNote}</div>
                 </div>
 
                 <Link href="/login?mode=register"
                   className="block text-center py-3 rounded-xl text-sm font-bold transition mb-6"
-                  style={plan.highlight
+                  style={meta.highlight
                     ? { background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }
                     : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                  {plan.cta}
+                  {meta.cta}
                 </Link>
 
                 <div className="space-y-2.5 flex-1">
-                  {plan.features.map(f => (
+                  {meta.features.map(f => (
                     <div key={f} className="flex items-start gap-2 text-sm">
                       <span className="material-symbols-outlined text-base mt-0.5" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                       {f}
                     </div>
                   ))}
-                  {plan.excluded.map(f => (
+                  {meta.excluded.map(f => (
                     <div key={f} className="flex items-start gap-2 text-sm" style={{ color: '#6b7280' }}>
                       <span className="material-symbols-outlined text-base mt-0.5">cancel</span>
                       {f}
@@ -173,7 +159,8 @@ export default function PricingPage() {
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Provider Toggle Explainer */}
