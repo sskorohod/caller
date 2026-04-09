@@ -126,8 +126,11 @@ app.get('/api/billing/plans', async () => {
   const rows = await db.select().from(platformSettings).where(inArray(platformSettings.key, priceKeys));
   const prices: Record<string, number> = {};
   for (const row of rows) {
-    const val = (row.value as any)?.value;
-    if (val != null) prices[row.key] = Number(val);
+    try {
+      const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      const num = Number(parsed);
+      if (!isNaN(num)) prices[row.key] = num;
+    } catch { /* skip */ }
   }
   return Object.values(PLANS).map(p => ({
     id: p.id, name: p.name, has_subscription: p.hasSubscription, features: p.features,
