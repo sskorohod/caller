@@ -39,6 +39,7 @@ const en: Record<string, string> = {
   'nav.sectionAi': 'AI Config',
   'nav.sectionIntegrations': 'Integrations',
   'nav.sectionSystem': 'System',
+  'nav.more': 'More',
 
   // Dialer
   'dialer.title': 'Phone Dialer',
@@ -637,6 +638,7 @@ const en: Record<string, string> = {
   'toast.providerSaved': 'Provider credentials saved',
 
   // Calls advanced
+  'calls.makeCall': 'Call',
   'calls.exportCSV': 'Export CSV',
   'calls.exportSuccess': '{{count}} calls exported to CSV',
   'calls.noCallsToExport': 'No calls to export',
@@ -844,6 +846,7 @@ const ru: Record<string, string> = {
   'nav.sectionAi': 'ИИ Конфигурация',
   'nav.sectionIntegrations': 'Интеграции',
   'nav.sectionSystem': 'Система',
+  'nav.more': 'Ещё',
 
   // Dialer
   'dialer.title': 'Телефон',
@@ -1442,6 +1445,7 @@ const ru: Record<string, string> = {
   'toast.providerSaved': 'Учётные данные провайдера сохранены',
 
   // Calls advanced
+  'calls.makeCall': 'Позвонить',
   'calls.exportCSV': 'Экспорт CSV',
   'calls.exportSuccess': '{{count}} звонков экспортировано в CSV',
   'calls.noCallsToExport': 'Нет звонков для экспорта',

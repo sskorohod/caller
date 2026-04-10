@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { useIsMobile } from '@/lib/useBreakpoint';
 
 interface AuditLog {
   id: string;
@@ -26,12 +27,14 @@ function fmtDate(iso: string) {
 
 export default function AuditPage() {
   const t = useT();
+  const isMobile = useIsMobile();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Filters
   const [actionFilter, setActionFilter] = useState('');
@@ -40,6 +43,34 @@ export default function AuditPage() {
 
   // Expanded row
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Pull-to-refresh
+  const pullRef = useRef<HTMLDivElement>(null);
+  const pullStartY = useRef(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pulling = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!pullRef.current || pullRef.current.scrollTop > 0) return;
+    pullStartY.current = e.touches[0].clientY;
+    pulling.current = true;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!pulling.current) return;
+    const dy = e.touches[0].clientY - pullStartY.current;
+    if (dy > 0 && dy < 120) setPullDistance(dy);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance > 60 && !refreshing) {
+      setRefreshing(true);
+      loadLogs(0);
+      setTimeout(() => setRefreshing(false), 500);
+    }
+    pulling.current = false;
+    setPullDistance(0);
+  }, [pullDistance, refreshing]);
 
   function buildQs(loadOffset = 0) {
     const params = new URLSearchParams();
@@ -78,10 +109,25 @@ export default function AuditPage() {
   const uniqueActions = Array.from(new Set(logs.map(l => l.action)));
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      ref={pullRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      {pullDistance > 0 && (
+        <div className="flex justify-center py-2 md:hidden" style={{ opacity: Math.min(pullDistance / 60, 1) }}>
+          <svg className={`w-5 h-5 text-[var(--th-primary-text)] ${pullDistance > 60 ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+          </svg>
+        </div>
+      )}
+
       <div>
-        <h2 className="text-xl font-bold text-[var(--th-text)]">{t('audit.title')}</h2>
-        <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('audit.subtitle')}</p>
+        <h2 className="text-lg sm:text-xl font-bold text-[var(--th-text)]">{t('audit.title')}</h2>
+        <p className="text-xs sm:text-sm text-[var(--th-text-muted)] mt-0.5">{t('audit.subtitle')}</p>
       </div>
 
       {error && (

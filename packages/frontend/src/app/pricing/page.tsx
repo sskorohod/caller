@@ -71,7 +71,7 @@ export default function PricingPage() {
 
       {/* Header */}
       <header className="fixed top-0 w-full z-50 border-b" style={{ background: 'rgba(14, 19, 31, 0.6)', backdropFilter: 'blur(24px)', borderColor: 'rgba(221, 226, 243, 0.1)' }}>
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           <Link href="/" className="text-xl font-bold tracking-tighter flex items-center gap-2 font-headline">
             <span className="material-symbols-outlined" style={{ color: '#adc6ff', fontVariationSettings: "'FILL' 1" }}>call</span>
             Caller
@@ -85,28 +85,28 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <main className="pt-32 pb-20 px-6">
+      <main className="pt-24 sm:pt-32 pb-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           {/* Title */}
           <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
               Simple, transparent pricing
             </h1>
-            <p className="text-lg max-w-2xl mx-auto" style={{ color: '#c2c6d6' }}>
+            <p className="text-sm sm:text-lg max-w-2xl mx-auto" style={{ color: '#c2c6d6' }}>
               Start free with the Translator plan. Upgrade to Agents when you need AI phone automation.
               Bring your own API keys or use ours from your deposit.
             </p>
           </div>
 
           {/* Plan Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex flex-col md:grid md:grid-cols-3 gap-4 sm:gap-6 md:overflow-visible">
             {plans.map(plan => {
               const meta = PLAN_META[plan.id];
               if (!meta) return null;
               const price = plan.monthly_price;
               return (
               <div key={plan.id}
-                className="glass-panel rounded-2xl p-8 flex flex-col relative"
+                className="glass-panel rounded-2xl p-6 sm:p-8 flex flex-col relative"
                 style={meta.highlight ? {
                   border: '1px solid rgba(77, 142, 255, 0.4)',
                   boxShadow: '0 0 40px rgba(77, 142, 255, 0.08)',
@@ -137,7 +137,7 @@ export default function PricingPage() {
                 </div>
 
                 <Link href="/login?mode=register"
-                  className="block text-center py-3 rounded-xl text-sm font-bold transition mb-6"
+                  className="block text-center py-3 rounded-xl text-sm font-bold transition mb-6 min-h-[44px]"
                   style={meta.highlight
                     ? { background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }
                     : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
@@ -164,7 +164,7 @@ export default function PricingPage() {
           </div>
 
           {/* Provider Toggle Explainer */}
-          <div className="mt-16 glass-panel rounded-2xl p-8 max-w-3xl mx-auto text-center">
+          <div className="mt-12 sm:mt-16 glass-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto text-center">
             <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#adc6ff' }}>swap_horiz</span>
             <h3 className="text-xl font-headline font-bold mb-2">Bring Your Own Keys or Use Ours</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>
@@ -175,7 +175,7 @@ export default function PricingPage() {
           </div>
 
           {/* Deposit Explainer */}
-          <div className="mt-8 glass-panel rounded-2xl p-8 max-w-3xl mx-auto text-center">
+          <div className="mt-6 sm:mt-8 glass-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto text-center">
             <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#4ade80' }}>account_balance_wallet</span>
             <h3 className="text-xl font-headline font-bold mb-2">How the Deposit Works</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>

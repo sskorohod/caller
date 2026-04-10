@@ -51,9 +51,9 @@ interface TranslationEntry {
 
 const LANG_LABELS: Record<string, string> = { en: 'English', ru: 'Русский', es: 'Español', de: 'Deutsch', fr: 'Français' };
 
-const cardCls = "rounded-2xl p-5 border" +
+const cardCls = "rounded-2xl p-4 md:p-5 border" +
   " border-[rgba(140,144,159,0.12)] bg-[rgba(26,32,44,0.7)] backdrop-blur-sm";
-const inputCls = "w-full px-4 py-3 rounded-xl text-sm outline-none transition" +
+const inputCls = "w-full px-4 py-3 min-h-[44px] rounded-xl text-base md:text-sm outline-none transition" +
   " bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:border-[#adc6ff]/50";
 
 export default function TranslatorPortalPage() {
@@ -206,9 +206,9 @@ function TranslatorPortal() {
   // ─── Login Screen ──────────────────────────────────────────
   if (!jwt) {
     return (
-      <div className={cardCls + ' mt-8'}>
-        <h2 className="text-xl font-bold mb-2" style={{ color: '#dde2f3' }}>Sign In</h2>
-        <p className="text-sm mb-6" style={{ color: '#c2c6d6' }}>
+      <div className={cardCls + ' mt-6 md:mt-8 mx-4 md:mx-0'}>
+        <h2 className="text-lg md:text-xl font-bold mb-2" style={{ color: '#dde2f3' }}>Sign In</h2>
+        <p className="text-sm mb-4 md:mb-6" style={{ color: '#c2c6d6' }}>
           Enter your email to receive a magic link.
         </p>
 
@@ -235,7 +235,7 @@ function TranslatorPortal() {
             />
             {loginError && <p className="text-xs mt-2" style={{ color: '#f87171' }}>{loginError}</p>}
             <button onClick={requestLink} disabled={!email}
-              className="w-full mt-4 py-3 rounded-xl text-sm font-bold text-[#0e131f] transition disabled:opacity-30"
+              className="w-full mt-4 py-3 min-h-[44px] rounded-xl text-sm font-bold text-[#0e131f] transition disabled:opacity-30 active:scale-[0.98]"
               style={{ background: 'linear-gradient(135deg, #adc6ff, #4d8eff)' }}>
               Send Magic Link
             </button>
@@ -251,14 +251,14 @@ function TranslatorPortal() {
   }
 
   return (
-    <div className="space-y-5 mt-4">
+    <div className="space-y-4 md:space-y-5 mt-4 px-4 md:px-0 pb-[env(safe-area-inset-bottom)]">
       {/* Balance Card */}
       <div className={cardCls}>
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Balance</span>
-          <button onClick={logout} className="text-[10px] underline" style={{ color: '#c2c6d6' }}>Sign out</button>
+          <button onClick={logout} className="text-[10px] underline min-h-[44px] flex items-center" style={{ color: '#c2c6d6' }}>Sign out</button>
         </div>
-        <div className="text-4xl font-bold" style={{ color: profile.balance_minutes < 5 ? '#fbbf24' : '#4ade80' }}>
+        <div className="text-3xl md:text-4xl font-bold" style={{ color: profile.balance_minutes < 5 ? '#fbbf24' : '#4ade80' }}>
           {profile.balance_minutes.toFixed(1)}
           <span className="text-sm font-normal ml-1 opacity-60">min</span>
         </div>
@@ -274,13 +274,13 @@ function TranslatorPortal() {
             <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
             <span className="text-sm font-bold" style={{ color: '#4ade80' }}>Live Session</span>
           </div>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
+          <div className="space-y-2 max-h-[50vh] md:max-h-60 overflow-y-auto">
             {liveTranscript.length === 0 && (
               <p className="text-xs text-center py-4" style={{ color: '#c2c6d6' }}>Waiting for speech...</p>
             )}
             {liveTranscript.map((entry, i) => (
               <div key={i} className={`flex gap-2 ${entry.speaker === 'caller' ? '' : 'flex-row-reverse'}`}>
-                <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+                <div className={`max-w-[85%] md:max-w-[80%] rounded-xl px-3 py-2 text-sm ${
                   entry.speaker === 'caller' ? 'bg-white/5' : 'bg-[#adc6ff]/10'
                 }`}>
                   <p style={{ color: '#dde2f3' }}>{entry.original}</p>
@@ -296,16 +296,16 @@ function TranslatorPortal() {
       {/* Settings */}
       <div className={cardCls}>
         <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#c2c6d6' }}>My Settings</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
+        <div className="space-y-2.5 md:space-y-2 text-sm">
+          <div className="flex flex-col gap-0.5 md:flex-row md:justify-between">
             <span style={{ color: '#c2c6d6' }}>Languages</span>
             <span style={{ color: '#dde2f3' }}>{LANG_LABELS[profile.my_language] || profile.my_language} → {LANG_LABELS[profile.target_language] || profile.target_language}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 md:flex-row md:justify-between">
             <span style={{ color: '#c2c6d6' }}>Mode</span>
             <span className="capitalize" style={{ color: '#dde2f3' }}>{profile.translation_mode}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 md:flex-row md:justify-between">
             <span style={{ color: '#c2c6d6' }}>Voice</span>
             <span className="capitalize" style={{ color: '#dde2f3' }}>{profile.tts_provider}{profile.tts_voice_id ? ` / ${profile.tts_voice_id}` : ''}</span>
           </div>
@@ -330,7 +330,7 @@ function TranslatorPortal() {
               return (
                 <div key={session.id}>
                   <button onClick={() => setExpandedSession(expanded ? null : session.id)}
-                    className="w-full flex items-center justify-between py-2.5 px-1 text-left hover:bg-white/3 rounded-lg transition">
+                    className="w-full flex items-center justify-between py-3 md:py-2.5 px-2 md:px-1 min-h-[44px] text-left hover:bg-white/3 rounded-lg transition active:bg-white/5">
                     <div>
                       <div className="text-sm" style={{ color: '#dde2f3' }}>
                         {new Date(session.created_at).toLocaleDateString()} {new Date(session.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -345,12 +345,12 @@ function TranslatorPortal() {
                   </button>
                   {expanded && (
                     <div className="pb-3 px-1">
-                      <div className="space-y-2 max-h-60 overflow-y-auto rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.2)' }}>
+                      <div className="space-y-2 max-h-[50vh] md:max-h-60 overflow-y-auto rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.2)' }}>
                         {(session.transcript || []).length === 0 ? (
                           <p className="text-xs text-center py-2" style={{ color: '#c2c6d6' }}>No transcript</p>
                         ) : session.transcript.map((entry, i) => (
                           <div key={i} className={`flex gap-2 ${entry.speaker === 'caller' ? '' : 'flex-row-reverse'}`}>
-                            <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${
+                            <div className={`max-w-[85%] md:max-w-[80%] rounded-xl px-3 py-2 text-xs ${
                               entry.speaker === 'caller' ? 'bg-white/5' : 'bg-[#adc6ff]/10'
                             }`}>
                               <p style={{ color: '#dde2f3' }}>{entry.original || entry.text || ''}</p>

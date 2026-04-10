@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import FloatingActionButton from '@/components/FloatingActionButton';
+import MobilePageHeader from '@/components/MobilePageHeader';
 
 interface Mission {
   id: string;
@@ -34,6 +37,7 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }
 
 export default function MissionsPage() {
   const t = useT();
+  const isMobile = useIsMobile();
   const toast = useToast();
   const router = useRouter();
   const [missions, setMissions] = useState<Mission[]>([]);
@@ -99,9 +103,23 @@ export default function MissionsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <MobilePageHeader
+        title={t('missions.title')}
+        subtitle={t('missions.subtitle')}
+        actions={checkedIds.size > 0 ? (
+          <button
+            onClick={() => deleteMissions(Array.from(checkedIds))}
+            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+          </button>
+        ) : undefined}
+      />
+      <div className="hidden md:flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[var(--th-text)]">{t('missions.title')}</h2>
+          <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{t('missions.title')}</h2>
           <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('missions.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -200,9 +218,9 @@ export default function MissionsPage() {
                   className="mt-1 w-4 h-4 rounded border-[var(--th-border)] accent-[var(--th-primary)] cursor-pointer shrink-0"
                 />
                 {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-green-400 to-emerald-500" />}
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-3 flex-1 min-w-0">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <h3 className="font-semibold text-[var(--th-text)] text-sm truncate group-hover:text-[var(--th-primary-text)] transition-colors">
                         {m.title || m.goal || t('missions.untitled')}
                       </h3>
@@ -251,6 +269,13 @@ export default function MissionsPage() {
           })}
         </div>
       )}
+
+      {/* Mobile FAB */}
+      <FloatingActionButton
+        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>}
+        label={t('missions.newMission')}
+        onClick={createNew}
+      />
     </div>
   );
 }

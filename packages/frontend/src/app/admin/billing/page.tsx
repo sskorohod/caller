@@ -58,15 +58,15 @@ export default function AdminBillingConfig() {
   const clientCost = exampleCost * parseFloat(markup || '3');
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="px-3 py-4 md:p-6 space-y-6 md:space-y-8">
       <div>
-        <h1 className="text-2xl font-headline font-bold">Billing Configuration</h1>
-        <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Platform pricing, markup, and thresholds</p>
+        <h1 className="text-xl md:text-2xl font-headline font-bold">Billing Configuration</h1>
+        <p className="text-xs md:text-sm mt-1" style={{ color: '#c2c6d6' }}>Platform pricing, markup, and thresholds</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Markup */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="glass-panel rounded-2xl p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="material-symbols-outlined text-lg" style={{ color: '#4ade80' }}>trending_up</span>
             <h3 className="font-headline font-bold">Platform Markup</h3>
@@ -78,7 +78,7 @@ export default function AdminBillingConfig() {
           <div>
             <label className="text-xs font-medium block mb-1">Markup Multiplier</label>
             <input type="number" step="0.1" min="1" value={markup} onChange={e => setMarkup(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
+              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
           </div>
 
           <div className="glass-panel rounded-xl p-3" style={{ borderLeft: '3px solid #4ade80' }}>
@@ -94,7 +94,7 @@ export default function AdminBillingConfig() {
         </div>
 
         {/* Subscription Prices */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="glass-panel rounded-2xl p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="material-symbols-outlined text-lg" style={{ color: '#adc6ff' }}>loyalty</span>
             <h3 className="font-headline font-bold">Subscription Prices</h3>
@@ -103,12 +103,12 @@ export default function AdminBillingConfig() {
           <div>
             <label className="text-xs font-medium block mb-1">Agents Plan ($/month)</label>
             <input type="number" step="1" min="0" value={agentsPrice} onChange={e => setAgentsPrice(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
+              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
           </div>
           <div>
             <label className="text-xs font-medium block mb-1">Agents + MCP Plan ($/month)</label>
             <input type="number" step="1" min="0" value={agentsMcpPrice} onChange={e => setAgentsMcpPrice(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
+              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
           </div>
           <div className="text-xs" style={{ color: '#c2c6d6' }}>
             Translator plan has no subscription fee (deposit-only).
@@ -116,7 +116,7 @@ export default function AdminBillingConfig() {
         </div>
 
         {/* Thresholds */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="glass-panel rounded-2xl p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="material-symbols-outlined text-lg" style={{ color: '#fbbf24' }}>warning</span>
             <h3 className="font-headline font-bold">Alerts & Thresholds</h3>
@@ -125,13 +125,13 @@ export default function AdminBillingConfig() {
           <div>
             <label className="text-xs font-medium block mb-1">Low Balance Alert Threshold ($)</label>
             <input type="number" step="0.5" min="0" value={threshold} onChange={e => setThreshold(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
+              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
             <p className="text-xs mt-1" style={{ color: '#c2c6d6' }}>Alert workspace owners when balance drops below this amount.</p>
           </div>
         </div>
 
         {/* Signup Bonus */}
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="glass-panel rounded-2xl p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="material-symbols-outlined text-lg" style={{ color: '#d0bcff' }}>redeem</span>
             <h3 className="font-headline font-bold">Signup Bonus</h3>
@@ -140,7 +140,7 @@ export default function AdminBillingConfig() {
           <div>
             <label className="text-xs font-medium block mb-1">Translator Signup Bonus ($)</label>
             <input type="number" step="0.5" min="0" value={bonus} onChange={e => setBonus(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
+              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
             <p className="text-xs mt-1" style={{ color: '#c2c6d6' }}>Free deposit credited to new Translator plan signups.</p>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function AdminBillingConfig() {
       {/* Save */}
       <div className="flex items-center gap-3">
         <button onClick={save} disabled={saving}
-          className="px-6 py-2.5 rounded-xl text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition">
+          className="px-6 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition">
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
         {saved && (

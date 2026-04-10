@@ -174,22 +174,22 @@ export default function TranslatePage() {
     <div className="flex flex-col h-[calc(100vh-64px)] text-[var(--th-text)]">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow)] shrink-0">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow)] shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => router.push(`/dashboard/calls/${callId}/live`)}
-            className="flex items-center gap-1 text-sm font-medium text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-all shrink-0"
+            className="flex items-center gap-1 text-sm font-medium text-[var(--th-text-secondary)] hover:text-[var(--th-text)] transition-all shrink-0 min-h-[44px]"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            {t('translate.back')}
+            <span className="hidden md:inline">{t('translate.back')}</span>
           </button>
 
-          <div className="h-5 w-px shrink-0 bg-[var(--th-card-border-subtle)]" />
+          <div className="h-5 w-px shrink-0 bg-[var(--th-card-border-subtle)] hidden md:block" />
 
           <div className="min-w-0">
-            <h1 className="text-base font-bold truncate text-[var(--th-text)]">
+            <h1 className="text-sm md:text-base font-bold truncate text-[var(--th-text)]">
               {t('translate.title')}
             </h1>
             {displayPhone && (
@@ -206,7 +206,7 @@ export default function TranslatePage() {
             value={targetLanguage}
             onChange={e => setTargetLanguage(e.target.value)}
             disabled={isActive}
-            className={selectCls}
+            className={`${selectCls} min-h-[44px] md:min-h-0`}
           >
             {TARGET_LANGUAGES.map(lang => (
               <option key={lang.value} value={lang.value}>{lang.label}</option>
@@ -220,7 +220,7 @@ export default function TranslatePage() {
                 key={m}
                 onClick={() => !isActive && setMode(m)}
                 disabled={isActive}
-                className={`px-3 py-1.5 text-[10px] font-semibold rounded-lg transition-all disabled:opacity-40 ${
+                className={`px-3 py-2 md:py-1.5 min-h-[44px] md:min-h-0 text-[10px] font-semibold rounded-lg transition-all disabled:opacity-40 ${
                   mode === m
                     ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
                     : 'text-[var(--th-text-secondary)] hover:text-[var(--th-text)]'
@@ -237,15 +237,15 @@ export default function TranslatePage() {
 
       {/* ── Copilot settings (visible only in copilot mode, before start) ── */}
       {mode === 'copilot' && !isActive && (
-        <div className="flex items-center gap-4 px-6 py-3 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shrink-0">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 md:px-6 py-3 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shrink-0">
           <div className="flex items-center gap-2">
-            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
+            <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider whitespace-nowrap">
               {t('translate.myLanguage')}
             </label>
             <select
               value={myLanguage}
               onChange={e => setMyLanguage(e.target.value)}
-              className={selectCls}
+              className={`${selectCls} min-h-[44px] md:min-h-0`}
             >
               {MY_LANGUAGES.map(lang => (
                 <option key={lang.value} value={lang.value}>{lang.label}</option>
@@ -259,14 +259,14 @@ export default function TranslatePage() {
               value={context}
               onChange={e => setContext(e.target.value)}
               placeholder={t('translate.contextPlaceholder')}
-              className="w-full text-sm rounded-xl px-3.5 py-2 border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
+              className="w-full text-sm rounded-xl px-3.5 py-2 min-h-[44px] border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
             />
           </div>
         </div>
       )}
 
       {/* ── Entries list ─────────────────────────────────────────────────── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-3 md:py-4 space-y-3">
         {entries.length === 0 && !isActive && (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <div className="w-14 h-14 bg-[var(--th-surface)] rounded-2xl flex items-center justify-center text-[var(--th-text-muted)]">
@@ -329,7 +329,7 @@ export default function TranslatePage() {
 
       {/* ── Copilot suggestions ──────────────────────────────────────────── */}
       {mode === 'copilot' && isActive && suggestions.length > 0 && (
-        <div className="border-t border-[var(--th-card-border-subtle)] px-6 py-4 bg-[var(--th-card)] shrink-0">
+        <div className="border-t border-[var(--th-card-border-subtle)] px-4 md:px-6 py-3 md:py-4 bg-[var(--th-card)] shrink-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)] mb-3 flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5 text-[var(--th-warning-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
             {t('translate.suggestedResponses')}
@@ -340,7 +340,7 @@ export default function TranslatePage() {
               <button
                 key={i}
                 onClick={() => copySuggestion(s.text)}
-                className="text-left rounded-xl px-4 py-3 border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] hover:border-[var(--th-border)] hover:shadow-[0_2px_8px_var(--th-card-glow)] transition-all active:scale-[0.99]"
+                className="text-left rounded-xl px-4 py-3 min-h-[48px] border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] hover:border-[var(--th-border)] hover:shadow-[0_2px_8px_var(--th-card-glow)] transition-all active:scale-[0.99]"
                 title={t('translate.clickToCopy')}
               >
                 <p className="text-sm font-medium leading-relaxed text-[var(--th-text)]">
@@ -356,18 +356,18 @@ export default function TranslatePage() {
       )}
 
       {/* ── Footer: Start / Stop ─────────────────────────────────────────── */}
-      <div className="border-t border-[var(--th-card-border-subtle)] px-6 py-4 bg-[var(--th-card)] shrink-0">
+      <div className="border-t border-[var(--th-card-border-subtle)] px-4 md:px-6 py-3 md:py-4 bg-[var(--th-card)] shrink-0">
         {!isActive ? (
           <button
             onClick={handleStart}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
+            className="w-full py-3 md:py-2.5 min-h-[48px] rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
           >
             {t('translate.start')}
           </button>
         ) : (
           <button
             onClick={handleStop}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-[0_4px_16px_rgba(239,68,68,0.3)] transition-all active:scale-[0.98]"
+            className="w-full py-3 md:py-2.5 min-h-[48px] rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-[0_4px_16px_rgba(239,68,68,0.3)] transition-all active:scale-[0.98]"
           >
             {t('translate.stop')}
           </button>

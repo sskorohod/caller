@@ -2,6 +2,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import FloatingActionButton from '@/components/FloatingActionButton';
+import MobilePageHeader from '@/components/MobilePageHeader';
+import MobileListItem from '@/components/MobileListItem';
 
 interface KnowledgeBase {
   id: string;
@@ -23,6 +27,7 @@ const DOC_TYPES = ['document', 'faq', 'policy', 'pricing', 'troubleshooting'] as
 
 export default function KnowledgePage() {
   const t = useT();
+  const isMobile = useIsMobile();
   const [bases, setBases]     = useState<KnowledgeBase[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState(false);
@@ -190,14 +195,20 @@ export default function KnowledgePage() {
     return (
       <div className="space-y-5">
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <MobilePageHeader
+          title={selectedKB.name}
+          subtitle={selectedKB.description ?? undefined}
+          backHref="#"
+          actions={undefined}
+        />
+        <div className="hidden md:flex items-center gap-3">
           <button onClick={goBack} className="p-2 hover:bg-[var(--th-surface)] rounded-lg transition-colors" aria-label="Back">
             <svg className="w-5 h-5 text-[var(--th-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-[var(--th-text)]">{selectedKB.name}</h2>
+            <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{selectedKB.name}</h2>
             {selectedKB.description && (
               <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{selectedKB.description}</p>
             )}
@@ -205,6 +216,14 @@ export default function KnowledgePage() {
           <button onClick={() => setDocModal(true)} className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-2xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {t('knowledge.addDoc')}
+          </button>
+        </div>
+        {/* Mobile back button (MobilePageHeader doesn't call goBack) */}
+        <div className="md:hidden -mt-4 mb-2">
+          <button onClick={goBack} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-[var(--th-surface)] rounded-lg transition-colors" aria-label="Back">
+            <svg className="w-5 h-5 text-[var(--th-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
           </button>
         </div>
 
@@ -227,7 +246,40 @@ export default function KnowledgePage() {
             <button onClick={() => setDocModal(true)} className="px-4 py-2 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-medium rounded-lg transition-all">{t('knowledge.addDoc')}</button>
           </div>
         ) : (
-          <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+          <>
+          {/* Mobile: card list */}
+          <div className="md:hidden space-y-2">
+            {docs.map(doc => (
+              <MobileListItem
+                key={doc.id}
+                onClick={() => openDocView(doc)}
+                swipeLeft={{
+                  color: '#ef4444',
+                  icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>,
+                  label: 'Delete',
+                  onAction: () => handleDeleteDoc(doc.id),
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[var(--th-primary-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[var(--th-text)] truncate">{doc.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]">{doc.doc_type}</span>
+                      <span className="text-[10px] text-[var(--th-text-muted)]">{new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    </div>
+                  </div>
+                  <svg className="w-4 h-4 text-[var(--th-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                </div>
+              </MobileListItem>
+            ))}
+          </div>
+          {/* Desktop: table */}
+          <div className="hidden md:block bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
             <table className="w-full">
               <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-card-border-subtle)]">
                 <tr>
@@ -281,6 +333,7 @@ export default function KnowledgePage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* View/Edit Document Modal */}

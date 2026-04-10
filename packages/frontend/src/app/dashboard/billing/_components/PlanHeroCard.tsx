@@ -42,7 +42,7 @@ export function PlanHeroCard({ info, onSubscribe, onCancelClick, t }: PlanHeroCa
         {/* Left: plan info */}
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-[var(--th-text)]">{info.plan_name}</h2>
+            <h2 className="text-lg sm:text-2xl font-bold text-[var(--th-text)]">{info.plan_name}</h2>
             <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide ${badge.cls}`}>
               {t(badge.label)}
             </span>

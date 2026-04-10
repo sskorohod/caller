@@ -202,7 +202,7 @@ export default function LiveTranslatePage() {
   return (
     <div className="min-h-screen bg-[var(--th-page)] text-[var(--th-text)] flex flex-col">
       {/* ─── Header: Timer + Languages + Tone + Cost ─── */}
-      <div className="sticky top-0 z-20 bg-[var(--th-page)]/95 backdrop-blur-sm border-b border-[var(--th-border)] px-3 py-2">
+      <div className="sticky top-0 z-20 bg-[var(--th-page)]/95 backdrop-blur-sm border-b border-[var(--th-border)] px-3 md:px-4 py-2">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
           {/* Left: status + timer */}
           <div className="flex items-center gap-1.5 shrink-0">
@@ -217,12 +217,12 @@ export default function LiveTranslatePage() {
           {status === 'live' && (
             <div className="flex items-center gap-1.5">
               <select value={myLang} onChange={e => changeMyLang(e.target.value)}
-                className="px-1 py-1 rounded text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none w-11">
+                className="px-1.5 py-1.5 min-h-[44px] md:min-h-0 md:py-1 rounded text-xs md:text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none w-12 md:w-11">
                 {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
               </select>
               <span className="text-[10px] text-[var(--th-text-muted)]">⇄</span>
               <select value={targetLang} onChange={e => changeTargetLang(e.target.value)}
-                className="px-1 py-1 rounded text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none w-11">
+                className="px-1.5 py-1.5 min-h-[44px] md:min-h-0 md:py-1 rounded text-xs md:text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none w-12 md:w-11">
                 {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
               </select>
 
@@ -230,7 +230,7 @@ export default function LiveTranslatePage() {
               <div className="relative">
                 <button onClick={() => setShowToneMenu(!showToneMenu)}
                   title="Tone"
-                  className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-medium border transition-all ${
+                  className={`flex items-center gap-1 px-2 md:px-1.5 py-1.5 md:py-1 min-h-[44px] md:min-h-0 rounded text-xs md:text-[10px] font-medium border transition-all ${
                     tone !== 'neutral'
                       ? 'bg-indigo-500/15 border-indigo-500/25 text-indigo-300'
                       : 'bg-[var(--th-surface)] border-[var(--th-border)] text-[var(--th-text-muted)]'
@@ -244,7 +244,7 @@ export default function LiveTranslatePage() {
                     <div className="absolute top-full left-0 mt-1 z-40 bg-[var(--th-card)] border border-[var(--th-border)] rounded-lg shadow-xl overflow-hidden min-w-[140px]">
                       {TONES.map(t => (
                         <button key={t.value} onClick={() => changeTone(t.value)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] text-left transition-all ${
+                          className={`w-full flex items-center gap-2 px-3 py-3 md:py-2 min-h-[44px] md:min-h-0 text-xs md:text-[11px] text-left transition-all ${
                             tone === t.value
                               ? 'bg-indigo-500/15 text-indigo-300'
                               : 'text-[var(--th-text-muted)] hover:bg-[var(--th-surface)] hover:text-[var(--th-text)]'
@@ -266,7 +266,7 @@ export default function LiveTranslatePage() {
       </div>
 
       {/* ─── Translations ─── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 max-w-2xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 max-w-2xl mx-auto w-full">
         {translations.length === 0 && !isSpeaking && status === 'live' && (
           <div className="text-center mt-20">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
@@ -290,10 +290,10 @@ export default function LiveTranslatePage() {
                 {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
             </div>
-            <div className="text-[17px] leading-relaxed font-medium text-[var(--th-text)] mb-1">
+            <div className="text-base md:text-[17px] leading-relaxed font-medium text-[var(--th-text)] mb-1">
               {entry.translated}
             </div>
-            <div className="text-[13px] text-[var(--th-text-muted)] leading-snug">
+            <div className="text-sm md:text-[13px] text-[var(--th-text-muted)] leading-snug">
               {entry.original}
             </div>
           </div>
@@ -309,12 +309,12 @@ export default function LiveTranslatePage() {
               </span>
             </div>
             {interimTranslated && (
-              <div className="text-[17px] leading-relaxed font-medium text-[var(--th-text)]">
+              <div className="text-base md:text-[17px] leading-relaxed font-medium text-[var(--th-text)]">
                 {interimTranslated}<span className="inline-block w-0.5 h-4 bg-indigo-400 ml-0.5 animate-pulse" />
               </div>
             )}
             {interimOriginal && (
-              <div className="text-[13px] text-[var(--th-text-muted)] leading-snug mt-1">
+              <div className="text-sm md:text-[13px] text-[var(--th-text-muted)] leading-snug mt-1">
                 {interimOriginal}
               </div>
             )}
@@ -326,11 +326,11 @@ export default function LiveTranslatePage() {
 
       {/* ─── Bottom Controls ─── */}
       {status === 'live' && (
-        <div className="sticky bottom-0 z-20 bg-[var(--th-page)]/95 backdrop-blur-sm border-t border-[var(--th-border)] px-3 py-2.5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
+        <div className="sticky bottom-0 z-20 bg-[var(--th-page)]/95 backdrop-blur-sm border-t border-[var(--th-border)] px-3 md:px-4 py-3 md:py-2.5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="max-w-2xl mx-auto flex items-center justify-between gap-3 md:gap-2">
             {/* Voice selector — left */}
             <select value={voice} onChange={e => changeVoice(e.target.value)}
-              className="px-1.5 py-1.5 rounded-md text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none shrink-0">
+              className="px-2 md:px-1.5 py-2 md:py-1.5 min-h-[44px] md:min-h-0 rounded-lg md:rounded-md text-xs md:text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none shrink-0">
               <optgroup label="F">
                 {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
               </optgroup>
@@ -340,10 +340,10 @@ export default function LiveTranslatePage() {
             </select>
 
             {/* Mode toggle — center */}
-            <div className="flex rounded-md border border-[var(--th-border)] overflow-hidden">
+            <div className="flex rounded-lg md:rounded-md border border-[var(--th-border)] overflow-hidden">
               {(['bidirectional', 'unidirectional'] as const).map(m => (
                 <button key={m} onClick={() => changeMode(m)}
-                  className={`px-2.5 py-1.5 text-[10px] font-medium transition-all ${
+                  className={`px-3 md:px-2.5 py-2.5 md:py-1.5 min-h-[44px] md:min-h-0 text-xs md:text-[10px] font-medium transition-all active:scale-95 ${
                     mode === m ? 'bg-indigo-500/20 text-indigo-300' : 'text-[var(--th-text-muted)] hover:text-[var(--th-text)]'
                   }`}>
                   {m === 'bidirectional' ? '2-way' : '1-way'}
@@ -353,16 +353,16 @@ export default function LiveTranslatePage() {
 
             {/* Pause button — right */}
             <button onClick={togglePause}
-              className={`p-1.5 rounded-lg border transition-all shrink-0 ${
+              className={`p-2.5 md:p-1.5 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center rounded-lg border transition-all shrink-0 active:scale-95 ${
                 paused
                   ? 'bg-amber-500/20 border-amber-500/30 text-amber-300'
                   : 'bg-[var(--th-surface)] border-[var(--th-border)] text-[var(--th-text-muted)] hover:text-[var(--th-text)]'
               }`}
               title={paused ? 'Resume' : 'Pause'}>
               {paused ? (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                <svg className="w-5 h-5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
               ) : (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+                <svg className="w-5 h-5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
               )}
             </button>
           </div>
@@ -371,7 +371,7 @@ export default function LiveTranslatePage() {
 
       {/* ─── Footer (when ended) ─── */}
       {status === 'ended' && (
-        <div className="border-t border-[var(--th-border)] px-4 py-4 text-center">
+        <div className="border-t border-[var(--th-border)] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center">
           <p className="text-xs text-[var(--th-text-muted)]">
             Session ended &middot; {translations.length} translations &middot; {formatTime(duration)} &middot; ${cost.toFixed(2)}
           </p>

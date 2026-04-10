@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/lib/useBreakpoint';
 
 interface Workspace {
   id: string;
@@ -36,6 +37,8 @@ export default function AdminWorkspaces() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
+
+  const isMobile = useIsMobile();
 
   // Balance modal
   const [balanceModal, setBalanceModal] = useState(false);
@@ -79,24 +82,24 @@ export default function AdminWorkspaces() {
     if (selected?.id === id) selectWorkspace({ ...selected, plan });
   };
 
-  if (loading) return <div className="p-8 text-center opacity-50">Loading...</div>;
+  if (loading) return <div className="p-4 md:p-8 text-center opacity-50">Loading...</div>;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-headline font-bold">Workspaces</h1>
+        <h1 className="text-lg md:text-2xl font-headline font-bold">Workspaces</h1>
         <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Manage workspace plans and deposits</p>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search by name..."
-          className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 flex-1 outline-none focus:border-blue-500/50"
+          className="px-3 py-2.5 rounded-lg text-sm bg-white/5 border border-white/10 flex-1 outline-none focus:border-blue-500/50"
         />
         <select value={planFilter} onChange={e => setPlanFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none">
+          className="px-3 py-2.5 rounded-lg text-sm bg-white/5 border border-white/10 outline-none">
           <option value="">All Plans</option>
           <option value="translator">Translator</option>
           <option value="agents">Agents</option>
@@ -104,47 +107,79 @@ export default function AdminWorkspaces() {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Workspace List */}
-        <div className="lg:col-span-2 glass-panel rounded-2xl p-0 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Name</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Plan</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Balance</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Subscription</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="lg:col-span-2">
+          {isMobile ? (
+            <div className="space-y-2">
               {workspaces.map(ws => {
                 const badge = planBadge[ws.plan] || planBadge.translator;
                 return (
-                  <tr key={ws.id}
+                  <div key={ws.id}
                     onClick={() => selectWorkspace(ws)}
-                    className="border-b cursor-pointer hover:bg-white/5 transition"
-                    style={{ borderColor: 'rgba(66,71,84,0.1)', background: selected?.id === ws.id ? 'rgba(173,198,255,0.05)' : undefined }}>
-                    <td className="px-4 py-3 font-medium">{ws.name}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: badge.bg, color: badge.color }}>
-                        {ws.plan}
+                    className="glass-panel rounded-xl p-4 cursor-pointer active:scale-[0.98] transition"
+                    style={{ background: selected?.id === ws.id ? 'rgba(173,198,255,0.08)' : undefined }}>
+                    <div className="flex justify-between items-start">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{ws.name}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ background: badge.bg, color: badge.color }}>{ws.plan}</span>
+                          {ws.subscription_status === 'active' ? <span className="text-[10px]" style={{ color: '#4ade80' }}>Active</span> :
+                           ws.subscription_status === 'canceled' ? <span className="text-[10px]" style={{ color: '#fbbf24' }}>Canceled</span> :
+                           ws.subscription_status === 'past_due' ? <span className="text-[10px]" style={{ color: '#f87171' }}>Past Due</span> : null}
+                        </div>
+                      </div>
+                      <span className="font-mono text-sm font-bold" style={{ color: ws.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
+                        ${ws.balance_usd.toFixed(2)}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: ws.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
-                      ${ws.balance_usd.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#c2c6d6' }}>
-                      {ws.subscription_status === 'active' ? <span style={{ color: '#4ade80' }}>Active</span> :
-                       ws.subscription_status === 'canceled' ? <span style={{ color: '#fbbf24' }}>Canceled</span> :
-                       ws.subscription_status === 'past_due' ? <span style={{ color: '#f87171' }}>Past Due</span> :
-                       <span>None</span>}
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 );
               })}
-              {workspaces.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center opacity-50">No workspaces found</td></tr>}
-            </tbody>
-          </table>
+              {workspaces.length === 0 && <div className="text-center py-8 opacity-50 text-sm">No workspaces found</div>}
+            </div>
+          ) : (
+            <div className="glass-panel rounded-2xl p-0 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Name</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Plan</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Balance</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Subscription</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workspaces.map(ws => {
+                    const badge = planBadge[ws.plan] || planBadge.translator;
+                    return (
+                      <tr key={ws.id}
+                        onClick={() => selectWorkspace(ws)}
+                        className="border-b cursor-pointer hover:bg-white/5 transition"
+                        style={{ borderColor: 'rgba(66,71,84,0.1)', background: selected?.id === ws.id ? 'rgba(173,198,255,0.05)' : undefined }}>
+                        <td className="px-4 py-3 font-medium">{ws.name}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: badge.bg, color: badge.color }}>
+                            {ws.plan}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs" style={{ color: ws.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
+                          ${ws.balance_usd.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: '#c2c6d6' }}>
+                          {ws.subscription_status === 'active' ? <span style={{ color: '#4ade80' }}>Active</span> :
+                           ws.subscription_status === 'canceled' ? <span style={{ color: '#fbbf24' }}>Canceled</span> :
+                           ws.subscription_status === 'past_due' ? <span style={{ color: '#f87171' }}>Past Due</span> :
+                           <span>None</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {workspaces.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center opacity-50">No workspaces found</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Workspace Detail */}
@@ -171,10 +206,10 @@ export default function AdminWorkspaces() {
               {/* Plan */}
               <div>
                 <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Plan</div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {['translator', 'agents', 'agents_mcp'].map(p => (
                     <button key={p} onClick={() => changePlan(selected.id, p)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                      className="px-3 py-2 min-h-[44px] rounded-lg text-xs font-medium transition"
                       style={selected.plan === p
                         ? { background: planBadge[p].bg, color: planBadge[p].color, border: `1px solid ${planBadge[p].color}40` }
                         : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
@@ -274,8 +309,8 @@ export default function AdminWorkspaces() {
 
       {/* Balance Adjustment Modal */}
       {balanceModal && selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
-          <div className="glass-panel rounded-2xl p-6 w-96 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
+          <div className="glass-panel rounded-t-2xl md:rounded-2xl p-6 w-full md:w-96 space-y-4" onClick={e => e.stopPropagation()}>
             <h3 className="font-headline font-bold">Adjust Balance</h3>
             <p className="text-xs" style={{ color: '#c2c6d6' }}>{selected.name} — Current: ${selected.balance_usd.toFixed(2)}</p>
 

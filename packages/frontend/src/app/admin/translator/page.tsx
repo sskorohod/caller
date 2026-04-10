@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/lib/useBreakpoint';
 
 interface Subscriber {
   id: string;
@@ -66,11 +67,12 @@ const TONES = [
   { value: 'legal', label: 'Legal' },
 ];
 
-const inputCls = "w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50";
+const inputCls = "w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50";
 const selectCls = inputCls;
 const labelCls = "text-xs font-medium block mb-1";
 
 export default function AdminTranslator() {
+  const isMobile = useIsMobile();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [selected, setSelected] = useState<Subscriber | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -170,71 +172,107 @@ export default function AdminTranslator() {
   if (loading) return <div className="p-8 text-center opacity-50">Loading...</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-headline font-bold">Translator Subscribers</h1>
-          <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Manage translator service subscribers</p>
+    <div className="px-3 py-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-headline font-bold truncate">Translator Subscribers</h1>
+          <p className="text-xs md:text-sm mt-1" style={{ color: '#c2c6d6' }}>Manage translator service subscribers</p>
         </div>
         <button onClick={startCreate}
-          className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 transition">
-          + Add Subscriber
+          className="px-3 md:px-4 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 transition whitespace-nowrap">
+          + Add
         </button>
       </div>
 
       {/* Search */}
       <input value={search} onChange={e => setSearch(e.target.value)}
         placeholder="Search by name or phone..."
-        className="px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 w-full max-w-md outline-none focus:border-blue-500/50"
+        className="px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 w-full md:max-w-md outline-none focus:border-blue-500/50"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Subscriber List */}
-        <div className="lg:col-span-2 glass-panel rounded-2xl p-0 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Name</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Phone</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Languages</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Mode</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Balance</th>
-                <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="lg:col-span-2">
+          {isMobile ? (
+            <div className="space-y-2">
               {filtered.map(sub => (
-                <tr key={sub.id}
+                <div key={sub.id}
                   onClick={() => selectSubscriber(sub)}
-                  className="border-b cursor-pointer hover:bg-white/5 transition"
-                  style={{ borderColor: 'rgba(66,71,84,0.1)', background: selected?.id === sub.id ? 'rgba(173,198,255,0.05)' : undefined }}>
-                  <td className="px-4 py-3 font-medium">{sub.name}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{sub.phone_number}</td>
-                  <td className="px-4 py-3 text-xs">
-                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }}>
+                  className="glass-panel rounded-xl p-3 cursor-pointer active:scale-[0.98] transition"
+                  style={{ background: selected?.id === sub.id ? 'rgba(173,198,255,0.05)' : undefined }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-medium text-sm truncate mr-2">{sub.name}</span>
+                    {sub.blocked ? (
+                      <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>Blocked</span>
+                    ) : sub.enabled ? (
+                      <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>Active</span>
+                    ) : (
+                      <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>Disabled</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs" style={{ color: '#c2c6d6' }}>
+                    <span className="font-mono">{sub.phone_number}</span>
+                    <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }}>
                       {sub.my_language} → {sub.target_language}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs capitalize">{sub.mode}</td>
-                  <td className="px-4 py-3 font-mono text-xs" style={{ color: parseFloat(sub.balance_minutes) < 5 ? '#fbbf24' : '#4ade80' }}>
-                    {parseFloat(sub.balance_minutes).toFixed(1)} min
-                  </td>
-                  <td className="px-4 py-3">
-                    {sub.blocked ? (
-                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>Blocked</span>
-                    ) : sub.enabled ? (
-                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>Active</span>
-                    ) : (
-                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>Disabled</span>
-                    )}
-                  </td>
-                </tr>
+                    <span className="ml-auto font-mono" style={{ color: parseFloat(sub.balance_minutes) < 5 ? '#fbbf24' : '#4ade80' }}>
+                      {parseFloat(sub.balance_minutes).toFixed(1)} min
+                    </span>
+                  </div>
+                </div>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center opacity-50">No subscribers found</td></tr>
+                <div className="text-center py-8 opacity-50 text-sm">No subscribers found</div>
               )}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <div className="glass-panel rounded-2xl p-0 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Name</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Phone</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Languages</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Mode</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Balance</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(sub => (
+                    <tr key={sub.id}
+                      onClick={() => selectSubscriber(sub)}
+                      className="border-b cursor-pointer hover:bg-white/5 transition"
+                      style={{ borderColor: 'rgba(66,71,84,0.1)', background: selected?.id === sub.id ? 'rgba(173,198,255,0.05)' : undefined }}>
+                      <td className="px-4 py-3 font-medium">{sub.name}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{sub.phone_number}</td>
+                      <td className="px-4 py-3 text-xs">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }}>
+                          {sub.my_language} → {sub.target_language}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs capitalize">{sub.mode}</td>
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: parseFloat(sub.balance_minutes) < 5 ? '#fbbf24' : '#4ade80' }}>
+                        {parseFloat(sub.balance_minutes).toFixed(1)} min
+                      </td>
+                      <td className="px-4 py-3">
+                        {sub.blocked ? (
+                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>Blocked</span>
+                        ) : sub.enabled ? (
+                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>Active</span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>Disabled</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center opacity-50">No subscribers found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Detail / Edit Panel */}
@@ -319,8 +357,8 @@ export default function AdminTranslator() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => { setEditMode(false); setCreating(false); }} className="px-4 py-2 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition flex-1">Cancel</button>
-                <button onClick={saveForm} className="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 font-medium transition flex-1">Save</button>
+                <button onClick={() => { setEditMode(false); setCreating(false); }} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition flex-1">Cancel</button>
+                <button onClick={saveForm} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 font-medium transition flex-1">Save</button>
               </div>
             </>
           ) : selected ? (
@@ -407,8 +445,8 @@ export default function AdminTranslator() {
 
       {/* Balance Adjustment Modal */}
       {balanceModal && selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
-          <div className="glass-panel rounded-2xl p-6 w-96 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
+          <div className="glass-panel rounded-t-2xl md:rounded-2xl p-5 md:p-6 w-full md:w-96 space-y-4" onClick={e => e.stopPropagation()}>
             <h3 className="font-headline font-bold">Adjust Balance</h3>
             <p className="text-xs" style={{ color: '#c2c6d6' }}>{selected.name} — Current: {balance.toFixed(1)} min</p>
 
@@ -430,8 +468,8 @@ export default function AdminTranslator() {
               <input value={balComment} onChange={e => setBalComment(e.target.value)} className={inputCls} placeholder="Optional" />
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setBalanceModal(false)} className="px-4 py-2 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition">Cancel</button>
-              <button onClick={adjustBalance} className="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 font-medium transition">Apply</button>
+              <button onClick={() => setBalanceModal(false)} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition">Cancel</button>
+              <button onClick={adjustBalance} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 font-medium transition">Apply</button>
             </div>
           </div>
         </div>

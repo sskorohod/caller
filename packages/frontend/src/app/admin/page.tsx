@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import Link from 'next/link';
+import { useIsMobile } from '@/lib/useBreakpoint';
 
 interface DashboardData {
   kpi: {
@@ -18,13 +19,14 @@ interface DashboardData {
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     api.get<DashboardData>('/admin/dashboard').then(setData).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="p-8 text-center opacity-50">Loading dashboard...</div>;
-  if (!data) return <div className="p-8 text-center opacity-50">Failed to load</div>;
+  if (loading) return <div className="p-4 md:p-8 text-center opacity-50">Loading dashboard...</div>;
+  if (!data) return <div className="p-4 md:p-8 text-center opacity-50">Failed to load</div>;
 
   const kpiCards = [
     { label: 'Total Revenue', value: `$${(data.kpi.total_revenue ?? 0).toFixed(2)}`, icon: 'payments', color: '#4d8eff' },
@@ -34,28 +36,28 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-4 md:p-6 space-y-6 md:space-y-8">
       <div>
-        <h1 className="text-2xl font-headline font-bold">Dashboard</h1>
+        <h1 className="text-lg md:text-2xl font-headline font-bold">Dashboard</h1>
         <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Last 30 days overview</p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {kpiCards.map((card) => (
-          <div key={card.label} className="glass-panel rounded-2xl p-5 relative overflow-hidden">
+          <div key={card.label} className="glass-panel rounded-2xl p-4 md:p-5 relative overflow-hidden">
             <div className="absolute top-3 right-3">
-              <span className="material-symbols-outlined text-xl" style={{ color: card.color, opacity: 0.5 }}>{card.icon}</span>
+              <span className="material-symbols-outlined text-lg md:text-xl" style={{ color: card.color, opacity: 0.5 }}>{card.icon}</span>
             </div>
-            <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: '#c2c6d6' }}>{card.label}</div>
-            <div className="text-2xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
+            <div className="text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 md:mb-2" style={{ color: '#c2c6d6' }}>{card.label}</div>
+            <div className="text-xl md:text-2xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
           </div>
         ))}
       </div>
 
       {/* Revenue Chart */}
       {data.revenue_by_day.length > 0 && (
-        <div className="glass-panel rounded-2xl p-6">
+        <div className="glass-panel rounded-2xl p-4 md:p-6">
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: '#c2c6d6' }}>Revenue by Day</h3>
           <div className="flex items-end gap-1 h-32">
             {data.revenue_by_day.map((day, i) => {
@@ -76,21 +78,36 @@ export default function AdminDashboard() {
       )}
 
       {/* Recent Sessions */}
-      <div className="glass-panel rounded-2xl p-6">
+      <div className="glass-panel rounded-2xl p-4 md:p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Recent Sessions</h3>
-          <Link href="/admin/sessions" className="text-xs" style={{ color: '#adc6ff' }}>View all</Link>
+          <Link href="/admin/sessions" className="text-xs min-h-[44px] flex items-center" style={{ color: '#adc6ff' }}>View all</Link>
         </div>
-        <div className="space-y-2">
-          {data.recent_sessions.slice(0, 10).map((sess) => (
-            <div key={sess.id} className="flex justify-between items-center text-sm py-1.5 border-b" style={{ borderColor: 'rgba(66, 71, 84, 0.15)' }}>
-              <span className="text-xs" style={{ color: '#c2c6d6' }}>{new Date(sess.created_at).toLocaleString()}</span>
-              <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
-              <span className="font-mono text-xs" style={{ color: '#4ade80' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
-            </div>
-          ))}
-          {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
-        </div>
+        {isMobile ? (
+          <div className="space-y-2">
+            {data.recent_sessions.slice(0, 10).map((sess) => (
+              <div key={sess.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
+                  <span className="font-mono text-xs font-bold" style={{ color: '#4ade80' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
+                </div>
+                <div className="text-[10px] mt-1" style={{ color: '#c2c6d6' }}>{new Date(sess.created_at).toLocaleString()}</div>
+              </div>
+            ))}
+            {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {data.recent_sessions.slice(0, 10).map((sess) => (
+              <div key={sess.id} className="flex justify-between items-center text-sm py-1.5 border-b" style={{ borderColor: 'rgba(66, 71, 84, 0.15)' }}>
+                <span className="text-xs" style={{ color: '#c2c6d6' }}>{new Date(sess.created_at).toLocaleString()}</span>
+                <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
+                <span className="font-mono text-xs" style={{ color: '#4ade80' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
+              </div>
+            ))}
+            {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
+          </div>
+        )}
       </div>
     </div>
   );

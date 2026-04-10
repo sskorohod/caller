@@ -5,6 +5,7 @@ import { useT } from '@/lib/i18n';
 import { useSocket } from '@/lib/socket';
 import { useTwilioDevice } from '@/lib/use-twilio-device';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/lib/useBreakpoint';
 
 interface TranscriptEntry {
   speaker: 'caller' | 'operator' | 'system';
@@ -68,6 +69,7 @@ const GROK_VOICES = [
 
 export default function DialerPage() {
   const t = useT();
+  const isMobile = useIsMobile();
   const { socket } = useSocket();
   const { makeCall, hangup, toggleMute, isMuted, activeCall, initDevice } = useTwilioDevice();
 
@@ -491,7 +493,7 @@ export default function DialerPage() {
   const isInCall = callState === 'in_call' || callState === 'ringing' || callState === 'connecting';
 
   // Select input style
-  const selectCls = "w-full px-3 py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] disabled:opacity-40 transition-all appearance-none";
+  const selectCls = "w-full px-3 py-2.5 md:py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] disabled:opacity-40 transition-all appearance-none min-h-[44px] md:min-h-0";
   const selectSmCls = "w-full px-2.5 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] disabled:opacity-40 transition-all appearance-none";
 
   return (
@@ -511,9 +513,9 @@ export default function DialerPage() {
           </a>
         </div>
       )}
-      <div className="flex-1 flex flex-col lg:flex-row lg:items-start gap-5 overflow-y-auto">
+      <div className={`flex-1 flex flex-col lg:flex-row lg:items-start gap-5 ${isMobile && isInCall ? '' : 'overflow-y-auto'}`}>
       {/* ──── Left: Dialer ──── */}
-      <div className="lg:w-[440px] shrink-0 flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start lg:max-h-screen lg:overflow-y-auto lg:scrollbar-none">
+      <div className={`shrink-0 flex flex-col gap-4 ${isMobile ? 'w-full' : 'lg:w-[440px] lg:sticky lg:top-0 lg:self-start lg:max-h-screen lg:overflow-y-auto lg:scrollbar-none'}`}>
 
         {/* Main dialer card */}
         <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
@@ -532,7 +534,7 @@ export default function DialerPage() {
                 onBlur={() => setTimeout(() => setShowRecent(false), 200)}
                 placeholder={`${phonePlaceholder}...`}
                 disabled={isInCall}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-lg font-mono tracking-wide focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] disabled:opacity-40 transition-all placeholder:text-[var(--th-text-muted)]"
+                className="w-full px-4 py-3 md:py-3 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-xl md:text-lg font-mono tracking-wide focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] disabled:opacity-40 transition-all placeholder:text-[var(--th-text-muted)]"
               />
               {/* Phone icon */}
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--th-text-muted)]">
@@ -561,7 +563,7 @@ export default function DialerPage() {
           {/* Language + STT section */}
           <div className="space-y-3 mb-5">
             {voiceTranslate ? (
-              <div className="flex gap-2 items-end">
+              <div className="flex flex-col md:flex-row gap-2 md:items-end">
                 <div className="flex-1">
                   <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.yourLanguage')}</label>
                   <select value={sttLanguage} onChange={e => setSttLanguage(e.target.value)} disabled={isInCall} className={selectCls}>
@@ -569,7 +571,7 @@ export default function DialerPage() {
                     {STT_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                   </select>
                 </div>
-                <div className="pb-2.5 text-[var(--th-text-muted)]">
+                <div className="hidden md:block pb-2.5 text-[var(--th-text-muted)]">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
                   </svg>
@@ -582,7 +584,7 @@ export default function DialerPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex gap-2 items-end">
+              <div className="flex flex-col md:flex-row gap-2 md:items-end">
                 <div className="flex-1">
                   <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1">{t('dialer.sttLanguage')}</label>
                   <select value={sttLanguage} onChange={e => setSttLanguage(e.target.value)} disabled={isInCall} className={selectCls}>
@@ -621,7 +623,7 @@ export default function DialerPage() {
                   }
                 }
               }}
-              className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium transition-all flex items-center justify-between disabled:opacity-40 ${
+              className={`w-full px-4 py-3 md:py-2.5 rounded-xl border text-sm font-medium transition-all flex items-center justify-between disabled:opacity-40 min-h-[48px] md:min-h-0 ${
                 voiceTranslate
                   ? 'border-purple-500/40 bg-purple-500/10 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.1)]'
                   : 'border-[var(--th-border)] bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:border-purple-500/30'
@@ -678,7 +680,7 @@ export default function DialerPage() {
               <button
                 onClick={handleCall}
                 disabled={!phoneNumber.trim()}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 shadow-[0_4px_16px_rgba(34,197,94,0.25)] hover:shadow-[0_6px_24px_rgba(34,197,94,0.35)] active:scale-[0.98]"
+                className="w-full py-4 md:py-3.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold text-base md:text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 shadow-[0_4px_16px_rgba(34,197,94,0.25)] hover:shadow-[0_6px_24px_rgba(34,197,94,0.35)] active:scale-[0.98] min-h-[48px] md:min-h-0"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
@@ -769,7 +771,7 @@ export default function DialerPage() {
                           if (activeCall) activeCall.mute(true);
                           if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: false });
                         }}
-                        className={`w-full py-4 rounded-xl font-bold text-sm transition-all select-none ${
+                        className={`w-full py-5 md:py-4 rounded-xl font-bold text-sm transition-all select-none min-h-[56px] md:min-h-0 ${
                           pttActive
                             ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_0_24px_rgba(239,68,68,0.3)] scale-[1.02]'
                             : 'bg-purple-500/10 text-purple-300 border-2 border-dashed border-purple-500/30 hover:border-purple-500/50'
@@ -785,7 +787,7 @@ export default function DialerPage() {
                 <div className="flex gap-2.5">
                   <button
                     onClick={toggleMute}
-                    className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-3 md:py-2.5 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 min-h-[48px] md:min-h-0 ${
                       isMuted
                         ? 'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)] border border-[var(--th-warning-border)]'
                         : 'bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] hover:bg-[var(--th-surface-hover)]'
@@ -804,7 +806,7 @@ export default function DialerPage() {
                   </button>
                   <button
                     onClick={handleHangup}
-                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(239,68,68,0.2)]"
+                    className="flex-1 py-3 md:py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(239,68,68,0.2)] min-h-[48px] md:min-h-0"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15z" />
@@ -826,7 +828,7 @@ export default function DialerPage() {
                 </div>
                 <button
                   onClick={handleNewCall}
-                  className="w-full py-3 rounded-xl bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white font-semibold text-sm transition-all shadow-[0_4px_16px_var(--th-shadow-primary)]"
+                  className="w-full py-3.5 md:py-3 rounded-xl bg-[var(--th-primary)] hover:bg-[var(--th-primary-hover)] text-white font-semibold text-sm transition-all shadow-[0_4px_16px_var(--th-shadow-primary)] min-h-[48px] md:min-h-0"
                 >
                   {t('dialer.call')}
                 </button>
@@ -924,7 +926,7 @@ export default function DialerPage() {
       </div>
 
       {/* ──── Right: Transcript ──── */}
-      <div className="flex-1 flex flex-col rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+      <div className={`flex-1 flex flex-col rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] ${isMobile && isInCall ? 'fixed inset-0 z-40 rounded-none border-none' : ''}`}>
         <div className="px-5 py-3.5 border-b border-[var(--th-border)] flex items-center justify-between">
           <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('dialer.transcript')}</h3>
           {transcript.length > 0 && (
@@ -1011,7 +1013,76 @@ export default function DialerPage() {
             ))
           )}
           <div ref={transcriptEndRef} />
+          {/* Extra padding on mobile when floating bar is visible */}
+          {isMobile && isInCall && <div className="h-24 shrink-0" />}
         </div>
+
+        {/* Mobile floating controls bar */}
+        {isMobile && isInCall && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--th-card)]/95 backdrop-blur-lg border-t border-[var(--th-border)] px-4 py-3 safe-area-pb">
+            <div className="flex items-center justify-center gap-4">
+              {/* Duration */}
+              <span className="text-sm font-mono font-bold text-[var(--th-text)] tabular-nums">{formatDuration(duration)}</span>
+
+              {/* Mute button */}
+              <button
+                onClick={toggleMute}
+                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+                  isMuted
+                    ? 'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)] border-2 border-[var(--th-warning-border)]'
+                    : 'bg-[var(--th-surface)] border-2 border-[var(--th-border)] text-[var(--th-text)]'
+                }`}
+              >
+                {isMuted ? (
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 19L5 5m14 0v4a2 2 0 01-2 2H7m0 0v2a5 5 0 0010 0v-2M7 11V7a5 5 0 019.9-1" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                  </svg>
+                )}
+              </button>
+
+              {/* PTT button (if voice translate + PTT mode) */}
+              {voiceTranslate && pttMode && (
+                <button
+                  onTouchStart={() => {
+                    setPttActive(true);
+                    pttPressCountRef.current++;
+                    if (activeCall) activeCall.mute(false);
+                    if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: true });
+                  }}
+                  onTouchEnd={() => {
+                    setPttActive(false);
+                    if (activeCall) activeCall.mute(true);
+                    if (socket && callId) socket.emit('call:ptt:state', { call_id: callId, active: false });
+                  }}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xs transition-all select-none ${
+                    pttActive
+                      ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_0_24px_rgba(239,68,68,0.3)] scale-110'
+                      : 'bg-purple-500/10 text-purple-300 border-2 border-dashed border-purple-500/30'
+                  }`}
+                >
+                  {pttActive ? 'ON' : 'PTT'}
+                </button>
+              )}
+
+              {/* Hangup button */}
+              <button
+                onClick={handleHangup}
+                className="w-16 h-16 rounded-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white flex items-center justify-center shadow-[0_4px_16px_rgba(239,68,68,0.3)] active:scale-95 transition-all"
+              >
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15z" />
+                </svg>
+              </button>
+
+              {/* Cost */}
+              <span className="text-xs font-mono text-[var(--th-warning-text)] bg-[var(--th-warning-bg)] px-2 py-1 rounded-md tabular-nums">${callCost.toFixed(4)}</span>
+            </div>
+          </div>
+        )}
       </div>
       </div>
     </div>

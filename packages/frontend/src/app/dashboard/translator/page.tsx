@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useT } from '@/lib/i18n';
 import { useSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import CollapsibleSection from '@/components/CollapsibleSection';
 
 interface TranslatorDefaults {
   greeting_text?: string;
@@ -57,6 +59,7 @@ const selectCls = "w-full px-3 py-2 rounded-xl border border-[var(--th-border)] 
 export default function TranslatorPage() {
   const t = useT();
   const { socket } = useSocket();
+  const isMobile = useIsMobile();
 
   // ─── Translator Phone Number ────────────────────────────────────
   const [translatorPhone, setTranslatorPhone] = useState<string | null>(null);
@@ -292,13 +295,13 @@ export default function TranslatorPage() {
   return (
     <div className="space-y-5">
       {/* Header + Phone + Tabs */}
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold text-[var(--th-text)]">{t('translator.title')}</h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+        <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{t('translator.title')}</h2>
         <div className="flex items-center gap-4">
           {translatorPhone && (
-            <div className="text-right">
+            <div className="text-left md:text-right w-full md:w-auto">
               <a href={`tel:${translatorPhone}`}
-                className="text-2xl font-extrabold tracking-wide"
+                className="text-xl md:text-2xl font-extrabold tracking-wide"
                 style={{
                   background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
                   WebkitBackgroundClip: 'text',
@@ -313,105 +316,140 @@ export default function TranslatorPage() {
         </div>
       </div>
 
-      {/* ─── Settings + Live Sidebar ──────────────────────────────── */}
-      <div className="flex gap-5">
-        <div className="flex-1 min-w-0 rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] space-y-6">
-          <div>
-            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.translationMode')}</h3>
-            <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.modeDesc')}</p>
-            <div className="flex gap-3">
-              {[
-                { value: 'bidirectional', label: t('translator.bidirectional'), desc: t('translator.bidirectionalDesc') },
-                { value: 'unidirectional', label: t('translator.unidirectional'), desc: t('translator.unidirectionalDesc') },
-              ].map(m => (
-                <button key={m.value}
-                  onClick={() => setDefaults({ ...defaults, translation_mode: m.value })}
-                  className="flex-1 p-3 rounded-xl border text-left transition-all"
-                  style={defaults.translation_mode === m.value || (!defaults.translation_mode && m.value === 'bidirectional')
-                    ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.06)' }
-                    : { borderColor: 'var(--th-border)' }
-                  }>
-                  <div className="text-sm font-medium text-[var(--th-text)]">{m.label}</div>
-                  <div className="text-[11px] mt-1 text-[var(--th-text-muted)]">{m.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.myLanguage')}</label>
-              <select value={defaults.my_language || 'ru'} onChange={e => setDefaults({ ...defaults, my_language: e.target.value })} className={selectCls}>
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.targetLanguage')}</label>
-              <select value={defaults.target_language || 'en'} onChange={e => setDefaults({ ...defaults, target_language: e.target.value })} className={selectCls}>
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.greetingText')}</label>
-            <textarea value={defaults.greeting_text || ''} onChange={e => setDefaults({ ...defaults, greeting_text: e.target.value })}
-              placeholder={t('translator.greetingPlaceholder')}
-              className={selectCls + ' min-h-[80px] resize-y'} rows={3} />
-          </div>
-
-          <div>
-            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.tone')}</h3>
-            <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.toneDesc')}</p>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-              {TONES.map(tone => (
-                <button key={tone.value}
-                  onClick={() => setDefaults({ ...defaults, tone: tone.value })}
-                  className="p-3 rounded-xl border text-left transition-all"
-                  style={(defaults.tone || 'neutral') === tone.value
-                    ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.06)' }
-                    : { borderColor: 'var(--th-border)' }
-                  }>
-                  <div className="text-sm font-medium text-[var(--th-text)]">{tone.label}</div>
-                  <div className="text-[10px] mt-0.5 text-[var(--th-text-muted)]">{tone.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.voice')}</label>
-            <select value={defaults.tts_voice_id || 'eve'} onChange={e => setDefaults({ ...defaults, tts_voice_id: e.target.value })} className={selectCls}>
-              <optgroup label="Female">
-                {VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-              </optgroup>
-              <optgroup label="Male">
-                {VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-              </optgroup>
-            </select>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.personalContext')}</h3>
-            <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.personalContextDesc')}</p>
-            <textarea value={defaults.personal_context || ''} onChange={e => setDefaults({ ...defaults, personal_context: e.target.value })}
-              placeholder={"Name: John Smith (spell as \"John Smith\")\nDOB: March 15, 1990\nInsurance: Blue Cross, ID: XYZ123456\nPharmacy: CVS, 123 Main St, Austin TX\nAddress: 456 Oak Ave, Apt 2B, Austin TX 78701"}
-              className={selectCls + ' min-h-[120px] resize-y font-mono text-xs'} rows={5} />
-          </div>
-
-          <div className="flex items-center gap-3 pt-2">
-            <button onClick={saveDefaults} disabled={saving}
-              className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, var(--th-primary), var(--th-primary-hover))' }}>
-              {saving ? t('translator.saving') : t('translator.saveSettings')}
-            </button>
-            {saved && <span className="text-sm text-[var(--th-success-text)]">{t('translator.saved')}</span>}
-          </div>
+      {/* ─── Live Translation — mobile (above settings) ────────────── */}
+      {isMobile && liveCallId && (
+        <div className="lg:hidden">
+          <LiveSidebar />
         </div>
+      )}
+
+      {/* ─── Settings + Live Sidebar ──────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row gap-5">
+        {isMobile && liveCallId ? (
+          <CollapsibleSection title={t('translator.settings') || 'Settings'} defaultOpen={false}>
+            <SettingsContent
+              defaults={defaults} setDefaults={setDefaults} saving={saving} saved={saved}
+              saveDefaults={saveDefaults} t={t} selectCls={selectCls}
+            />
+          </CollapsibleSection>
+        ) : (
+          <div className="flex-1 min-w-0 rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 md:p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+            <SettingsContent
+              defaults={defaults} setDefaults={setDefaults} saving={saving} saved={saved}
+              saveDefaults={saveDefaults} t={t} selectCls={selectCls}
+            />
+          </div>
+        )}
         {/* Live Translation — equal half */}
         <div className="flex-1 min-w-0 hidden lg:block">
           <LiveSidebar />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsContent({ defaults, setDefaults, saving, saved, saveDefaults, t, selectCls }: {
+  defaults: TranslatorDefaults;
+  setDefaults: (d: TranslatorDefaults) => void;
+  saving: boolean;
+  saved: boolean;
+  saveDefaults: () => void;
+  t: (key: string) => string;
+  selectCls: string;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.translationMode')}</h3>
+        <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.modeDesc')}</p>
+        <div className="flex flex-col md:flex-row gap-3">
+          {[
+            { value: 'bidirectional', label: t('translator.bidirectional'), desc: t('translator.bidirectionalDesc') },
+            { value: 'unidirectional', label: t('translator.unidirectional'), desc: t('translator.unidirectionalDesc') },
+          ].map(m => (
+            <button key={m.value}
+              onClick={() => setDefaults({ ...defaults, translation_mode: m.value })}
+              className="flex-1 p-3 min-h-[44px] rounded-xl border text-left transition-all"
+              style={defaults.translation_mode === m.value || (!defaults.translation_mode && m.value === 'bidirectional')
+                ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.06)' }
+                : { borderColor: 'var(--th-border)' }
+              }>
+              <div className="text-sm font-medium text-[var(--th-text)]">{m.label}</div>
+              <div className="text-[11px] mt-1 text-[var(--th-text-muted)]">{m.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.myLanguage')}</label>
+          <select value={defaults.my_language || 'ru'} onChange={e => setDefaults({ ...defaults, my_language: e.target.value })} className={selectCls + ' min-h-[44px]'}>
+            {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.targetLanguage')}</label>
+          <select value={defaults.target_language || 'en'} onChange={e => setDefaults({ ...defaults, target_language: e.target.value })} className={selectCls + ' min-h-[44px]'}>
+            {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.greetingText')}</label>
+        <textarea value={defaults.greeting_text || ''} onChange={e => setDefaults({ ...defaults, greeting_text: e.target.value })}
+          placeholder={t('translator.greetingPlaceholder')}
+          className={selectCls + ' min-h-[80px] resize-y'} rows={3} />
+      </div>
+
+      <div>
+        <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.tone')}</h3>
+        <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.toneDesc')}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {TONES.map(tone => (
+            <button key={tone.value}
+              onClick={() => setDefaults({ ...defaults, tone: tone.value })}
+              className="p-3 min-h-[44px] rounded-xl border text-left transition-all"
+              style={(defaults.tone || 'neutral') === tone.value
+                ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.06)' }
+                : { borderColor: 'var(--th-border)' }
+              }>
+              <div className="text-sm font-medium text-[var(--th-text)]">{tone.label}</div>
+              <div className="text-[10px] mt-0.5 text-[var(--th-text-muted)]">{tone.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('translator.voice')}</label>
+        <select value={defaults.tts_voice_id || 'eve'} onChange={e => setDefaults({ ...defaults, tts_voice_id: e.target.value })} className={selectCls + ' min-h-[44px]'}>
+          <optgroup label="Female">
+            {VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+          </optgroup>
+          <optgroup label="Male">
+            {VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+          </optgroup>
+        </select>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.personalContext')}</h3>
+        <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.personalContextDesc')}</p>
+        <textarea value={defaults.personal_context || ''} onChange={e => setDefaults({ ...defaults, personal_context: e.target.value })}
+          placeholder={"Name: John Smith (spell as \"John Smith\")\nDOB: March 15, 1990\nInsurance: Blue Cross, ID: XYZ123456\nPharmacy: CVS, 123 Main St, Austin TX\nAddress: 456 Oak Ave, Apt 2B, Austin TX 78701"}
+          className={selectCls + ' min-h-[120px] resize-y font-mono text-xs'} rows={5} />
+      </div>
+
+      <div className="flex items-center gap-3 pt-2">
+        <button onClick={saveDefaults} disabled={saving}
+          className="px-6 py-3 md:py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 w-full md:w-auto min-h-[44px]"
+          style={{ background: 'linear-gradient(135deg, var(--th-primary), var(--th-primary-hover))' }}>
+          {saving ? t('translator.saving') : t('translator.saveSettings')}
+        </button>
+        {saved && <span className="text-sm text-[var(--th-success-text)]">{t('translator.saved')}</span>}
       </div>
     </div>
   );

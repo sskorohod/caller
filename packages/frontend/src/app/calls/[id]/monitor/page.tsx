@@ -164,9 +164,9 @@ export default function MonitorPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       {/* Header */}
-      <div className="shrink-0 px-4 py-3 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
+      <div className="shrink-0 px-4 py-3 bg-gray-900 border-b border-gray-800 flex items-center justify-between min-h-[56px]">
         <div className="min-w-0">
-          <div className="text-sm font-mono font-bold truncate">{phone || 'Loading...'}</div>
+          <div className="text-sm md:text-sm font-mono font-bold truncate">{phone || 'Loading...'}</div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : status === 'completed' ? 'bg-gray-500' : 'bg-yellow-500'}`} />
             <span className="text-xs text-gray-400 capitalize">{status}</span>
@@ -178,7 +178,7 @@ export default function MonitorPage() {
       </div>
 
       {/* Transcript */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-3 space-y-2.5 md:space-y-2">
         {transcript.length === 0 && isActive && (
           <div className="flex items-center justify-center h-32">
             <div className="text-center text-gray-500">
@@ -192,7 +192,7 @@ export default function MonitorPage() {
           if (entry.role === 'system') {
             return (
               <div key={i} className="flex justify-center">
-                <div className="px-3 py-1 rounded-full bg-amber-900/30 text-amber-400 text-xs">
+                <div className="px-3 py-1.5 md:py-1 rounded-full bg-amber-900/30 text-amber-400 text-xs">
                   {entry.content}
                 </div>
               </div>
@@ -202,12 +202,12 @@ export default function MonitorPage() {
           const isAgent = entry.role === 'agent';
           return (
             <div key={i} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-2xl px-3.5 py-2 ${
+              <div className={`max-w-[88%] md:max-w-[85%] rounded-2xl px-3.5 py-2.5 md:py-2 ${
                 isAgent
                   ? 'bg-blue-600 text-white rounded-br-sm'
                   : 'bg-gray-800 text-gray-100 rounded-bl-sm'
               }`}>
-                <div className="text-sm leading-relaxed">{entry.content}</div>
+                <div className="text-[15px] md:text-sm leading-relaxed">{entry.content}</div>
                 {entry.timestamp && (
                   <div className={`text-[10px] mt-0.5 ${isAgent ? 'text-blue-200/50' : 'text-gray-500'}`}>
                     {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -222,7 +222,7 @@ export default function MonitorPage() {
 
       {/* Instruction input (only when active) */}
       {isActive && (
-        <div className="shrink-0 px-4 py-3 bg-gray-900 border-t border-gray-800">
+        <div className="shrink-0 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-900 border-t border-gray-800">
           <div className="flex gap-2">
             <input
               type="text"
@@ -230,12 +230,12 @@ export default function MonitorPage() {
               onChange={e => setInstruction(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendInstruction()}
               placeholder="Send instruction to agent..."
-              className="flex-1 px-3 py-2.5 rounded-xl bg-gray-800 text-white text-sm border border-gray-700 focus:outline-none focus:border-blue-500 placeholder-gray-500"
+              className="flex-1 px-3 py-2.5 min-h-[44px] rounded-xl bg-gray-800 text-white text-base md:text-sm border border-gray-700 focus:outline-none focus:border-blue-500 placeholder-gray-500"
             />
             <button
               onClick={sendInstruction}
               disabled={!instruction.trim()}
-              className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium disabled:opacity-30 active:bg-blue-700 transition-colors"
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-sm font-medium disabled:opacity-30 active:bg-blue-700 active:scale-95 transition-colors"
             >
               Send
             </button>
@@ -245,7 +245,7 @@ export default function MonitorPage() {
 
       {/* Call ended */}
       {status === 'completed' && (
-        <div className="shrink-0 px-4 py-4 bg-gray-900 border-t border-gray-800 text-center">
+        <div className="shrink-0 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gray-900 border-t border-gray-800 text-center">
           <div className="text-gray-400 text-sm">Call ended</div>
         </div>
       )}

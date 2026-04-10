@@ -58,14 +58,14 @@ export default function SetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen flex items-center justify-center px-4 py-6 sm:p-6" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
         .font-headline { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .input-field {
-          width: 100%; padding: 12px 16px; border-radius: 12px; font-size: 14px;
+          width: 100%; padding: 14px 16px; border-radius: 12px; font-size: 16px;
           background: rgba(255,255,255,0.04); border: 1px solid rgba(140, 144, 159, 0.2);
           color: #dde2f3; outline: none; transition: all 0.2s;
         }

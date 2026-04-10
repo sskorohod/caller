@@ -2,6 +2,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import FloatingActionButton from '@/components/FloatingActionButton';
+import MobilePageHeader from '@/components/MobilePageHeader';
 
 interface SkillPack {
   id: string;
@@ -31,6 +34,7 @@ const EMPTY_FORM: SkillPackForm = { name: '', description: '', intent: '', conve
 
 export default function SkillsPage() {
   const t = useT();
+  const isMobile = useIsMobile();
   const [packs, setPacks] = useState<SkillPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -134,9 +138,10 @@ export default function SkillsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <MobilePageHeader title={t('skills.title')} subtitle={t('skills.subtitle')} />
+      <div className="hidden md:flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[var(--th-text)]">{t('skills.title')}</h2>
+          <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{t('skills.title')}</h2>
           <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('skills.subtitle')}</p>
         </div>
         <button
@@ -217,10 +222,10 @@ export default function SkillsPage() {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
                   Created {new Date(pack.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </p>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => openEdit(pack)}
-                    className="p-1.5 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-muted)] hover:text-[var(--th-primary-text)] transition-colors"
+                    className="p-1.5 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-muted)] hover:text-[var(--th-primary-text)] transition-colors"
                     aria-label="Edit"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -229,7 +234,7 @@ export default function SkillsPage() {
                   </button>
                   <button
                     onClick={() => { setDeleteTarget(pack); setDeleteError(''); }}
-                    className="p-1.5 rounded-lg hover:bg-[var(--th-error-bg)] text-[var(--th-text-muted)] hover:text-[var(--th-error-text)] transition-colors"
+                    className="p-1.5 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded-lg hover:bg-[var(--th-error-bg)] text-[var(--th-text-muted)] hover:text-[var(--th-error-text)] transition-colors"
                     aria-label="Delete"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -357,6 +362,13 @@ export default function SkillsPage() {
           </div>
         </div>
       )}
+
+      {/* Mobile FAB */}
+      <FloatingActionButton
+        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>}
+        label={t('skills.newPack')}
+        onClick={() => setModal(true)}
+      />
     </div>
   );
 }

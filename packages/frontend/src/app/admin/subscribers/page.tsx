@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/lib/useBreakpoint';
 
 interface Subscriber {
   id: string;
@@ -54,6 +55,7 @@ const inputStyle = { background: '#2f3542', color: '#dde2f3', border: 'none' };
 const btnPrimary = { background: '#adc6ff', color: '#002e6a' };
 
 export default function AdminSubscribersPage() {
+  const isMobile = useIsMobile();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -178,38 +180,39 @@ export default function AdminSubscribersPage() {
   if (loading) return <div className="p-8 text-center opacity-50">Loading subscribers...</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-headline font-bold">Subscribers</h1>
-          <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>{subscribers.length} total subscribers</p>
+    <div className="px-3 py-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-headline font-bold">Subscribers</h1>
+          <p className="text-xs md:text-sm mt-1" style={{ color: '#c2c6d6' }}>{subscribers.length} total subscribers</p>
         </div>
         <button
           onClick={() => { setForm(DEFAULT_FORM); setEditingId(null); setShowForm(true); }}
-          className="px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition hover:opacity-90"
+          className="px-3 md:px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold flex items-center gap-1 md:gap-2 transition hover:opacity-90 whitespace-nowrap"
           style={btnPrimary}
         >
           <span className="material-symbols-outlined text-lg">add</span>
-          New Subscriber
+          <span className="hidden md:inline">New Subscriber</span>
+          <span className="md:hidden">Add</span>
         </button>
       </div>
 
       {/* Search & Filter */}
-      <div className="flex gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col md:flex-row gap-2 md:gap-3">
+        <div className="relative flex-1 md:max-w-sm">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: '#c2c6d6' }}>search</span>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or phone..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
             style={inputStyle}
           />
         </div>
         <select
           value={filter}
           onChange={e => setFilter(e.target.value as typeof filter)}
-          className="px-4 py-2.5 rounded-xl text-sm"
+          className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
           style={inputStyle}
         >
           <option value="all">All Status</option>
@@ -219,72 +222,119 @@ export default function AdminSubscribersPage() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="glass-panel rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left" style={{ borderBottom: '1px solid rgba(66, 71, 84, 0.15)' }}>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Name</th>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Phone</th>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Languages</th>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Mode</th>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Balance</th>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Status</th>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Created</th>
-              <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(sub => (
-              <tr key={sub.id} className="hover:bg-white/[0.02] transition" style={{ borderBottom: '1px solid rgba(66, 71, 84, 0.15)' }}>
-                <td className="px-5 py-3.5 font-medium">{sub.name}</td>
-                <td className="px-5 py-3.5 font-mono text-xs" style={{ color: '#c2c6d6' }}>{sub.phone_number}</td>
-                <td className="px-5 py-3.5">
-                  <span className="text-xs" style={{ color: '#adc6ff' }}>{sub.my_language}</span>
+      {/* Table / Cards */}
+      {isMobile ? (
+        <div className="space-y-2">
+          {filtered.map(sub => (
+            <div key={sub.id} className="glass-panel rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-sm truncate">{sub.name}</span>
+                {getStatusBadge(sub)}
+              </div>
+              <div className="flex items-center gap-2 text-xs" style={{ color: '#c2c6d6' }}>
+                <span className="font-mono">{sub.phone_number}</span>
+                <span className="px-1.5 py-0.5 rounded-lg" style={{ background: 'rgba(173, 198, 255, 0.1)', color: '#adc6ff' }}>{sub.mode}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <div>
+                  <span style={{ color: '#adc6ff' }}>{sub.my_language}</span>
                   <span className="mx-1 opacity-30">&harr;</span>
-                  <span className="text-xs" style={{ color: '#d0bcff' }}>{sub.target_language}</span>
-                </td>
-                <td className="px-5 py-3.5">
-                  <span className="px-2 py-0.5 rounded-lg text-xs" style={{ background: 'rgba(173, 198, 255, 0.1)', color: '#adc6ff' }}>{sub.mode}</span>
-                </td>
-                <td className="px-5 py-3.5">
-                  <span className={`font-mono text-xs font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: '#4ade80' } : {}}>
-                    {parseFloat(sub.balance_minutes).toFixed(1)} min
+                  <span style={{ color: '#d0bcff' }}>{sub.target_language}</span>
+                </div>
+                <span className={`font-mono font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: '#4ade80' } : {}}>
+                  {parseFloat(sub.balance_minutes).toFixed(1)} min
+                </span>
+              </div>
+              <div className="flex items-center gap-1 pt-1" style={{ borderTop: '1px solid rgba(66,71,84,0.15)' }}>
+                <button onClick={() => handleEdit(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" title="Edit">
+                  <span className="material-symbols-outlined text-base" style={{ color: '#adc6ff' }}>edit</span>
+                </button>
+                <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-2 rounded-lg hover:bg-white/5 transition" title="Add Minutes">
+                  <span className="material-symbols-outlined text-base" style={{ color: '#d0bcff' }}>add_card</span>
+                </button>
+                <button onClick={() => handleBlock(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
+                  <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? '#4ade80' : '#fbbf24' }}>
+                    {sub.status === 'blocked' ? 'lock_open' : 'block'}
                   </span>
-                </td>
-                <td className="px-5 py-3.5">{getStatusBadge(sub)}</td>
-                <td className="px-5 py-3.5 text-xs" style={{ color: '#c2c6d6' }}>{new Date(sub.created_at).toLocaleDateString()}</td>
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => handleEdit(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Edit">
-                      <span className="material-symbols-outlined text-base" style={{ color: '#adc6ff' }}>edit</span>
-                    </button>
-                    <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Add Minutes">
-                      <span className="material-symbols-outlined text-base" style={{ color: '#d0bcff' }}>add_card</span>
-                    </button>
-                    <button onClick={() => handleBlock(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
-                      <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? '#4ade80' : '#fbbf24' }}>
-                        {sub.status === 'blocked' ? 'lock_open' : 'block'}
-                      </span>
-                    </button>
-                    <button onClick={() => handleDelete(sub.id)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Delete">
-                      <span className="material-symbols-outlined text-base" style={{ color: '#f87171' }}>delete</span>
-                    </button>
-                  </div>
-                </td>
+                </button>
+                <button onClick={() => handleDelete(sub.id)} className="p-2 rounded-lg hover:bg-white/5 transition" title="Delete">
+                  <span className="material-symbols-outlined text-base" style={{ color: '#f87171' }}>delete</span>
+                </button>
+                <span className="ml-auto text-xs" style={{ color: '#c2c6d6' }}>{new Date(sub.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="text-center py-12 opacity-40 text-sm">No subscribers found</div>
+          )}
+        </div>
+      ) : (
+        <div className="glass-panel rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left" style={{ borderBottom: '1px solid rgba(66, 71, 84, 0.15)' }}>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Name</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Phone</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Languages</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Mode</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Balance</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Status</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Created</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Actions</th>
               </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={8} className="px-5 py-12 text-center opacity-40">No subscribers found</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filtered.map(sub => (
+                <tr key={sub.id} className="hover:bg-white/[0.02] transition" style={{ borderBottom: '1px solid rgba(66, 71, 84, 0.15)' }}>
+                  <td className="px-5 py-3.5 font-medium">{sub.name}</td>
+                  <td className="px-5 py-3.5 font-mono text-xs" style={{ color: '#c2c6d6' }}>{sub.phone_number}</td>
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs" style={{ color: '#adc6ff' }}>{sub.my_language}</span>
+                    <span className="mx-1 opacity-30">&harr;</span>
+                    <span className="text-xs" style={{ color: '#d0bcff' }}>{sub.target_language}</span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className="px-2 py-0.5 rounded-lg text-xs" style={{ background: 'rgba(173, 198, 255, 0.1)', color: '#adc6ff' }}>{sub.mode}</span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className={`font-mono text-xs font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: '#4ade80' } : {}}>
+                      {parseFloat(sub.balance_minutes).toFixed(1)} min
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5">{getStatusBadge(sub)}</td>
+                  <td className="px-5 py-3.5 text-xs" style={{ color: '#c2c6d6' }}>{new Date(sub.created_at).toLocaleDateString()}</td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => handleEdit(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Edit">
+                        <span className="material-symbols-outlined text-base" style={{ color: '#adc6ff' }}>edit</span>
+                      </button>
+                      <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Add Minutes">
+                        <span className="material-symbols-outlined text-base" style={{ color: '#d0bcff' }}>add_card</span>
+                      </button>
+                      <button onClick={() => handleBlock(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
+                        <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? '#4ade80' : '#fbbf24' }}>
+                          {sub.status === 'blocked' ? 'lock_open' : 'block'}
+                        </span>
+                      </button>
+                      <button onClick={() => handleDelete(sub.id)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Delete">
+                        <span className="material-symbols-outlined text-base" style={{ color: '#f87171' }}>delete</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="px-5 py-12 text-center opacity-40">No subscribers found</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Add Balance Modal */}
       {showBalance && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="glass-panel rounded-2xl w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+          <div className="glass-panel rounded-t-2xl md:rounded-2xl w-full md:max-w-md p-5 md:p-6">
             <h2 className="text-lg font-headline font-bold mb-4">Add Minutes</h2>
             <div className="space-y-4">
               <div>
@@ -307,9 +357,9 @@ export default function AdminSubscribersPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowBalance(null)} className="px-4 py-2.5 rounded-xl text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
+              <button onClick={() => setShowBalance(null)} className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
               <button onClick={handleAddBalance} disabled={!balanceForm.amount}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90" style={btnPrimary}>
+                className="px-5 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90" style={btnPrimary}>
                 Add Minutes
               </button>
             </div>
@@ -319,23 +369,23 @@ export default function AdminSubscribersPage() {
 
       {/* Create/Edit Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="glass-panel rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+          <div className="glass-panel rounded-t-2xl md:rounded-2xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-5 md:p-6">
             <h2 className="text-lg font-headline font-bold mb-5">
               {editingId ? 'Edit Subscriber' : 'New Subscriber'}
             </h2>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Name *</label>
                   <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
+                    className="w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={inputStyle} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Phone *</label>
                   <input value={form.phone_number} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))}
-                    placeholder="+1..." className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
+                    placeholder="+1..." className="w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={inputStyle} />
                 </div>
               </div>
 
@@ -345,7 +395,7 @@ export default function AdminSubscribersPage() {
                   className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>My Language</label>
                   <select value={form.my_language} onChange={e => setForm(f => ({ ...f, my_language: e.target.value }))}
@@ -362,7 +412,7 @@ export default function AdminSubscribersPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Translation Mode</label>
                   <select value={form.mode} onChange={e => setForm(f => ({ ...f, mode: e.target.value as typeof DEFAULT_FORM.mode }))}
@@ -388,7 +438,7 @@ export default function AdminSubscribersPage() {
                   rows={2} className="w-full px-4 py-2.5 rounded-xl text-sm resize-none" style={inputStyle} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>TTS Provider</label>
                   <select value={form.tts_provider} onChange={e => setForm(f => ({ ...f, tts_provider: e.target.value }))}
@@ -420,9 +470,9 @@ export default function AdminSubscribersPage() {
 
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => { setShowForm(false); setEditingId(null); }}
-                className="px-4 py-2.5 rounded-xl text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
+                className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
               <button onClick={handleSave} disabled={saving || !form.name || !form.phone_number}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90" style={btnPrimary}>
+                className="px-5 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90" style={btnPrimary}>
                 {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
               </button>
             </div>

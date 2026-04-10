@@ -51,7 +51,7 @@ function VerifyContent() {
   }, [token]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen flex items-center justify-center px-4 py-6 sm:p-6" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -91,7 +91,7 @@ function VerifyContent() {
             <h1 className="text-2xl font-headline font-bold mb-2">Link expired</h1>
             <p className="text-sm mb-6" style={{ color: '#c2c6d6' }}>{error}</p>
             <button onClick={() => router.push('/login')}
-              className="px-6 py-3 rounded-xl text-sm font-bold transition-all active:scale-[.98]"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-bold transition-all active:scale-[.98] min-h-[44px]"
               style={{ background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }}>
               Back to Login
             </button>

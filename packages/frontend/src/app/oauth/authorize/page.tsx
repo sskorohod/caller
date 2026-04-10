@@ -110,11 +110,11 @@ function OAuthConsentContent() {
   const initials = user?.email?.slice(0, 1).toUpperCase() ?? '?';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2ff] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] to-[#eef2ff] flex items-center justify-center p-3 md:p-4">
       <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-[0_8px_40px_rgba(99,102,241,.12)] w-full max-w-[380px]">
 
         {/* Header: app logos */}
-        <div className="px-8 pt-8 pb-6 text-center border-b border-[#f1f5f9]">
+        <div className="px-5 pt-6 pb-5 md:px-8 md:pt-8 md:pb-6 text-center border-b border-[#f1f5f9]">
           <div className="flex items-center justify-center gap-4 mb-5">
             {/* External app icon */}
             <div className="w-14 h-14 bg-[#10a37f]/10 rounded-2xl flex items-center justify-center shadow-sm border border-[#10a37f]/20">
@@ -141,7 +141,7 @@ function OAuthConsentContent() {
         </div>
 
         {/* Permissions list */}
-        <div className="px-8 py-5">
+        <div className="px-5 py-4 md:px-8 md:py-5">
           <p className="text-[10px] font-semibold text-[#94a3b8] uppercase tracking-widest mb-3">
             {t('oauth.thisAppWillBeAbleTo')}
           </p>
@@ -161,7 +161,7 @@ function OAuthConsentContent() {
         </div>
 
         {/* Logged-in account */}
-        <div className="px-8 pb-4">
+        <div className="px-5 pb-4 md:px-8">
           <div className="flex items-center gap-2.5 px-3 py-2.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl">
             <div className="w-7 h-7 bg-[#6366f1]/15 rounded-full flex items-center justify-center shrink-0">
               <span className="text-[#6366f1] text-xs font-bold">{initials}</span>
@@ -177,18 +177,18 @@ function OAuthConsentContent() {
         </div>
 
         {/* Action buttons */}
-        <div className="px-8 pb-6 flex gap-3">
+        <div className="px-5 pb-5 md:px-8 md:pb-6 flex gap-3">
           <button
             onClick={() => handleDecision(false)}
             disabled={submitting}
-            className="flex-1 py-2.5 border border-[#e2e8f0] rounded-xl text-sm font-medium text-[#475569] hover:bg-[#f8fafc] transition-colors disabled:opacity-50"
+            className="flex-1 py-2.5 min-h-[44px] border border-[#e2e8f0] rounded-xl text-sm font-medium text-[#475569] hover:bg-[#f8fafc] transition-colors disabled:opacity-50"
           >
             {t('oauth.deny')}
           </button>
           <button
             onClick={() => handleDecision(true)}
             disabled={submitting}
-            className="flex-1 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white rounded-xl text-sm font-semibold transition-all active:scale-[.98] disabled:opacity-50 shadow-lg shadow-[#6366f1]/25"
+            className="flex-1 py-2.5 min-h-[44px] bg-[#6366f1] hover:bg-[#4f46e5] text-white rounded-xl text-sm font-semibold transition-all active:scale-[.98] disabled:opacity-50 shadow-lg shadow-[#6366f1]/25"
           >
             {submitting ? (
               <span className="inline-flex items-center gap-1.5">
@@ -199,7 +199,7 @@ function OAuthConsentContent() {
           </button>
         </div>
 
-        <p className="text-center text-[10px] text-[#94a3b8] pb-5 px-8">
+        <p className="text-center text-[10px] text-[#94a3b8] pb-5 px-5 md:px-8">
           {t('oauth.consentNotice', { appName: clientInfo.client_name })}
         </p>
       </div>

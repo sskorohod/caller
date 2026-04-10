@@ -198,6 +198,14 @@
   --th-bar-muted: linear-gradient(180deg, rgba(99,102,241,0.3) 0%, rgba(99,102,241,0.12) 100%);
 }
 
+/* ─── Mobile Design Tokens ────────────────────────────────────────────── */
+:root {
+  --th-touch-target: 44px;
+  --th-bottom-nav-height: 64px;
+  --th-mobile-padding: 16px;
+  --th-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 * { box-sizing: border-box; }
 body {
   background-color: var(--th-page);
@@ -205,7 +213,75 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--th-scrollbar); border-radius: 99px; }
+
+/* ─── Touch & Mobile Utilities ───────────────────────────────────────── */
+.touch-target {
+  min-width: var(--th-touch-target);
+  min-height: var(--th-touch-target);
+}
+.safe-bottom {
+  padding-bottom: calc(var(--th-bottom-nav-height) + var(--th-safe-area-bottom));
+}
+.snap-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.snap-carousel::-webkit-scrollbar { display: none; }
+.snap-carousel > * { scroll-snap-align: start; flex-shrink: 0; }
+
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes slideDown {
+    from { transform: translateY(-16px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scaleIn {
+    from { transform: scale(0.85); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes spinner {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes ptr-spin {
+    from { transform: rotate(0deg); stroke-dashoffset: 17; }
+    50% { stroke-dashoffset: 55; }
+    to { transform: rotate(360deg); stroke-dashoffset: 17; }
+  }
+  @keyframes page-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.32,0.72,0,1); }
+  .animate-slide-down { animation: slideDown 0.2s ease-out; }
+  .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+  .animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.32,0.72,0,1); }
+  .animate-sheet-up { animation: sheetUp 0.35s cubic-bezier(0.32,0.72,0,1); }
+  .animate-page-enter { animation: page-enter 0.25s ease-out; }
+}
+
+/* Card press feedback */
+.card-press { transition: transform 0.1s ease; }
+.card-press:active { transform: scale(0.98); }

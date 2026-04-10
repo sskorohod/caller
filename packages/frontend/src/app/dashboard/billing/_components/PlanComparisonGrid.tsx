@@ -14,7 +14,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
   return (
     <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
       <h3 className="text-sm font-semibold text-[var(--th-text)] mb-4">{t('billing.comparePlans')}</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="snap-carousel md:grid md:grid-cols-3 gap-4">
         {PLANS.map(planId => {
           const isCurrent = currentPlan === planId;
           const isPopular = planId === 'agents';
@@ -26,7 +26,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
           return (
             <div
               key={planId}
-              className={`relative rounded-2xl border p-5 transition-all ${
+              className={`relative rounded-2xl border p-5 transition-all min-w-[260px] md:min-w-0 ${
                 isCurrent
                   ? 'border-[var(--th-primary)] shadow-[0_0_0_1px_var(--th-primary),0_4px_12px_var(--th-shadow-primary)]'
                   : 'border-[var(--th-border)] hover:border-[var(--th-border-hover)]'
@@ -45,7 +45,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
               <div className="mb-4">
                 <h4 className="text-base font-bold text-[var(--th-text)]">{t(`billing.plan.${planId}`)}</h4>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold" style={{ color: accent }}>
+                  <span className="text-2xl md:text-3xl font-bold" style={{ color: accent }}>
                     ${price}
                   </span>
                   <span className="text-sm text-[var(--th-text-muted)]">

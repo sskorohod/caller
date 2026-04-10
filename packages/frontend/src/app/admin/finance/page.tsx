@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useIsMobile } from '@/lib/useBreakpoint';
 
 interface FinanceOverview {
   kpi: {
@@ -47,6 +48,7 @@ export default function AdminFinance() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txFilter, setTxFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     Promise.all([
@@ -66,7 +68,7 @@ export default function AdminFinance() {
     api.get<Transaction[]>(`/admin/finance/transactions?${params}`).then(setTransactions);
   }, [txFilter]);
 
-  if (loading || !overview) return <div className="p-8 text-center opacity-50">Loading...</div>;
+  if (loading || !overview) return <div className="p-4 md:p-8 text-center opacity-50">Loading...</div>;
 
   const kpiCards = [
     { label: 'Usage Revenue (30d)', value: `$${overview.kpi.usage_revenue_30d.toFixed(2)}`, color: '#4ade80', icon: 'payments' },
@@ -80,29 +82,29 @@ export default function AdminFinance() {
   const maxRev = Math.max(...chart.map(d => parseFloat(d.usage_revenue) || 0.01), 0.01);
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-4 md:p-6 space-y-6 md:space-y-8">
       <div>
-        <h1 className="text-2xl font-headline font-bold">Finance</h1>
+        <h1 className="text-lg md:text-2xl font-headline font-bold">Finance</h1>
         <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Revenue, costs, and margin overview</p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         {kpiCards.map(card => (
-          <div key={card.label} className="glass-panel rounded-2xl p-4 relative overflow-hidden">
-            <div className="absolute top-3 right-3">
-              <span className="material-symbols-outlined text-lg" style={{ color: card.color, opacity: 0.4 }}>{card.icon}</span>
+          <div key={card.label} className="glass-panel rounded-2xl p-3 md:p-4 relative overflow-hidden">
+            <div className="absolute top-2 right-2 md:top-3 md:right-3">
+              <span className="material-symbols-outlined text-base md:text-lg" style={{ color: card.color, opacity: 0.4 }}>{card.icon}</span>
             </div>
-            <div className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: '#c2c6d6' }}>{card.label}</div>
-            <div className="text-xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
+            <div className="text-[9px] md:text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: '#c2c6d6' }}>{card.label}</div>
+            <div className="text-lg md:text-xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
           </div>
         ))}
       </div>
 
       {/* Plan Distribution */}
-      <div className="glass-panel rounded-2xl p-5">
+      <div className="glass-panel rounded-2xl p-4 md:p-5">
         <h3 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: '#c2c6d6' }}>Plan Distribution</h3>
-        <div className="flex gap-6">
+        <div className="flex flex-wrap gap-4 md:gap-6">
           {overview.plan_counts.map(p => (
             <div key={p.plan} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{
@@ -117,7 +119,7 @@ export default function AdminFinance() {
 
       {/* Revenue Chart */}
       {chart.length > 0 && (
-        <div className="glass-panel rounded-2xl p-6">
+        <div className="glass-panel rounded-2xl p-4 md:p-6">
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: '#c2c6d6' }}>Revenue by Day (30d)</h3>
           <div className="flex items-end gap-1 h-32">
             {chart.map((day, i) => {
@@ -144,11 +146,11 @@ export default function AdminFinance() {
       )}
 
       {/* Transactions */}
-      <div className="glass-panel rounded-2xl p-6">
+      <div className="glass-panel rounded-2xl p-4 md:p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Recent Transactions</h3>
           <select value={txFilter} onChange={e => setTxFilter(e.target.value)}
-            className="px-2 py-1 rounded text-xs bg-white/5 border border-white/10">
+            className="px-2 py-1.5 rounded text-xs bg-white/5 border border-white/10 min-h-[44px]">
             <option value="">All Types</option>
             <option value="topup">Top Up</option>
             <option value="usage">Usage</option>
@@ -157,40 +159,66 @@ export default function AdminFinance() {
             <option value="signup_bonus">Signup Bonus</option>
           </select>
         </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left" style={{ color: '#c2c6d6' }}>
-              <th className="pb-2 font-medium">Workspace</th>
-              <th className="pb-2 font-medium">Type</th>
-              <th className="pb-2 font-medium">Amount</th>
-              <th className="pb-2 font-medium">Balance After</th>
-              <th className="pb-2 font-medium">Description</th>
-              <th className="pb-2 font-medium">Date</th>
-            </tr>
-          </thead>
-          <tbody>
+        {isMobile ? (
+          <div className="space-y-2">
             {transactions.map(t => (
-              <tr key={t.id} className="border-t" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
-                <td className="py-2 text-xs">{t.workspace_name || t.workspace_id?.slice(0, 8)}</td>
-                <td className="py-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
-                    background: `${typeColors[t.type] || '#6b7280'}15`,
-                    color: typeColors[t.type] || '#6b7280',
-                  }}>
-                    {t.type}
+              <div key={t.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(66,71,84,0.15)' }}>
+                <div className="flex justify-between items-start">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate">{t.workspace_name || t.workspace_id?.slice(0, 8)}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
+                        background: `${typeColors[t.type] || '#6b7280'}15`,
+                        color: typeColors[t.type] || '#6b7280',
+                      }}>{t.type}</span>
+                      <span className="text-[10px]" style={{ color: '#c2c6d6' }}>{new Date(t.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <span className="font-mono text-sm font-bold ml-2" style={{ color: t.amount_usd >= 0 ? '#4ade80' : '#f87171' }}>
+                    {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
                   </span>
-                </td>
-                <td className="py-2 font-mono text-xs" style={{ color: t.amount_usd >= 0 ? '#4ade80' : '#f87171' }}>
-                  {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
-                </td>
-                <td className="py-2 font-mono text-xs" style={{ color: '#c2c6d6' }}>${t.balance_after.toFixed(2)}</td>
-                <td className="py-2 text-xs" style={{ color: '#c2c6d6' }}>{t.description}</td>
-                <td className="py-2 text-xs" style={{ color: '#c2c6d6' }}>{new Date(t.created_at).toLocaleString()}</td>
-              </tr>
+                </div>
+                {t.description && <div className="text-[10px] mt-1 truncate" style={{ color: '#c2c6d6' }}>{t.description}</div>}
+              </div>
             ))}
-            {transactions.length === 0 && <tr><td colSpan={6} className="py-4 text-center opacity-50">No transactions</td></tr>}
-          </tbody>
-        </table>
+            {transactions.length === 0 && <div className="py-4 text-center opacity-50 text-sm">No transactions</div>}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left" style={{ color: '#c2c6d6' }}>
+                <th className="pb-2 font-medium">Workspace</th>
+                <th className="pb-2 font-medium">Type</th>
+                <th className="pb-2 font-medium">Amount</th>
+                <th className="pb-2 font-medium">Balance After</th>
+                <th className="pb-2 font-medium">Description</th>
+                <th className="pb-2 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map(t => (
+                <tr key={t.id} className="border-t" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
+                  <td className="py-2 text-xs">{t.workspace_name || t.workspace_id?.slice(0, 8)}</td>
+                  <td className="py-2">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
+                      background: `${typeColors[t.type] || '#6b7280'}15`,
+                      color: typeColors[t.type] || '#6b7280',
+                    }}>
+                      {t.type}
+                    </span>
+                  </td>
+                  <td className="py-2 font-mono text-xs" style={{ color: t.amount_usd >= 0 ? '#4ade80' : '#f87171' }}>
+                    {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
+                  </td>
+                  <td className="py-2 font-mono text-xs" style={{ color: '#c2c6d6' }}>${t.balance_after.toFixed(2)}</td>
+                  <td className="py-2 text-xs" style={{ color: '#c2c6d6' }}>{t.description}</td>
+                  <td className="py-2 text-xs" style={{ color: '#c2c6d6' }}>{new Date(t.created_at).toLocaleString()}</td>
+                </tr>
+              ))}
+              {transactions.length === 0 && <tr><td colSpan={6} className="py-4 text-center opacity-50">No transactions</td></tr>}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

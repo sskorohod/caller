@@ -96,7 +96,7 @@ export default function ProvidersPage() {
     const isOAuth = stripeStatus?.connected && stripeStatus?.stripe_user_id;
 
     return (
-      <div key="stripe" className="glass-panel rounded-2xl p-6">
+      <div key="stripe" className="glass-panel rounded-2xl p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(173, 198, 255, 0.1)' }}>
@@ -180,16 +180,16 @@ export default function ProvidersPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-headline font-bold">Providers</h1>
-      <p className="text-sm" style={{ color: '#c2c6d6' }}>Manage API keys and connections for all services</p>
+    <div className="px-3 py-4 md:p-6 space-y-4 md:space-y-6">
+      <h1 className="text-xl md:text-2xl font-headline font-bold">Providers</h1>
+      <p className="text-xs md:text-sm" style={{ color: '#c2c6d6' }}>Manage API keys and connections for all services</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {renderStripeCard()}
         {Object.entries(PROVIDER_CONFIG).filter(([name]) => name !== 'stripe').map(([name, cfg]) => {
           const p = providers[name];
           return (
-            <div key={name} className="glass-panel rounded-2xl p-6">
+            <div key={name} className="glass-panel rounded-2xl p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(173, 198, 255, 0.1)' }}>
@@ -225,21 +225,21 @@ export default function ProvidersPage() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEditing(null)}>
-          <div className="glass-panel rounded-2xl p-6 w-full max-w-md" style={{ background: '#1a202c' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50 p-0 md:p-4" onClick={() => setEditing(null)}>
+          <div className="glass-panel rounded-t-2xl md:rounded-2xl p-5 md:p-6 w-full md:max-w-md" style={{ background: '#1a202c' }} onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">Update {PROVIDER_CONFIG[editing]?.label}</h2>
             <div className="space-y-3">
               {PROVIDER_CONFIG[editing]?.fields.map(f => (
                 <div key={f.key}>
                   <label className="block text-xs mb-1" style={{ color: '#c2c6d6' }}>{f.label}</label>
                   <input value={form[f.key] ?? ''} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm" style={{ background: '#2f3542', color: '#dde2f3', border: 'none', outline: 'none' }} />
+                    className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ background: '#2f3542', color: '#dde2f3', border: 'none', outline: 'none' }} />
                 </div>
               ))}
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setEditing(null)} className="px-4 py-2 text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-xl text-sm font-bold" style={{ background: '#adc6ff', color: '#002e6a' }}>
+              <button onClick={() => setEditing(null)} className="px-4 py-2 min-h-[44px] md:min-h-0 text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm font-bold" style={{ background: '#adc6ff', color: '#002e6a' }}>
                 {saving ? 'Saving...' : 'Save'}
               </button>
             </div>

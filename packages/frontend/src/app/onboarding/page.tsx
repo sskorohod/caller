@@ -102,7 +102,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6"
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6 md:p-6"
       style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
@@ -113,25 +113,25 @@ export default function OnboardingPage() {
 
       <div className="max-w-4xl w-full">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium mb-6"
+        <div className="text-center mb-6 md:mb-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium mb-4 md:mb-6"
             style={{ background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }}>
             <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
             Account created{workspace ? ` — ${workspace.name}` : ''}
           </div>
-          <h1 className="text-3xl md:text-4xl font-headline font-extrabold tracking-tight mb-3">
+          <h1 className="text-2xl md:text-4xl font-headline font-extrabold tracking-tight mb-2 md:mb-3">
             Choose your plan
           </h1>
-          <p className="text-base" style={{ color: '#c2c6d6' }}>
+          <p className="text-sm md:text-base" style={{ color: '#c2c6d6' }}>
             Start with Translator for free, or unlock AI Agents with a subscription.
           </p>
         </div>
 
         {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
           {plans.map(plan => (
             <div key={plan.id}
-              className={`relative rounded-2xl p-6 flex flex-col bg-gradient-to-br ${plan.gradient} border ${plan.border} transition-all hover:scale-[1.02]`}
+              className={`relative rounded-2xl p-5 md:p-6 flex flex-col bg-gradient-to-br ${plan.gradient} border ${plan.border} transition-all hover:scale-[1.02]`}
               style={{ backdropFilter: 'blur(20px)' }}>
 
               {plan.popular && (
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
               <button
                 onClick={() => selectPlan(plan.id)}
                 disabled={loading !== null}
-                className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${plan.ctaStyle} disabled:opacity-50`}>
+                className={`w-full py-3 min-h-[44px] rounded-xl text-sm font-semibold transition-all ${plan.ctaStyle} disabled:opacity-50`}>
                 {loading === plan.id ? (
                   <span className="inline-flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -191,7 +191,7 @@ export default function OnboardingPage() {
         {/* Skip */}
         <div className="text-center mt-6">
           <button onClick={() => router.push('/dashboard')}
-            className="text-xs hover:underline transition" style={{ color: '#c2c6d6' }}>
+            className="text-xs md:text-sm min-h-[44px] px-4 hover:underline transition" style={{ color: '#c2c6d6' }}>
             Skip for now — you can always upgrade later
           </button>
         </div>

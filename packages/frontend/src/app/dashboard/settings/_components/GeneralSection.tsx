@@ -93,7 +93,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
               {t('settings.phoneNumbers')}
             </label>
             <p className="text-[10px] text-[var(--th-text-muted)]">{t('settings.phoneNumbersHint')}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[0, 1, 2].map(i => {
                 const val = phoneNums[i] || '';
                 const normalized = val.replace(/[\s\-\(\)\.]/g, '');
@@ -143,7 +143,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
             <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('settings.preferences') || 'Preferences'}</h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Timezone */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide flex items-center gap-1.5">
@@ -185,7 +185,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
           <button
             onClick={save}
             disabled={saving}
-            className="px-5 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all disabled:opacity-60 active:scale-[.98] shadow-sm"
+            className="px-5 py-2.5 min-h-[44px] w-full sm:w-auto bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all disabled:opacity-60 active:scale-[.98] shadow-sm"
           >
             {saving ? t('settings.saving') : t('settings.saveChanges')}
           </button>

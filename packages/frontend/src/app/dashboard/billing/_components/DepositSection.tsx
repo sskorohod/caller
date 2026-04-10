@@ -57,7 +57,7 @@ export function DepositSection({ balance, plan, lang, onTopUp, loading, t }: Dep
           <button
             key={val}
             onClick={() => handlePreset(val)}
-            className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+            className={`px-4 py-3 md:py-2.5 min-h-[44px] rounded-xl text-sm font-semibold border transition-all ${
               selectedPreset === val
                 ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]'
                 : 'border-[var(--th-border)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)] hover:bg-[var(--th-primary-bg)]'
@@ -68,7 +68,7 @@ export function DepositSection({ balance, plan, lang, onTopUp, loading, t }: Dep
         ))}
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="number"
           min="1"
@@ -79,12 +79,12 @@ export function DepositSection({ balance, plan, lang, onTopUp, loading, t }: Dep
             setSelectedPreset(null);
           }}
           placeholder={t('billing.customAmount')}
-          className="flex-1 px-4 py-2.5 rounded-xl border border-[var(--th-border)] bg-transparent text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] outline-none focus:border-[var(--th-primary)] transition-colors"
+          className="flex-1 px-4 py-3 sm:py-2.5 rounded-xl border border-[var(--th-border)] bg-transparent text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] outline-none focus:border-[var(--th-primary)] transition-colors"
         />
         <button
           onClick={handleSubmit}
           disabled={loading || !amount || parseFloat(amount) < 1}
-          className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-xl shadow-[0_2px_8px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_12px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-6 py-3 sm:py-2.5 min-h-[44px] bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-xl shadow-[0_2px_8px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_12px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
         >
           {loading ? t('common.loading') : t('billing.topUp')}
         </button>

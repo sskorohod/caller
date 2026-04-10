@@ -1,5 +1,8 @@
 'use client';
+import { useState } from 'react';
 import { useT } from '@/lib/i18n';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import MobileSheet from '@/components/MobileSheet';
 import { SECTIONS, TRANSLATOR_SECTIONS } from '../_lib/constants';
 import type { SectionId } from '../_lib/types';
 
@@ -13,10 +16,68 @@ export function SettingsNav({
   plan: string;
 }) {
   const t = useT();
+  const isMobile = useIsMobile();
+  const [sheetOpen, setSheetOpen] = useState(false);
   const visible = SECTIONS.filter(s =>
     plan === 'translator' ? TRANSLATOR_SECTIONS.includes(s.id) : true
   );
 
+  const activeLabel = visible.find(s => s.id === activeSection);
+  const ActiveIcon = activeLabel?.icon;
+
+  // Mobile: button that opens a bottom sheet
+  if (isMobile) {
+    return (
+      <>
+        <button
+          onClick={() => setSheetOpen(true)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] min-h-[44px]"
+        >
+          <div className="flex items-center gap-2.5">
+            {ActiveIcon && (
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-r from-[var(--th-primary)] to-indigo-600">
+                <ActiveIcon className="w-3.5 h-3.5 text-white" />
+              </div>
+            )}
+            <span className="text-sm font-semibold text-[var(--th-text)]">{activeLabel ? t(activeLabel.labelKey) : ''}</span>
+          </div>
+          <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {sheetOpen && (
+          <MobileSheet onClose={() => setSheetOpen(false)} title={t('settings.title')}>
+            <div className="space-y-1">
+              {visible.map(s => {
+                const Icon = s.icon;
+                const active = activeSection === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => { onSelect(s.id); setSheetOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm min-h-[44px] transition-all ${
+                      active
+                        ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold'
+                        : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)]'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      active ? 'bg-white/20' : 'bg-[var(--th-surface)]'
+                    }`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span>{t(s.labelKey)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </MobileSheet>
+        )}
+      </>
+    );
+  }
+
+  // Desktop: sidebar nav
   return (
     <div className="md:w-56 shrink-0">
       <nav className="md:sticky md:top-0 flex md:flex-col overflow-x-auto md:overflow-x-visible gap-1.5 md:gap-0.5 pb-3 md:pb-0">

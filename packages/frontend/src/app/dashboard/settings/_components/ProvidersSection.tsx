@@ -54,8 +54,8 @@ export function ProvidersSection({
         onConfigChange={onConfigChange}
       />
 
-      {/* Other AI providers — 2-column grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Other AI providers — full-width on mobile, 2-column on desktop */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {otherProviders.map(key => (
           <ProviderCard
             key={key}

@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import CollapsibleSection from '@/components/CollapsibleSection';
+import MobilePageHeader from '@/components/MobilePageHeader';
 
 const DEFAULT_AVATARS = Array.from({ length: 8 }, (_, i) => `/avatars/default-${i + 1}.svg`);
 
@@ -78,6 +81,7 @@ export default function NewAgentPage() {
   const router = useRouter();
   const t = useT();
   const toast = useToast();
+  const isMobile = useIsMobile();
   const [form, setForm] = useState<AgentForm>(INITIAL);
   const [section, setSection] = useState<string>('general');
   const [saving, setSaving] = useState(false);
@@ -141,8 +145,14 @@ export default function NewAgentPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header — mobile */}
+      <MobilePageHeader
+        title={t('agents.newAgent')}
+        backHref="/dashboard/agents"
+      />
+
+      {/* Header — desktop */}
+      <div className="hidden md:flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/dashboard/agents')} className="p-2 rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-secondary)]">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -198,13 +208,13 @@ export default function NewAgentPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex gap-2 overflow-x-auto md:flex-wrap pb-1 md:pb-0">
                       {DEFAULT_AVATARS.map(url => (
                         <button
                           key={url}
                           type="button"
                           onClick={() => selectDefaultAvatar(url)}
-                          className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${
+                          className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all shrink-0 ${
                             form.avatar_url === url ? 'border-[var(--th-primary)] ring-2 ring-[var(--th-primary)]/30' : 'border-[var(--th-border)] hover:border-[var(--th-primary-muted)]'
                           }`}
                         >
@@ -259,7 +269,7 @@ export default function NewAgentPage() {
             <>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.voiceProvider')}</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[{ v: 'elevenlabs', l: 'ElevenLabs' }, { v: 'openai', l: 'OpenAI TTS' }, { v: 'xai', l: 'xAI Grok' }].map(p => (
                     <button key={p.v} type="button" onClick={() => { set('voice_provider', p.v); set('voice_id', VOICE_OPTIONS[p.v]?.[0]?.value ?? ''); }}
                       className={`px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${form.voice_provider === p.v ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)]'}`}>
@@ -270,7 +280,7 @@ export default function NewAgentPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide">{t('agents.voiceId')}</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(VOICE_OPTIONS[form.voice_provider] ?? []).map(v => (
                     <button key={v.value} type="button" onClick={() => set('voice_id', v.value)}
                       className={`px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${form.voice_id === v.value ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]' : 'border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:border-[var(--th-primary)]'}`}>

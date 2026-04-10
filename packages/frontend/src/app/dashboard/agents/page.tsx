@@ -1,9 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import FloatingActionButton from '@/components/FloatingActionButton';
+import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
 
 interface Agent {
   id: string;
@@ -96,6 +101,8 @@ const LANG_LABELS: Record<string, string> = {
 export default function AgentsPage() {
   const t = useT();
   const toast = useToast();
+  const router = useRouter();
+  const isMobile = useIsMobile();
   const [agents, setAgents] = useState<AgentWithPacks[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -170,12 +177,12 @@ export default function AgentsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-[var(--th-text)]">{t('agents.title')}</h2>
+          <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{t('agents.title')}</h2>
           <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('agents.subtitle')}</p>
         </div>
         <Link
           href="/dashboard/agents/new"
-          className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] flex items-center gap-2"
+          className="hidden md:flex px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -185,9 +192,8 @@ export default function AgentsPage() {
       </div>
 
       {loadError ? (
-        <div className="bg-[var(--th-error-bg)] border border-[var(--th-card-border-subtle)] rounded-2xl p-6 text-center shadow-[0_1px_3px_var(--th-shadow)]">
-          <p className="text-sm font-semibold text-[var(--th-error-text)]">{loadError}</p>
-          <button onClick={loadAgents} className="mt-3 px-4 py-2 text-sm font-semibold text-[var(--th-error-text)] hover:bg-[var(--th-surface)] rounded-xl transition-all">{t('common.retry')}</button>
+        <div className="bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] rounded-2xl shadow-[0_1px_3px_var(--th-shadow)]">
+          <ErrorState message={loadError} onRetry={loadAgents} retryLabel={t('common.retry')} />
         </div>
       ) : loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -209,17 +215,21 @@ export default function AgentsPage() {
           ))}
         </div>
       ) : agents.length === 0 ? (
-        <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] flex flex-col items-center justify-center py-20 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-          <div className="w-14 h-14 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center mb-4">
-            <svg className="w-7 h-7 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-            </svg>
-          </div>
-          <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('agents.noAgents')}</p>
-          <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('agents.noAgentsDesc')}</p>
-          <Link href="/dashboard/agents/new" className="px-4 py-2 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all">
-            {t('agents.createAgent')}
-          </Link>
+        <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+          <EmptyState
+            icon={
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            }
+            title={t('agents.noAgents')}
+            description={t('agents.noAgentsDesc')}
+            action={
+              <Link href="/dashboard/agents/new" className="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all inline-flex items-center">
+                {t('agents.createAgent')}
+              </Link>
+            }
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -306,7 +316,7 @@ export default function AgentsPage() {
                 </Link>
                 <button
                   onClick={() => { setDeleteTarget(agent); setDeleteError(''); }}
-                  className="p-1.5 rounded-lg hover:bg-[var(--th-error-bg)] text-[var(--th-text-muted)] hover:text-[var(--th-error-text)] transition-all opacity-0 group-hover:opacity-100"
+                  className="p-1.5 rounded-lg hover:bg-[var(--th-error-bg)] text-[var(--th-text-muted)] hover:text-[var(--th-error-text)] transition-all md:opacity-0 md:group-hover:opacity-100"
                   aria-label="Delete"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -317,6 +327,19 @@ export default function AgentsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Floating Action Button — mobile */}
+      {isMobile && (
+        <FloatingActionButton
+          icon={
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          }
+          label={t('agents.newAgent')}
+          onClick={() => router.push('/dashboard/agents/new')}
+        />
       )}
 
       {/* Delete Confirm Modal */}

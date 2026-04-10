@@ -19,7 +19,7 @@ interface BillingKpiRowProps {
 
 export function BillingKpiRow({ balance, monthlySpend, monthlyTxCount, ownKeyCount, plan, lang, t }: BillingKpiRowProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="snap-carousel md:grid md:grid-cols-2 lg:grid-cols-4 gap-3">
       <KpiCard
         label={t('billing.kpiBalance')}
         value={fmtBal(balance, plan, lang)}

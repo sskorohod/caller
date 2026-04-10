@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 import { useSocket } from '@/lib/socket';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
+import { useIsMobile } from '@/lib/useBreakpoint';
+import CollapsibleSection from '@/components/CollapsibleSection';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +103,7 @@ export default function MissionChatPage() {
   const t = useT();
   const { socket } = useSocket();
   const toast = useToast();
+  const isMobile = useIsMobile();
   const missionId = params.id as string;
 
   // State
@@ -300,7 +303,7 @@ export default function MissionChatPage() {
     if (msg.sender_type === 'user') {
       return (
         <div key={msg.id} className="flex justify-end my-2">
-          <div className="max-w-[75%] px-4 py-3 rounded-2xl rounded-br-sm bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 text-white text-sm leading-relaxed shadow-[0_1px_3px_var(--th-shadow)]">
+          <div className="max-w-[85%] md:max-w-[75%] px-3 md:px-4 py-3 rounded-2xl rounded-br-sm bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 text-white text-sm leading-relaxed shadow-[0_1px_3px_var(--th-shadow)]">
             {msg.content}
           </div>
         </div>
@@ -315,7 +318,7 @@ export default function MissionChatPage() {
         msg.content.toLowerCase().includes('completed');
       return (
         <div key={msg.id} className="flex justify-start my-2">
-          <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
+          <div className="max-w-[90%] md:max-w-[80%] rounded-2xl rounded-bl-sm border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
             <div
               className={`px-4 py-2 text-[10px] font-semibold flex items-center gap-2 ${
                 isSuccess ? 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]' : 'bg-[var(--th-error-bg)] text-[var(--th-error-text)]'
@@ -340,7 +343,7 @@ export default function MissionChatPage() {
     // Regular AI message
     return (
       <div key={msg.id} className="flex justify-start my-2">
-        <div className="max-w-[80%] space-y-2">
+        <div className="max-w-[90%] md:max-w-[80%] space-y-2">
           {textContent && (
             <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-[var(--th-surface)] text-sm text-[var(--th-text)] leading-relaxed border border-[var(--th-card-border-subtle)] whitespace-pre-wrap shadow-[0_1px_3px_var(--th-shadow)]">
               {textContent}
@@ -419,7 +422,7 @@ export default function MissionChatPage() {
           <button
             onClick={executeMission}
             disabled={executing || isCallActive}
-            className="px-4 py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 min-h-[44px] text-sm font-semibold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {executing ? t('common.loading') : t('mission.confirmAndCall')}
           </button>
@@ -427,7 +430,7 @@ export default function MissionChatPage() {
             <button
               onClick={executeMission}
               disabled={executing || isCallActive}
-              className="px-4 py-2 text-sm font-semibold rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text)] hover:bg-[var(--th-surface)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 min-h-[44px] text-sm font-semibold rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text)] hover:bg-[var(--th-surface)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t('mission.schedule')}
             </button>
@@ -440,12 +443,12 @@ export default function MissionChatPage() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]">
+    <div className="flex flex-col h-[calc(100vh-120px)] px-0 md:px-0">
       {/* Header */}
-      <div className="flex items-center gap-3 shrink-0 mb-4">
+      <div className="flex items-center gap-2 md:gap-3 shrink-0 mb-3 md:mb-4">
         <button
           onClick={() => router.push('/dashboard/missions')}
-          className="p-2 rounded-xl hover:bg-[var(--th-surface)] transition-all text-[var(--th-text-secondary)]"
+          className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-[var(--th-surface)] transition-all text-[var(--th-text-secondary)]"
           title={t('common.back')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -454,13 +457,13 @@ export default function MissionChatPage() {
         </button>
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-[var(--th-text)] truncate">
+          <h1 className="text-base md:text-lg font-bold text-[var(--th-text)] truncate">
             {mission.title || t('mission.untitled')}
           </h1>
         </div>
 
         <span
-          className={`px-2.5 py-1 text-[10px] font-semibold rounded-full ${
+          className={`px-2.5 py-1 text-[10px] font-semibold rounded-full shrink-0 ${
             STATUS_COLORS[mission.status] || 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
           }`}
         >
@@ -468,7 +471,7 @@ export default function MissionChatPage() {
         </span>
 
         {isCallActive && (
-          <span className="relative flex h-2.5 w-2.5">
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
           </span>
@@ -491,7 +494,7 @@ export default function MissionChatPage() {
                 toast.error(e.message || t('common.error'));
               }
             }}
-            className="px-3 py-1.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-[10px] font-semibold rounded-lg hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all flex items-center gap-1.5"
+            className="px-3 py-1.5 min-h-[44px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-[10px] md:text-xs font-semibold rounded-lg hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all flex items-center gap-1.5 shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
@@ -523,7 +526,7 @@ export default function MissionChatPage() {
           </div>
 
           {/* Input area */}
-          <div className="mt-3 shrink-0">
+          <div className="mt-2 md:mt-3 shrink-0">
             {isCallActive && (
               <div className="mb-2 px-3.5 py-2 rounded-xl bg-[var(--th-warning-bg)] border border-[var(--th-card-border-subtle)] text-[var(--th-warning-text)] text-[10px] font-semibold text-center flex items-center justify-center gap-1.5">
                 <span className="relative flex h-2 w-2">
@@ -544,12 +547,12 @@ export default function MissionChatPage() {
                 placeholder={
                   isCallActive ? t('mission.chatDisabledDuringCall') : t('mission.typeMessage')
                 }
-                className="flex-1 px-4 py-3 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex-1 px-3 md:px-4 py-3 min-h-[44px] rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               />
               <button
                 onClick={sendMessage}
                 disabled={inputDisabled || !input.trim()}
-                className="px-4 py-3 rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold text-sm hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all shrink-0"
+                className="px-4 py-3 min-h-[44px] min-w-[44px] rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold text-sm hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all shrink-0 flex items-center justify-center"
               >
                 {sending ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -569,158 +572,295 @@ export default function MissionChatPage() {
         </div>
 
         {/* Right: Mission Details sidebar */}
-        <div className="lg:w-80 shrink-0 overflow-y-auto rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 space-y-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-          <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
-            {t('mission.details')}
-          </h2>
+        {isMobile ? (
+          <div className="shrink-0">
+            <CollapsibleSection title={t('mission.details')} defaultOpen={false}>
+              <div className="space-y-4">
+                {/* Status */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                    {t('mission.statusLabel')}
+                  </label>
+                  <div>
+                    <span
+                      className={`inline-block px-2.5 py-1 text-[10px] font-semibold rounded-full ${
+                        STATUS_COLORS[mission.status] || 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
+                      }`}
+                    >
+                      {t(`mission.status.${mission.status}`)}
+                    </span>
+                  </div>
+                </div>
 
-          {/* Status */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-              {t('mission.statusLabel')}
-            </label>
-            <div>
-              <span
-                className={`inline-block px-2.5 py-1 text-[10px] font-semibold rounded-full ${
-                  STATUS_COLORS[mission.status] || 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
-                }`}
+                {mission.agent_profile_id && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                      {t('mission.agent')}
+                    </label>
+                    <p className="text-sm text-[var(--th-text)]">{mission.agent_profile_id}</p>
+                  </div>
+                )}
+
+                {mission.target_phone && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                      {t('mission.phone')}
+                    </label>
+                    <p className="text-sm text-[var(--th-text)] tabular-nums font-medium">{mission.target_phone}</p>
+                  </div>
+                )}
+
+                {mission.goal && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                      {t('mission.goal')}
+                    </label>
+                    <p className="text-sm text-[var(--th-text)] leading-relaxed">{mission.goal}</p>
+                  </div>
+                )}
+
+                {mission.context && Object.keys(mission.context).length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                      {t('mission.context')}
+                    </label>
+                    <div className="space-y-1.5">
+                      {Object.entries(mission.context).map(([k, v]) => (
+                        <div key={k} className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]">
+                          <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
+                          <span className="text-[var(--th-text)] break-all">{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {mission.fallback_action && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                      {t('mission.fallback')}
+                    </label>
+                    <p className="text-sm text-[var(--th-text)]">{mission.fallback_action}</p>
+                  </div>
+                )}
+
+                {mission.scheduled_at && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                      {t('mission.scheduled')}
+                    </label>
+                    <p className="text-sm text-[var(--th-text)]">{fmtDate(mission.scheduled_at)}</p>
+                  </div>
+                )}
+
+                {mission.call_id && isCallActive && (
+                  <button
+                    onClick={() => router.push(`/dashboard/calls/${mission.call_id}/live`)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                    </span>
+                    {t('mission.liveCall')}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
+
+                {mission.outcome && Object.keys(mission.outcome).length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                      {t('mission.outcome')}
+                    </label>
+                    <div className="space-y-1.5">
+                      {Object.entries(mission.outcome).map(([k, v]) => (
+                        <div key={k} className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]">
+                          <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
+                          <span className="text-[var(--th-text)] break-all">{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timestamps */}
+                <div className="pt-3 border-t border-[var(--th-card-border-subtle)] space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-[var(--th-text-muted)]">{t('mission.created')}</span>
+                    <span className="text-[var(--th-text-secondary)]">{fmtDate(mission.created_at)}</span>
+                  </div>
+                  {mission.started_at && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-[var(--th-text-muted)]">{t('mission.started')}</span>
+                      <span className="text-[var(--th-text-secondary)]">{fmtDate(mission.started_at)}</span>
+                    </div>
+                  )}
+                  {mission.completed_at && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-[var(--th-text-muted)]">{t('mission.completed')}</span>
+                      <span className="text-[var(--th-text-secondary)]">{fmtDate(mission.completed_at)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CollapsibleSection>
+          </div>
+        ) : (
+          <div className="lg:w-80 shrink-0 overflow-y-auto rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 space-y-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+            <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
+              {t('mission.details')}
+            </h2>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                {t('mission.statusLabel')}
+              </label>
+              <div>
+                <span
+                  className={`inline-block px-2.5 py-1 text-[10px] font-semibold rounded-full ${
+                    STATUS_COLORS[mission.status] || 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'
+                  }`}
+                >
+                  {t(`mission.status.${mission.status}`)}
+                </span>
+              </div>
+            </div>
+
+            {/* Agent */}
+            {mission.agent_profile_id && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                  {t('mission.agent')}
+                </label>
+                <p className="text-sm text-[var(--th-text)]">{mission.agent_profile_id}</p>
+              </div>
+            )}
+
+            {/* Phone */}
+            {mission.target_phone && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                  {t('mission.phone')}
+                </label>
+                <p className="text-sm text-[var(--th-text)] tabular-nums font-medium">{mission.target_phone}</p>
+              </div>
+            )}
+
+            {/* Goal */}
+            {mission.goal && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                  {t('mission.goal')}
+                </label>
+                <p className="text-sm text-[var(--th-text)] leading-relaxed">{mission.goal}</p>
+              </div>
+            )}
+
+            {/* Context */}
+            {mission.context && Object.keys(mission.context).length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                  {t('mission.context')}
+                </label>
+                <div className="space-y-1.5">
+                  {Object.entries(mission.context).map(([k, v]) => (
+                    <div
+                      key={k}
+                      className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]"
+                    >
+                      <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
+                      <span className="text-[var(--th-text)] break-all">{String(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fallback */}
+            {mission.fallback_action && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                  {t('mission.fallback')}
+                </label>
+                <p className="text-sm text-[var(--th-text)]">{mission.fallback_action}</p>
+              </div>
+            )}
+
+            {/* Scheduled */}
+            {mission.scheduled_at && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                  {t('mission.scheduled')}
+                </label>
+                <p className="text-sm text-[var(--th-text)]">{fmtDate(mission.scheduled_at)}</p>
+              </div>
+            )}
+
+            {/* Live Call link */}
+            {mission.call_id && isCallActive && (
+              <button
+                onClick={() => router.push(`/dashboard/calls/${mission.call_id}/live`)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all"
               >
-                {t(`mission.status.${mission.status}`)}
-              </span>
-            </div>
-          </div>
-
-          {/* Agent */}
-          {mission.agent_profile_id && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-                {t('mission.agent')}
-              </label>
-              <p className="text-sm text-[var(--th-text)]">{mission.agent_profile_id}</p>
-            </div>
-          )}
-
-          {/* Phone */}
-          {mission.target_phone && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-                {t('mission.phone')}
-              </label>
-              <p className="text-sm text-[var(--th-text)] tabular-nums font-medium">{mission.target_phone}</p>
-            </div>
-          )}
-
-          {/* Goal */}
-          {mission.goal && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-                {t('mission.goal')}
-              </label>
-              <p className="text-sm text-[var(--th-text)] leading-relaxed">{mission.goal}</p>
-            </div>
-          )}
-
-          {/* Context */}
-          {mission.context && Object.keys(mission.context).length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-                {t('mission.context')}
-              </label>
-              <div className="space-y-1.5">
-                {Object.entries(mission.context).map(([k, v]) => (
-                  <div
-                    key={k}
-                    className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]"
-                  >
-                    <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
-                    <span className="text-[var(--th-text)] break-all">{String(v)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Fallback */}
-          {mission.fallback_action && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-                {t('mission.fallback')}
-              </label>
-              <p className="text-sm text-[var(--th-text)]">{mission.fallback_action}</p>
-            </div>
-          )}
-
-          {/* Scheduled */}
-          {mission.scheduled_at && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-                {t('mission.scheduled')}
-              </label>
-              <p className="text-sm text-[var(--th-text)]">{fmtDate(mission.scheduled_at)}</p>
-            </div>
-          )}
-
-          {/* Live Call link */}
-          {mission.call_id && isCallActive && (
-            <button
-              onClick={() => router.push(`/dashboard/calls/${mission.call_id}/live`)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-              </span>
-              {t('mission.liveCall')}
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
-
-          {/* Outcome */}
-          {mission.outcome && Object.keys(mission.outcome).length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
-                {t('mission.outcome')}
-              </label>
-              <div className="space-y-1.5">
-                {Object.entries(mission.outcome).map(([k, v]) => (
-                  <div
-                    key={k}
-                    className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]"
-                  >
-                    <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
-                    <span className="text-[var(--th-text)] break-all">{String(v)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Timestamps */}
-          <div className="pt-3 border-t border-[var(--th-card-border-subtle)] space-y-2">
-            <div className="flex justify-between text-xs">
-              <span className="text-[var(--th-text-muted)]">{t('mission.created')}</span>
-              <span className="text-[var(--th-text-secondary)]">{fmtDate(mission.created_at)}</span>
-            </div>
-            {mission.started_at && (
-              <div className="flex justify-between text-xs">
-                <span className="text-[var(--th-text-muted)]">{t('mission.started')}</span>
-                <span className="text-[var(--th-text-secondary)]">
-                  {fmtDate(mission.started_at)}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
                 </span>
+                {t('mission.liveCall')}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Outcome */}
+            {mission.outcome && Object.keys(mission.outcome).length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-[var(--th-text-muted)] font-semibold uppercase tracking-wider">
+                  {t('mission.outcome')}
+                </label>
+                <div className="space-y-1.5">
+                  {Object.entries(mission.outcome).map(([k, v]) => (
+                    <div
+                      key={k}
+                      className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]"
+                    >
+                      <span className="text-[var(--th-text-muted)] shrink-0 text-xs">{k}:</span>
+                      <span className="text-[var(--th-text)] break-all">{String(v)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-            {mission.completed_at && (
+
+            {/* Timestamps */}
+            <div className="pt-3 border-t border-[var(--th-card-border-subtle)] space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-[var(--th-text-muted)]">{t('mission.completed')}</span>
-                <span className="text-[var(--th-text-secondary)]">
-                  {fmtDate(mission.completed_at)}
-                </span>
+                <span className="text-[var(--th-text-muted)]">{t('mission.created')}</span>
+                <span className="text-[var(--th-text-secondary)]">{fmtDate(mission.created_at)}</span>
               </div>
-            )}
+              {mission.started_at && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--th-text-muted)]">{t('mission.started')}</span>
+                  <span className="text-[var(--th-text-secondary)]">
+                    {fmtDate(mission.started_at)}
+                  </span>
+                </div>
+              )}
+              {mission.completed_at && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--th-text-muted)]">{t('mission.completed')}</span>
+                  <span className="text-[var(--th-text-secondary)]">
+                    {fmtDate(mission.completed_at)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

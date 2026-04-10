@@ -1,5 +1,6 @@
 'use client';
 import { useState, useMemo } from 'react';
+import { useIsMobile } from '@/lib/useBreakpoint';
 import type { Transaction, TransactionFilter } from '../_lib/types';
 import { TX_TYPE_COLORS } from '../_lib/constants';
 
@@ -19,6 +20,7 @@ const FILTERS: { key: TransactionFilter; label: string }[] = [
 const PAGE_SIZE = 20;
 
 export function TransactionHistory({ transactions, t }: TransactionHistoryProps) {
+  const isMobile = useIsMobile();
   const [filter, setFilter] = useState<TransactionFilter>('all');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -63,44 +65,71 @@ export function TransactionHistory({ transactions, t }: TransactionHistoryProps)
           <p className="text-sm font-medium text-[var(--th-text-secondary)]">{t('billing.noTransactions')}</p>
           <p className="text-[11px] text-[var(--th-text-muted)] mt-1">{t('billing.noTransactionsDesc')}</p>
         </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[var(--th-border)]">
-                {[t('billing.colDate'), t('billing.colType'), t('billing.colDescription'), t('billing.colAmount'), t('billing.colBalance')].map(h => (
-                  <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((tx, idx) => (
-                <tr key={tx.id} className={`transition-colors hover:bg-[var(--th-surface)] ${idx < visible.length - 1 ? 'border-b border-[var(--th-border-light)]' : ''}`}>
-                  <td className="px-5 py-3 text-[13px] text-[var(--th-text-muted)] whitespace-nowrap">
-                    {new Date(tx.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-flex text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase ${TX_TYPE_COLORS[tx.type] ?? 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'}`}>
-                      {t(`billing.txType.${tx.type}`)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)] max-w-[200px] truncate">
-                    {tx.description || tx.type}
-                  </td>
-                  <td className="px-5 py-3 text-sm font-mono font-bold tabular-nums whitespace-nowrap" style={{ color: tx.amount_usd >= 0 ? '#10b981' : '#ef4444' }}>
+      ) : isMobile ? (
+          /* Mobile: card-based view */
+          <div className="divide-y divide-[var(--th-border-light)]">
+            {visible.map((tx) => (
+              <div key={tx.id} className="px-4 py-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className={`inline-flex text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase ${TX_TYPE_COLORS[tx.type] ?? 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'}`}>
+                    {t(`billing.txType.${tx.type}`)}
+                  </span>
+                  <span className="text-sm font-mono font-bold tabular-nums" style={{ color: tx.amount_usd >= 0 ? '#10b981' : '#ef4444' }}>
                     {tx.amount_usd >= 0 ? '+' : ''}{tx.amount_usd.toFixed(4)}
-                  </td>
-                  <td className="px-5 py-3 text-[12px] text-[var(--th-text-muted)] font-mono tabular-nums">
-                    ${tx.balance_after.toFixed(2)}
-                  </td>
+                  </span>
+                </div>
+                <p className="text-sm text-[var(--th-text-secondary)] truncate">{tx.description || tx.type}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-[var(--th-text-muted)]">
+                    {new Date(tx.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span className="text-[11px] text-[var(--th-text-muted)] font-mono tabular-nums">
+                    {t('billing.colBalance')}: ${tx.balance_after.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Desktop: table view */
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--th-border)]">
+                  {[t('billing.colDate'), t('billing.colType'), t('billing.colDescription'), t('billing.colAmount'), t('billing.colBalance')].map(h => (
+                    <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {visible.map((tx, idx) => (
+                  <tr key={tx.id} className={`transition-colors hover:bg-[var(--th-surface)] ${idx < visible.length - 1 ? 'border-b border-[var(--th-border-light)]' : ''}`}>
+                    <td className="px-5 py-3 text-[13px] text-[var(--th-text-muted)] whitespace-nowrap">
+                      {new Date(tx.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-flex text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase ${TX_TYPE_COLORS[tx.type] ?? 'bg-[var(--th-surface)] text-[var(--th-text-muted)]'}`}>
+                        {t(`billing.txType.${tx.type}`)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)] max-w-[200px] truncate">
+                      {tx.description || tx.type}
+                    </td>
+                    <td className="px-5 py-3 text-sm font-mono font-bold tabular-nums whitespace-nowrap" style={{ color: tx.amount_usd >= 0 ? '#10b981' : '#ef4444' }}>
+                      {tx.amount_usd >= 0 ? '+' : ''}{tx.amount_usd.toFixed(4)}
+                    </td>
+                    <td className="px-5 py-3 text-[12px] text-[var(--th-text-muted)] font-mono tabular-nums">
+                      ${tx.balance_after.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
 
       {/* Load more */}
       {hasMore && (

@@ -56,7 +56,7 @@ function LoginContent() {
         .font-headline { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .input-field {
-          width: 100%; padding: 12px 16px; border-radius: 12px; font-size: 14px;
+          width: 100%; padding: 14px 16px; border-radius: 12px; font-size: 16px;
           background: rgba(255,255,255,0.04); border: 1px solid rgba(140, 144, 159, 0.2);
           color: #dde2f3; outline: none; transition: all 0.2s;
         }
@@ -104,7 +104,7 @@ function LoginContent() {
       </div>
 
       {/* Right — Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+      <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-6 lg:p-12">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
@@ -186,7 +186,7 @@ function LoginContent() {
               </div>
 
               <button onClick={() => { setMode('register'); setError(''); }}
-                className="w-full py-3 rounded-xl text-sm font-medium transition-all"
+                className="w-full py-3 rounded-xl text-sm font-medium transition-all min-h-[44px]"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 Create Account
               </button>
@@ -253,7 +253,7 @@ function LoginContent() {
               </div>
 
               <button onClick={() => { setMode('login'); setError(''); }}
-                className="w-full py-3 rounded-xl text-sm font-medium transition-all"
+                className="w-full py-3 rounded-xl text-sm font-medium transition-all min-h-[44px]"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 Sign In with Password
               </button>
