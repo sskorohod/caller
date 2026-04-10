@@ -100,18 +100,18 @@ export default function ProvidersPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(173, 198, 255, 0.1)' }}>
-              <span className="material-symbols-outlined" style={{ color: '#adc6ff' }}>{cfg.icon}</span>
+              <span className="material-symbols-outlined" style={{ color: 'var(--th-primary-light)' }}>{cfg.icon}</span>
             </div>
             <div>
               <div className="font-bold text-sm">{cfg.label}</div>
               {isOAuth && stripeStatus.business_name && (
-                <div className="text-xs" style={{ color: '#c2c6d6' }}>{stripeStatus.business_name}</div>
+                <div className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{stripeStatus.business_name}</div>
               )}
               {isOAuth && !stripeStatus.business_name && stripeStatus.stripe_user_id && (
-                <div className="text-xs font-mono" style={{ color: '#c2c6d6' }}>{stripeStatus.stripe_user_id}</div>
+                <div className="text-xs font-mono" style={{ color: 'var(--th-text-secondary)' }}>{stripeStatus.stripe_user_id}</div>
               )}
               {!isOAuth && p?.masked_key && (
-                <div className="text-xs font-mono" style={{ color: '#c2c6d6' }}>{p.masked_key}</div>
+                <div className="text-xs font-mono" style={{ color: 'var(--th-text-secondary)' }}>{p.masked_key}</div>
               )}
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function ProvidersPage() {
         </div>
 
         {isOAuth && stripeStatus.email && (
-          <div className="text-xs mb-3" style={{ color: '#c2c6d6' }}>{stripeStatus.email}</div>
+          <div className="text-xs mb-3" style={{ color: 'var(--th-text-secondary)' }}>{stripeStatus.email}</div>
         )}
 
         {stripeSuccess && (
@@ -162,7 +162,7 @@ export default function ProvidersPage() {
               </button>
               <button onClick={() => { setEditing('stripe'); setForm({}); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                style={{ background: '#2f3542', color: '#c2c6d6' }}>
+                style={{ background: '#2f3542', color: 'var(--th-text-secondary)' }}>
                 Enter keys manually
               </button>
             </>
@@ -170,7 +170,7 @@ export default function ProvidersPage() {
           {(isOAuth || p?.connected) && (
             <button onClick={() => handleTest('stripe')} disabled={testing === 'stripe'}
               className="px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ background: 'rgba(173, 198, 255, 0.1)', color: '#adc6ff' }}>
+              style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>
               {testing === 'stripe' ? 'Testing...' : 'Test'}
             </button>
           )}
@@ -182,7 +182,7 @@ export default function ProvidersPage() {
   return (
     <div className="px-3 py-4 md:p-6 space-y-4 md:space-y-6">
       <h1 className="text-xl md:text-2xl font-headline font-bold">Providers</h1>
-      <p className="text-xs md:text-sm" style={{ color: '#c2c6d6' }}>Manage API keys and connections for all services</p>
+      <p className="text-xs md:text-sm" style={{ color: 'var(--th-text-secondary)' }}>Manage API keys and connections for all services</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {renderStripeCard()}
@@ -193,11 +193,11 @@ export default function ProvidersPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(173, 198, 255, 0.1)' }}>
-                    <span className="material-symbols-outlined" style={{ color: '#adc6ff' }}>{cfg.icon}</span>
+                    <span className="material-symbols-outlined" style={{ color: 'var(--th-primary-light)' }}>{cfg.icon}</span>
                   </div>
                   <div>
                     <div className="font-bold text-sm">{cfg.label}</div>
-                    {p?.masked_key && <div className="text-xs font-mono" style={{ color: '#c2c6d6' }}>{p.masked_key}</div>}
+                    {p?.masked_key && <div className="text-xs font-mono" style={{ color: 'var(--th-text-secondary)' }}>{p.masked_key}</div>}
                   </div>
                 </div>
                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${p?.connected ? 'text-green-400' : 'text-gray-500'}`}
@@ -214,7 +214,7 @@ export default function ProvidersPage() {
               <div className="flex gap-2">
                 <button onClick={() => { setEditing(name); setForm({}); }} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#2f3542' }}>Update Keys</button>
                 {p?.connected && (
-                  <button onClick={() => handleTest(name)} disabled={testing === name} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: 'rgba(173, 198, 255, 0.1)', color: '#adc6ff' }}>
+                  <button onClick={() => handleTest(name)} disabled={testing === name} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>
                     {testing === name ? 'Testing...' : 'Test'}
                   </button>
                 )}
@@ -231,15 +231,15 @@ export default function ProvidersPage() {
             <div className="space-y-3">
               {PROVIDER_CONFIG[editing]?.fields.map(f => (
                 <div key={f.key}>
-                  <label className="block text-xs mb-1" style={{ color: '#c2c6d6' }}>{f.label}</label>
+                  <label className="block text-xs mb-1" style={{ color: 'var(--th-text-secondary)' }}>{f.label}</label>
                   <input value={form[f.key] ?? ''} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ background: '#2f3542', color: '#dde2f3', border: 'none', outline: 'none' }} />
+                    className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ background: '#2f3542', color: 'var(--th-text)', border: 'none', outline: 'none' }} />
                 </div>
               ))}
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setEditing(null)} className="px-4 py-2 min-h-[44px] md:min-h-0 text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm font-bold" style={{ background: '#adc6ff', color: '#002e6a' }}>
+              <button onClick={() => setEditing(null)} className="px-4 py-2 min-h-[44px] md:min-h-0 text-sm" style={{ color: 'var(--th-text-secondary)' }}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm font-bold" style={{ background: 'var(--th-primary-light)', color: '#002e6a' }}>
                 {saving ? 'Saving...' : 'Save'}
               </button>
             </div>

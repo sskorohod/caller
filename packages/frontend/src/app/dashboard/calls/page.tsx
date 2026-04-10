@@ -725,7 +725,7 @@ export default function CallsPage() {
                   {t('calls.clearFilters')}
                 </button>
                 <button onClick={applyFilters}
-                  className="px-4 py-1 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-[10px] font-semibold uppercase tracking-wider rounded-lg transition-colors">
+                  className="btn-primary px-4 py-1 text-[10px] uppercase tracking-wider rounded-lg">
                   {t('calls.applyFilters')}
                 </button>
               </div>

@@ -37,13 +37,13 @@ export default function SessionsPage() {
 
   const renderTranscript = (s: Session) => (
     <div className="p-3 md:p-4" style={{ background: 'rgba(22,28,40,0.5)' }}>
-      <div className="text-xs font-bold uppercase mb-2" style={{ color: '#c2c6d6' }}>Transcript</div>
+      <div className="text-xs font-bold uppercase mb-2" style={{ color: 'var(--th-text-secondary)' }}>Transcript</div>
       <div className="space-y-2 max-h-64 overflow-y-auto">
         {(Array.isArray(s.transcript) ? s.transcript : []).map((t: any, i: number) => (
           <div key={i} className="text-xs">
-            <span className="font-bold" style={{ color: t.speaker === 'subscriber' ? '#adc6ff' : '#d0bcff' }}>{t.speaker}:</span>{' '}
+            <span className="font-bold" style={{ color: t.speaker === 'subscriber' ? 'var(--th-primary-light)' : 'var(--th-accent-purple)' }}>{t.speaker}:</span>{' '}
             <span>{t.text}</span>
-            {t.translated && <span className="italic ml-2" style={{ color: '#c2c6d6' }}>&rarr; {t.translated}</span>}
+            {t.translated && <span className="italic ml-2" style={{ color: 'var(--th-text-secondary)' }}>&rarr; {t.translated}</span>}
           </div>
         ))}
         {(!s.transcript || (Array.isArray(s.transcript) && s.transcript.length === 0)) && <p className="opacity-50">No transcript data</p>}
@@ -58,8 +58,8 @@ export default function SessionsPage() {
       <div className="grid grid-cols-3 gap-3 md:gap-4">
         {statCards.map(c => (
           <div key={c.label} className="glass-panel rounded-2xl p-3 md:p-5">
-            <div className="text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 md:mb-2" style={{ color: '#c2c6d6' }}>{c.label}</div>
-            <div className="text-lg md:text-2xl font-headline font-bold" style={{ color: '#adc6ff' }}>{c.value}</div>
+            <div className="text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 md:mb-2" style={{ color: 'var(--th-text-secondary)' }}>{c.label}</div>
+            <div className="text-lg md:text-2xl font-headline font-bold" style={{ color: 'var(--th-primary-light)' }}>{c.value}</div>
           </div>
         ))}
       </div>
@@ -71,11 +71,11 @@ export default function SessionsPage() {
               <div className="p-4 cursor-pointer active:bg-white/5" onClick={() => setExpanded(expanded === s.id ? null : s.id)}>
                 <div className="flex justify-between items-center">
                   <span className="font-mono text-sm">{Math.floor(s.duration_seconds / 60)}m {s.duration_seconds % 60}s</span>
-                  <span className="font-mono text-sm font-bold" style={{ color: '#4ade80' }}>${parseFloat(s.cost_usd).toFixed(3)}</span>
+                  <span className="font-mono text-sm font-bold" style={{ color: 'var(--th-success-text)' }}>${parseFloat(s.cost_usd).toFixed(3)}</span>
                 </div>
                 <div className="flex justify-between items-center mt-1.5">
-                  <span className="text-[11px]" style={{ color: '#c2c6d6' }}>{new Date(s.created_at).toLocaleString()}</span>
-                  <span className="px-2 py-0.5 rounded text-[10px]" style={s.status === 'completed' ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' } : { background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>{s.status}</span>
+                  <span className="text-[11px]" style={{ color: 'var(--th-text-secondary)' }}>{new Date(s.created_at).toLocaleString()}</span>
+                  <span className="px-2 py-0.5 rounded text-[10px]" style={s.status === 'completed' ? { background: 'rgba(74,222,128,0.1)', color: 'var(--th-success-text)' } : { background: 'rgba(251,191,36,0.1)', color: 'var(--th-warning-text)' }}>{s.status}</span>
                 </div>
               </div>
               {expanded === s.id && s.transcript && renderTranscript(s)}
@@ -87,7 +87,7 @@ export default function SessionsPage() {
         <div className="glass-panel rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left" style={{ color: '#c2c6d6' }}>
+              <tr className="text-left" style={{ color: 'var(--th-text-secondary)' }}>
                 <th className="px-4 py-3 font-medium">Date</th>
                 <th className="px-4 py-3 font-medium">Duration</th>
                 <th className="px-4 py-3 font-medium">Minutes</th>
@@ -98,14 +98,14 @@ export default function SessionsPage() {
             <tbody>
               {sessions.map(s => (
                 <>
-                  <tr key={s.id} className="cursor-pointer hover:bg-white/5 border-t" style={{ borderColor: 'rgba(66,71,84,0.15)' }}
+                  <tr key={s.id} className="cursor-pointer hover:bg-white/5 border-t" style={{ borderColor: 'var(--th-border)' }}
                     onClick={() => setExpanded(expanded === s.id ? null : s.id)}>
                     <td className="px-4 py-3">{new Date(s.created_at).toLocaleString()}</td>
                     <td className="px-4 py-3 font-mono">{Math.floor(s.duration_seconds / 60)}m {s.duration_seconds % 60}s</td>
                     <td className="px-4 py-3 font-mono">{parseFloat(s.minutes_used).toFixed(1)}</td>
-                    <td className="px-4 py-3 font-mono" style={{ color: '#4ade80' }}>${parseFloat(s.cost_usd).toFixed(3)}</td>
+                    <td className="px-4 py-3 font-mono" style={{ color: 'var(--th-success-text)' }}>${parseFloat(s.cost_usd).toFixed(3)}</td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-xs" style={s.status === 'completed' ? { background: 'rgba(74,222,128,0.1)', color: '#4ade80' } : { background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>{s.status}</span>
+                      <span className="px-2 py-0.5 rounded text-xs" style={s.status === 'completed' ? { background: 'rgba(74,222,128,0.1)', color: 'var(--th-success-text)' } : { background: 'rgba(251,191,36,0.1)', color: 'var(--th-warning-text)' }}>{s.status}</span>
                     </td>
                   </tr>
                   {expanded === s.id && s.transcript && (

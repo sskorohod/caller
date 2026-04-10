@@ -104,6 +104,10 @@
   /* Bar chart gradient */
   --th-bar-primary: linear-gradient(180deg, #818cf8 0%, #6366f1 100%);
   --th-bar-muted: linear-gradient(180deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.08) 100%);
+  /* Accent purple */
+  --th-accent-purple: #7c3aed;
+  --th-accent-purple-bg: rgba(124,58,237,0.08);
+  --th-accent-purple-text: #7c3aed;
 }
 
 [data-theme="dark"] {
@@ -124,7 +128,7 @@
   /* Text — zinc scale, off-white */
   --th-text: #e4e4e7;
   --th-text-secondary: #a1a1a9;
-  --th-text-muted: #63636b;
+  --th-text-muted: #7c7c85;
   --th-text-dark: #c8c8cd;
   /* Borders */
   --th-border: #27272b;
@@ -196,6 +200,10 @@
   /* Bar chart gradient */
   --th-bar-primary: linear-gradient(180deg, #818cf8 0%, #6366f1 100%);
   --th-bar-muted: linear-gradient(180deg, rgba(99,102,241,0.3) 0%, rgba(99,102,241,0.12) 100%);
+  /* Accent purple */
+  --th-accent-purple: #c4b5fd;
+  --th-accent-purple-bg: rgba(167,139,250,0.12);
+  --th-accent-purple-text: #c4b5fd;
 }
 
 /* ─── Mobile Design Tokens ────────────────────────────────────────────── */
@@ -285,3 +293,59 @@ body {
 /* Card press feedback */
 .card-press { transition: transform 0.1s ease; }
 .card-press:active { transform: scale(0.98); }
+
+/* ─── Button Variants ────────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(to right, var(--th-primary), var(--th-primary-hover));
+  color: #fff; font-weight: 600; font-size: 0.875rem;
+  border-radius: 0.75rem;
+  transition: box-shadow 0.15s, transform 0.1s;
+  box-shadow: 0 1px 3px var(--th-shadow);
+}
+.btn-primary:hover { box-shadow: 0 4px 16px var(--th-shadow-primary); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--th-surface); color: var(--th-text);
+  font-weight: 500; font-size: 0.875rem;
+  border: 1px solid var(--th-card-border-subtle); border-radius: 0.75rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-secondary:hover { background: var(--th-surface-hover); }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--th-primary-text);
+  font-weight: 500; font-size: 0.875rem;
+  border-radius: 0.75rem; transition: background 0.15s;
+}
+.btn-ghost:hover { background: var(--th-primary-bg); }
+
+/* ─── Input Base ─────────────────────────────────────────────────────── */
+.input-base {
+  width: 100%; padding: 0.625rem 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--th-input-border);
+  background: var(--th-input); color: var(--th-text);
+  font-size: 0.875rem; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input-base::placeholder { color: var(--th-text-muted); }
+.input-base:focus { border-color: var(--th-primary); box-shadow: 0 0 0 3px var(--th-primary-bg); }
+.input-base:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Focus-visible ring ─────────────────────────────────────────────── */
+:focus-visible { outline: 2px solid var(--th-primary); outline-offset: 2px; }
+button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
+
+/* ─── Status Badges ──────────────────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+.badge-success { background: var(--th-success-bg); color: var(--th-success-text); }
+.badge-error { background: var(--th-error-bg); color: var(--th-error-text); }
+.badge-warning { background: var(--th-warning-bg); color: var(--th-warning-text); }
+.badge-info { background: var(--th-info-bg); color: var(--th-info-text); }
+.badge-neutral { background: var(--th-surface); color: var(--th-text-muted); }

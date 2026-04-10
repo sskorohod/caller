@@ -83,7 +83,7 @@ export function ApiKeysSection() {
         </div>
         <button
           onClick={() => { setModal(true); setNewKey(null); }}
-          className="shrink-0 px-3.5 py-2 min-h-[44px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-xs font-semibold rounded-xl transition-all active:scale-[.98] flex items-center gap-1.5 shadow-sm shadow-[var(--th-shadow-primary)]"
+          className="shrink-0 px-3.5 py-2 min-h-[44px] btn-primary flex items-center gap-1.5 shadow-sm shadow-[var(--th-shadow-primary)]"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -241,7 +241,7 @@ export function ApiKeysSection() {
                     </button>
                   </div>
                 </div>
-                <button onClick={() => { setModal(false); setNewKey(null); }} className="w-full py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all">
+                <button onClick={() => { setModal(false); setNewKey(null); }} className="w-full py-2.5 btn-primary">
                   Done
                 </button>
               </div>
@@ -264,7 +264,7 @@ export function ApiKeysSection() {
                   <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">
                     {t('common.cancel')}
                   </button>
-                  <button type="submit" disabled={creating || !keyName.trim()} className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all disabled:opacity-60">
+                  <button type="submit" disabled={creating || !keyName.trim()} className="px-4 py-2.5 btn-primary">
                     {creating ? t('settings.generating') : t('settings.generate')}
                   </button>
                 </div>

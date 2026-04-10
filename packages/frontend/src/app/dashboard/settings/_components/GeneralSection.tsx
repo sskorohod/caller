@@ -185,7 +185,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
           <button
             onClick={save}
             disabled={saving}
-            className="px-5 py-2.5 min-h-[44px] w-full sm:w-auto bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all disabled:opacity-60 active:scale-[.98] shadow-sm"
+            className="px-5 py-2.5 min-h-[44px] w-full sm:w-auto btn-primary shadow-sm"
           >
             {saving ? t('settings.saving') : t('settings.saveChanges')}
           </button>

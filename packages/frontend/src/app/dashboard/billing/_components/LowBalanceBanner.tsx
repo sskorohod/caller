@@ -34,7 +34,7 @@ export function LowBalanceBanner({ balance, onQuickDeposit, t }: LowBalanceBanne
       </div>
       <button
         onClick={() => onQuickDeposit(25)}
-        className={`shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all ${
+        className={`shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-colors ${
           isCritical
             ? 'bg-[var(--th-error-text)] text-white hover:opacity-90'
             : 'bg-[var(--th-warning-text)] text-white hover:opacity-90'

@@ -26,7 +26,7 @@ export function Field({
           className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)]
                      placeholder:text-[var(--th-text-muted)] bg-[var(--th-card)]
                      focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)]
-                     transition-all pr-10"
+                     transition-[border-color,box-shadow] pr-10"
         />
         {isSecret && (
           <button

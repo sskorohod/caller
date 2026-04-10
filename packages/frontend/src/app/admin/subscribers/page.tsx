@@ -51,8 +51,6 @@ const DEFAULT_FORM = {
   enabled: true,
 };
 
-const inputStyle = { background: '#2f3542', color: '#dde2f3', border: 'none' };
-const btnPrimary = { background: '#adc6ff', color: '#002e6a' };
 
 export default function AdminSubscribersPage() {
   const isMobile = useIsMobile();
@@ -165,7 +163,7 @@ export default function AdminSubscribersPage() {
   const getStatusBadge = (sub: Subscriber) => {
     const status = sub.status || (sub.enabled ? 'active' : 'disabled');
     const colors: Record<string, { bg: string; text: string }> = {
-      active: { bg: 'rgba(74, 222, 128, 0.1)', text: '#4ade80' },
+      active: { bg: 'rgba(74, 222, 128, 0.1)', text: 'var(--th-success-text)' },
       blocked: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171' },
       disabled: { bg: 'rgba(156, 163, 175, 0.1)', text: '#9ca3af' },
     };
@@ -184,12 +182,11 @@ export default function AdminSubscribersPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-headline font-bold">Subscribers</h1>
-          <p className="text-xs md:text-sm mt-1" style={{ color: '#c2c6d6' }}>{subscribers.length} total subscribers</p>
+          <p className="text-xs md:text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>{subscribers.length} total subscribers</p>
         </div>
         <button
           onClick={() => { setForm(DEFAULT_FORM); setEditingId(null); setShowForm(true); }}
-          className="px-3 md:px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold flex items-center gap-1 md:gap-2 transition hover:opacity-90 whitespace-nowrap"
-          style={btnPrimary}
+          className="btn-primary px-4 py-2.5 px-3 md:px-4 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold flex items-center gap-1 md:gap-2 transition hover:opacity-90 whitespace-nowrap"
         >
           <span className="material-symbols-outlined text-lg">add</span>
           <span className="hidden md:inline">New Subscriber</span>
@@ -200,20 +197,18 @@ export default function AdminSubscribersPage() {
       {/* Search & Filter */}
       <div className="flex flex-col md:flex-row gap-2 md:gap-3">
         <div className="relative flex-1 md:max-w-sm">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: '#c2c6d6' }}>search</span>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'var(--th-text-secondary)' }}>search</span>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or phone..."
-            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
-            style={inputStyle}
+            className="input-base w-full pl-10 pr-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
           />
         </div>
         <select
           value={filter}
           onChange={e => setFilter(e.target.value as typeof filter)}
-          className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
-          style={inputStyle}
+          className="input-base px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -231,36 +226,36 @@ export default function AdminSubscribersPage() {
                 <span className="font-medium text-sm truncate">{sub.name}</span>
                 {getStatusBadge(sub)}
               </div>
-              <div className="flex items-center gap-2 text-xs" style={{ color: '#c2c6d6' }}>
+              <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--th-text-secondary)' }}>
                 <span className="font-mono">{sub.phone_number}</span>
-                <span className="px-1.5 py-0.5 rounded-lg" style={{ background: 'rgba(173, 198, 255, 0.1)', color: '#adc6ff' }}>{sub.mode}</span>
+                <span className="px-1.5 py-0.5 rounded-lg" style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>{sub.mode}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div>
-                  <span style={{ color: '#adc6ff' }}>{sub.my_language}</span>
+                  <span style={{ color: 'var(--th-primary-light)' }}>{sub.my_language}</span>
                   <span className="mx-1 opacity-30">&harr;</span>
-                  <span style={{ color: '#d0bcff' }}>{sub.target_language}</span>
+                  <span style={{ color: 'var(--th-accent-purple)' }}>{sub.target_language}</span>
                 </div>
-                <span className={`font-mono font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: '#4ade80' } : {}}>
+                <span className={`font-mono font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: 'var(--th-success-text)' } : {}}>
                   {parseFloat(sub.balance_minutes).toFixed(1)} min
                 </span>
               </div>
-              <div className="flex items-center gap-1 pt-1" style={{ borderTop: '1px solid rgba(66,71,84,0.15)' }}>
-                <button onClick={() => handleEdit(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" title="Edit">
-                  <span className="material-symbols-outlined text-base" style={{ color: '#adc6ff' }}>edit</span>
+              <div className="flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--th-border)' }}>
+                <button onClick={() => handleEdit(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Edit" title="Edit">
+                  <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-primary-light)' }}>edit</span>
                 </button>
-                <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-2 rounded-lg hover:bg-white/5 transition" title="Add Minutes">
-                  <span className="material-symbols-outlined text-base" style={{ color: '#d0bcff' }}>add_card</span>
+                <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Add Minutes" title="Add Minutes">
+                  <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-accent-purple)' }}>add_card</span>
                 </button>
-                <button onClick={() => handleBlock(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
-                  <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? '#4ade80' : '#fbbf24' }}>
+                <button onClick={() => handleBlock(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label={sub.status === 'blocked' ? 'Unblock' : 'Block'} title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
+                  <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? 'var(--th-success-text)' : 'var(--th-warning-text)' }}>
                     {sub.status === 'blocked' ? 'lock_open' : 'block'}
                   </span>
                 </button>
-                <button onClick={() => handleDelete(sub.id)} className="p-2 rounded-lg hover:bg-white/5 transition" title="Delete">
+                <button onClick={() => handleDelete(sub.id)} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Delete" title="Delete">
                   <span className="material-symbols-outlined text-base" style={{ color: '#f87171' }}>delete</span>
                 </button>
-                <span className="ml-auto text-xs" style={{ color: '#c2c6d6' }}>{new Date(sub.created_at).toLocaleDateString()}</span>
+                <span className="ml-auto text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sub.created_at).toLocaleDateString()}</span>
               </div>
             </div>
           ))}
@@ -272,51 +267,51 @@ export default function AdminSubscribersPage() {
         <div className="glass-panel rounded-2xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left" style={{ borderBottom: '1px solid rgba(66, 71, 84, 0.15)' }}>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Name</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Phone</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Languages</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Mode</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Balance</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Status</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Created</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Actions</th>
+              <tr className="text-left" style={{ borderBottom: '1px solid var(--th-border)' }}>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Name</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Phone</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Languages</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Mode</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Balance</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Status</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Created</th>
+                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(sub => (
-                <tr key={sub.id} className="hover:bg-white/[0.02] transition" style={{ borderBottom: '1px solid rgba(66, 71, 84, 0.15)' }}>
+                <tr key={sub.id} className="hover:bg-white/[0.02] transition" style={{ borderBottom: '1px solid var(--th-border)' }}>
                   <td className="px-5 py-3.5 font-medium">{sub.name}</td>
-                  <td className="px-5 py-3.5 font-mono text-xs" style={{ color: '#c2c6d6' }}>{sub.phone_number}</td>
+                  <td className="px-5 py-3.5 font-mono text-xs" style={{ color: 'var(--th-text-secondary)' }}>{sub.phone_number}</td>
                   <td className="px-5 py-3.5">
-                    <span className="text-xs" style={{ color: '#adc6ff' }}>{sub.my_language}</span>
+                    <span className="text-xs" style={{ color: 'var(--th-primary-light)' }}>{sub.my_language}</span>
                     <span className="mx-1 opacity-30">&harr;</span>
-                    <span className="text-xs" style={{ color: '#d0bcff' }}>{sub.target_language}</span>
+                    <span className="text-xs" style={{ color: 'var(--th-accent-purple)' }}>{sub.target_language}</span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="px-2 py-0.5 rounded-lg text-xs" style={{ background: 'rgba(173, 198, 255, 0.1)', color: '#adc6ff' }}>{sub.mode}</span>
+                    <span className="px-2 py-0.5 rounded-lg text-xs" style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>{sub.mode}</span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`font-mono text-xs font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: '#4ade80' } : {}}>
+                    <span className={`font-mono text-xs font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: 'var(--th-success-text)' } : {}}>
                       {parseFloat(sub.balance_minutes).toFixed(1)} min
                     </span>
                   </td>
                   <td className="px-5 py-3.5">{getStatusBadge(sub)}</td>
-                  <td className="px-5 py-3.5 text-xs" style={{ color: '#c2c6d6' }}>{new Date(sub.created_at).toLocaleDateString()}</td>
+                  <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sub.created_at).toLocaleDateString()}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1">
-                      <button onClick={() => handleEdit(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Edit">
-                        <span className="material-symbols-outlined text-base" style={{ color: '#adc6ff' }}>edit</span>
+                      <button onClick={() => handleEdit(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label="Edit" title="Edit">
+                        <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-primary-light)' }}>edit</span>
                       </button>
-                      <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Add Minutes">
-                        <span className="material-symbols-outlined text-base" style={{ color: '#d0bcff' }}>add_card</span>
+                      <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label="Add Minutes" title="Add Minutes">
+                        <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-accent-purple)' }}>add_card</span>
                       </button>
-                      <button onClick={() => handleBlock(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
-                        <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? '#4ade80' : '#fbbf24' }}>
+                      <button onClick={() => handleBlock(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label={sub.status === 'blocked' ? 'Unblock' : 'Block'} title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
+                        <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? 'var(--th-success-text)' : 'var(--th-warning-text)' }}>
                           {sub.status === 'blocked' ? 'lock_open' : 'block'}
                         </span>
                       </button>
-                      <button onClick={() => handleDelete(sub.id)} className="p-1.5 rounded-lg hover:bg-white/5 transition" title="Delete">
+                      <button onClick={() => handleDelete(sub.id)} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label="Delete" title="Delete">
                         <span className="material-symbols-outlined text-base" style={{ color: '#f87171' }}>delete</span>
                       </button>
                     </div>
@@ -338,28 +333,28 @@ export default function AdminSubscribersPage() {
             <h2 className="text-lg font-headline font-bold mb-4">Add Minutes</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Amount (minutes)</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Amount (minutes)</label>
                 <input type="number" value={balanceForm.amount} onChange={e => setBalanceForm(f => ({ ...f, amount: Number(e.target.value) }))}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
+                  className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Type</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Type</label>
                 <select value={balanceForm.type} onChange={e => setBalanceForm(f => ({ ...f, type: e.target.value as 'topup' | 'gift' }))}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle}>
+                  className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
                   <option value="topup">Top-up (paid)</option>
                   <option value="gift">Gift (free)</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Comment</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Comment</label>
                 <input value={balanceForm.comment} onChange={e => setBalanceForm(f => ({ ...f, comment: e.target.value }))}
-                  placeholder="Optional note..." className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
+                  placeholder="Optional note..." className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowBalance(null)} className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
+              <button onClick={() => setShowBalance(null)} className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: 'var(--th-text-secondary)' }}>Cancel</button>
               <button onClick={handleAddBalance} disabled={!balanceForm.amount}
-                className="px-5 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90" style={btnPrimary}>
+                className="btn-primary px-4 py-2.5 px-5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90">
                 Add Minutes
               </button>
             </div>
@@ -378,35 +373,35 @@ export default function AdminSubscribersPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Name *</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Name *</label>
                   <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={inputStyle} />
+                    className="input-base w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Phone *</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Phone *</label>
                   <input value={form.phone_number} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))}
-                    placeholder="+1..." className="w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={inputStyle} />
+                    placeholder="+1..." className="input-base w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Email</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Email</label>
                 <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
+                  className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>My Language</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>My Language</label>
                   <select value={form.my_language} onChange={e => setForm(f => ({ ...f, my_language: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle}>
+                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
                     {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Target Language</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Target Language</label>
                   <select value={form.target_language} onChange={e => setForm(f => ({ ...f, target_language: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle}>
+                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
                     {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                   </select>
                 </div>
@@ -414,18 +409,18 @@ export default function AdminSubscribersPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Translation Mode</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Translation Mode</label>
                   <select value={form.mode} onChange={e => setForm(f => ({ ...f, mode: e.target.value as typeof DEFAULT_FORM.mode }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle}>
+                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
                     <option value="voice">Voice</option>
                     <option value="text">Text only</option>
                     <option value="both">Voice + Text</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Who Hears Translation</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Who Hears Translation</label>
                   <select value={form.who_hears} onChange={e => setForm(f => ({ ...f, who_hears: e.target.value as typeof DEFAULT_FORM.who_hears }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle}>
+                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
                     <option value="subscriber">Only subscriber</option>
                     <option value="both">Both parties</option>
                   </select>
@@ -433,46 +428,46 @@ export default function AdminSubscribersPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Greeting Text</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Greeting Text</label>
                 <textarea value={form.greeting_text} onChange={e => setForm(f => ({ ...f, greeting_text: e.target.value }))}
-                  rows={2} className="w-full px-4 py-2.5 rounded-xl text-sm resize-none" style={inputStyle} />
+                  rows={2} className="input-base w-full px-4 py-2.5 rounded-xl text-sm resize-none" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>TTS Provider</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>TTS Provider</label>
                   <select value={form.tts_provider} onChange={e => setForm(f => ({ ...f, tts_provider: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle}>
+                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
                     <option value="elevenlabs">ElevenLabs</option>
                     <option value="openai">OpenAI</option>
                     <option value="xai">xAI Grok</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Balance (minutes)</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Balance (minutes)</label>
                   <input type="number" value={form.balance_minutes} onChange={e => setForm(f => ({ ...f, balance_minutes: Number(e.target.value) }))}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
+                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: '#c2c6d6' }}>Telegram Chat ID</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Telegram Chat ID</label>
                 <input value={form.telegram_chat_id} onChange={e => setForm(f => ({ ...f, telegram_chat_id: e.target.value }))}
-                  placeholder="Optional" className="w-full px-4 py-2.5 rounded-xl text-sm" style={inputStyle} />
+                  placeholder="Optional" className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
               </div>
 
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input type="checkbox" checked={form.enabled} onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                   className="rounded" />
-                <span className="text-sm" style={{ color: '#c2c6d6' }}>Enabled</span>
+                <span className="text-sm" style={{ color: 'var(--th-text-secondary)' }}>Enabled</span>
               </label>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => { setShowForm(false); setEditingId(null); }}
-                className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: '#c2c6d6' }}>Cancel</button>
+                className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: 'var(--th-text-secondary)' }}>Cancel</button>
               <button onClick={handleSave} disabled={saving || !form.name || !form.phone_number}
-                className="px-5 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90" style={btnPrimary}>
+                className="btn-primary px-4 py-2.5 px-5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90">
                 {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
               </button>
             </div>

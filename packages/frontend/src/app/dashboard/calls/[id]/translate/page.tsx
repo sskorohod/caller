@@ -222,7 +222,7 @@ export default function TranslatePage() {
                 disabled={isActive}
                 className={`px-3 py-2 md:py-1.5 min-h-[44px] md:min-h-0 text-[10px] font-semibold rounded-lg transition-all disabled:opacity-40 ${
                   mode === m
-                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_var(--th-shadow-primary)]'
                     : 'text-[var(--th-text-secondary)] hover:text-[var(--th-text)]'
                 }`}
               >
@@ -360,7 +360,7 @@ export default function TranslatePage() {
         {!isActive ? (
           <button
             onClick={handleStart}
-            className="w-full py-3 md:py-2.5 min-h-[48px] rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all active:scale-[0.98]"
+            className="btn-primary w-full py-3 md:py-2.5 min-h-[48px] rounded-xl"
           >
             {t('translate.start')}
           </button>

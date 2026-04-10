@@ -213,7 +213,7 @@ export default function KnowledgePage() {
               <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{selectedKB.description}</p>
             )}
           </div>
-          <button onClick={() => setDocModal(true)} className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-2xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
+          <button onClick={() => setDocModal(true)} className="px-4 py-2.5 btn-primary shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {t('knowledge.addDoc')}
           </button>
@@ -243,7 +243,7 @@ export default function KnowledgePage() {
             </div>
             <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('knowledge.noDocs')}</p>
             <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('knowledge.noDocsDesc')}</p>
-            <button onClick={() => setDocModal(true)} className="px-4 py-2 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-medium rounded-lg transition-all">{t('knowledge.addDoc')}</button>
+            <button onClick={() => setDocModal(true)} className="px-4 py-2 btn-primary">{t('knowledge.addDoc')}</button>
           </div>
         ) : (
           <>
@@ -420,7 +420,7 @@ export default function KnowledgePage() {
               {editingDoc && (
                 <div className="flex justify-end gap-3 px-6 py-4 border-t border-[var(--th-card-border-subtle)]">
                   <button type="button" onClick={() => setEditingDoc(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg">{t('common.cancel')}</button>
-                  <button onClick={handleSaveDoc} disabled={editSaving} className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-lg disabled:opacity-60 transition-all">
+                  <button onClick={handleSaveDoc} disabled={editSaving} className="px-4 py-2.5 btn-primary disabled:opacity-60">
                     {editSaving ? t('knowledge.saving') : t('knowledge.saveDoc')}
                   </button>
                 </div>
@@ -486,7 +486,7 @@ export default function KnowledgePage() {
                 )}
                 <div className="flex justify-end gap-3 pt-2">
                   <button type="button" onClick={() => setDocModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg">{t('common.cancel')}</button>
-                  <button type="submit" disabled={docSaving} className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-lg disabled:opacity-60 transition-all">
+                  <button type="submit" disabled={docSaving} className="px-4 py-2.5 btn-primary disabled:opacity-60">
                     {docSaving ? t('knowledge.adding') : t('knowledge.addDoc')}
                   </button>
                 </div>
@@ -507,7 +507,7 @@ export default function KnowledgePage() {
           <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('knowledge.subtitle')}</p>
         </div>
         {bases.length > 0 && (
-          <button onClick={() => setModal(true)} className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-2xl transition-all active:scale-[.98] shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
+          <button onClick={() => setModal(true)} className="px-4 py-2.5 btn-primary shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             {t('knowledge.newKB')}
           </button>
@@ -529,7 +529,7 @@ export default function KnowledgePage() {
           </div>
           <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('knowledge.noBases')}</p>
           <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('knowledge.noBasesDesc')}</p>
-          <button onClick={() => setModal(true)} className="px-4 py-2 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-medium rounded-lg transition-all">{t('knowledge.createKB')}</button>
+          <button onClick={() => setModal(true)} className="px-4 py-2 btn-primary">{t('knowledge.createKB')}</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -587,7 +587,7 @@ export default function KnowledgePage() {
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setModal(false)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg">{t('common.cancel')}</button>
-                <button type="submit" disabled={saving} className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-lg disabled:opacity-60 transition-all">
+                <button type="submit" disabled={saving} className="px-4 py-2.5 btn-primary disabled:opacity-60">
                   {saving ? t('knowledge.creating') : t('common.create')}
                 </button>
               </div>

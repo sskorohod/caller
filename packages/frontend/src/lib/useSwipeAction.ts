@@ -2,6 +2,9 @@
 import { useRef, useState, useCallback } from 'react';
 import type { TouchEvent as ReactTouchEvent, CSSProperties } from 'react';
 
+const DEFAULT_SWIPE_THRESHOLD = 80;
+const DEFAULT_MAX_SWIPE = 120;
+
 interface SwipeActionOptions {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
@@ -12,8 +15,8 @@ interface SwipeActionOptions {
 export function useSwipeAction({
   onSwipeLeft,
   onSwipeRight,
-  threshold = 80,
-  maxSwipe = 120,
+  threshold = DEFAULT_SWIPE_THRESHOLD,
+  maxSwipe = DEFAULT_MAX_SWIPE,
 }: SwipeActionOptions = {}) {
   const [offsetX, setOffsetX] = useState(0);
   const startX = useRef(0);

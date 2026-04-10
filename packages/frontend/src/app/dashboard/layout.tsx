@@ -124,9 +124,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     key={item.href}
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-[background,color,box-shadow] ${
                       isActive
-                        ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+                        ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_var(--th-shadow-primary)]'
                         : 'text-[var(--th-sidebar-text)] hover:bg-[var(--th-sidebar-hover)] hover:text-white'
                     }`}
                   >
@@ -187,7 +187,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {workspace?.plan === 'translator' && (
         <div className="px-3 py-2">
           <Link href="/dashboard/billing"
-            className="block p-3 rounded-xl overflow-hidden relative group transition-all hover:shadow-[0_4px_20px_rgba(99,102,241,0.25)]"
+            className="block p-3 rounded-xl overflow-hidden relative group transition-shadow hover:shadow-[0_4px_20px_var(--th-shadow-primary)]"
             style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))' }}>
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative">

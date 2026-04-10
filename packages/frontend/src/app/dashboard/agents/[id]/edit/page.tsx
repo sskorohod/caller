@@ -625,7 +625,7 @@ export default function AgentEditPage() {
                 }}
                 className={`px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium border transition-all ${
                   form.voice_provider === p.value
-                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white border-transparent shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white border-transparent shadow-[0_2px_8px_var(--th-shadow-primary)]'
                     : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary)]'
                 }`}
               >
@@ -676,7 +676,7 @@ export default function AgentEditPage() {
                 }}
                 className={`px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium border transition-all ${
                   form.llm_provider === p.value
-                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white border-transparent shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                    ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white border-transparent shadow-[0_2px_8px_var(--th-shadow-primary)]'
                     : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary)]'
                 }`}
               >
@@ -744,7 +744,7 @@ export default function AgentEditPage() {
             type="button"
             onClick={suggestSkills}
             disabled={suggestingSkills}
-            className="px-3 py-1.5 text-[10px] font-semibold rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] disabled:opacity-40 transition-all"
+            className="px-3 py-1.5 text-[10px] btn-primary disabled:opacity-40"
           >
             {suggestingSkills ? t('agents.suggestLoading') : t('agents.suggestSkills')}
           </button>
@@ -764,7 +764,7 @@ export default function AgentEditPage() {
             <button
               type="button"
               onClick={applySuggestions}
-              className="px-3 py-1.5 text-[10px] font-semibold rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all"
+              className="px-3 py-1.5 text-[10px] btn-primary"
             >
               {t('agents.applySuggestions')}
             </button>
@@ -1026,7 +1026,7 @@ export default function AgentEditPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-40 transition-all font-semibold min-h-[44px]"
+            className="px-4 py-2 text-sm min-h-[44px] btn-primary disabled:opacity-40"
           >
             {saving ? t('agents.saving') : t('common.save')}
           </button>
@@ -1044,7 +1044,7 @@ export default function AgentEditPage() {
               onClick={() => setSection(s)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all mx-2 rounded-xl ${
                 section === s
-                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold shadow-[0_2px_8px_var(--th-shadow-primary)]'
                   : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)]'
               }`}
             >

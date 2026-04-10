@@ -25,9 +25,9 @@ interface Transaction {
 }
 
 const planBadge: Record<string, { bg: string; color: string }> = {
-  translator: { bg: 'rgba(173,198,255,0.1)', color: '#adc6ff' },
-  agents: { bg: 'rgba(74,222,128,0.1)', color: '#4ade80' },
-  agents_mcp: { bg: 'rgba(208,188,255,0.1)', color: '#d0bcff' },
+  translator: { bg: 'rgba(173,198,255,0.1)', color: 'var(--th-primary-light)' },
+  agents: { bg: 'rgba(74,222,128,0.1)', color: 'var(--th-success-text)' },
+  agents_mcp: { bg: 'rgba(208,188,255,0.1)', color: 'var(--th-accent-purple)' },
 };
 
 export default function AdminWorkspaces() {
@@ -88,7 +88,7 @@ export default function AdminWorkspaces() {
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div>
         <h1 className="text-lg md:text-2xl font-headline font-bold">Workspaces</h1>
-        <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Manage workspace plans and deposits</p>
+        <p className="text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Manage workspace plans and deposits</p>
       </div>
 
       {/* Filters */}
@@ -124,12 +124,12 @@ export default function AdminWorkspaces() {
                         <div className="font-medium text-sm truncate">{ws.name}</div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ background: badge.bg, color: badge.color }}>{ws.plan}</span>
-                          {ws.subscription_status === 'active' ? <span className="text-[10px]" style={{ color: '#4ade80' }}>Active</span> :
-                           ws.subscription_status === 'canceled' ? <span className="text-[10px]" style={{ color: '#fbbf24' }}>Canceled</span> :
+                          {ws.subscription_status === 'active' ? <span className="text-[10px]" style={{ color: 'var(--th-success-text)' }}>Active</span> :
+                           ws.subscription_status === 'canceled' ? <span className="text-[10px]" style={{ color: 'var(--th-warning-text)' }}>Canceled</span> :
                            ws.subscription_status === 'past_due' ? <span className="text-[10px]" style={{ color: '#f87171' }}>Past Due</span> : null}
                         </div>
                       </div>
-                      <span className="font-mono text-sm font-bold" style={{ color: ws.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
+                      <span className="font-mono text-sm font-bold" style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
                         ${ws.balance_usd.toFixed(2)}
                       </span>
                     </div>
@@ -142,11 +142,11 @@ export default function AdminWorkspaces() {
             <div className="glass-panel rounded-2xl p-0 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left border-b" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Name</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Plan</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Balance</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Subscription</th>
+                  <tr className="text-left border-b" style={{ borderColor: 'var(--th-border)' }}>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Name</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Plan</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Balance</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Subscription</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,19 +156,19 @@ export default function AdminWorkspaces() {
                       <tr key={ws.id}
                         onClick={() => selectWorkspace(ws)}
                         className="border-b cursor-pointer hover:bg-white/5 transition"
-                        style={{ borderColor: 'rgba(66,71,84,0.1)', background: selected?.id === ws.id ? 'rgba(173,198,255,0.05)' : undefined }}>
+                        style={{ borderColor: 'var(--th-border)', background: selected?.id === ws.id ? 'rgba(173,198,255,0.05)' : undefined }}>
                         <td className="px-4 py-3 font-medium">{ws.name}</td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: badge.bg, color: badge.color }}>
                             {ws.plan}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs" style={{ color: ws.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
+                        <td className="px-4 py-3 font-mono text-xs" style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
                           ${ws.balance_usd.toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#c2c6d6' }}>
-                          {ws.subscription_status === 'active' ? <span style={{ color: '#4ade80' }}>Active</span> :
-                           ws.subscription_status === 'canceled' ? <span style={{ color: '#fbbf24' }}>Canceled</span> :
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--th-text-secondary)' }}>
+                          {ws.subscription_status === 'active' ? <span style={{ color: 'var(--th-success-text)' }}>Active</span> :
+                           ws.subscription_status === 'canceled' ? <span style={{ color: 'var(--th-warning-text)' }}>Canceled</span> :
                            ws.subscription_status === 'past_due' ? <span style={{ color: '#f87171' }}>Past Due</span> :
                            <span>None</span>}
                         </td>
@@ -188,13 +188,13 @@ export default function AdminWorkspaces() {
             <>
               <div>
                 <h3 className="font-headline font-bold text-lg">{selected.name}</h3>
-                <p className="text-xs mt-1" style={{ color: '#c2c6d6' }}>{selected.slug} &middot; {selected.id.slice(0, 8)}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--th-text-secondary)' }}>{selected.slug} &middot; {selected.id.slice(0, 8)}</p>
               </div>
 
               {/* Balance */}
               <div className="glass-panel rounded-xl p-4">
-                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: '#c2c6d6' }}>Balance</div>
-                <div className="text-3xl font-headline font-bold" style={{ color: selected.balance_usd < 5 ? '#fbbf24' : '#4ade80' }}>
+                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--th-text-secondary)' }}>Balance</div>
+                <div className="text-3xl font-headline font-bold" style={{ color: selected.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
                   ${selected.balance_usd.toFixed(2)}
                 </div>
                 <button onClick={() => setBalanceModal(true)}
@@ -205,7 +205,7 @@ export default function AdminWorkspaces() {
 
               {/* Plan */}
               <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Plan</div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Plan</div>
                 <div className="flex flex-wrap gap-2">
                   {['translator', 'agents', 'agents_mcp'].map(p => (
                     <button key={p} onClick={() => changePlan(selected.id, p)}
@@ -222,7 +222,7 @@ export default function AdminWorkspaces() {
 
               {/* Share Twilio */}
               <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Twilio Access</div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Twilio Access</div>
                 <button
                   onClick={async () => {
                     const current = selected.provider_config?.twilio || 'own';
@@ -237,7 +237,7 @@ export default function AdminWorkspaces() {
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition w-full"
                   style={
                     (selected.provider_config?.twilio === 'platform')
-                      ? { background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80' }
+                      ? { background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: 'var(--th-success-text)' }
                       : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
                   }
                 >
@@ -245,7 +245,7 @@ export default function AdminWorkspaces() {
                   Share platform Twilio
                 </button>
                 {selected.provider_config?.twilio === 'platform' && (
-                  <p className="text-[10px] mt-1.5" style={{ color: '#c2c6d6' }}>
+                  <p className="text-[10px] mt-1.5" style={{ color: 'var(--th-text-secondary)' }}>
                     This workspace uses your Twilio account. Costs are deducted from their balance.
                   </p>
                 )}
@@ -254,12 +254,12 @@ export default function AdminWorkspaces() {
               {/* Provider Config */}
               {Object.keys(selected.provider_config || {}).filter(k => k !== 'twilio').length > 0 && (
                 <div>
-                  <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Other Providers</div>
+                  <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Other Providers</div>
                   <div className="space-y-1">
                     {Object.entries(selected.provider_config).filter(([k]) => k !== 'twilio').map(([k, v]) => (
                       <div key={k} className="flex justify-between text-xs">
                         <span>{k}</span>
-                        <span className="font-mono" style={{ color: v === 'own' ? '#adc6ff' : '#4ade80' }}>{v}</span>
+                        <span className="font-mono" style={{ color: v === 'own' ? 'var(--th-primary-light)' : 'var(--th-success-text)' }}>{v}</span>
                       </div>
                     ))}
                   </div>
@@ -281,15 +281,15 @@ export default function AdminWorkspaces() {
 
               {/* Recent Transactions */}
               <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Recent Transactions</div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Recent Transactions</div>
                 <div className="space-y-1 max-h-60 overflow-y-auto">
                   {transactions.map(t => (
-                    <div key={t.id} className="flex justify-between items-center text-xs py-1 border-b" style={{ borderColor: 'rgba(66,71,84,0.1)' }}>
+                    <div key={t.id} className="flex justify-between items-center text-xs py-1 border-b" style={{ borderColor: 'var(--th-border)' }}>
                       <div>
                         <span className="font-medium">{t.type}</span>
-                        <span className="ml-2" style={{ color: '#c2c6d6' }}>{t.description}</span>
+                        <span className="ml-2" style={{ color: 'var(--th-text-secondary)' }}>{t.description}</span>
                       </div>
-                      <span className="font-mono" style={{ color: t.amount_usd >= 0 ? '#4ade80' : '#f87171' }}>
+                      <span className="font-mono" style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : '#f87171' }}>
                         {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
                       </span>
                     </div>
@@ -312,7 +312,7 @@ export default function AdminWorkspaces() {
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
           <div className="glass-panel rounded-t-2xl md:rounded-2xl p-6 w-full md:w-96 space-y-4" onClick={e => e.stopPropagation()}>
             <h3 className="font-headline font-bold">Adjust Balance</h3>
-            <p className="text-xs" style={{ color: '#c2c6d6' }}>{selected.name} — Current: ${selected.balance_usd.toFixed(2)}</p>
+            <p className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{selected.name} — Current: ${selected.balance_usd.toFixed(2)}</p>
 
             <div>
               <label className="text-xs font-medium block mb-1">Type</label>

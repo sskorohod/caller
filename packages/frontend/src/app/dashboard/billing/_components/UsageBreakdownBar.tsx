@@ -42,7 +42,7 @@ export function UsageBreakdownBar({ breakdown, t }: UsageBreakdownBarProps) {
                 </div>
               </div>
               <div className="h-[5px] rounded-full bg-[var(--th-surface)] overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barWidth}%`, background: cat.gradient }} />
+                <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${barWidth}%`, background: cat.gradient }} />
               </div>
             </div>
           );

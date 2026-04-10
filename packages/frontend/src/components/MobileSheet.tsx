@@ -8,6 +8,8 @@ interface MobileSheetProps {
   snapPoints?: number[];
 }
 
+const DISMISS_THRESHOLD = 120;
+
 export default function MobileSheet({ onClose, title, children, snapPoints }: MobileSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
@@ -16,8 +18,15 @@ export default function MobileSheet({ onClose, title, children, snapPoints }: Mo
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   const handleDragStart = useCallback((e: React.TouchEvent) => {
     dragStartY.current = e.touches[0].clientY;
@@ -32,14 +41,14 @@ export default function MobileSheet({ onClose, title, children, snapPoints }: Mo
 
   const handleDragEnd = useCallback(() => {
     dragging.current = false;
-    if (dragOffset > 120) {
+    if (dragOffset > DISMISS_THRESHOLD) {
       onClose();
     }
     setDragOffset(0);
   }, [dragOffset, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 md:hidden" onClick={onClose}>
+    <div className="fixed inset-0 z-50 md:hidden" onClick={onClose} aria-label="Close sheet">
       {/* Backdrop */}
       <div
         className="absolute inset-0 animate-fade-in"
@@ -48,6 +57,9 @@ export default function MobileSheet({ onClose, title, children, snapPoints }: Mo
       {/* Sheet */}
       <div
         ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || 'Sheet'}
         onClick={(e) => e.stopPropagation()}
         className="absolute bottom-0 left-0 right-0 rounded-t-2xl animate-sheet-up"
         style={{

@@ -136,7 +136,7 @@ export default function MissionsPage() {
           )}
           <button
             onClick={createNew}
-            className="px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] flex items-center gap-2"
+            className="btn-primary px-4 py-2.5 rounded-xl flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -156,7 +156,7 @@ export default function MissionsPage() {
               onClick={() => setStatusFilter(s)}
               className={`px-3.5 py-1.5 text-[10px] font-semibold rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 statusFilter === s
-                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_var(--th-shadow-primary)]'
                   : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-card)] hover:text-[var(--th-text)]'
               }`}
             >
@@ -188,7 +188,7 @@ export default function MissionsPage() {
           </div>
           <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('missions.noMissions')}</p>
           <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('missions.noMissionsDesc')}</p>
-          <button onClick={createNew} className="px-4 py-2 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all">
+          <button onClick={createNew} className="btn-primary px-4 py-2 rounded-xl">
             {t('missions.newMission')}
           </button>
         </div>

@@ -29,17 +29,17 @@ export default function AdminDashboard() {
   if (!data) return <div className="p-4 md:p-8 text-center opacity-50">Failed to load</div>;
 
   const kpiCards = [
-    { label: 'Total Revenue', value: `$${(data.kpi.total_revenue ?? 0).toFixed(2)}`, icon: 'payments', color: '#4d8eff' },
-    { label: 'Minutes Used', value: (data.kpi.minutes_used ?? 0).toFixed(0), icon: 'schedule', color: '#d0bcff' },
-    { label: 'Margin', value: `${data.kpi.margin ?? 0}%`, icon: 'trending_up', color: (data.kpi.margin ?? 0) > 70 ? '#4ade80' : '#fbbf24' },
-    { label: 'Sessions', value: (data.kpi.total_sessions ?? 0).toString(), icon: 'call', color: '#a4c9ff' },
+    { label: 'Total Revenue', value: `$${(data.kpi.total_revenue ?? 0).toFixed(2)}`, icon: 'payments', color: 'var(--th-primary-text)' },
+    { label: 'Minutes Used', value: (data.kpi.minutes_used ?? 0).toFixed(0), icon: 'schedule', color: 'var(--th-accent-purple)' },
+    { label: 'Margin', value: `${data.kpi.margin ?? 0}%`, icon: 'trending_up', color: (data.kpi.margin ?? 0) > 70 ? 'var(--th-success-text)' : 'var(--th-warning-text)' },
+    { label: 'Sessions', value: (data.kpi.total_sessions ?? 0).toString(), icon: 'call', color: 'var(--th-primary-light)' },
   ];
 
   return (
     <div className="p-4 md:p-6 space-y-6 md:space-y-8">
       <div>
         <h1 className="text-lg md:text-2xl font-headline font-bold">Dashboard</h1>
-        <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Last 30 days overview</p>
+        <p className="text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Last 30 days overview</p>
       </div>
 
       {/* KPI Cards */}
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
             <div className="absolute top-3 right-3">
               <span className="material-symbols-outlined text-lg md:text-xl" style={{ color: card.color, opacity: 0.5 }}>{card.icon}</span>
             </div>
-            <div className="text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 md:mb-2" style={{ color: '#c2c6d6' }}>{card.label}</div>
+            <div className="text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 md:mb-2" style={{ color: 'var(--th-text-secondary)' }}>{card.label}</div>
             <div className="text-xl md:text-2xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
           </div>
         ))}
@@ -58,19 +58,19 @@ export default function AdminDashboard() {
       {/* Revenue Chart */}
       {data.revenue_by_day.length > 0 && (
         <div className="glass-panel rounded-2xl p-4 md:p-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: '#c2c6d6' }}>Revenue by Day</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--th-text-secondary)' }}>Revenue by Day</h3>
           <div className="flex items-end gap-1 h-32">
             {data.revenue_by_day.map((day, i) => {
               const maxRev = Math.max(...data.revenue_by_day.map(d => parseFloat(d.revenue)), 0.01);
               const height = (parseFloat(day.revenue) / maxRev) * 100;
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${day.date}: $${parseFloat(day.revenue).toFixed(2)}`}>
-                  <div className="w-full rounded-t" style={{ height: `${Math.max(height, 2)}%`, background: 'linear-gradient(to top, #4d8eff, #adc6ff)', minHeight: '2px' }} />
+                  <div className="w-full rounded-t" style={{ height: `${Math.max(height, 2)}%`, background: 'var(--th-bar-primary)', minHeight: '2px' }} />
                 </div>
               );
             })}
           </div>
-          <div className="flex justify-between mt-2 text-[10px]" style={{ color: '#c2c6d6' }}>
+          <div className="flex justify-between mt-2 text-[10px]" style={{ color: 'var(--th-text-secondary)' }}>
             <span>{data.revenue_by_day[0]?.date}</span>
             <span>{data.revenue_by_day[data.revenue_by_day.length - 1]?.date}</span>
           </div>
@@ -80,18 +80,18 @@ export default function AdminDashboard() {
       {/* Recent Sessions */}
       <div className="glass-panel rounded-2xl p-4 md:p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Recent Sessions</h3>
-          <Link href="/admin/sessions" className="text-xs min-h-[44px] flex items-center" style={{ color: '#adc6ff' }}>View all</Link>
+          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Recent Sessions</h3>
+          <Link href="/admin/sessions" className="text-xs min-h-[44px] flex items-center" style={{ color: 'var(--th-primary-light)' }}>View all</Link>
         </div>
         {isMobile ? (
           <div className="space-y-2">
             {data.recent_sessions.slice(0, 10).map((sess) => (
-              <div key={sess.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)' }}>
+              <div key={sess.id} className="rounded-xl p-3" style={{ background: 'var(--th-surface)' }}>
                 <div className="flex justify-between items-center">
                   <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
-                  <span className="font-mono text-xs font-bold" style={{ color: '#4ade80' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
+                  <span className="font-mono text-xs font-bold" style={{ color: 'var(--th-success-text)' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
                 </div>
-                <div className="text-[10px] mt-1" style={{ color: '#c2c6d6' }}>{new Date(sess.created_at).toLocaleString()}</div>
+                <div className="text-[10px] mt-1" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sess.created_at).toLocaleString()}</div>
               </div>
             ))}
             {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
@@ -99,10 +99,10 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-2">
             {data.recent_sessions.slice(0, 10).map((sess) => (
-              <div key={sess.id} className="flex justify-between items-center text-sm py-1.5 border-b" style={{ borderColor: 'rgba(66, 71, 84, 0.15)' }}>
-                <span className="text-xs" style={{ color: '#c2c6d6' }}>{new Date(sess.created_at).toLocaleString()}</span>
+              <div key={sess.id} className="flex justify-between items-center text-sm py-1.5 border-b" style={{ borderColor: 'var(--th-border)' }}>
+                <span className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sess.created_at).toLocaleString()}</span>
                 <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
-                <span className="font-mono text-xs" style={{ color: '#4ade80' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
+                <span className="font-mono text-xs" style={{ color: 'var(--th-success-text)' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
               </div>
             ))}
             {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}

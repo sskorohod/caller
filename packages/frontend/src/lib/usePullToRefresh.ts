@@ -1,12 +1,14 @@
 'use client';
 import { useRef, useState, useCallback, useEffect } from 'react';
 
+const DEFAULT_PULL_THRESHOLD = 80;
+
 interface PullToRefreshOptions {
   onRefresh: () => Promise<void>;
   threshold?: number;
 }
 
-export function usePullToRefresh({ onRefresh, threshold = 80 }: PullToRefreshOptions) {
+export function usePullToRefresh({ onRefresh, threshold = DEFAULT_PULL_THRESHOLD }: PullToRefreshOptions) {
   const ref = useRef<HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);

@@ -182,7 +182,7 @@ export default function AgentsPage() {
         </div>
         <Link
           href="/dashboard/agents/new"
-          className="hidden md:flex px-4 py-2.5 bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] text-white text-sm font-semibold rounded-xl transition-all active:scale-[.98] items-center gap-2"
+          className="hidden md:flex px-4 py-2.5 btn-primary items-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -225,7 +225,7 @@ export default function AgentsPage() {
             title={t('agents.noAgents')}
             description={t('agents.noAgentsDesc')}
             action={
-              <Link href="/dashboard/agents/new" className="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] transition-all inline-flex items-center">
+              <Link href="/dashboard/agents/new" className="px-4 py-2.5 min-h-[44px] btn-primary inline-flex items-center">
                 {t('agents.createAgent')}
               </Link>
             }

@@ -1,29 +1,12 @@
 'use client';
 import { useMemo, useState } from 'react';
+import { smoothPath } from '@/lib/chart-utils';
 
 const DAY_KEYS = ['day.sun', 'day.mon', 'day.tue', 'day.wed', 'day.thu', 'day.fri', 'day.sat'];
 
 interface SpendingChartProps {
   dailySpending: { day: string; amount: number }[];
   t: (k: string) => string;
-}
-
-function smoothPath(points: { x: number; y: number }[]): string {
-  if (points.length < 2) return '';
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[Math.max(i - 1, 0)];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[Math.min(i + 2, points.length - 1)];
-    const tension = 0.3;
-    const cp1x = p1.x + (p2.x - p0.x) * tension;
-    const cp1y = p1.y + (p2.y - p0.y) * tension;
-    const cp2x = p2.x - (p3.x - p1.x) * tension;
-    const cp2y = p2.y - (p3.y - p1.y) * tension;
-    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
-  }
-  return d;
 }
 
 const CHART_W = 500;
@@ -57,7 +40,7 @@ export function SpendingChart({ dailySpending, t }: SpendingChartProps) {
     }));
   }, [chartData, maxAmount]);
 
-  const curvePath = useMemo(() => smoothPath(points), [points]);
+  const curvePath = useMemo(() => smoothPath(points, PAD_Y, CHART_H - PAD_Y), [points]);
   const areaPath = useMemo(() => {
     if (!curvePath) return '';
     return `${curvePath} L ${points[points.length - 1].x} ${CHART_H} L ${points[0].x} ${CHART_H} Z`;
@@ -121,7 +104,7 @@ export function SpendingChart({ dailySpending, t }: SpendingChartProps) {
             <g key={day.date}>
               <rect x={pt.x - CHART_W / 14} y={0} width={CHART_W / 7} height={CHART_H + 24} fill="transparent" onMouseEnter={() => setHover(i)} />
               {isHovered && <line x1={pt.x} y1={PAD_Y} x2={pt.x} y2={CHART_H} stroke="var(--th-border)" strokeWidth={1} strokeDasharray="3 3" />}
-              <circle cx={pt.x} cy={pt.y} r={isHovered ? 5 : day.isToday ? 4 : 3} fill={day.isToday || isHovered ? '#eab308' : '#facc15'} stroke="var(--th-card)" strokeWidth={2} className="transition-all duration-150" />
+              <circle cx={pt.x} cy={pt.y} r={isHovered ? 5 : day.isToday ? 4 : 3} fill={day.isToday || isHovered ? '#eab308' : '#facc15'} stroke="var(--th-card)" strokeWidth={2} className="transition-[r,fill] duration-150" />
               {day.isToday && <circle cx={pt.x} cy={pt.y} r={7} fill="none" stroke="#eab308" strokeWidth={1} opacity={0.3} />}
               {isHovered && (() => {
                 const flipBelow = pt.y < 32;

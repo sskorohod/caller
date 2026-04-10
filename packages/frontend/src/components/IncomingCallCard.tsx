@@ -133,7 +133,7 @@ export default function IncomingCallCard() {
   return (
     <>
       <div
-        className={`fixed top-4 right-4 z-50 w-[400px] max-w-[calc(100vw-2rem)] rounded-2xl border border-green-500/30 bg-gray-900/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all ${
+        className={`fixed top-4 right-4 z-50 w-[400px] max-w-[calc(100vw-2rem)] rounded-2xl border border-green-500/30 bg-gray-900/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-[opacity,transform] ${
           removing ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0 animate-[slideInCall_0.3s_ease-out]'
         }`}
         style={{ transitionDuration: `${ANIMATION_MS}ms` }}
@@ -197,7 +197,7 @@ export default function IncomingCallCard() {
           <button
             onClick={() => answerCall('manual')}
             disabled={answering}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.97]"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-semibold transition-[background,transform] disabled:opacity-50 active:scale-[0.97]"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
@@ -209,7 +209,7 @@ export default function IncomingCallCard() {
           <button
             onClick={() => answerCall('internal')}
             disabled={answering}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.97]"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-[background,transform] disabled:opacity-50 active:scale-[0.97]"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
@@ -221,7 +221,7 @@ export default function IncomingCallCard() {
           <button
             onClick={() => answerCall('reject')}
             disabled={answering}
-            className="px-3 py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-sm font-semibold transition-all disabled:opacity-50 active:scale-[0.97]"
+            className="px-3 py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-sm font-semibold transition-[background,transform] disabled:opacity-50 active:scale-[0.97]"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

@@ -494,7 +494,7 @@ export default function MissionChatPage() {
                 toast.error(e.message || t('common.error'));
               }
             }}
-            className="px-3 py-1.5 min-h-[44px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-[10px] md:text-xs font-semibold rounded-lg hover:shadow-[0_2px_8px_rgba(99,102,241,0.3)] transition-all flex items-center gap-1.5 shrink-0"
+            className="btn-primary px-3 py-1.5 min-h-[44px] text-[10px] md:text-xs rounded-lg flex items-center gap-1.5 shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
@@ -552,7 +552,7 @@ export default function MissionChatPage() {
               <button
                 onClick={sendMessage}
                 disabled={inputDisabled || !input.trim()}
-                className="px-4 py-3 min-h-[44px] min-w-[44px] rounded-xl bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold text-sm hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all shrink-0 flex items-center justify-center"
+                className="btn-primary px-4 py-3 min-h-[44px] min-w-[44px] rounded-xl disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none shrink-0 flex items-center justify-center"
               >
                 {sending ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

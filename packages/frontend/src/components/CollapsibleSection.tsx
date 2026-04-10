@@ -9,6 +9,8 @@ interface CollapsibleSectionProps {
   badge?: React.ReactNode;
 }
 
+let collapsibleId = 0;
+
 export default function CollapsibleSection({
   title,
   subtitle,
@@ -17,6 +19,7 @@ export default function CollapsibleSection({
   badge,
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const [id] = useState(() => `collapsible-${++collapsibleId}`);
 
   return (
     <div
@@ -25,6 +28,8 @@ export default function CollapsibleSection({
     >
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={id}
         className="w-full flex items-center justify-between px-4 py-3.5 touch-target"
         style={{ color: 'var(--th-text)' }}
       >
@@ -54,7 +59,9 @@ export default function CollapsibleSection({
         </svg>
       </button>
       <div
-        className="overflow-hidden transition-all duration-200"
+        id={id}
+        role="region"
+        className="overflow-hidden transition-[max-height,opacity] duration-200"
         style={{
           maxHeight: open ? '2000px' : '0',
           opacity: open ? 1 : 0,

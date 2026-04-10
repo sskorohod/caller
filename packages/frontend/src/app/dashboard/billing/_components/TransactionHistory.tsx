@@ -42,7 +42,7 @@ export function TransactionHistory({ transactions, t }: TransactionHistoryProps)
             <button
               key={f.key}
               onClick={() => { setFilter(f.key); setVisibleCount(PAGE_SIZE); }}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
                 filter === f.key
                   ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]'
                   : 'text-[var(--th-text-muted)] hover:bg-[var(--th-surface)]'

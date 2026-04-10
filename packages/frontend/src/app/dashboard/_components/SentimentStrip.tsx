@@ -30,7 +30,7 @@ export function SentimentStrip({ data, t }: SentimentStripProps) {
           return (
             <div
               key={key}
-              className="transition-all duration-500 first:rounded-l-full last:rounded-r-full"
+              className="transition-[width] duration-500 first:rounded-l-full last:rounded-r-full"
               style={{ width: `${pct}%`, background: COLORS[key].bar }}
             />
           );

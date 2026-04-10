@@ -64,7 +64,7 @@ export default function BottomTabBar({ tabs, moreItems = [] }: BottomTabBarProps
                 key={tab.key}
                 href={tab.href}
                 onClick={() => setShowMore(false)}
-                className={`flex flex-col items-center justify-center gap-0.5 touch-target transition-all ${
+                className={`flex flex-col items-center justify-center gap-0.5 touch-target transition-colors ${
                   tab.accent ? 'relative -mt-4' : ''
                 }`}
                 style={{ color: active ? 'var(--th-primary)' : 'var(--th-text-muted)' }}

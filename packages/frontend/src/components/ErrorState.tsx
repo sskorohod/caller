@@ -59,7 +59,7 @@ export default function ErrorState({ code, message, onRetry, retryLabel = 'Retry
       {onRetry && (
         <button
           onClick={onRetry}
-          className="min-h-[44px] px-6 py-2.5 text-sm font-semibold rounded-xl transition-all active:scale-[.97]"
+          className="min-h-[44px] px-6 py-2.5 text-sm font-semibold rounded-xl transition-[background,transform] active:scale-[.97]"
           style={{
             background: 'var(--th-surface)',
             color: 'var(--th-primary)',

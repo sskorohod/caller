@@ -26,7 +26,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
           return (
             <div
               key={planId}
-              className={`relative rounded-2xl border p-5 transition-all min-w-[260px] md:min-w-0 ${
+              className={`relative rounded-2xl border p-5 transition-[border-color,box-shadow] min-w-[260px] md:min-w-0 ${
                 isCurrent
                   ? 'border-[var(--th-primary)] shadow-[0_0_0_1px_var(--th-primary),0_4px_12px_var(--th-shadow-primary)]'
                   : 'border-[var(--th-border)] hover:border-[var(--th-border-hover)]'
@@ -82,7 +82,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
               ) : canUpgrade ? (
                 <button
                   onClick={() => onSubscribe(planId)}
-                  className="w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-all shadow-[0_2px_8px_rgba(99,102,241,0.3)] hover:shadow-[0_4px_12px_rgba(99,102,241,0.4)]"
+                  className="w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-[box-shadow,transform] shadow-[0_2px_8px_var(--th-shadow-primary)] hover:shadow-[0_4px_12px_var(--th-shadow-primary)]"
                   style={{ background: `linear-gradient(to right, ${accent}, ${accent}dd)` }}
                 >
                   {t('billing.upgrade')}

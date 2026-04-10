@@ -500,7 +500,7 @@ export default function LiveCallPage() {
               onClick={() => isListening ? stopListening() : startListening('both')}
               className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] md:min-h-0 text-[10px] font-semibold rounded-lg transition-all shrink-0 ${
                 isListening
-                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_var(--th-shadow-primary)]'
                   : 'bg-[var(--th-surface)] text-[var(--th-text-secondary)] hover:bg-[var(--th-primary-bg)] hover:text-[var(--th-primary-text)] border border-[var(--th-card-border-subtle)]'
               }`}
             >
@@ -763,7 +763,7 @@ export default function LiveCallPage() {
                   }}
                   className={`shrink-0 px-3 py-2 md:py-1.5 min-h-[40px] rounded-lg text-[10px] font-semibold transition-all ${
                     activeTone === tone.key
-                      ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.3)]'
+                      ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_var(--th-shadow-primary)]'
                       : 'border border-[var(--th-card-border-subtle)] text-[var(--th-primary-text)] hover:bg-[var(--th-primary-bg)] hover:border-[var(--th-primary)]'
                   }`}
                 >
@@ -821,7 +821,7 @@ export default function LiveCallPage() {
               <button
                 onClick={sendInstruction}
                 disabled={!instruction.trim()}
-                className="px-3 md:px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_2px_12px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all"
+                className="btn-primary px-3 md:px-4 py-2.5 min-h-[44px] rounded-xl disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 {t('live.send')}
               </button>
@@ -894,7 +894,7 @@ export default function LiveCallPage() {
               <button
                 onClick={handleBrowserTakeover}
                 disabled={takeoverLoading}
-                className="w-full px-4 py-3 min-h-[48px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_4px_16px_rgba(99,102,241,0.3)] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                className="btn-primary w-full px-4 py-3 min-h-[48px] rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
@@ -913,7 +913,7 @@ export default function LiveCallPage() {
                 <button
                   onClick={handleTakeover}
                   disabled={!takeoverPhone.trim() || takeoverLoading}
-                  className="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-[0_2px_12px_rgba(99,102,241,0.3)] disabled:opacity-40 transition-all"
+                  className="btn-primary px-4 py-2.5 min-h-[44px] rounded-xl disabled:opacity-40"
                 >
                   {t('live.connect')}
                 </button>

@@ -978,7 +978,7 @@ export default function DialerPage() {
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                     entry.speaker === 'operator'
-                      ? 'bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                      ? 'bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_2px_8px_var(--th-shadow-primary)]'
                       : 'bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)]'
                   } ${!entry.isFinal ? 'opacity-40' : ''} transition-opacity`}
                 >

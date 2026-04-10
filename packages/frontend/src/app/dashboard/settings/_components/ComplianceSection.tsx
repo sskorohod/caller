@@ -58,7 +58,7 @@ export function ComplianceSection({ workspace, onUpdated }: { workspace: Workspa
       {/* Disclosure toggles */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Recording Disclosure Card */}
-        <div className={`relative overflow-hidden bg-[var(--th-card)] rounded-2xl border transition-all duration-200 p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] ${
+        <div className={`relative overflow-hidden bg-[var(--th-card)] rounded-2xl border transition-[border-color] duration-200 p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] ${
           recording ? 'border-emerald-500/30' : 'border-[var(--th-card-border-subtle)]'
         }`}>
           {recording && <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500" />}
@@ -81,7 +81,7 @@ export function ComplianceSection({ workspace, onUpdated }: { workspace: Workspa
               role="switch"
               aria-checked={recording}
               onClick={() => setRecording(v => !v)}
-              className={`mt-0.5 relative w-11 h-6 rounded-full transition-all shrink-0 ${recording ? 'bg-emerald-500' : 'bg-[var(--th-border)]'}`}
+              className={`mt-0.5 relative w-11 h-6 rounded-full transition-colors shrink-0 ${recording ? 'bg-emerald-500' : 'bg-[var(--th-border)]'}`}
             >
               <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${recording ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
@@ -95,7 +95,7 @@ export function ComplianceSection({ workspace, onUpdated }: { workspace: Workspa
         </div>
 
         {/* AI Disclosure Card */}
-        <div className={`relative overflow-hidden bg-[var(--th-card)] rounded-2xl border transition-all duration-200 p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] ${
+        <div className={`relative overflow-hidden bg-[var(--th-card)] rounded-2xl border transition-[border-color] duration-200 p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] ${
           aiDisclosure ? 'border-blue-500/30' : 'border-[var(--th-card-border-subtle)]'
         }`}>
           {aiDisclosure && <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500" />}
@@ -118,7 +118,7 @@ export function ComplianceSection({ workspace, onUpdated }: { workspace: Workspa
               role="switch"
               aria-checked={aiDisclosure}
               onClick={() => setAiDisclosure(v => !v)}
-              className={`mt-0.5 relative w-11 h-6 rounded-full transition-all shrink-0 ${aiDisclosure ? 'bg-blue-500' : 'bg-[var(--th-border)]'}`}
+              className={`mt-0.5 relative w-11 h-6 rounded-full transition-colors shrink-0 ${aiDisclosure ? 'bg-blue-500' : 'bg-[var(--th-border)]'}`}
             >
               <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${aiDisclosure ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>

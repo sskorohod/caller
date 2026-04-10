@@ -46,7 +46,7 @@ export function AppearanceSection() {
           {/* Light theme card */}
           <button
             onClick={() => setTheme('light')}
-            className={`relative group p-5 rounded-2xl border-2 transition-all duration-200 text-left ${
+            className={`relative group p-5 rounded-2xl border-2 transition-[border-color,box-shadow,transform] duration-200 text-left ${
               theme === 'light'
                 ? 'border-[var(--th-primary)] shadow-[0_0_0_2px_rgba(99,102,241,0.15)] scale-[1.01]'
                 : 'border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary-muted)] hover:shadow-md'
@@ -84,7 +84,7 @@ export function AppearanceSection() {
           {/* Dark theme card */}
           <button
             onClick={() => setTheme('dark')}
-            className={`relative group p-5 rounded-2xl border-2 transition-all duration-200 text-left ${
+            className={`relative group p-5 rounded-2xl border-2 transition-[border-color,box-shadow,transform] duration-200 text-left ${
               theme === 'dark'
                 ? 'border-[var(--th-primary)] shadow-[0_0_0_2px_rgba(99,102,241,0.15)] scale-[1.01]'
                 : 'border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary-muted)] hover:shadow-md'
@@ -139,7 +139,7 @@ export function AppearanceSection() {
               <button
                 key={lang.code}
                 onClick={() => setLanguage(lang.code)}
-                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200 ${
+                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 transition-[border-color,background,box-shadow] duration-200 ${
                   language === lang.code
                     ? 'border-[var(--th-primary)] bg-[var(--th-primary-bg)] shadow-[0_0_0_2px_rgba(99,102,241,0.1)]'
                     : 'border-[var(--th-card-border-subtle)] hover:border-[var(--th-primary-muted)] hover:shadow-sm'
@@ -176,7 +176,7 @@ export function AppearanceSection() {
                 className="group flex flex-col items-center gap-1.5"
                 title={color.label}
               >
-                <div className={`relative w-11 h-11 rounded-xl transition-all duration-200 ${
+                <div className={`relative w-11 h-11 rounded-xl transition-[transform,box-shadow] duration-200 ${
                   selectedAccent === color.id
                     ? 'scale-110 shadow-lg'
                     : 'hover:scale-110 hover:shadow-md'

@@ -53,7 +53,7 @@ export function CostBreakdown({ total, llm, tts, stt, telephony, t }: CostBreakd
               </div>
               <div className="h-[5px] rounded-full bg-[var(--th-surface)] overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-700"
+                  className="h-full rounded-full transition-[width] duration-700"
                   style={{ width: `${barWidth}%`, background: COST_COLORS[i].gradient }}
                 />
               </div>

@@ -176,7 +176,7 @@ export default function AdminTranslator() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-headline font-bold truncate">Translator Subscribers</h1>
-          <p className="text-xs md:text-sm mt-1" style={{ color: '#c2c6d6' }}>Manage translator service subscribers</p>
+          <p className="text-xs md:text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Manage translator service subscribers</p>
         </div>
         <button onClick={startCreate}
           className="px-3 md:px-4 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 transition whitespace-nowrap">
@@ -205,17 +205,17 @@ export default function AdminTranslator() {
                     {sub.blocked ? (
                       <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>Blocked</span>
                     ) : sub.enabled ? (
-                      <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>Active</span>
+                      <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(74,222,128,0.1)', color: 'var(--th-success-text)' }}>Active</span>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>Disabled</span>
+                      <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: 'rgba(251,191,36,0.1)', color: 'var(--th-warning-text)' }}>Disabled</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-xs" style={{ color: '#c2c6d6' }}>
+                  <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--th-text-secondary)' }}>
                     <span className="font-mono">{sub.phone_number}</span>
-                    <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }}>
+                    <span className="px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(173,198,255,0.1)', color: 'var(--th-primary-light)' }}>
                       {sub.my_language} → {sub.target_language}
                     </span>
-                    <span className="ml-auto font-mono" style={{ color: parseFloat(sub.balance_minutes) < 5 ? '#fbbf24' : '#4ade80' }}>
+                    <span className="ml-auto font-mono" style={{ color: parseFloat(sub.balance_minutes) < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
                       {parseFloat(sub.balance_minutes).toFixed(1)} min
                     </span>
                   </div>
@@ -229,13 +229,13 @@ export default function AdminTranslator() {
             <div className="glass-panel rounded-2xl p-0 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left border-b" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Name</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Phone</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Languages</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Mode</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Balance</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: '#c2c6d6' }}>Status</th>
+                  <tr className="text-left border-b" style={{ borderColor: 'var(--th-border)' }}>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Name</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Phone</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Languages</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Mode</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Balance</th>
+                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -243,25 +243,25 @@ export default function AdminTranslator() {
                     <tr key={sub.id}
                       onClick={() => selectSubscriber(sub)}
                       className="border-b cursor-pointer hover:bg-white/5 transition"
-                      style={{ borderColor: 'rgba(66,71,84,0.1)', background: selected?.id === sub.id ? 'rgba(173,198,255,0.05)' : undefined }}>
+                      style={{ borderColor: 'var(--th-border)', background: selected?.id === sub.id ? 'rgba(173,198,255,0.05)' : undefined }}>
                       <td className="px-4 py-3 font-medium">{sub.name}</td>
                       <td className="px-4 py-3 font-mono text-xs">{sub.phone_number}</td>
                       <td className="px-4 py-3 text-xs">
-                        <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }}>
+                        <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(173,198,255,0.1)', color: 'var(--th-primary-light)' }}>
                           {sub.my_language} → {sub.target_language}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs capitalize">{sub.mode}</td>
-                      <td className="px-4 py-3 font-mono text-xs" style={{ color: parseFloat(sub.balance_minutes) < 5 ? '#fbbf24' : '#4ade80' }}>
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: parseFloat(sub.balance_minutes) < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
                         {parseFloat(sub.balance_minutes).toFixed(1)} min
                       </td>
                       <td className="px-4 py-3">
                         {sub.blocked ? (
                           <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>Blocked</span>
                         ) : sub.enabled ? (
-                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>Active</span>
+                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(74,222,128,0.1)', color: 'var(--th-success-text)' }}>Active</span>
                         ) : (
-                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>Disabled</span>
+                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(251,191,36,0.1)', color: 'var(--th-warning-text)' }}>Disabled</span>
                         )}
                       </td>
                     </tr>
@@ -366,8 +366,8 @@ export default function AdminTranslator() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-headline font-bold text-lg">{selected.name}</h3>
-                  <p className="text-xs mt-1 font-mono" style={{ color: '#c2c6d6' }}>{selected.phone_number}</p>
-                  {selected.email && <p className="text-xs" style={{ color: '#c2c6d6' }}>{selected.email}</p>}
+                  <p className="text-xs mt-1 font-mono" style={{ color: 'var(--th-text-secondary)' }}>{selected.phone_number}</p>
+                  {selected.email && <p className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{selected.email}</p>}
                 </div>
                 <div className="flex gap-1">
                   <button onClick={startEdit} className="px-3 py-1.5 rounded-lg text-xs bg-white/5 hover:bg-white/10 transition">Edit</button>
@@ -377,8 +377,8 @@ export default function AdminTranslator() {
 
               {/* Balance */}
               <div className="glass-panel rounded-xl p-4">
-                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: '#c2c6d6' }}>Balance</div>
-                <div className="text-3xl font-headline font-bold" style={{ color: balance < 5 ? '#fbbf24' : '#4ade80' }}>
+                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--th-text-secondary)' }}>Balance</div>
+                <div className="text-3xl font-headline font-bold" style={{ color: balance < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
                   {balance.toFixed(1)} <span className="text-sm font-normal opacity-60">min</span>
                 </div>
                 <button onClick={() => setBalanceModal(true)}
@@ -389,17 +389,17 @@ export default function AdminTranslator() {
 
               {/* Settings Summary */}
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Languages</span><span>{selected.my_language} → {selected.target_language}</span></div>
-                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Mode</span><span className="capitalize">{selected.mode}</span></div>
-                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Who Hears</span><span className="capitalize">{selected.who_hears}</span></div>
-                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Tone</span><span className="capitalize">{selected.tone || 'neutral'}</span></div>
-                <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Voice</span><span className="capitalize">{selected.tts_voice_id || 'eve'}</span></div>
-                {selected.telegram_chat_id && <div className="flex justify-between"><span style={{ color: '#c2c6d6' }}>Telegram</span><span className="font-mono">{selected.telegram_chat_id}</span></div>}
+                <div className="flex justify-between"><span style={{ color: 'var(--th-text-secondary)' }}>Languages</span><span>{selected.my_language} → {selected.target_language}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--th-text-secondary)' }}>Mode</span><span className="capitalize">{selected.mode}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--th-text-secondary)' }}>Who Hears</span><span className="capitalize">{selected.who_hears}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--th-text-secondary)' }}>Tone</span><span className="capitalize">{selected.tone || 'neutral'}</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--th-text-secondary)' }}>Voice</span><span className="capitalize">{selected.tts_voice_id || 'eve'}</span></div>
+                {selected.telegram_chat_id && <div className="flex justify-between"><span style={{ color: 'var(--th-text-secondary)' }}>Telegram</span><span className="font-mono">{selected.telegram_chat_id}</span></div>}
               </div>
 
               {/* Greeting */}
               <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: '#c2c6d6' }}>Greeting</div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--th-text-secondary)' }}>Greeting</div>
                 <p className="text-xs italic" style={{ color: '#e5e7eb' }}>&ldquo;{selected.greeting_text}&rdquo;</p>
               </div>
 
@@ -408,8 +408,8 @@ export default function AdminTranslator() {
                 <button onClick={() => toggleEnabled(selected)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition flex-1"
                   style={selected.enabled
-                    ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }
-                    : { background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }
+                    ? { background: 'rgba(251,191,36,0.1)', color: 'var(--th-warning-text)', border: '1px solid rgba(251,191,36,0.2)' }
+                    : { background: 'rgba(74,222,128,0.1)', color: 'var(--th-success-text)', border: '1px solid rgba(74,222,128,0.2)' }
                   }>
                   {selected.enabled ? 'Disable' : 'Enable'}
                 </button>
@@ -417,15 +417,15 @@ export default function AdminTranslator() {
 
               {/* Recent Transactions */}
               <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: '#c2c6d6' }}>Balance History</div>
+                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Balance History</div>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {transactions.map(t => (
-                    <div key={t.id} className="flex justify-between items-center text-xs py-1 border-b" style={{ borderColor: 'rgba(66,71,84,0.1)' }}>
+                    <div key={t.id} className="flex justify-between items-center text-xs py-1 border-b" style={{ borderColor: 'var(--th-border)' }}>
                       <div>
                         <span className="font-medium capitalize">{t.type}</span>
-                        {t.comment && <span className="ml-2" style={{ color: '#c2c6d6' }}>{t.comment}</span>}
+                        {t.comment && <span className="ml-2" style={{ color: 'var(--th-text-secondary)' }}>{t.comment}</span>}
                       </div>
-                      <span className="font-mono" style={{ color: t.minutes >= 0 ? '#4ade80' : '#f87171' }}>
+                      <span className="font-mono" style={{ color: t.minutes >= 0 ? 'var(--th-success-text)' : '#f87171' }}>
                         {t.minutes >= 0 ? '+' : ''}{t.minutes.toFixed(1)} min
                       </span>
                     </div>
@@ -448,7 +448,7 @@ export default function AdminTranslator() {
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
           <div className="glass-panel rounded-t-2xl md:rounded-2xl p-5 md:p-6 w-full md:w-96 space-y-4" onClick={e => e.stopPropagation()}>
             <h3 className="font-headline font-bold">Adjust Balance</h3>
-            <p className="text-xs" style={{ color: '#c2c6d6' }}>{selected.name} — Current: {balance.toFixed(1)} min</p>
+            <p className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{selected.name} — Current: {balance.toFixed(1)} min</p>
 
             <div>
               <label className={labelCls}>Type</label>

@@ -34,11 +34,11 @@ interface Transaction {
 }
 
 const typeColors: Record<string, string> = {
-  topup: '#4ade80',
+  topup: 'var(--th-success-text)',
   usage: '#f87171',
-  refund: '#fbbf24',
-  gift: '#adc6ff',
-  signup_bonus: '#d0bcff',
+  refund: 'var(--th-warning-text)',
+  gift: 'var(--th-primary-light)',
+  signup_bonus: 'var(--th-accent-purple)',
   promo: '#67e8f9',
 };
 
@@ -71,11 +71,11 @@ export default function AdminFinance() {
   if (loading || !overview) return <div className="p-4 md:p-8 text-center opacity-50">Loading...</div>;
 
   const kpiCards = [
-    { label: 'Usage Revenue (30d)', value: `$${overview.kpi.usage_revenue_30d.toFixed(2)}`, color: '#4ade80', icon: 'payments' },
+    { label: 'Usage Revenue (30d)', value: `$${overview.kpi.usage_revenue_30d.toFixed(2)}`, color: 'var(--th-success-text)', icon: 'payments' },
     { label: 'Provider Cost (30d)', value: `$${overview.kpi.real_provider_cost_30d.toFixed(2)}`, color: '#f87171', icon: 'receipt_long' },
-    { label: 'Margin', value: `${overview.kpi.margin_percent}%`, color: overview.kpi.margin_percent > 60 ? '#4ade80' : '#fbbf24', icon: 'trending_up' },
-    { label: 'Deposits (30d)', value: `$${overview.kpi.deposits_30d.toFixed(2)}`, color: '#adc6ff', icon: 'account_balance' },
-    { label: 'Total On Deposit', value: `$${overview.kpi.total_deposit_balance.toFixed(2)}`, color: '#d0bcff', icon: 'savings' },
+    { label: 'Margin', value: `${overview.kpi.margin_percent}%`, color: overview.kpi.margin_percent > 60 ? 'var(--th-success-text)' : 'var(--th-warning-text)', icon: 'trending_up' },
+    { label: 'Deposits (30d)', value: `$${overview.kpi.deposits_30d.toFixed(2)}`, color: 'var(--th-primary-light)', icon: 'account_balance' },
+    { label: 'Total On Deposit', value: `$${overview.kpi.total_deposit_balance.toFixed(2)}`, color: 'var(--th-accent-purple)', icon: 'savings' },
     { label: 'Active Subs', value: String(overview.kpi.active_subscriptions), color: '#67e8f9', icon: 'loyalty' },
   ];
 
@@ -85,7 +85,7 @@ export default function AdminFinance() {
     <div className="p-4 md:p-6 space-y-6 md:space-y-8">
       <div>
         <h1 className="text-lg md:text-2xl font-headline font-bold">Finance</h1>
-        <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Revenue, costs, and margin overview</p>
+        <p className="text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Revenue, costs, and margin overview</p>
       </div>
 
       {/* KPI Cards */}
@@ -95,7 +95,7 @@ export default function AdminFinance() {
             <div className="absolute top-2 right-2 md:top-3 md:right-3">
               <span className="material-symbols-outlined text-base md:text-lg" style={{ color: card.color, opacity: 0.4 }}>{card.icon}</span>
             </div>
-            <div className="text-[9px] md:text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: '#c2c6d6' }}>{card.label}</div>
+            <div className="text-[9px] md:text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--th-text-secondary)' }}>{card.label}</div>
             <div className="text-lg md:text-xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
           </div>
         ))}
@@ -103,15 +103,15 @@ export default function AdminFinance() {
 
       {/* Plan Distribution */}
       <div className="glass-panel rounded-2xl p-4 md:p-5">
-        <h3 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: '#c2c6d6' }}>Plan Distribution</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--th-text-secondary)' }}>Plan Distribution</h3>
         <div className="flex flex-wrap gap-4 md:gap-6">
           {overview.plan_counts.map(p => (
             <div key={p.plan} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{
-                background: p.plan === 'translator' ? '#adc6ff' : p.plan === 'agents' ? '#4ade80' : '#d0bcff'
+                background: p.plan === 'translator' ? 'var(--th-primary-light)' : p.plan === 'agents' ? 'var(--th-success-text)' : 'var(--th-accent-purple)'
               }} />
               <span className="text-sm font-medium">{p.plan}</span>
-              <span className="text-sm font-mono" style={{ color: '#c2c6d6' }}>{p.count}</span>
+              <span className="text-sm font-mono" style={{ color: 'var(--th-text-secondary)' }}>{p.count}</span>
             </div>
           ))}
         </div>
@@ -120,7 +120,7 @@ export default function AdminFinance() {
       {/* Revenue Chart */}
       {chart.length > 0 && (
         <div className="glass-panel rounded-2xl p-4 md:p-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: '#c2c6d6' }}>Revenue by Day (30d)</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--th-text-secondary)' }}>Revenue by Day (30d)</h3>
           <div className="flex items-end gap-1 h-32">
             {chart.map((day, i) => {
               const rev = parseFloat(day.usage_revenue) || 0;
@@ -131,14 +131,14 @@ export default function AdminFinance() {
                   title={`${day.date}\nRevenue: $${rev.toFixed(2)}\nDeposits: $${dep.toFixed(2)}`}>
                   <div className="w-full rounded-t transition-all" style={{
                     height: `${Math.max(height, 2)}%`,
-                    background: 'linear-gradient(to top, #4ade80, #67e8f9)',
+                    background: 'linear-gradient(to top, var(--th-success-text), #67e8f9)',
                     minHeight: '2px',
                   }} />
                 </div>
               );
             })}
           </div>
-          <div className="flex justify-between mt-2 text-[10px]" style={{ color: '#c2c6d6' }}>
+          <div className="flex justify-between mt-2 text-[10px]" style={{ color: 'var(--th-text-secondary)' }}>
             <span>{chart[0]?.date}</span>
             <span>{chart[chart.length - 1]?.date}</span>
           </div>
@@ -148,7 +148,7 @@ export default function AdminFinance() {
       {/* Transactions */}
       <div className="glass-panel rounded-2xl p-4 md:p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#c2c6d6' }}>Recent Transactions</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Recent Transactions</h3>
           <select value={txFilter} onChange={e => setTxFilter(e.target.value)}
             className="px-2 py-1.5 rounded text-xs bg-white/5 border border-white/10 min-h-[44px]">
             <option value="">All Types</option>
@@ -162,7 +162,7 @@ export default function AdminFinance() {
         {isMobile ? (
           <div className="space-y-2">
             {transactions.map(t => (
-              <div key={t.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(66,71,84,0.15)' }}>
+              <div key={t.id} className="rounded-xl p-3" style={{ background: 'var(--th-surface)', borderBottom: '1px solid var(--th-border)' }}>
                 <div className="flex justify-between items-start">
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium truncate">{t.workspace_name || t.workspace_id?.slice(0, 8)}</div>
@@ -171,14 +171,14 @@ export default function AdminFinance() {
                         background: `${typeColors[t.type] || '#6b7280'}15`,
                         color: typeColors[t.type] || '#6b7280',
                       }}>{t.type}</span>
-                      <span className="text-[10px]" style={{ color: '#c2c6d6' }}>{new Date(t.created_at).toLocaleDateString()}</span>
+                      <span className="text-[10px]" style={{ color: 'var(--th-text-secondary)' }}>{new Date(t.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <span className="font-mono text-sm font-bold ml-2" style={{ color: t.amount_usd >= 0 ? '#4ade80' : '#f87171' }}>
+                  <span className="font-mono text-sm font-bold ml-2" style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : '#f87171' }}>
                     {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
                   </span>
                 </div>
-                {t.description && <div className="text-[10px] mt-1 truncate" style={{ color: '#c2c6d6' }}>{t.description}</div>}
+                {t.description && <div className="text-[10px] mt-1 truncate" style={{ color: 'var(--th-text-secondary)' }}>{t.description}</div>}
               </div>
             ))}
             {transactions.length === 0 && <div className="py-4 text-center opacity-50 text-sm">No transactions</div>}
@@ -186,7 +186,7 @@ export default function AdminFinance() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left" style={{ color: '#c2c6d6' }}>
+              <tr className="text-left" style={{ color: 'var(--th-text-secondary)' }}>
                 <th className="pb-2 font-medium">Workspace</th>
                 <th className="pb-2 font-medium">Type</th>
                 <th className="pb-2 font-medium">Amount</th>
@@ -197,7 +197,7 @@ export default function AdminFinance() {
             </thead>
             <tbody>
               {transactions.map(t => (
-                <tr key={t.id} className="border-t" style={{ borderColor: 'rgba(66,71,84,0.15)' }}>
+                <tr key={t.id} className="border-t" style={{ borderColor: 'var(--th-border)' }}>
                   <td className="py-2 text-xs">{t.workspace_name || t.workspace_id?.slice(0, 8)}</td>
                   <td className="py-2">
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
@@ -207,12 +207,12 @@ export default function AdminFinance() {
                       {t.type}
                     </span>
                   </td>
-                  <td className="py-2 font-mono text-xs" style={{ color: t.amount_usd >= 0 ? '#4ade80' : '#f87171' }}>
+                  <td className="py-2 font-mono text-xs" style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : '#f87171' }}>
                     {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
                   </td>
-                  <td className="py-2 font-mono text-xs" style={{ color: '#c2c6d6' }}>${t.balance_after.toFixed(2)}</td>
-                  <td className="py-2 text-xs" style={{ color: '#c2c6d6' }}>{t.description}</td>
-                  <td className="py-2 text-xs" style={{ color: '#c2c6d6' }}>{new Date(t.created_at).toLocaleString()}</td>
+                  <td className="py-2 font-mono text-xs" style={{ color: 'var(--th-text-secondary)' }}>${t.balance_after.toFixed(2)}</td>
+                  <td className="py-2 text-xs" style={{ color: 'var(--th-text-secondary)' }}>{t.description}</td>
+                  <td className="py-2 text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(t.created_at).toLocaleString()}</td>
                 </tr>
               ))}
               {transactions.length === 0 && <tr><td colSpan={6} className="py-4 text-center opacity-50">No transactions</td></tr>}
