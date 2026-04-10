@@ -3,7 +3,6 @@ import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { authApi, api } from '@/lib/api';
-import Link from 'next/link';
 
 function LoginContent() {
   const { login } = useAuth();
@@ -17,6 +16,7 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -226,6 +226,17 @@ function LoginContent() {
                   <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>Your phone number for translator service (E.164 format)</p>
                 </div>
 
+                <label className="flex items-start gap-3 cursor-pointer select-none mt-1">
+                  <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded accent-blue-500 flex-shrink-0" />
+                  <span className="text-xs leading-relaxed" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>
+                    I agree to the{' '}
+                    <a href="/terms" target="_blank" className="underline" style={{ color: '#adc6ff' }}>Terms of Service</a>,{' '}
+                    <a href="/privacy" target="_blank" className="underline" style={{ color: '#adc6ff' }}>Privacy Policy</a>, and{' '}
+                    <a href="/acceptable-use" target="_blank" className="underline" style={{ color: '#adc6ff' }}>Acceptable Use Policy</a>
+                  </span>
+                </label>
+
                 {error && (
                   <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
                     style={{ background: 'rgba(248, 113, 113, 0.08)', border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171' }}>
@@ -234,7 +245,7 @@ function LoginContent() {
                   </div>
                 )}
 
-                <button type="submit" disabled={loading || !email}
+                <button type="submit" disabled={loading || !email || !agreedToTerms}
                   className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                   style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)', color: '#0e131f', boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)' }}>
                   {loading ? (
