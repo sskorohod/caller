@@ -151,7 +151,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
             .where(and(eq(providerCredentials.workspace_id, workspace.id), eq(providerCredentials.provider, 'telegram')));
           if (!telegramCreds) return;
 
-          const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+          let creds: { bot_token: string; chat_id: string };
+          try { creds = JSON.parse(decrypt(telegramCreds.credential_data)); } catch { return; }
           if (!creds.bot_token || !creds.chat_id) return;
 
           const shareToken = await callService.createShareToken(translatorCall.id);
@@ -260,7 +261,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           ));
 
         if (telegramCreds) {
-          const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+          let creds: { bot_token: string; chat_id: string };
+          try { creds = JSON.parse(decrypt(telegramCreds.credential_data)); } catch { return; }
           // Generate share token for monitor link
           const shareToken = await callService.createShareToken(call.id);
           const monitorUrl = `https://${env.API_DOMAIN}/calls/${call.id}/monitor?token=${shareToken}`;

@@ -51,9 +51,11 @@ export function startPostCallWorker(): Worker {
       try {
         // Get LLM provider — try anthropic first, fall back to xai, then openai
         let llm;
+        let selectedProvider: string = 'anthropic';
         for (const provider of ['anthropic', 'xai', 'openai'] as const) {
           try {
             llm = await createLLMProvider(workspaceId, provider);
+            selectedProvider = provider;
             break;
           } catch { /* try next */ }
         }
@@ -107,9 +109,13 @@ Respond in JSON format:
         let postCallTokensIn = 0;
         let postCallTokensOut = 0;
 
-        // Use appropriate model based on provider
-        const model = (llm as any).client?.baseURL?.includes('x.ai') ? 'grok-3-mini-fast'
-          : (llm as any).client?.apiKey ? 'gpt-4o-mini' : 'claude-sonnet-4-5-20250514';
+        // Select model based on which provider was initialized
+        const providerModelMap: Record<string, string> = {
+          anthropic: 'claude-sonnet-4-5-20250514',
+          xai: 'grok-3-mini-fast',
+          openai: 'gpt-4o-mini',
+        };
+        const model = providerModelMap[selectedProvider] || 'claude-sonnet-4-5-20250514';
         await llm.generateStream(messages, model, 0.3, {
           onToken: () => {},
           onComplete: (response) => {
@@ -167,7 +173,7 @@ Respond in JSON format:
                 stt: 0,
                 tts: 0,
                 telephony: 0,
-                llmProvider: model.includes('claude') ? 'anthropic' : model.includes('gpt') ? 'openai' : 'xai',
+                llmProvider: selectedProvider,
               },
               providerConfig: (ws?.provider_config as any) || {},
               referenceType: 'call_session' as any,

@@ -240,4 +240,7 @@ async function main() {
   await server.connect(transport);
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error('MCP server failed to start:', err);
+  process.exit(1);
+});

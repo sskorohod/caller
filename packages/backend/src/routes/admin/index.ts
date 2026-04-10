@@ -406,7 +406,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   app.post('/workspaces/:id/balance', async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
-      amount_usd: z.number(),
+      amount_usd: z.number().positive('Amount must be positive'),
       type: z.enum(['topup', 'refund', 'gift']),
       comment: z.string().optional(),
     }).parse(request.body);

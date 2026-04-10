@@ -29,12 +29,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const u = localStorage.getItem('caller_user');
     const w = localStorage.getItem('caller_workspace');
     if (t && u) {
-      setToken(t);
-      setUser(JSON.parse(u));
-      if (w) setWorkspaceState(JSON.parse(w));
-      // Sync cookie if token exists in localStorage but not in cookie
-      if (!document.cookie.includes('caller_token=')) {
-        document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+      try {
+        setToken(t);
+        setUser(JSON.parse(u));
+        if (w) setWorkspaceState(JSON.parse(w));
+        // Sync cookie if token exists in localStorage but not in cookie
+        if (!document.cookie.includes('caller_token=')) {
+          document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+        }
+      } catch {
+        // Corrupted localStorage — clear and force re-login
+        localStorage.removeItem('caller_token');
+        localStorage.removeItem('caller_user');
+        localStorage.removeItem('caller_workspace');
       }
     }
     setIsLoading(false);

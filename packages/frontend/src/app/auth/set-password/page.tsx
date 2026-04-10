@@ -23,9 +23,14 @@ export default function SetPasswordPage() {
       router.push('/login');
       return;
     }
-    setToken(t);
-    setUser(JSON.parse(u));
-    if (w && w !== 'null') setWorkspace(JSON.parse(w));
+    try {
+      setToken(t);
+      setUser(JSON.parse(u));
+      if (w && w !== 'null') setWorkspace(JSON.parse(w));
+    } catch {
+      router.push('/login');
+      return;
+    }
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

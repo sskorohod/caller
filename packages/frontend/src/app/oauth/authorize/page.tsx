@@ -40,7 +40,7 @@ function OAuthConsentContent() {
     }
     const url = `/api/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
     fetch(url)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data: any) => {
         if (data.error) throw new Error(data.error_description ?? data.error);
         setClientInfo(data as ClientInfo);

@@ -70,14 +70,14 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
 
     const event = typeof request.body === 'string' ? JSON.parse(request.body) : request.body;
 
-    // Idempotency check — skip if already processed
+    // Idempotency check — atomic INSERT to prevent race conditions (double-processing)
     const eventId = event.id as string;
     if (eventId) {
-      const [existing] = await db.select({ event_id: stripeProcessedEvents.event_id })
-        .from(stripeProcessedEvents)
-        .where(eq(stripeProcessedEvents.event_id, eventId))
-        .limit(1);
-      if (existing) {
+      const inserted = await db.insert(stripeProcessedEvents)
+        .values({ event_id: eventId, event_type: event.type })
+        .onConflictDoNothing()
+        .returning({ event_id: stripeProcessedEvents.event_id });
+      if (inserted.length === 0) {
         log.info({ eventId }, 'Stripe event already processed, skipping');
         reply.status(200).send({ received: true, duplicate: true });
         return;
@@ -115,13 +115,7 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
           log.info({ type: event.type }, 'Unhandled Stripe event type');
       }
 
-      // Mark event as processed
-      if (eventId) {
-        await db.insert(stripeProcessedEvents).values({
-          event_id: eventId,
-          event_type: event.type,
-        }).onConflictDoNothing();
-      }
+      // Event was already marked as processed via atomic INSERT above
     } catch (err) {
       log.error({ err, eventId, type: event.type }, 'Stripe webhook handler error');
       reply.status(500).send({ error: 'Webhook handler failed' });
