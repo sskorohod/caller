@@ -1,16 +1,16 @@
 import { EventEmitter } from 'node:events';
 import pino from 'pino';
 import { WebSocket } from 'ws';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
 import { getIo } from '../realtime/io.js';
 import * as callService from './call.service.js';
 import { queuePostCallProcessing } from '../workers/post-call.worker.js';
-import { calculateSTTCost, calculateTelephonyCost } from '../config/pricing.js';
+import { calculateTelephonyCost } from '../config/pricing.js';
 import { sendTranslatorSessionStart, sendTranslatorSessionEnd } from './telegram.service.js';
 import { decrypt } from '../lib/crypto.js';
-import { providerCredentials, callShareTokens } from '../db/schema.js';
+import { providerCredentials } from '../db/schema.js';
 import { env } from '../config/env.js';
 
 const log = pino({ name: 'conference-translator' });
@@ -21,7 +21,7 @@ interface ConferenceTranslatorOptions {
   subscriberId: string;
   myLanguage: string;       // subscriber's language (e.g. 'ru')
   targetLanguage: string;   // other party's language (e.g. 'en')
-  mode: 'voice' | 'text' | 'both';
+  mode: 'voice' | 'text' | 'both' | 'unidirectional';
   whoHears: 'subscriber' | 'both';
   ttsProvider: string;
   ttsVoiceId?: string;
@@ -60,7 +60,7 @@ export class ConferenceTranslator extends EventEmitter {
   private subscriberId: string;
   private myLang: string;
   private targetLang: string;
-  private mode: 'voice' | 'text' | 'both';
+  private mode: 'voice' | 'text' | 'both' | 'unidirectional';
   private whoHears: 'subscriber' | 'both';
 
   private grokWs: WebSocket | null = null;
@@ -164,7 +164,7 @@ export class ConferenceTranslator extends EventEmitter {
   private buildInstructions(): string {
     const myLangName = LANG_NAMES[this.myLang] || this.myLang;
     const targetLangName = LANG_NAMES[this.targetLang] || this.targetLang;
-    const isOneWay = this.mode === 'text' || this.mode === 'unidirectional' as any;
+    const isOneWay = this.mode === 'text' || this.mode === 'unidirectional';
 
     const commonRules = `
 - ALWAYS wait for the speaker to finish their complete thought before translating. A brief pause (1-2 seconds) does NOT mean the speaker is done — they may be thinking or breathing.
@@ -271,6 +271,13 @@ ${this.personalContext}` : ''}`;
 
     this.grokWs.on('close', () => {
       log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket closed');
+      // Auto-reconnect if session is still active
+      if (!this.saved) {
+        log.info({ callId: this.callId }, 'Reconnecting Grok Voice Agent in 1s...');
+        setTimeout(() => {
+          if (!this.saved) this.connectGrok();
+        }, 1000);
+      }
     });
   }
 
@@ -324,16 +331,25 @@ ${this.personalContext}` : ''}`;
     return this.paused;
   }
 
-  /** Detect language by Cyrillic vs Latin character ratio. Returns null if ambiguous. */
-  private detectLanguage(text: string): string | null {
+  private static readonly CYRILLIC_LANGS = new Set(['ru', 'uk', 'bg', 'sr']);
+
+  /** Check if configured language pair uses different scripts (Cyrillic vs Latin) */
+  private languagesUseDifferentScripts(): boolean {
+    const myIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.myLang);
+    const targetIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.targetLang);
+    return myIsCyrillic !== targetIsCyrillic;
+  }
+
+  /** Detect script of text: 'cyrillic' | 'latin' | null (ambiguous). */
+  private detectScript(text: string): 'cyrillic' | 'latin' | null {
     if (!text || text.length < 2) return null;
     const cyrillicCount = (text.match(/[\u0400-\u04FF]/g) || []).length;
     const latinCount = (text.match(/[a-zA-Z]/g) || []).length;
     const totalAlpha = cyrillicCount + latinCount;
     if (totalAlpha < 2) return null;
     const cyrillicRatio = cyrillicCount / totalAlpha;
-    if (cyrillicRatio > 0.5) return 'ru';
-    if (cyrillicRatio < 0.2) return 'en';
+    if (cyrillicRatio > 0.5) return 'cyrillic';
+    if (cyrillicRatio < 0.2) return 'latin';
     return null; // mixed — can't reliably determine
   }
 
@@ -435,18 +451,19 @@ ${this.personalContext}` : ''}`;
         const translated = this.currentOutputTranscript.trim();
 
         if (original && translated) {
-          // Same-language echo detection — if output matches input language, re-translate
-          const inputLang = this.detectLanguage(original);
-          const outputLang = this.detectLanguage(translated);
+          // Same-language echo detection — if output matches input script, re-translate
+          // Only works when languages use different scripts (e.g. Cyrillic vs Latin)
+          const inputScript = this.detectScript(original);
+          const outputScript = this.detectScript(translated);
 
-          if (inputLang && outputLang && inputLang === outputLang && !this.retranslationPending) {
+          if (this.languagesUseDifferentScripts() && inputScript && outputScript && inputScript === outputScript && !this.retranslationPending) {
             this.retranslationPending = true;
-            const targetLangForRetry = inputLang === 'ru'
+            const targetLangForRetry = inputScript === 'cyrillic'
               ? (LANG_NAMES[this.targetLang] || this.targetLang)
               : (LANG_NAMES[this.myLang] || this.myLang);
 
             log.warn({
-              callId: this.callId, inputLang, outputLang,
+              callId: this.callId, inputScript, outputScript,
               original: original.slice(0, 80), translated: translated.slice(0, 80),
             }, 'Same-language echo detected — requesting re-translation');
 
