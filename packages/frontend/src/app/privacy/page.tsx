@@ -33,7 +33,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">1. Introduction</h2>
             <p>Caller (&quot;Company,&quot; &quot;we,&quot; &quot;us&quot;) respects your privacy and is committed to protecting the personal information you share with us. This Privacy Policy describes how we collect, use, disclose, and safeguard information when you use our AI phone calling platform (&quot;Service&quot;).</p>
-            <p className="mt-2">This policy applies to all users of the Service, including business customers (&quot;Customers&quot;) and individuals who are called through the Service (&quot;Called Parties&quot;). If you are a California resident, please see Section 9 for your specific rights under the CCPA/CPRA.</p>
+            <p className="mt-2">This policy applies to all users of the Service, including business customers (&quot;Customers&quot;) and individuals who are called through the Service (&quot;Called Parties&quot;). If you are a California resident, please see Section 10 for your specific rights under the CCPA/CPRA.</p>
           </section>
 
           <section>
@@ -115,7 +115,21 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">6. Data Security</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">6. Sensitive Information — Health, Legal, and Financial Data</h2>
+            <p>When you use the Live Translator or AI calling features for personal matters such as healthcare appointments, insurance calls, legal consultations, or financial inquiries, your calls may contain sensitive information including health conditions, medications, legal matters, or financial details.</p>
+            <p className="mt-2"><strong className="text-white">How we handle this data:</strong></p>
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>Call audio is processed in real-time by our AI providers (see Section 4) and is <strong>not stored permanently</strong> by those providers under their API terms</li>
+              <li>Transcripts and recordings that may contain sensitive content are stored in your workspace and are accessible only to you and your workspace members</li>
+              <li>We do not analyze, mine, or use the content of your calls for advertising, profiling, or any purpose other than delivering the Service</li>
+              <li>You can delete any recording or transcript at any time</li>
+              <li>Under CCPA/CPRA, health-related information is classified as &quot;sensitive personal information&quot; — you have the right to limit its use (see Section 10)</li>
+            </ul>
+            <p className="mt-2"><strong className="text-white">Important:</strong> We are not a HIPAA-covered entity and the Service is not designed for use by healthcare providers or insurers to process patient data. However, as an individual consumer, you are free to use the Service for your own personal healthcare communications. We recommend deleting recordings containing sensitive health information once you no longer need them.</p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-3">7. Data Security</h2>
             <p>We implement industry-standard security measures to protect your data:</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
               <li>Encryption in transit (TLS 1.2+) and at rest (AES-256-GCM for sensitive credentials)</li>
@@ -129,17 +143,17 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">7. Cookies and Tracking</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">8. Cookies and Tracking</h2>
             <p>We use essential cookies for authentication and session management. We do not use advertising cookies or third-party tracking pixels. We do not participate in cross-site tracking.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">8. Children&apos;s Privacy</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">9. Children&apos;s Privacy</h2>
             <p>The Service is not directed at individuals under 18 years of age. We do not knowingly collect personal information from children. If we learn that we have collected data from a child under 18, we will delete it promptly.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">9. California Privacy Rights (CCPA/CPRA)</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">10. California Privacy Rights (CCPA/CPRA)</h2>
             <p>If you are a California resident, you have the following rights under the California Consumer Privacy Act (CCPA) and the California Privacy Rights Act (CPRA):</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
               <li><strong>Right to Know:</strong> You may request information about the categories and specific pieces of personal information we have collected about you, the sources, the business purposes, and the third parties with whom we share it.</li>
@@ -153,17 +167,17 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">10. International Data Transfers</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">11. International Data Transfers</h2>
             <p>The Service is hosted in the United States. If you access the Service from outside the US, you consent to the transfer of your data to the US, where data protection laws may differ from your jurisdiction.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">11. Changes to This Policy</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">12. Changes to This Policy</h2>
             <p>We may update this Privacy Policy periodically. We will notify you of material changes by email or by posting a notice on the Service at least 30 days before the effective date. Your continued use of the Service constitutes acceptance of the updated policy.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">12. Contact Us</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">13. Contact Us</h2>
             <p>For privacy-related questions or to exercise your rights:</p>
             <p className="mt-2 text-white">Caller<br />Email: privacy@caller.com</p>
           </section>

@@ -89,7 +89,25 @@ export default function TermsPage() {
               <li>The Company does not guarantee the accuracy, completeness, or suitability of any AI-generated content</li>
               <li>You are solely responsible for reviewing and verifying AI outputs before relying on them</li>
               <li>The Company is not liable for any decisions made or actions taken based on AI-generated content</li>
-              <li>AI translation may contain errors; the Service is not a substitute for certified human interpretation in legal, medical, or other critical contexts</li>
+            </ul>
+
+            <h3 className="font-semibold text-white mt-5 mb-2">6.1 Live Translation — Medical, Legal, and Critical-Context Disclaimer</h3>
+            <p className="p-3 rounded-lg" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+              <strong className="text-red-400">Critical Warning:</strong> The Live Translator feature is a general-purpose AI translation tool. It is <strong className="text-white">NOT a substitute for a certified, qualified human interpreter</strong> in any context where miscommunication could lead to harm, including but not limited to:
+            </p>
+            <ul className="list-disc list-inside mt-3 space-y-1">
+              <li><strong>Medical settings:</strong> Diagnoses, treatment instructions, medication dosages, surgical consent, insurance claims. AI may mistranslate medical terminology, numbers, drug names, or dosage instructions.</li>
+              <li><strong>Legal settings:</strong> Court proceedings, contracts, immigration hearings, police interactions, legal rights advisements</li>
+              <li><strong>Emergency situations:</strong> 911 calls, safety-critical communications, emergency evacuations</li>
+              <li><strong>Financial settings:</strong> Loan terms, insurance coverage details, tax obligations</li>
+            </ul>
+            <p className="mt-3">You acknowledge and agree that:</p>
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>AI translation may contain errors including mistranslated numbers, names, medical terms, and legal terminology</li>
+              <li>You should always request a qualified human interpreter from your healthcare provider, legal representative, or government agency for critical matters — they are required by law to provide one (Section 1557 of the Affordable Care Act; Title VI of the Civil Rights Act)</li>
+              <li>You use the Live Translator at your own risk for any medical, legal, financial, or safety-critical communication</li>
+              <li>The Company is not liable for any harm, injury, financial loss, legal consequence, or adverse outcome resulting from reliance on AI-translated content</li>
+              <li>The Live Translator is intended to help with everyday communication and should be used as a convenience tool, not as a sole means of communication in critical situations</li>
             </ul>
           </section>
 
@@ -109,7 +127,7 @@ export default function TermsPage() {
               <li>Make unsolicited calls (spam), harassing calls, or threatening calls</li>
               <li>Use AI voice cloning to impersonate real individuals without their explicit written consent</li>
               <li>Circumvent or disable AI disclosure or recording consent mechanisms</li>
-              <li>Use the Service to process protected health information (PHI) under HIPAA without a separate Business Associate Agreement</li>
+              <li>If you are a HIPAA-covered entity or business associate (healthcare provider, health plan, healthcare clearinghouse, or their contractor), use the Service to process protected health information (PHI) without a separate Business Associate Agreement. This restriction applies to organizational use; individual consumers using the Service for their own personal healthcare communications (e.g., calling their doctor with the Live Translator) are not subject to this restriction, but should review the medical disclaimer in Section 6.1.</li>
               <li>Attempt to access other workspaces or circumvent security controls</li>
               <li>Resell or sublicense the Service without written authorization</li>
               <li>Use the Service in a manner that degrades performance for other users</li>
