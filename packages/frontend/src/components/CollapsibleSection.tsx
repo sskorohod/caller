@@ -30,7 +30,7 @@ export default function CollapsibleSection({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={id}
-        className="w-full flex items-center justify-between px-4 py-3.5 touch-target"
+        className="w-full flex items-center justify-between px-3 py-3 md:px-4 md:py-3.5 touch-target"
         style={{ color: 'var(--th-text)' }}
       >
         <div className="flex items-center gap-2.5 min-w-0">
@@ -68,7 +68,7 @@ export default function CollapsibleSection({
           borderTop: open ? '1px solid var(--th-card-border-subtle)' : 'none',
         }}
       >
-        <div className="px-4 py-4">
+        <div className="px-3 py-3 md:px-4 md:py-4">
           {children}
         </div>
       </div>

@@ -10,7 +10,7 @@ export function KpiCard({ label, value, sub, icon, gradient, accentColor }: {
 }) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border border-[var(--th-card-border-subtle)] p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] hover:shadow-[0_2px_8px_var(--th-shadow),0_12px_32px_var(--th-card-glow)] transition-shadow duration-300 group"
+      className="relative overflow-hidden rounded-xl md:rounded-2xl border border-[var(--th-card-border-subtle)] p-3 md:p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] hover:shadow-[0_2px_8px_var(--th-shadow),0_12px_32px_var(--th-card-glow)] transition-shadow duration-300 group"
       style={{ background: gradient }}
     >
       {/* Subtle glow circle in background */}
@@ -20,7 +20,7 @@ export function KpiCard({ label, value, sub, icon, gradient, accentColor }: {
       />
 
       <div className="relative">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2 md:mb-3">
           <span className="text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{label}</span>
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -29,7 +29,7 @@ export function KpiCard({ label, value, sub, icon, gradient, accentColor }: {
             <span style={{ color: accentColor }}>{icon}</span>
           </div>
         </div>
-        <div className="text-[22px] font-bold text-[var(--th-text)] leading-none tracking-tight">{value}</div>
+        <div className="text-xl md:text-[22px] font-bold text-[var(--th-text)] leading-none tracking-tight">{value}</div>
         {sub && <div className="text-[11px] text-[var(--th-text-muted)] mt-2">{sub}</div>}
       </div>
     </div>

@@ -85,7 +85,7 @@ export default function MissionsPage() {
   const statusOptions = ['all', 'draft', 'ready', 'scheduled', 'calling', 'completed', 'failed', 'on_hold'];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 md:space-y-5">
       {plan && plan === 'translator' && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
           style={{ background: 'rgba(251, 191, 36, 0.06)', border: '1px solid rgba(251, 191, 36, 0.15)' }}>
@@ -172,7 +172,7 @@ export default function MissionsPage() {
       {loading ? (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 animate-pulse shadow-[0_1px_3px_var(--th-shadow)]">
+            <div key={i} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 animate-pulse shadow-[0_1px_3px_var(--th-shadow)]">
               <div className="h-4 bg-[var(--th-skeleton)] rounded-lg w-1/3 mb-3" />
               <div className="h-3 bg-[var(--th-skeleton)] rounded-lg w-2/3 mb-2" />
               <div className="h-3 bg-[var(--th-skeleton)] rounded-lg w-1/4" />
@@ -200,7 +200,7 @@ export default function MissionsPage() {
             return (
               <div
                 key={m.id}
-                className="flex items-start gap-3 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 hover:border-[var(--th-border)] hover:shadow-[0_4px_16px_var(--th-card-glow)] transition-all group shadow-[0_1px_3px_var(--th-shadow)] relative overflow-hidden cursor-pointer"
+                className="flex items-start gap-3 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 hover:border-[var(--th-border)] hover:shadow-[0_4px_16px_var(--th-card-glow)] transition-all group shadow-[0_1px_3px_var(--th-shadow)] relative overflow-hidden cursor-pointer"
                 onClick={() => router.push(`/dashboard/missions/${m.id}`)}
               >
                 <input

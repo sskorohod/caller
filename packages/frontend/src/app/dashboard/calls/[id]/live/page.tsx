@@ -866,7 +866,7 @@ export default function LiveCallPage() {
       {/* ─── Takeover modal ─────────────────────────────────────────────── */}
       {showTakeover && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowTakeover(false)}>
-          <div className="bg-[var(--th-card)] rounded-t-2xl md:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)] p-6 w-full md:max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--th-card)] rounded-t-2xl md:rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)] p-4 md:p-6 w-full md:max-w-sm space-y-3 md:space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-[var(--th-text)]">{t('live.takeOver')}</h3>
               <button onClick={() => setShowTakeover(false)} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg transition-colors text-[var(--th-text-muted)]">

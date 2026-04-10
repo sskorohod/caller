@@ -13,7 +13,7 @@ interface RecentCallsTableProps {
 export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
   return (
     <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-      <div className="px-5 py-3.5 border-b border-[var(--th-border)] flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-[var(--th-border)] flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--th-text)]">{t('dashboard.recentCalls')}</h3>
         <Link href="/dashboard/calls" className="text-[11px] text-[var(--th-primary-text)] hover:text-[var(--th-primary-hover)] font-semibold transition-colors flex items-center gap-1">
           {t('dashboard.viewAll')}
@@ -33,16 +33,19 @@ export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[var(--th-border)]">
-                {[t('dashboard.phoneNumber'), t('dashboard.direction'), t('dashboard.status'), t('dashboard.duration'), t('dashboard.cost'), t('dashboard.date')].map(h => (
-                  <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{h}</th>
-                ))}
+                <th className="px-3 md:px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{t('dashboard.phoneNumber')}</th>
+                <th className="px-3 md:px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{t('dashboard.direction')}</th>
+                <th className="px-3 md:px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{t('dashboard.status')}</th>
+                <th className="px-3 md:px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{t('dashboard.duration')}</th>
+                <th className="hidden md:table-cell px-3 md:px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{t('dashboard.cost')}</th>
+                <th className="hidden md:table-cell px-3 md:px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{t('dashboard.date')}</th>
               </tr>
             </thead>
             <tbody>
               {calls.map((call, idx) => (
                 <tr key={call.id} className={`transition-colors hover:bg-[var(--th-surface)] ${idx < calls.length - 1 ? 'border-b border-[var(--th-border-light)]' : ''}`}>
-                  <td className="px-5 py-3 text-sm font-medium text-[var(--th-text)] tabular-nums">{fmtPhone(call.direction === 'outbound' ? (call.phone_number_to || call.to_number) : (call.phone_number_from || call.from_number))}</td>
-                  <td className="px-5 py-3">
+                  <td className="px-3 md:px-5 py-2.5 text-sm font-medium text-[var(--th-text)] tabular-nums">{fmtPhone(call.direction === 'outbound' ? (call.phone_number_to || call.to_number) : (call.phone_number_from || call.from_number))}</td>
+                  <td className="px-3 md:px-5 py-2.5">
                     <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-semibold ${
                       call.direction === 'outbound'
                         ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]'
@@ -51,14 +54,14 @@ export function RecentCallsTable({ calls, t }: RecentCallsTableProps) {
                       {call.direction === 'outbound' ? `\u2191 ${t('direction.outbound')}` : `\u2193 ${t('direction.inbound')}`}
                     </span>
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-3 md:px-5 py-2.5">
                     <span className={`inline-flex text-[10px] px-2.5 py-1 rounded-full font-semibold ${STATUS_COLORS[call.status] ?? STATUS_COLORS.cancelled}`}>
                       {t(`status.${call.status}`)}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)] tabular-nums font-medium">{fmtDuration(call.duration_seconds)}</td>
-                  <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)] tabular-nums font-medium">{call.cost_total ? fmtCost(parseFloat(call.cost_total)) : '$0.00'}</td>
-                  <td className="px-5 py-3 text-[13px] text-[var(--th-text-muted)]">{fmtDate(call.created_at)}</td>
+                  <td className="px-3 md:px-5 py-2.5 text-sm text-[var(--th-text-secondary)] tabular-nums font-medium">{fmtDuration(call.duration_seconds)}</td>
+                  <td className="hidden md:table-cell px-3 md:px-5 py-2.5 text-sm text-[var(--th-text-secondary)] tabular-nums font-medium">{call.cost_total ? fmtCost(parseFloat(call.cost_total)) : '$0.00'}</td>
+                  <td className="hidden md:table-cell px-3 md:px-5 py-2.5 text-[13px] text-[var(--th-text-muted)]">{fmtDate(call.created_at)}</td>
                 </tr>
               ))}
             </tbody>

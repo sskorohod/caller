@@ -141,22 +141,22 @@ export function ApiKeysSection() {
               <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-card-border-subtle)]">
                 <tr>
                   {[t('settings.keyName') || 'Name', 'Prefix', t('settings.lastUsed') || 'Last Used', t('settings.created') || 'Created', ''].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-3 md:px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--th-card-border-subtle)]">
                 {activeKeys.map(k => (
                   <tr key={k.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
-                    <td className="px-5 py-3.5 text-sm font-medium text-[var(--th-text)]">{k.name}</td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 md:px-5 py-3.5 text-sm font-medium text-[var(--th-text)]">{k.name}</td>
+                    <td className="px-3 md:px-5 py-3.5">
                       <code className="text-xs bg-[var(--th-surface)] text-[var(--th-text-secondary)] px-2 py-0.5 rounded-md font-mono">{k.key_prefix}…</code>
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)]">
+                    <td className="px-3 md:px-5 py-3.5 text-sm text-[var(--th-text-muted)]">
                       {k.last_used_at ? fmtDate(k.last_used_at) : t('settings.never')}
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)]">{fmtDate(k.created_at)}</td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 md:px-5 py-3.5 text-sm text-[var(--th-text-muted)]">{fmtDate(k.created_at)}</td>
+                    <td className="px-3 md:px-5 py-3.5">
                       {revokeTarget?.id === k.id ? (
                         <div className="flex items-center gap-2">
                           <button onClick={revokeKeyConfirm} className="text-xs text-[var(--th-error-text)] font-medium transition-colors">{t('settings.confirm')}</button>
@@ -179,7 +179,7 @@ export function ApiKeysSection() {
         }
 
         {revokedKeys.length > 0 && (
-          <div className="border-t border-[var(--th-card-border-subtle)] px-5 py-3">
+          <div className="border-t border-[var(--th-card-border-subtle)] px-3 md:px-5 py-3">
             <p className="text-xs text-[var(--th-text-muted)]">{revokedKeys.length} revoked key{revokedKeys.length > 1 ? 's' : ''} hidden</p>
           </div>
         )}

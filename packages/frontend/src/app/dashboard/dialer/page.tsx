@@ -497,7 +497,7 @@ export default function DialerPage() {
   const selectSmCls = "w-full px-2.5 py-1.5 rounded-lg border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] disabled:opacity-40 transition-all appearance-none";
 
   return (
-    <div className="h-full flex flex-col gap-5">
+    <div className="h-full flex flex-col gap-3 md:gap-5">
       {twilioConfigured === false && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
           style={{ background: 'rgba(251, 191, 36, 0.06)', border: '1px solid rgba(251, 191, 36, 0.15)' }}>
@@ -513,12 +513,12 @@ export default function DialerPage() {
           </a>
         </div>
       )}
-      <div className={`flex-1 flex flex-col lg:flex-row lg:items-start gap-5 ${isMobile && isInCall ? '' : 'overflow-y-auto'}`}>
+      <div className={`flex-1 flex flex-col lg:flex-row lg:items-start gap-3 md:gap-5 ${isMobile && isInCall ? '' : 'overflow-y-auto'}`}>
       {/* ──── Left: Dialer ──── */}
       <div className={`shrink-0 flex flex-col gap-4 ${isMobile ? 'w-full' : 'lg:w-[440px] lg:sticky lg:top-0 lg:self-start lg:max-h-screen lg:overflow-y-auto lg:scrollbar-none'}`}>
 
         {/* Main dialer card */}
-        <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+        <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 md:p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
 
           {/* Phone input */}
           <div className="mb-5 relative">
@@ -961,7 +961,7 @@ export default function DialerPage() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3">
           {transcript.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <div className="w-16 h-16 rounded-2xl bg-[var(--th-primary-bg)] flex items-center justify-center text-[var(--th-primary-text)]">

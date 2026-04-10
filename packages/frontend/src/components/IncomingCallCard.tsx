@@ -133,7 +133,7 @@ export default function IncomingCallCard() {
   return (
     <>
       <div
-        className={`fixed top-4 right-4 z-50 w-[400px] max-w-[calc(100vw-2rem)] rounded-2xl border border-green-500/30 bg-gray-900/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-[opacity,transform] ${
+        className={`fixed top-4 right-4 z-50 w-[340px] md:w-[400px] max-w-[calc(100vw-2rem)] rounded-2xl border border-green-500/30 bg-gray-900/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-[opacity,transform] ${
           removing ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0 animate-[slideInCall_0.3s_ease-out]'
         }`}
         style={{ transitionDuration: `${ANIMATION_MS}ms` }}

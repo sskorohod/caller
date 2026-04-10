@@ -479,7 +479,7 @@ export default function AgentEditPage() {
 
   function renderGeneral() {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Avatar */}
         <div>
           <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">{t('agents.avatar')}</label>
@@ -610,7 +610,7 @@ export default function AgentEditPage() {
 
   function renderVoice() {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Voice Provider */}
         <div>
           <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">{t('agents.voiceProvider')}</label>
@@ -661,7 +661,7 @@ export default function AgentEditPage() {
 
   function renderLLM() {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* LLM Provider */}
         <div>
           <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">{t('agents.llmProvider')}</label>
@@ -937,7 +937,7 @@ export default function AgentEditPage() {
 
   function renderAdvanced() {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Business Mode */}
         <div>
           <label className="block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5">{t('agents.businessMode')}</label>
@@ -1075,7 +1075,7 @@ export default function AgentEditPage() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 py-4 md:p-6">
+          <div className="max-w-2xl mx-auto px-3 py-3 md:px-4 md:py-4 lg:p-6">
             {RENDER_MAP[section]()}
 
             {/* Delete zone — always visible at bottom */}
@@ -1095,7 +1095,7 @@ export default function AgentEditPage() {
       {/* Delete confirmation modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-[var(--th-card)] rounded-t-2xl md:rounded-2xl p-6 w-full md:max-w-sm md:mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)]">
+          <div className="bg-[var(--th-card)] rounded-t-2xl md:rounded-2xl p-4 md:p-6 w-full md:max-w-sm md:mx-4 shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)]">
             <div className="w-11 h-11 bg-[var(--th-error-bg)] rounded-xl flex items-center justify-center mb-4">
               <svg className="w-5 h-5 text-[var(--th-error-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />

@@ -12,7 +12,7 @@ const PLANS = ['translator', 'agents', 'agents_mcp'] as const;
 
 export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: PlanComparisonGridProps) {
   return (
-    <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+    <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
       <h3 className="text-sm font-semibold text-[var(--th-text)] mb-4">{t('billing.comparePlans')}</h3>
       <div className="snap-carousel md:grid md:grid-cols-3 gap-4">
         {PLANS.map(planId => {
@@ -26,7 +26,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
           return (
             <div
               key={planId}
-              className={`relative rounded-2xl border p-5 transition-[border-color,box-shadow] min-w-[260px] md:min-w-0 ${
+              className={`relative rounded-2xl border p-4 md:p-5 transition-[border-color,box-shadow] min-w-[220px] md:min-w-0 ${
                 isCurrent
                   ? 'border-[var(--th-primary)] shadow-[0_0_0_1px_var(--th-primary),0_4px_12px_var(--th-shadow-primary)]'
                   : 'border-[var(--th-border)] hover:border-[var(--th-border-hover)]'

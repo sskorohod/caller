@@ -708,7 +708,7 @@ export default function MissionChatPage() {
             </CollapsibleSection>
           </div>
         ) : (
-          <div className="lg:w-80 shrink-0 overflow-y-auto rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 space-y-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+          <div className="lg:w-80 shrink-0 overflow-y-auto rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 md:p-5 space-y-3 md:space-y-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
             <h2 className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
               {t('mission.details')}
             </h2>

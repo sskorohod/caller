@@ -293,7 +293,7 @@ export default function TranslatorPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 md:space-y-5">
       {/* Header + Phone + Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
         <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{t('translator.title')}</h2>
@@ -324,7 +324,7 @@ export default function TranslatorPage() {
       )}
 
       {/* ─── Settings + Live Sidebar ──────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-5">
+      <div className="flex flex-col lg:flex-row gap-3 md:gap-5">
         {isMobile && liveCallId ? (
           <CollapsibleSection title={t('translator.settings') || 'Settings'} defaultOpen={false}>
             <SettingsContent
@@ -359,7 +359,7 @@ function SettingsContent({ defaults, setDefaults, saving, saved, saveDefaults, t
   selectCls: string;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
         <h3 className="text-sm font-bold text-[var(--th-text)] mb-1">{t('translator.translationMode')}</h3>
         <p className="text-xs text-[var(--th-text-muted)] mb-3">{t('translator.modeDesc')}</p>

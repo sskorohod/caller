@@ -156,7 +156,7 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 md:space-y-5">
       {/* Subscription banner for Translator-only plan */}
       {plan && plan === 'translator' && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
@@ -196,9 +196,9 @@ export default function AgentsPage() {
           <ErrorState message={loadError} onRetry={loadAgents} retryLabel={t('common.retry')} />
         </div>
       ) : loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-5">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-6 animate-pulse space-y-4 shadow-[0_1px_3px_var(--th-shadow)]">
+            <div key={i} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-6 animate-pulse space-y-4 shadow-[0_1px_3px_var(--th-shadow)]">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-[var(--th-skeleton)] rounded-full" />
                 <div className="space-y-2 flex-1">
@@ -232,15 +232,15 @@ export default function AgentsPage() {
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5">
           {agents.map(agent => (
-            <div key={agent.id} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-6 hover:border-[var(--th-border)] hover:shadow-[0_4px_16px_var(--th-card-glow)] transition-all group shadow-[0_1px_3px_var(--th-shadow)] relative overflow-hidden">
+            <div key={agent.id} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-6 hover:border-[var(--th-border)] hover:shadow-[0_4px_16px_var(--th-card-glow)] transition-all group shadow-[0_1px_3px_var(--th-shadow)] relative overflow-hidden">
               {/* Active indicator bar */}
               {agent.is_active && <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-green-400 to-emerald-500" />}
 
               {/* Header: Avatar + Name + Toggle */}
-              <div className="flex items-start gap-4 mb-3">
-                <AvatarCircle src={agent.avatar_url} name={agent.display_name || agent.name} id={agent.id} size={56} />
+              <div className="flex items-start gap-3 md:gap-4 mb-3">
+                <AvatarCircle src={agent.avatar_url} name={agent.display_name || agent.name} id={agent.id} size={48} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-[var(--th-text)] text-base truncate group-hover:text-[var(--th-primary-text)] transition-colors">{agent.display_name || agent.name}</h3>
@@ -282,7 +282,7 @@ export default function AgentsPage() {
               )}
 
               {/* Provider info */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--th-text-muted)] mb-4">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--th-text-muted)] mb-3 md:mb-4">
                 <span className="flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
@@ -346,7 +346,7 @@ export default function AgentsPage() {
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)}>
           <div className="bg-[var(--th-card)] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)] w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-5 py-4 space-y-4">
               <div className="w-11 h-11 bg-[var(--th-error-bg)] rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-[var(--th-error-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />

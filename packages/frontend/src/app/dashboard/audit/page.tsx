@@ -204,27 +204,27 @@ export default function AuditPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px]">
+            <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="border-b border-[var(--th-card-border-subtle)]">
                   {[t('audit.timestamp'), t('audit.userEmail'), t('audit.action'), t('audit.resourceType'), t('audit.resourceId'), t('audit.changes')].map(h => (
-                    <th key={h} className="px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{h}</th>
+                    <th key={h} className="px-3 md:px-5 py-2.5 text-left text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider bg-[var(--th-surface)]">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log, idx) => (
                   <tr key={log.id} className={`hover:bg-[var(--th-surface)] transition-colors ${idx < logs.length - 1 ? 'border-b border-[var(--th-card-border-subtle)]' : ''}`}>
-                    <td className="px-5 py-3 text-[13px] text-[var(--th-text-muted)] whitespace-nowrap tabular-nums">{fmtDate(log.created_at)}</td>
-                    <td className="px-5 py-3 text-sm text-[var(--th-text)] font-medium">{log.user_email ?? '\u2014'}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-3 md:px-5 py-3 text-[13px] text-[var(--th-text-muted)] whitespace-nowrap tabular-nums">{fmtDate(log.created_at)}</td>
+                    <td className="px-3 md:px-5 py-3 text-sm text-[var(--th-text)] font-medium">{log.user_email ?? '\u2014'}</td>
+                    <td className="px-3 md:px-5 py-3">
                       <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]">
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-sm text-[var(--th-text-secondary)]">{log.resource_type}</td>
-                    <td className="px-5 py-3 text-xs text-[var(--th-text-muted)] font-mono tabular-nums">{log.resource_id ? log.resource_id.slice(0, 8) + '...' : '\u2014'}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-3 md:px-5 py-3 text-sm text-[var(--th-text-secondary)]">{log.resource_type}</td>
+                    <td className="px-3 md:px-5 py-3 text-xs text-[var(--th-text-muted)] font-mono tabular-nums">{log.resource_id ? log.resource_id.slice(0, 8) + '...' : '\u2014'}</td>
+                    <td className="px-3 md:px-5 py-3">
                       {log.changes && Object.keys(log.changes).length > 0 ? (
                         <button
                           onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
@@ -242,7 +242,7 @@ export default function AuditPage() {
                 {/* Expanded JSON rows */}
                 {logs.map(log => expandedId === log.id && log.changes && Object.keys(log.changes).length > 0 ? (
                   <tr key={`${log.id}-expanded`} className="bg-[var(--th-surface)]">
-                    <td colSpan={6} className="px-5 py-3">
+                    <td colSpan={6} className="px-3 md:px-5 py-3">
                       <pre className="text-xs text-[var(--th-text-secondary)] bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] rounded-xl p-4 overflow-x-auto max-h-48 font-mono leading-relaxed">
                         {JSON.stringify(log.changes, null, 2)}
                       </pre>

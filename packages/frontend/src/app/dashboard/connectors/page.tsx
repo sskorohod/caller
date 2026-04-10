@@ -158,7 +158,7 @@ export default function ConnectorsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 md:space-y-5">
       <MobilePageHeader title={t('connectors.title')} subtitle={t('connectors.subtitle')} />
       <div className="hidden md:flex items-center justify-between">
         <div>
@@ -177,14 +177,14 @@ export default function ConnectorsPage() {
       </div>
 
       {loadError ? (
-        <div className="bg-[var(--th-error-bg)] border border-[var(--th-card-border-subtle)] rounded-2xl p-6 text-center">
+        <div className="bg-[var(--th-error-bg)] border border-[var(--th-card-border-subtle)] rounded-2xl p-4 md:p-6 text-center">
           <p className="text-sm font-medium text-[var(--th-error-text)]">{loadError}</p>
           <button onClick={loadConnectors} className="mt-3 px-4 py-2 text-sm font-medium text-[var(--th-error-text)] hover:bg-[var(--th-error-bg)] rounded-lg transition-colors">{t('common.retry')}</button>
         </div>
       ) : loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 animate-pulse space-y-3">
+            <div key={i} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 animate-pulse space-y-3">
               <div className="w-10 h-10 bg-[var(--th-skeleton)] rounded-lg" />
               <div className="h-4 bg-[var(--th-skeleton)] rounded-lg w-2/3" />
               <div className="h-3 bg-[var(--th-skeleton)] rounded-lg w-1/2" />
@@ -205,11 +205,11 @@ export default function ConnectorsPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {connectors.map(connector => {
             const typeMeta = TYPE_LABELS[connector.connector_type] ?? { label: connector.connector_type, color: 'bg-[var(--th-skeleton)] text-[var(--th-text-muted)]' };
             return (
-              <div key={connector.id} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] hover:shadow-[0_2px_8px_var(--th-shadow),0_12px_32px_var(--th-card-glow)] transition-shadow group">
+              <div key={connector.id} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] hover:shadow-[0_2px_8px_var(--th-shadow),0_12px_32px_var(--th-card-glow)] transition-shadow group">
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-10 h-10 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center">
                     <svg className="w-5 h-5 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

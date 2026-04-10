@@ -193,7 +193,7 @@ export default function KnowledgePage() {
   // ── Detail View ──
   if (selectedKB) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-3 md:space-y-5">
         {/* Header */}
         <MobilePageHeader
           title={selectedKB.name}
@@ -231,7 +231,7 @@ export default function KnowledgePage() {
         {docsLoading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-[var(--th-skeleton)] rounded-lg p-5 animate-pulse h-20 rounded-2xl border border-[var(--th-card-border-subtle)]" />
+              <div key={i} className="bg-[var(--th-skeleton)] rounded-lg p-4 md:p-5 animate-pulse h-20 rounded-2xl border border-[var(--th-card-border-subtle)]" />
             ))}
           </div>
         ) : docs.length === 0 ? (
@@ -500,7 +500,7 @@ export default function KnowledgePage() {
 
   // ── List View ──
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 md:space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-[var(--th-text)]">{t('knowledge.title')}</h2>
@@ -515,9 +515,9 @@ export default function KnowledgePage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-[var(--th-skeleton)] rounded-lg p-5 animate-pulse h-32 rounded-2xl border border-[var(--th-card-border-subtle)]" />
+            <div key={i} className="bg-[var(--th-skeleton)] rounded-lg p-4 md:p-5 animate-pulse h-32 rounded-2xl border border-[var(--th-card-border-subtle)]" />
           ))}
         </div>
       ) : bases.length === 0 ? (
@@ -532,9 +532,9 @@ export default function KnowledgePage() {
           <button onClick={() => setModal(true)} className="px-4 py-2 btn-primary">{t('knowledge.createKB')}</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {bases.map(kb => (
-            <div key={kb.id} onClick={() => openKBDetail(kb)} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] hover:shadow-[0_4px_16px_var(--th-shadow),0_12px_32px_var(--th-card-glow)] transition-all cursor-pointer relative group">
+            <div key={kb.id} onClick={() => openKBDetail(kb)} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] hover:shadow-[0_4px_16px_var(--th-shadow),0_12px_32px_var(--th-card-glow)] transition-all cursor-pointer relative group">
               <button
                 onClick={(e) => handleDeleteKB(e, kb.id)}
                 disabled={deletingKB === kb.id}

@@ -51,7 +51,7 @@ export default function MobileListItem({ children, onClick, swipeLeft, swipeRigh
         onClick={onClick}
         {...handlers}
       >
-        <div className="px-4 py-3.5">
+        <div className="px-3 py-3 md:px-4 md:py-3.5">
           {children}
         </div>
       </div>

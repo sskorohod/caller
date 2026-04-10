@@ -193,7 +193,7 @@ export default function NewAgentPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] p-6 space-y-5">
+        <div className="flex-1 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] p-4 md:p-6 space-y-3 md:space-y-5">
           {section === 'general' && (
             <>
               {/* Avatar */}

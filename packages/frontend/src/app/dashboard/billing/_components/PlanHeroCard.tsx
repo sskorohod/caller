@@ -29,7 +29,7 @@ export function PlanHeroCard({ info, onSubscribe, onCancelClick, t }: PlanHeroCa
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border border-[var(--th-card-border-subtle)] p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]"
+      className="relative overflow-hidden rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-6 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]"
       style={{ background: gradient }}
     >
       {/* Glow */}

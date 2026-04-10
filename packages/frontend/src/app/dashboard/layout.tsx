@@ -251,7 +251,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Page content — with safe bottom padding on mobile for tab bar */}
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-5 safe-bottom md:pb-5" key={pathname}>
+        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-3 md:py-5 safe-bottom md:pb-5" key={pathname}>
           <div className="animate-page-enter">
             {children}
           </div>

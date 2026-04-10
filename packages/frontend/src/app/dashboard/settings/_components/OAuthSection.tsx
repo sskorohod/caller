@@ -124,22 +124,22 @@ export function OAuthSection() {
             <thead className="bg-[var(--th-table-header)] border-b border-[var(--th-card-border-subtle)]">
               <tr>
                 {[t('settings.appName') || 'App Name', 'Client ID', t('settings.redirectUris') || 'Redirect URIs', t('settings.created') || 'Created', ''].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
+                  <th key={h} className="px-3 md:px-5 py-3 text-left text-xs font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--th-card-border-subtle)]">
               {clients.map(c => (
                 <tr key={c.id} className="hover:bg-[var(--th-table-row-hover)] transition-colors">
-                  <td className="px-5 py-3.5 text-sm font-medium text-[var(--th-text)]">{c.name}</td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-3 md:px-5 py-3.5 text-sm font-medium text-[var(--th-text)]">{c.name}</td>
+                  <td className="px-3 md:px-5 py-3.5">
                     <code className="text-xs bg-[var(--th-surface)] text-[var(--th-text-secondary)] px-2 py-0.5 rounded-md font-mono">{c.client_id}</code>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-[var(--th-text-muted)] max-w-[200px]">
+                  <td className="px-3 md:px-5 py-3.5 text-xs text-[var(--th-text-muted)] max-w-[200px]">
                     {c.redirect_uris.map(u => <div key={u} className="truncate">{u}</div>)}
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)]">{fmtDate(c.created_at)}</td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-3 md:px-5 py-3.5 text-sm text-[var(--th-text-muted)]">{fmtDate(c.created_at)}</td>
+                  <td className="px-3 md:px-5 py-3.5">
                     {deleteTarget?.id === c.id ? (
                       <div className="flex items-center gap-2">
                         <button onClick={deleteClientConfirm} className="text-xs text-[var(--th-error-text)] font-medium transition-colors">{t('settings.confirm')}</button>

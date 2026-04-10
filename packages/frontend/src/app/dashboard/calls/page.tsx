@@ -182,13 +182,13 @@ function downloadFile(content: string, filename: string, mime: string) {
 
 function MiniKpi({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon: React.ReactNode }) {
   return (
-    <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+    <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-3 md:p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-[var(--th-surface)] flex items-center justify-center text-[var(--th-text-muted)] shrink-0">
           {icon}
         </div>
         <div className="min-w-0">
-          <div className="text-lg font-bold text-[var(--th-text)] leading-tight">{value}</div>
+          <div className="text-base md:text-lg font-bold text-[var(--th-text)] leading-tight">{value}</div>
           <div className="text-[11px] text-[var(--th-text-muted)] leading-tight">{label}</div>
         </div>
         {sub && <div className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)] shrink-0">{sub}</div>}
@@ -208,7 +208,7 @@ function DirectionBar({ data }: { data: Record<string, number> }) {
   const outPct = 100 - inPct;
 
   return (
-    <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+    <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-3 md:p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-[var(--th-surface)] flex items-center justify-center text-[var(--th-text-muted)] shrink-0">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -282,7 +282,7 @@ function CallRow({ call, agentMap, onClick, expanded, onToggleExpand, checked, o
         />
       </td>
       {/* Phone + Agent */}
-      <td className="px-5 py-3.5">
+      <td className="px-3 md:px-5 py-3.5">
         <div className="flex items-center gap-3">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
             call.status === 'in_progress' ? 'bg-[var(--th-info-bg)]' :
@@ -307,7 +307,7 @@ function CallRow({ call, agentMap, onClick, expanded, onToggleExpand, checked, o
       </td>
 
       {/* Direction */}
-      <td className="px-5 py-3.5">
+      <td className="px-3 md:px-5 py-3.5">
         <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${
           call.direction === 'outbound'
             ? 'bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]'
@@ -318,14 +318,14 @@ function CallRow({ call, agentMap, onClick, expanded, onToggleExpand, checked, o
       </td>
 
       {/* Status */}
-      <td className="px-5 py-3.5">
+      <td className="px-3 md:px-5 py-3.5">
         <span className={`inline-flex text-[11px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[call.status] ?? STATUS_COLORS.cancelled}`}>
           {STATUS_LABELS[call.status] ?? call.status}
         </span>
       </td>
 
       {/* Duration + Cost */}
-      <td className="px-5 py-3.5 text-sm tabular-nums text-[var(--th-text-secondary)]">
+      <td className="px-3 md:px-5 py-3.5 text-sm tabular-nums text-[var(--th-text-secondary)] hidden md:table-cell">
         <div>{fmtDuration(call.duration_seconds)}</div>
         {call.cost_total && Number(call.cost_total) > 0 && (
           <div className="text-[10px] text-amber-600 dark:text-amber-400">${Number(call.cost_total).toFixed(4)}</div>
@@ -333,7 +333,7 @@ function CallRow({ call, agentMap, onClick, expanded, onToggleExpand, checked, o
       </td>
 
       {/* Summary — expandable */}
-      <td className="px-5 py-3.5 max-w-[260px]" onClick={e => { e.stopPropagation(); if (call.summary) onToggleExpand(); }}>
+      <td className="px-3 md:px-5 py-3.5 max-w-[260px] hidden md:table-cell" onClick={e => { e.stopPropagation(); if (call.summary) onToggleExpand(); }}>
         {call.summary ? (
           <p className={`text-[11px] text-[var(--th-text-muted)] leading-snug cursor-pointer hover:text-[var(--th-text-secondary)] transition-colors ${expanded ? '' : 'line-clamp-2'}`}>
             {call.summary}
@@ -344,10 +344,10 @@ function CallRow({ call, agentMap, onClick, expanded, onToggleExpand, checked, o
       </td>
 
       {/* Date */}
-      <td className="px-5 py-3.5 text-sm text-[var(--th-text-muted)] whitespace-nowrap">{fmtDateShort(call.created_at)}</td>
+      <td className="px-3 md:px-5 py-3.5 text-sm text-[var(--th-text-muted)] whitespace-nowrap">{fmtDateShort(call.created_at)}</td>
 
       {/* Arrow */}
-      <td className="px-5 py-3.5">
+      <td className="px-3 md:px-5 py-3.5">
         <svg className="w-4 h-4 text-[var(--th-text-muted)] group-hover:text-[var(--th-primary-text)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
@@ -677,7 +677,7 @@ export default function CallsPage() {
         {/* Advanced Filters Panel */}
         {showFilters && (
           <div className="px-5 py-4 border-b border-[var(--th-card-border-subtle)] bg-[var(--th-surface)]">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1">
                 <label className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('calls.dateFrom')}</label>
                 <input type="date" value={advFilters.dateFrom} onChange={e => setAdvFilters(p => ({ ...p, dateFrom: e.target.value }))}

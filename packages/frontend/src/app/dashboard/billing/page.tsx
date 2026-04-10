@@ -37,7 +37,7 @@ export default function BillingPage() {
   if (loading || !info) return <BillingSkeleton />;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4">
       {/* Low balance alert */}
       <LowBalanceBanner balance={info.balance_usd} onQuickDeposit={topUp} t={t} />
 
@@ -61,7 +61,7 @@ export default function BillingPage() {
       />
 
       {/* Charts: spending + usage breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
         <div className="lg:col-span-7">
           <SpendingChart dailySpending={dailySpending} t={t} />
         </div>

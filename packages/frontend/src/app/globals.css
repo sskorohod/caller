@@ -349,3 +349,24 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 .badge-warning { background: var(--th-warning-bg); color: var(--th-warning-text); }
 .badge-info { background: var(--th-info-bg); color: var(--th-info-text); }
 .badge-neutral { background: var(--th-surface); color: var(--th-text-muted); }
+
+/* ─── Mobile Compact Utilities ──────────────────────────────────────── */
+/* Responsive card padding */
+.card-compact { padding: 0.75rem; }
+@media (min-width: 768px) { .card-compact { padding: 1.5rem; } }
+
+/* Responsive spacing between sections */
+.section-gap { display: flex; flex-direction: column; gap: 0.5rem; }
+@media (min-width: 768px) { .section-gap { gap: 0.75rem; } }
+
+/* Responsive text — tighter on mobile */
+.text-compact { font-size: 0.8125rem; line-height: 1.25rem; }
+@media (min-width: 768px) { .text-compact { font-size: 0.875rem; line-height: 1.375rem; } }
+
+/* Hide on mobile, show on desktop */
+.mobile-hidden { display: none; }
+@media (min-width: 768px) { .mobile-hidden { display: table-cell; } }
+
+/* Responsive table cell padding */
+.td-compact { padding: 0.5rem 0.75rem; }
+@media (min-width: 768px) { .td-compact { padding: 0.75rem 1.25rem; } }

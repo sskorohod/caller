@@ -144,11 +144,11 @@ export default function OverviewPage() {
   ];
 
   const content = (
-    <div className="flex flex-col gap-3 md:h-[calc(100vh-4rem)] md:overflow-hidden">
+    <div className="flex flex-col gap-2 md:gap-3 md:h-[calc(100vh-4rem)] md:overflow-hidden">
       {/* Row 1: Greeting + Translator Phone */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 shrink-0">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-1 md:gap-2 shrink-0">
         <div>
-          <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">
+          <h2 className="text-base md:text-xl font-bold text-[var(--th-text)]">
             {t('dashboard.greeting', { timeOfDay: t(`time.${getTimeOfDay()}`), name: workspace?.name ?? '' })}
           </h2>
           <p className="text-xs md:text-sm text-[var(--th-text-muted)] mt-0.5">{isTranslatorOnly ? t('dashboard.translatorService') : t('dashboard.subtitle')}</p>
@@ -157,7 +157,7 @@ export default function OverviewPage() {
           {translatorPhone && (
             <div className="md:text-right">
               <a href={`tel:${translatorPhone}`}
-                className="text-xl md:text-3xl font-extrabold tracking-wide"
+                className="text-lg md:text-3xl font-extrabold tracking-wide"
                 style={{
                   background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
                   WebkitBackgroundClip: 'text',
@@ -177,7 +177,7 @@ export default function OverviewPage() {
       {isMobile ? (
         <div className="snap-carousel gap-3 pb-1 shrink-0 -mx-4 px-4">
           {kpiCards.map((card, i) => (
-            <div key={i} className="min-w-[160px] flex-1">{card}</div>
+            <div key={i} className="min-w-[140px] flex-1">{card}</div>
           ))}
         </div>
       ) : (
@@ -187,7 +187,7 @@ export default function OverviewPage() {
       )}
 
       {/* Row 3: Charts + Right Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 shrink-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-3 shrink-0">
         <div className={isTranslatorOnly ? 'lg:col-span-12' : 'lg:col-span-7'}>
           <WeeklyChart dailyCalls={s?.daily_calls ?? []} t={t} />
         </div>
@@ -195,11 +195,11 @@ export default function OverviewPage() {
           <>
             {/* Desktop: combined card. Mobile: separate cards */}
             {isMobile ? (
-              <div className="flex flex-col gap-3">
-                <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+              <div className="flex flex-col gap-2 md:gap-3">
+                <div className="bg-[var(--th-card)] rounded-xl md:rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
                   <StatusDonut data={s?.status_breakdown ?? {}} t={t} />
                 </div>
-                <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+                <div className="bg-[var(--th-card)] rounded-xl md:rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
                   <CostBreakdown
                     total={s?.cost_total_30d ?? 0}
                     llm={s?.cost_llm_30d ?? 0}
@@ -209,7 +209,7 @@ export default function OverviewPage() {
                     t={t}
                   />
                 </div>
-                <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+                <div className="bg-[var(--th-card)] rounded-xl md:rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
                   <SentimentStrip data={s?.sentiment_breakdown ?? {}} t={t} />
                 </div>
               </div>

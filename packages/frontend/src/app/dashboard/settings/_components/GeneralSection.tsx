@@ -47,7 +47,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
   const inputCls = "w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] bg-[var(--th-card)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 md:space-y-5">
       {/* Section header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-[0_2px_8px_rgba(59,130,246,0.3)]">
@@ -66,7 +66,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
         {/* Gradient accent bar */}
         <div className="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 md:p-6 space-y-4 md:space-y-5">
           {/* Workspace name — prominently displayed */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide flex items-center gap-2">
@@ -135,7 +135,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
 
       {/* Preferences Card */}
       <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-        <div className="p-6 space-y-5">
+        <div className="p-4 md:p-6 space-y-4 md:space-y-5">
           <div className="flex items-center gap-2 mb-1">
             <svg className="w-4 h-4 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
@@ -178,7 +178,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
         </div>
 
         {/* Save bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--th-card-border-subtle)] bg-[var(--th-surface)]/50 rounded-b-2xl">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-t border-[var(--th-card-border-subtle)] bg-[var(--th-surface)]/50 rounded-b-2xl">
           <span className="text-xs text-[var(--th-text-muted)]">
             {error ? <span className="text-[var(--th-error-text)]">{error}</span> : saved ? <span className="text-[var(--th-success-text)] flex items-center gap-1"><IconCheck className="w-3.5 h-3.5" />{t('settings.saved')}</span> : null}
           </span>
