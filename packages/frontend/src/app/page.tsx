@@ -23,7 +23,7 @@ export default function LandingPage() {
 
       {/* ── Navigation ─────────────────────────────────────────── */}
       <header className="fixed top-0 w-full z-50 border-b" style={{ background: 'rgba(14, 19, 31, 0.7)', backdropFilter: 'blur(24px)', borderColor: 'rgba(221, 226, 243, 0.06)' }}>
-        <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #adc6ff, #4d8eff)' }}>
               <span className="material-symbols-outlined text-base" style={{ color: '#0e131f', fontVariationSettings: "'FILL' 1" }}>call</span>
@@ -36,8 +36,8 @@ export default function LandingPage() {
             <Link href="/pricing" className="transition-colors hover:text-white" style={{ color: '#c2c6d6' }}>Pricing</Link>
             <a href="#faq" className="transition-colors hover:text-white" style={{ color: '#c2c6d6' }}>FAQ</a>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#c2c6d6' }}>Log in</Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white hidden sm:inline" style={{ color: '#c2c6d6' }}>Log in</Link>
             <Link href="/login?mode=register" className="px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95"
               style={{ background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }}>
               Get Started
@@ -48,7 +48,7 @@ export default function LandingPage() {
 
       <main>
         {/* ── Hero ──────────────────────────────────────────────── */}
-        <section className="pt-32 pb-20 md:pt-44 md:pb-32 px-6 relative overflow-hidden">
+        <section className="pt-24 pb-16 sm:pt-32 sm:pb-20 md:pt-44 md:pb-32 px-4 sm:px-6 relative overflow-hidden">
           {/* Background effects */}
           <div className="absolute top-20 left-1/4 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(173,198,255,0.08), transparent 70%)', filter: 'blur(40px)' }} />
           <div className="absolute top-40 right-1/4 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(208,188,255,0.06), transparent 70%)', filter: 'blur(40px)' }} />
@@ -65,7 +65,7 @@ export default function LandingPage() {
                 Now with AI Phone Agents
               </div>
 
-              <h1 className="text-5xl md:text-7xl font-headline font-extrabold tracking-tight leading-[1.08] mb-6">
+              <h1 className="text-3xl sm:text-5xl md:text-7xl font-headline font-extrabold tracking-tight leading-[1.08] mb-6">
                 Phone calls,{' '}
                 <span className="gradient-text">automated</span>
                 <br className="hidden md:block" />
@@ -78,15 +78,15 @@ export default function LandingPage() {
                 Or merge a live translator into any conversation. One platform, zero complexity.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
                 <Link href="/login?mode=register"
-                  className="px-8 py-4 rounded-xl text-base font-bold transition-all active:scale-[.97] flex items-center gap-3 group"
+                  className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-bold transition-all active:scale-[.97] flex items-center justify-center gap-3 group min-h-[48px]"
                   style={{ background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f', boxShadow: '0 4px 32px rgba(77,142,255,0.25)' }}>
                   Start Free
                   <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
                 </Link>
                 <Link href="/pricing"
-                  className="px-8 py-4 rounded-xl text-base font-medium transition-all active:scale-[.97]"
+                  className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-medium transition-all active:scale-[.97] text-center min-h-[48px] flex items-center justify-center"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}>
                   View Pricing
                 </Link>
@@ -167,11 +167,11 @@ export default function LandingPage() {
 
         {/* ── Social Proof ─────────────────────────────────────── */}
         <section className="py-10 border-y" style={{ borderColor: 'rgba(255,255,255,0.04)', background: 'rgba(22,28,40,0.5)' }}>
-          <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex items-center gap-8 opacity-40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 opacity-40">
               <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c2c6d6' }}>Powered by</span>
               {['Twilio', 'Anthropic', 'OpenAI', 'ElevenLabs', 'Deepgram'].map(name => (
-                <span key={name} className="font-headline font-bold text-sm">{name}</span>
+                <span key={name} className="font-headline font-bold text-xs sm:text-sm">{name}</span>
               ))}
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
@@ -182,13 +182,13 @@ export default function LandingPage() {
         </section>
 
         {/* ── Two Products ─────────────────────────────────────── */}
-        <section id="products" className="py-24 md:py-32 px-6">
+        <section id="products" className="py-16 sm:py-24 md:py-32 px-4 sm:px-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
+              <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
                 Two products. <span className="gradient-text">One platform.</span>
               </h2>
-              <p className="text-lg max-w-2xl mx-auto" style={{ color: '#c2c6d6' }}>
+              <p className="text-sm sm:text-lg max-w-2xl mx-auto" style={{ color: '#c2c6d6' }}>
                 Whether you need AI agents handling your phone lines or real-time translation on calls — Caller has you covered.
               </p>
             </div>
@@ -256,18 +256,18 @@ export default function LandingPage() {
         </section>
 
         {/* ── How It Works ─────────────────────────────────────── */}
-        <section id="how-it-works" className="py-24 md:py-32 px-6" style={{ background: 'rgba(22,28,40,0.4)' }}>
+        <section id="how-it-works" className="py-16 sm:py-24 md:py-32 px-4 sm:px-6" style={{ background: 'rgba(22,28,40,0.4)' }}>
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
+              <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
                 Up and running in <span className="gradient-text">minutes</span>
               </h2>
-              <p className="text-lg max-w-xl mx-auto" style={{ color: '#c2c6d6' }}>
+              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#c2c6d6' }}>
                 No complex setup. Sign up, choose your plan, and start.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5">
               {[
                 { num: '01', icon: 'person_add', title: 'Create account', desc: 'Email and password. That\'s it. Your workspace is ready in seconds.', color: '#adc6ff' },
                 { num: '02', icon: 'tune', title: 'Choose your plan', desc: 'Translator for calls, Agents for automation, or both. Start with $2 free.', color: '#4ade80' },
@@ -290,18 +290,18 @@ export default function LandingPage() {
         </section>
 
         {/* ── Features Grid ────────────────────────────────────── */}
-        <section className="py-24 md:py-32 px-6">
+        <section className="py-16 sm:py-24 md:py-32 px-4 sm:px-6">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
+            <div className="text-center mb-12 sm:mb-16">
+              <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
                 Everything you need
               </h2>
-              <p className="text-lg max-w-xl mx-auto" style={{ color: '#c2c6d6' }}>
+              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#c2c6d6' }}>
                 Enterprise-grade features, startup-friendly pricing.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {[
                 { icon: 'mic', title: 'Premium Voices', desc: 'ElevenLabs, OpenAI TTS, xAI Grok — choose the perfect voice for your brand.', color: '#adc6ff' },
                 { icon: 'psychology', title: 'Top AI Models', desc: 'Claude Sonnet, GPT-4o, Grok — use the best LLM for each use case.', color: '#d0bcff' },
@@ -323,16 +323,16 @@ export default function LandingPage() {
         </section>
 
         {/* ── Provider Toggle Explainer ─────────────────────────── */}
-        <section className="py-24 md:py-32 px-6" style={{ background: 'rgba(22,28,40,0.4)' }}>
+        <section className="py-16 sm:py-24 md:py-32 px-4 sm:px-6" style={{ background: 'rgba(22,28,40,0.4)' }}>
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 sm:gap-16 items-center">
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-6"
                   style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.15)', color: '#4ade80' }}>
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>swap_horiz</span>
                   Flexible Provider Model
                 </div>
-                <h2 className="text-3xl md:text-4xl font-headline font-extrabold tracking-tight mb-4 leading-tight">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-headline font-extrabold tracking-tight mb-4 leading-tight">
                   Your keys or ours.{' '}
                   <span className="gradient-text-green">You choose.</span>
                 </h2>
@@ -386,10 +386,10 @@ export default function LandingPage() {
         </section>
 
         {/* ── FAQ ──────────────────────────────────────────────── */}
-        <section id="faq" className="py-24 md:py-32 px-6">
+        <section id="faq" className="py-16 sm:py-24 md:py-32 px-4 sm:px-6">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-headline font-extrabold mb-4">Questions & Answers</h2>
+              <h2 className="text-2xl sm:text-4xl font-headline font-extrabold mb-4">Questions & Answers</h2>
             </div>
             <div className="space-y-4">
               {[
@@ -409,11 +409,11 @@ export default function LandingPage() {
         </section>
 
         {/* ── Final CTA ────────────────────────────────────────── */}
-        <section className="py-24 px-6">
+        <section className="py-16 sm:py-24 px-4 sm:px-6">
           <div className="max-w-3xl mx-auto text-center relative">
             <div className="absolute inset-0 rounded-3xl" style={{ background: 'radial-gradient(circle at center, rgba(173,198,255,0.06), transparent 70%)' }} />
-            <div className="relative glass-panel rounded-3xl p-12 md:p-16">
-              <h2 className="text-3xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
+            <div className="relative glass-panel rounded-3xl p-8 sm:p-12 md:p-16">
+              <h2 className="text-2xl sm:text-3xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
                 Ready to automate your calls?
               </h2>
               <p className="text-base mb-8 max-w-lg mx-auto" style={{ color: '#c2c6d6' }}>
@@ -449,7 +449,7 @@ export default function LandingPage() {
             {[
               { title: 'Product', links: [{ label: 'AI Agents', href: '#products' }, { label: 'Translator', href: '#products' }, { label: 'Pricing', href: '/pricing' }] },
               { title: 'Resources', links: [{ label: 'API Docs', href: '#' }, { label: 'Help Center', href: '#' }, { label: 'Status', href: '#' }] },
-              { title: 'Legal', links: [{ label: 'Privacy', href: '#' }, { label: 'Terms', href: '#' }, { label: 'Security', href: '#' }] },
+              { title: 'Legal', links: [{ label: 'Privacy', href: '/privacy' }, { label: 'Terms', href: '/terms' }, { label: 'Acceptable Use', href: '/acceptable-use' }] },
             ].map(col => (
               <div key={col.title}>
                 <div className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(194,198,214,0.3)' }}>{col.title}</div>
