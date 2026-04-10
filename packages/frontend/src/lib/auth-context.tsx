@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (w) setWorkspaceState(JSON.parse(w));
         // Sync cookie if token exists in localStorage but not in cookie
         if (!document.cookie.includes('caller_token=')) {
-          document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+          document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`;
         }
       } catch {
         // Corrupted localStorage — clear and force re-login
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('caller_user', JSON.stringify(u));
     if (w) localStorage.setItem('caller_workspace', JSON.stringify(w));
     // Set cookie so Next.js middleware can read the token server-side
-    document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+    document.cookie = `caller_token=${encodeURIComponent(t)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`;
     setToken(t);
     setUser(u);
     if (w) setWorkspaceState(w);

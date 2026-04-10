@@ -83,8 +83,10 @@ export class ConferenceTranslator extends EventEmitter {
   // Accumulate transcript text from Grok responses
   private currentInputTranscript: string = '';
   private currentOutputTranscript: string = '';
-  private currentResponseAudio: Buffer[] = []; // buffer audio for one-way filtering
+  private currentResponseAudio: Buffer[] = []; // buffer audio until language verified
   private retranslationPending: boolean = false;
+  private reconnectAttempts: number = 0;
+  private intentionalReconnect: boolean = false; // true when reconnecting for settings change
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -220,6 +222,7 @@ ${this.personalContext}` : ''}`;
     });
 
     this.grokWs.on('open', () => {
+      this.reconnectAttempts = 0; // reset backoff on successful connection
       log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket connected');
       this.grokWs!.send(JSON.stringify({
         type: 'session.update',
@@ -271,21 +274,34 @@ ${this.personalContext}` : ''}`;
 
     this.grokWs.on('close', () => {
       log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket closed');
-      // Auto-reconnect if session is still active
-      if (!this.saved) {
-        log.info({ callId: this.callId }, 'Reconnecting Grok Voice Agent in 1s...');
+      // Auto-reconnect if session is still active (skip if intentional reconnect — handled by caller)
+      if (!this.saved && !this.intentionalReconnect) {
+        if (this.reconnectAttempts >= 10) {
+          log.error({ callId: this.callId, attempts: this.reconnectAttempts }, 'Max reconnect attempts reached, giving up');
+          return;
+        }
+        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+        this.reconnectAttempts++;
+        log.info({ callId: this.callId, delay, attempt: this.reconnectAttempts }, 'Reconnecting Grok Voice Agent...');
         setTimeout(() => {
           if (!this.saved) this.connectGrok();
-        }, 1000);
+        }, delay);
       }
+      this.intentionalReconnect = false;
     });
+  }
+
+  /** Intentional reconnect — for settings changes (no backoff) */
+  private reconnectForSettingsChange(): void {
+    this.intentionalReconnect = true;
+    this.connectGrok();
   }
 
   /** Update translation mode on the fly — reconnects Grok with new instructions */
   updateMode(mode: string): void {
     this.mode = mode as any;
     log.info({ callId: this.callId, mode }, 'Translator mode updated — reconnecting Grok');
-    this.connectGrok();
+    this.reconnectForSettingsChange();
   }
 
   /** Update languages on the fly — reconnects Grok */
@@ -293,21 +309,21 @@ ${this.personalContext}` : ''}`;
     this.myLang = myLang;
     this.targetLang = targetLang;
     log.info({ callId: this.callId, myLang, targetLang }, 'Translator languages updated — reconnecting Grok');
-    this.connectGrok();
+    this.reconnectForSettingsChange();
   }
 
   /** Update tone on the fly — reconnects Grok with new instructions */
   updateTone(tone: string): void {
     this.tone = tone;
     log.info({ callId: this.callId, tone }, 'Translator tone updated — reconnecting Grok');
-    this.connectGrok();
+    this.reconnectForSettingsChange();
   }
 
   /** Update voice on the fly — reconnects Grok with new voice */
   updateVoice(voice: string): void {
     this.ttsVoiceId = voice;
     log.info({ callId: this.callId, voice }, 'Translator voice updated — reconnecting Grok');
-    this.connectGrok();
+    this.reconnectForSettingsChange();
   }
 
   private paused: boolean = false;
@@ -392,25 +408,9 @@ ${this.personalContext}` : ''}`;
       }
 
       case 'response.output_audio.delta':
+        // Buffer all audio — inject in response.done after language verification
         if (msg.delta) {
-          const isOneWay = this.mode === 'text' || this.mode === ('unidirectional' as any);
-          if (isOneWay) {
-            // Buffer audio — inject only after we know it's subscriber's speech (in response.done)
-            this.currentResponseAudio.push(Buffer.from(msg.delta, 'base64'));
-          } else {
-            // Bidirectional — inject immediately
-            if (this.twilioSocket.readyState === 1) {
-              const audio = Buffer.from(msg.delta, 'base64');
-              const chunkSize = 640;
-              for (let i = 0; i < audio.length; i += chunkSize) {
-                this.twilioSocket.send(JSON.stringify({
-                  event: 'media',
-                  streamSid: this.streamSid,
-                  media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
-                }));
-              }
-            }
-          }
+          this.currentResponseAudio.push(Buffer.from(msg.delta, 'base64'));
         }
         break;
 
@@ -504,23 +504,22 @@ ${this.personalContext}` : ''}`;
             timestamp: new Date().toISOString(),
           });
 
-          // One-way mode: inject buffered audio only if subscriber spoke
-          const isOneWay = this.mode === 'text' || this.mode === ('unidirectional' as any);
-          if (isOneWay && this.currentResponseAudio.length > 0) {
-            if (isMyLang && this.twilioSocket.readyState === 1) {
-              // Subscriber spoke → inject translated voice for other party
-              const chunkSize = 640;
-              for (const buf of this.currentResponseAudio) {
-                for (let i = 0; i < buf.length; i += chunkSize) {
-                  this.twilioSocket.send(JSON.stringify({
-                    event: 'media',
-                    streamSid: this.streamSid,
-                    media: { payload: buf.subarray(i, i + chunkSize).toString('base64') },
-                  }));
-                }
+          // Inject buffered audio (language-verified at this point)
+          const isOneWay = this.mode === 'text' || this.mode === 'unidirectional';
+          const shouldInjectAudio = isOneWay
+            ? (isMyLang && this.currentResponseAudio.length > 0) // One-way: only when subscriber spoke
+            : (this.currentResponseAudio.length > 0);             // Bidirectional: always
+          if (shouldInjectAudio && this.twilioSocket.readyState === 1) {
+            const chunkSize = 640;
+            for (const buf of this.currentResponseAudio) {
+              for (let i = 0; i < buf.length; i += chunkSize) {
+                this.twilioSocket.send(JSON.stringify({
+                  event: 'media',
+                  streamSid: this.streamSid,
+                  media: { payload: buf.subarray(i, i + chunkSize).toString('base64') },
+                }));
               }
             }
-            // Other party spoke → no audio injection (text-only on screen)
           }
 
           // Emit to UI (always — both directions show as text)

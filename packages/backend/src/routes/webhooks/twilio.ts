@@ -15,6 +15,7 @@ import { getIo } from '../../realtime/io.js';
 import * as memoryService from '../../services/memory.service.js';
 import { sendCallNotification } from '../../services/telegram.service.js';
 import { decrypt } from '../../lib/crypto.js';
+import { trackError } from '../../lib/error-tracker.js';
 
 const inboundSchema = z.object({
   Called: z.string().optional(),
@@ -277,8 +278,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
             monitor_url: monitorUrl,
           }).catch((err: unknown) => { app.log.warn({ err }, 'Telegram notification failed'); });
         }
-      } catch {
-        // Non-critical — don't fail the call
+      } catch (err) {
+        trackError(err, { service: 'twilio-inbound', callId: call.id, workspaceId: workspace.id });
       }
     })();
 
