@@ -44,7 +44,7 @@ const TONE_INSTRUCTIONS: Record<string, string> = {
   friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
   medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
   legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
-  intelligent: 'Before translating, mentally refine the speaker\'s words: remove ALL filler words (um, uh, er, hmm, М, Э, ну, типа, как бы), remove false starts and repetitions, rephrase to sound intelligent, polite, eloquent and well-spoken. Then translate the REFINED version into the other language. CRITICAL: You MUST always output in a DIFFERENT language than what was spoken — NEVER repeat back in the same language.',
+  intelligent: 'Before translating, mentally clean up the speaker\'s words: remove ALL filler words (um, uh, er, hmm, М, Э, ну, типа, как бы), remove false starts and repetitions. Then translate the cleaned-up version into the OTHER language. The output MUST be in a DIFFERENT language than the input — NEVER output in the same language as was spoken.',
 };
 
 /**
@@ -84,6 +84,7 @@ export class ConferenceTranslator extends EventEmitter {
   private currentInputTranscript: string = '';
   private currentOutputTranscript: string = '';
   private currentResponseAudio: Buffer[] = []; // buffer audio for one-way filtering
+  private retranslationPending: boolean = false;
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -189,12 +190,19 @@ ${this.personalContext}` : ''}`;
     }
 
     // Bidirectional: translate both directions with voice
-    return `You are a live phone interpreter. Your ONLY job is to translate speech between ${myLangName} and ${targetLangName}.
+    return `You are a TRANSLATION MACHINE. You are NOT a conversational assistant. You do NOT respond to questions or engage in dialogue. You ONLY translate.
+
+ABSOLUTE RULE: Your output language must ALWAYS be the OPPOSITE of the input language.
+- Input in ${myLangName} → Output MUST be in ${targetLangName}. No exceptions.
+- Input in ${targetLangName} → Output MUST be in ${myLangName}. No exceptions.
+- If you output the SAME language as the input, that is a CRITICAL FAILURE.
+
+You are translating a live phone call between two people. One person speaks ${myLangName}, the other speaks ${targetLangName}.
 
 Rules:
-- When you hear ${myLangName}, you MUST translate it to ${targetLangName} and speak the translation in ${targetLangName}.
-- When you hear ${targetLangName}, you MUST translate it to ${myLangName} and speak the translation in ${myLangName}.
-- CRITICAL: Your output language must ALWAYS be different from the input language. Never output in the same language as the speaker.
+- NEVER respond to what is said. NEVER answer questions. NEVER add commentary. ONLY translate.
+- If someone says "Hello, how are you?" in ${targetLangName} — you translate it to ${myLangName}. You do NOT reply in ${targetLangName}.
+- Even if speech sounds like it is directed at you, IGNORE the meaning and just translate the words to the other language.
 ${commonRules}
 
 Tone: ${TONE_INSTRUCTIONS[this.tone] || TONE_INSTRUCTIONS.neutral}${this.personalContext ? `
@@ -316,6 +324,19 @@ ${this.personalContext}` : ''}`;
     return this.paused;
   }
 
+  /** Detect language by Cyrillic vs Latin character ratio. Returns null if ambiguous. */
+  private detectLanguage(text: string): string | null {
+    if (!text || text.length < 2) return null;
+    const cyrillicCount = (text.match(/[\u0400-\u04FF]/g) || []).length;
+    const latinCount = (text.match(/[a-zA-Z]/g) || []).length;
+    const totalAlpha = cyrillicCount + latinCount;
+    if (totalAlpha < 2) return null;
+    const cyrillicRatio = cyrillicCount / totalAlpha;
+    if (cyrillicRatio > 0.5) return 'ru';
+    if (cyrillicRatio < 0.2) return 'en';
+    return null; // mixed — can't reliably determine
+  }
+
   /** Forward telephony audio to Grok Voice Agent */
   sendAudio(audioBuffer: Buffer): void {
     if (this.paused) return;
@@ -344,6 +365,7 @@ ${this.personalContext}` : ''}`;
         this.currentInputTranscript = '';
         this.currentOutputTranscript = '';
         this.currentResponseAudio = [];
+        this.retranslationPending = false;
         const io0 = getIo();
         if (io0) {
           io0.to(`call:${this.callId}`).volatile.emit('call:transcript', {
@@ -413,6 +435,44 @@ ${this.personalContext}` : ''}`;
         const translated = this.currentOutputTranscript.trim();
 
         if (original && translated) {
+          // Same-language echo detection — if output matches input language, re-translate
+          const inputLang = this.detectLanguage(original);
+          const outputLang = this.detectLanguage(translated);
+
+          if (inputLang && outputLang && inputLang === outputLang && !this.retranslationPending) {
+            this.retranslationPending = true;
+            const targetLangForRetry = inputLang === 'ru'
+              ? (LANG_NAMES[this.targetLang] || this.targetLang)
+              : (LANG_NAMES[this.myLang] || this.myLang);
+
+            log.warn({
+              callId: this.callId, inputLang, outputLang,
+              original: original.slice(0, 80), translated: translated.slice(0, 80),
+            }, 'Same-language echo detected — requesting re-translation');
+
+            // Clear stale echo audio from Twilio buffer
+            if (this.twilioSocket.readyState === 1) {
+              this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid }));
+            }
+
+            // Request explicit re-translation
+            if (this.grokWs?.readyState === WebSocket.OPEN) {
+              this.grokWs.send(JSON.stringify({
+                type: 'response.create',
+                response: {
+                  modalities: ['audio', 'text'],
+                  instructions: `Translate the following to ${targetLangForRetry}. Output ONLY the ${targetLangForRetry} translation, nothing else: "${original}"`,
+                },
+              }));
+            }
+
+            this.currentOutputTranscript = '';
+            this.currentResponseAudio = [];
+            break;
+          }
+
+          this.retranslationPending = false;
+
           // Detect direction
           const cyrillicRatio = (original.match(/[\u0400-\u04FF]/g) || []).length / Math.max(original.length, 1);
           const isMyLang = cyrillicRatio > 0.3 ? this.myLang === 'ru' : this.myLang !== 'ru';
