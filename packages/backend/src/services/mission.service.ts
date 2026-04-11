@@ -156,50 +156,45 @@ export async function processChatMessage(workspaceId: string, missionId: string,
 
   // Build LLM messages
   const now = new Date().toISOString();
-  const systemPrompt = `You are an AI mission planner for a phone call assistant platform.
-The user wants you to make a phone call on their behalf.
-
-Your job:
-1. Understand what they need
-2. Collect all necessary details (phone number, goal, personal data, time preferences)
-3. Choose the best agent for the task from the available list
-4. Confirm the plan with the user
-5. Execute when confirmed
+  const systemPrompt = `You are a quick, efficient personal assistant that sets up phone calls.
+The user tells you who to call and why. Your job: collect missing info, confirm, execute.
 
 Current date/time: ${now}
 
-AVAILABLE AGENTS:
-${agentsList}
+AGENTS: ${agentsList}
 ${callerContext}
 
-CURRENT MISSION STATE:
-${JSON.stringify({ status: mission.status, title: mission.title, target_phone: mission.target_phone, goal: mission.goal, agent_profile_id: mission.agent_profile_id, context: mission.context, fallback_action: mission.fallback_action, scheduled_at: mission.scheduled_at })}
+MISSION STATE: ${JSON.stringify({ status: mission.status, title: mission.title, target_phone: mission.target_phone, goal: mission.goal, agent_profile_id: mission.agent_profile_id, context: mission.context, fallback_action: mission.fallback_action, scheduled_at: mission.scheduled_at })}
 
-RESPONSE FORMAT:
-- For normal conversation: respond naturally in the user's language
-- When you have all details, include JSON at the END of your message:
-  {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","language":"en","context":{"target_name":"...","client_name":"..."},"fallback_action":"report"}}
+BEHAVIOR:
+- Be CONCISE. 2-3 sentences max per response. You are a personal assistant, not a chatbot.
+- Do NOT ask questions the user already answered. If the user gave you name, phone, and purpose — that's enough.
+- If you have enough info, present the plan and ask for confirmation in ONE message.
+- When user confirms ("да", "давай", "звони", "согласен", "ок") → immediately output {"action":"execute"}
+- Respond in the same language as the user. NEVER switch languages.
 
-CRITICAL — context field naming:
-- "target_name": the person being CALLED (who picks up the phone)
-- "client_name": the person ON WHOSE BEHALF the call is made (the user who asked you to call)
-- These are TWO DIFFERENT people. ALWAYS separate them. NEVER mix them up.
-- The goal should clearly state what to do FOR the client WITH the target.
-- Example: if user says "Call the salon and book a haircut for me" → target_name = salon contact, client_name = user's name
-- When user confirms to call NOW: {"action":"execute"}
-- When user wants to schedule: {"action":"schedule","at":"2026-04-03T09:00:00Z"}
+GOAL FIELD:
+- Write the goal in the SAME LANGUAGE the user used. If user writes in Russian, goal must be in Russian.
+- The goal is the instruction for the AI phone agent. Write it as a clear task: what to do, for whom, what to say.
+- Include greeting instructions if user specified (e.g. "Поздороваться на армянском, далее общаться на русском").
 
-RULES:
-- Respond in the same language as the user
-- Be concise like a personal assistant
-- Ask for phone number if missing
-- ALL phone numbers MUST use +1 (US) country code. NEVER use +7 or any other country code.
-- Format phone as E.164: +1XXXXXXXXXX (e.g. +18182775070)
-- ALWAYS ask or detect the language of the call. Set "language" in the plan:
-  "ru" for Russian, "en" for English, "es" for Spanish, etc.
-  Default to "en" if unclear. This determines STT transcription language.
-- Suggest the best agent by task type
-- For fallback, options are: connect_operator, retry_later, voicemail, report, wait_instructions`;
+LANGUAGE FIELD:
+- "language" determines the PRIMARY language of the phone conversation (for speech recognition).
+- If user says "talk in Russian" → language = "ru". If "talk in English" → language = "en".
+- If user says "greet in Armenian but talk in Russian" → language = "ru" (primary conversation language), and put greeting instructions in the goal.
+- Default to "ru" if the user writes in Russian.
+
+CONTEXT FIELDS:
+- "target_name": person being CALLED (who picks up the phone)
+- "client_name": person ON WHOSE BEHALF the call is made (the user)
+- These are TWO DIFFERENT people. Never mix them.
+
+PHONE FORMAT: +1XXXXXXXXXX (US only). If user gives 10 digits, add +1.
+
+JSON FORMAT — append at END of your message:
+- Plan ready: {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","language":"ru","context":{"target_name":"...","client_name":"..."},"fallback_action":"report"}}
+- User confirmed, execute now: {"action":"execute"}
+- Schedule: {"action":"schedule","at":"2026-04-03T09:00:00Z"}`;
 
   const llmMessages: LLMMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -254,9 +249,29 @@ RULES:
         });
         emitStatus(missionId, 'ready');
       } else if (actionJson.action === 'execute') {
-        // Don't execute here — let the client call /execute endpoint after seeing the response
-        await updateMission(missionId, { status: 'ready' });
-        emitStatus(missionId, 'ready');
+        // Auto-execute: if mission is ready, start the call immediately
+        const freshMission = await getMission(workspaceId, missionId);
+        if (freshMission.status === 'ready' && freshMission.target_phone) {
+          try {
+            // Save AI response first so user sees it before call starts
+            let execDisplayText = aiText;
+            if (jsonMatch) {
+              execDisplayText = aiText.slice(0, aiText.indexOf(jsonMatch[0])).trim();
+              if (!execDisplayText) execDisplayText = aiText;
+            }
+            const execMsg = await addMessage(missionId, 'ai', execDisplayText, 'chat');
+            emitMessage(missionId, execMsg);
+
+            await executeMission(workspaceId, missionId);
+            return execDisplayText;
+          } catch (execErr) {
+            logger.error({ missionId, execErr }, 'Auto-execute failed');
+            // Fall through to save message normally
+          }
+        } else {
+          await updateMission(missionId, { status: 'ready' });
+          emitStatus(missionId, 'ready');
+        }
       } else if (actionJson.action === 'schedule' && actionJson.at) {
         await updateMission(missionId, {
           scheduled_at: actionJson.at,
