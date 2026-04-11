@@ -262,16 +262,11 @@ EXAMPLE correct response:
     }
   }
 
-  // Save AI response — strip JSON action block so user only sees natural text
-  let displayText = aiText;
-  if (jsonMatch) {
-    displayText = aiText.slice(0, aiText.indexOf(jsonMatch[0])).trim();
-    if (!displayText) displayText = aiText; // fallback if entire message is JSON
-  }
-  const aiMsg = await addMessage(missionId, 'ai', displayText, 'chat');
+  // Save AI response WITH JSON — frontend extracts JSON to render plan card + execute button
+  const aiMsg = await addMessage(missionId, 'ai', aiText, 'chat');
   emitMessage(missionId, aiMsg);
 
-  return displayText;
+  return aiText;
 }
 
 // ─── Execute Mission (Start Call) ───────────────────────────────────────────
