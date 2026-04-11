@@ -16,6 +16,9 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       credentials: true,
     },
     path: '/socket.io',
+    // Use polling only — Cloudflare Tunnel corrupts WebSocket frames
+    // causing "Invalid frame header" errors on upgrade attempts
+    transports: ['polling'],
   });
 
   // JWT authentication middleware (with share token fallback)

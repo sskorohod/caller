@@ -153,7 +153,7 @@ function TranslatorPortal() {
     const s = socketIO(wsUrl, {
       path: '/socket.io',
       auth: { token: jwt },
-      transports: ['websocket'],
+      transports: ['polling'],
     });
 
     s.on('connect', () => {

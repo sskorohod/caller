@@ -68,7 +68,7 @@ export default function LiveTranslatePage() {
     const s = socketIO(wsUrl, {
       path: '/socket.io',
       auth: { shareToken: token },
-      transports: ['polling', 'websocket'],
+      transports: ['polling'],
     });
     socketRef.current = s;
 

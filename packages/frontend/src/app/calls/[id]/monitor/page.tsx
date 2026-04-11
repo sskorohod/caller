@@ -73,7 +73,7 @@ export default function MonitorPage() {
     const s = socketIO(wsUrl, {
       path: '/socket.io',
       auth: { shareToken: token },
-      transports: ['websocket'],
+      transports: ['polling'],
     });
 
     s.on('connect', () => {

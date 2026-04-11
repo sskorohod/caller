@@ -20,7 +20,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     const s = io(window.location.origin, {
       auth: { token },
-      transports: ['polling', 'websocket'],
+      transports: ['polling'],
       path: '/socket.io/',
     });
 
