@@ -235,15 +235,17 @@ body {
 .safe-bottom {
   padding-bottom: calc(var(--th-bottom-nav-height) + var(--th-safe-area-bottom));
 }
-.snap-carousel {
-  display: flex;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+@media (max-width: 767px) {
+  .snap-carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .snap-carousel::-webkit-scrollbar { display: none; }
+  .snap-carousel > * { scroll-snap-align: start; flex-shrink: 0; }
 }
-.snap-carousel::-webkit-scrollbar { display: none; }
-.snap-carousel > * { scroll-snap-align: start; flex-shrink: 0; }
 
 .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
