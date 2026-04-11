@@ -175,7 +175,8 @@ BEHAVIOR:
   3. Client name (the user's real name — who the appointment/booking is FOR). If user says "запиши меня" without giving their name, ASK: "Как вас зовут?" NEVER use "Пользователь" or generic placeholders.
 - When you have ALL required info, present a FINAL PLAN summary and append {"action":"ready",...} JSON.
 - The FINAL PLAN must clearly list: who we're calling, why, client name, phone number, and any special instructions.
-- When user confirms ("да", "давай", "звони", "согласен", "ок", "верно") → repeat the plan briefly in human text, THEN append {"action":"execute"}. NEVER output bare JSON without human-readable text before it.
+- When user confirms ("да", "давай", "звони", "согласен", "ок", "верно") → repeat the plan briefly in human text and append {"action":"ready",...} JSON again so the green execute button appears. The user will click the button to start the call.
+- NEVER output bare JSON without human-readable text before it.
 - Respond in the same language as the user. NEVER switch languages.
 
 GOAL FIELD:
@@ -196,10 +197,10 @@ CONTEXT FIELDS:
 
 PHONE FORMAT: +1XXXXXXXXXX (US only). If user gives 10 digits, add +1.
 
-JSON FORMAT — append at END of your message:
-- Plan ready: {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","language":"ru","context":{"target_name":"...","client_name":"..."},"fallback_action":"report"}}
-- User confirmed, execute now: {"action":"execute"}
-- Schedule: {"action":"schedule","at":"2026-04-03T09:00:00Z"}`;
+JSON FORMAT — append at END of your message (ALWAYS after human-readable text):
+- Plan ready / user confirmed: {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","language":"ru","context":{"target_name":"...","client_name":"..."},"fallback_action":"report"}}
+- Schedule for later: {"action":"schedule","at":"2026-04-03T09:00:00Z"}
+NOTE: ALWAYS use {"action":"ready"} — there is no "execute" action. The user clicks a button to start the call.`;
 
   const llmMessages: LLMMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -254,7 +255,7 @@ JSON FORMAT — append at END of your message:
         });
         emitStatus(missionId, 'ready');
       } else if (actionJson.action === 'execute') {
-        // Set status to ready so the green execute button appears
+        // Treat execute same as ready — show green button
         await updateMission(missionId, { status: 'ready' });
         emitStatus(missionId, 'ready');
       } else if (actionJson.action === 'schedule' && actionJson.at) {
