@@ -1467,8 +1467,18 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
 function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills: any[] = [], allSkills: any[] = [], call?: any, attachedKBs: any[] = []): string {
   const parts: string[] = [];
-  parts.push(`You are ${agentProfile.display_name}, an AI phone agent.`);
-  if (agentProfile.company_name) parts.push(`You represent ${agentProfile.company_name}.`);
+  // Identity block — crystal clear who is who
+  if (call?.direction === 'outbound') {
+    const ctx = call.context as any;
+    const targetName = ctx?.name || ctx?.target_name || ctx?.contact_name;
+    parts.push(`YOUR IDENTITY:
+- YOUR name is: ${agentProfile.display_name}${agentProfile.company_name ? ` (from ${agentProfile.company_name})` : ''}
+- You are making an OUTBOUND phone call${targetName ? ` to: ${targetName}` : ''} (${call.to_number})
+- REMEMBER: YOU are ${agentProfile.display_name}. ${targetName ? `The OTHER person is ${targetName}.` : ''} NEVER confuse these.`);
+  } else {
+    parts.push(`You are ${agentProfile.display_name}, an AI phone agent.`);
+    if (agentProfile.company_name) parts.push(`You represent ${agentProfile.company_name}.`);
+  }
   if (agentProfile.company_identity) parts.push(agentProfile.company_identity);
   if (agentProfile.system_prompt) parts.push(agentProfile.system_prompt);
 
@@ -1476,40 +1486,32 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
   if (call?.goal) {
     const missionParts: string[] = [];
 
-    // For outbound mission calls, explicitly state who we're calling
-    if (call.direction === 'outbound') {
-      const ctx = call.context as any;
-      const targetName = ctx?.name || ctx?.target_name || ctx?.contact_name;
-      if (targetName) {
-        missionParts.push(`You are making an OUTBOUND call to ${targetName} (${call.to_number}).`);
-        missionParts.push(`Address them by name: ${targetName}.`);
-      } else {
-        missionParts.push(`You are making an OUTBOUND call to ${call.to_number}.`);
-      }
-    }
-
-    missionParts.push(`MISSION BRIEFING:\nGoal: ${call.goal}`);
+    missionParts.push(`MISSION GOAL: ${call.goal}`);
 
     if (call.context && Object.keys(call.context).length > 0) {
       const contextLines = Object.entries(call.context)
+        .filter(([key]) => !['name', 'target_name', 'contact_name'].includes(key))
         .map(([key, value]) => `- ${key.replace(/_/g, ' ')}: ${value}`)
         .join('\n');
-      missionParts.push(`Context for this call:\n${contextLines}`);
+      if (contextLines) {
+        missionParts.push(`Context (use when relevant, do NOT dump all at once):\n${contextLines}`);
+      }
     }
 
-    // Mission execution rules for outbound calls
+    // Conversation discipline for outbound calls
     if (call.direction === 'outbound') {
-      missionParts.push(`MISSION EXECUTION RULES:
-- Your PRIMARY objective is the goal above. Stay focused on it throughout the call.
-- If the conversation drifts off-topic, politely guide it back to your objective.
-- If you need information to complete your goal, ask clear, specific questions.
-- Do NOT confuse YOUR name (${agentProfile.display_name}) with the other person's name.
-- Before ending the call, confirm that your objective has been achieved or clearly cannot be achieved.
-- If asked who you are, say your name is ${agentProfile.display_name}${agentProfile.company_name ? ` and you represent ${agentProfile.company_name}` : ''}.
-- Do NOT volunteer all context information at once — use it naturally as the conversation requires.`);
+      missionParts.push(`HOW TO CONDUCT THIS CALL:
+- This is a DIALOG, not a monologue. Speak 1-2 sentences, then STOP and WAIT for their response.
+- Step 1: Greet briefly (your name only). WAIT.
+- Step 2: After they respond, say ONE sentence about why you're calling. WAIT.
+- Step 3: Listen. Respond to what THEY said. Ask ONE question at a time.
+- NEVER speak more than 2 sentences in a row.
+- NEVER mention alternatives or fallbacks upfront. Try the main approach FIRST. Only suggest alternatives if the other person says no.
+- NEVER dump all context at once. Use it piece by piece as the conversation flows.
+- When done, briefly confirm the result and say goodbye.`);
     }
 
-    parts.push(missionParts.join('\n'));
+    parts.push(missionParts.join('\n\n'));
   }
 
   for (const pack of promptPacks) {

@@ -179,15 +179,17 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     if (this.config.call.direction === 'outbound') {
       instructions += `\n\nOUTBOUND CALL RULES:\n` +
         `- YOU initiated this call. You called the other person.\n` +
-        `- The other person did NOT call you — do not say "thanks for calling" or similar.\n` +
-        `- Introduce yourself briefly, then state why you are calling.\n` +
-        `- Stay focused on your mission goal. Do not get sidetracked.`;
+        `- Do NOT say "thanks for calling" — YOU called THEM.\n` +
+        `- After greeting, say ONE sentence about why you're calling, then STOP and WAIT for their response.\n` +
+        `- NEVER speak more than 2 sentences in a row. Always pause and let the other person respond.\n` +
+        `- This is a DIALOG. Speak → Wait → Listen → Respond. Never monologue.`;
     }
 
     instructions += `\n\nPHONE CONVERSATION RULES:\n` +
       `- This is a PHONE call. Keep responses SHORT — 1-2 sentences max. Be concise and natural.\n` +
-      `- Do NOT write long paragraphs. People can't read on a phone call — they listen.\n` +
-      `- Sound natural, like a real person on a phone, not a chatbot.\n\n` +
+      `- NEVER speak more than 2 sentences without pausing for the other person to respond.\n` +
+      `- Sound natural, like a real person on a phone, not a chatbot.\n` +
+      `- Ask ONE question at a time, then WAIT for the answer.\n\n` +
       `CALL ENDING RULES:\n` +
       `- When the caller says goodbye ("пока", "до свидания", "bye", "всё, пока", "ладно, пока") — ` +
       `say ONE SHORT farewell (max 5 words) and IMMEDIATELY call end_call. Do NOT say goodbye twice.\n` +
@@ -226,8 +228,13 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     logger.info({ callId: this.config.call.id }, 'Grok session updated, triggering greeting');
 
     const greeting = this.config.agentProfile.greeting_message;
+    const isOutbound = this.config.call.direction === 'outbound';
+
     if (greeting) {
-      // Use response.create with an initial message to trigger greeting
+      const greetingInstruction = isOutbound
+        ? `[System: The call just connected. You called this person. Say ONLY this greeting: "${greeting}". Do NOT explain your mission yet — just greet and WAIT for their response. Keep it under 2 sentences.]`
+        : `[System: The call just connected. Greet the caller with: "${greeting}"]`;
+
       this.sendGrok({
         type: 'conversation.item.create',
         item: {
@@ -236,7 +243,22 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
           content: [
             {
               type: 'input_text',
-              text: `[System: The call just connected. Greet the caller with: "${greeting}"]`,
+              text: greetingInstruction,
+            },
+          ],
+        },
+      });
+    } else if (isOutbound) {
+      // No custom greeting for outbound — generate a brief one
+      this.sendGrok({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `[System: The call just connected. You called this person. Introduce yourself briefly (name only) and say ONE short sentence about why you're calling. Then STOP and wait for their response. Maximum 2 sentences total.]`,
             },
           ],
         },
