@@ -307,18 +307,12 @@ export async function executeMission(workspaceId: string, missionId: string): Pr
     context: mission.context as any,
   });
 
-  // Build enhanced system prompt with mission context
-  const missionBriefing = `\n\nMISSION BRIEFING:
-Goal: ${mission.goal}
-Context: ${JSON.stringify(mission.context)}
-Fallback: ${mission.fallback_action === 'connect_operator' ? 'If you cannot complete the goal, say "I need to connect you with someone who can help" and wait.' : mission.fallback_action === 'retry_later' ? 'If the other party asks to call back later, politely agree and end the call.' : 'Do your best to complete the goal. Report what happened.'}`;
-
-  // Create AI session
+  // Create AI session (promptSnapshot is for audit — actual prompt built at call connect time by buildSystemPrompt)
   await callService.createAiSession({
     callId: call.id,
     workspaceId,
     agentProfileId: agentProfile.id,
-    promptSnapshot: (agentProfile.system_prompt ?? '') + missionBriefing,
+    promptSnapshot: agentProfile.system_prompt ?? '',
     conversationOwner: 'internal',
   });
 

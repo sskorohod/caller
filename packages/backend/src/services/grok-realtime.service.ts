@@ -169,7 +169,19 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     instructions += `\n\nCURRENT DATE/TIME: ${currentTime} (${tz})`;
 
     if (this.config.callerContext) {
-      instructions += `\n\nContext about this caller:\n${this.config.callerContext}`;
+      const contextLabel = this.config.call.direction === 'outbound'
+        ? 'Context about the person you are calling'
+        : 'Context about this caller';
+      instructions += `\n\n${contextLabel}:\n${this.config.callerContext}`;
+    }
+
+    // Outbound-specific rules
+    if (this.config.call.direction === 'outbound') {
+      instructions += `\n\nOUTBOUND CALL RULES:\n` +
+        `- YOU initiated this call. You called the other person.\n` +
+        `- The other person did NOT call you — do not say "thanks for calling" or similar.\n` +
+        `- Introduce yourself briefly, then state why you are calling.\n` +
+        `- Stay focused on your mission goal. Do not get sidetracked.`;
     }
 
     instructions += `\n\nPHONE CONVERSATION RULES:\n` +

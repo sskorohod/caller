@@ -65,9 +65,12 @@ export class CallOrchestrator extends EventEmitter {
     ];
 
     if (config.callerContext) {
+      const contextLabel = config.call.direction === 'outbound'
+        ? 'Context about the person you are calling'
+        : 'Context about this caller';
       this.llmMessages.push({
         role: 'system',
-        content: `Context about this caller:\n${config.callerContext}`,
+        content: `${contextLabel}:\n${config.callerContext}`,
       });
     }
   }

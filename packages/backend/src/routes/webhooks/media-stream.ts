@@ -1276,7 +1276,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       agentService.getAgentKnowledgeBases(agentProfile.id),
     ]);
     const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call, attachedKBs);
-    const callerContext = await loadCallerContext(call.workspace_id, call.from_number);
+    const contextPhone = call.direction === 'outbound' ? call.to_number : call.from_number;
+    const callerContext = await loadCallerContext(call.workspace_id, contextPhone, call.direction);
 
     // Load workspace timezone
     const workspace = await workspaceService.getWorkspace(call.workspace_id);
@@ -1473,10 +1474,41 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
 
   // Mission briefing from call goal/context
   if (call?.goal) {
-    const missionParts = [`MISSION BRIEFING:\nGoal: ${call.goal}`];
-    if (call.context && Object.keys(call.context).length > 0) {
-      missionParts.push(`Context data to use during the call: ${JSON.stringify(call.context)}`);
+    const missionParts: string[] = [];
+
+    // For outbound mission calls, explicitly state who we're calling
+    if (call.direction === 'outbound') {
+      const ctx = call.context as any;
+      const targetName = ctx?.name || ctx?.target_name || ctx?.contact_name;
+      if (targetName) {
+        missionParts.push(`You are making an OUTBOUND call to ${targetName} (${call.to_number}).`);
+        missionParts.push(`Address them by name: ${targetName}.`);
+      } else {
+        missionParts.push(`You are making an OUTBOUND call to ${call.to_number}.`);
+      }
     }
+
+    missionParts.push(`MISSION BRIEFING:\nGoal: ${call.goal}`);
+
+    if (call.context && Object.keys(call.context).length > 0) {
+      const contextLines = Object.entries(call.context)
+        .map(([key, value]) => `- ${key.replace(/_/g, ' ')}: ${value}`)
+        .join('\n');
+      missionParts.push(`Context for this call:\n${contextLines}`);
+    }
+
+    // Mission execution rules for outbound calls
+    if (call.direction === 'outbound') {
+      missionParts.push(`MISSION EXECUTION RULES:
+- Your PRIMARY objective is the goal above. Stay focused on it throughout the call.
+- If the conversation drifts off-topic, politely guide it back to your objective.
+- If you need information to complete your goal, ask clear, specific questions.
+- Do NOT confuse YOUR name (${agentProfile.display_name}) with the other person's name.
+- Before ending the call, confirm that your objective has been achieved or clearly cannot be achieved.
+- If asked who you are, say your name is ${agentProfile.display_name}${agentProfile.company_name ? ` and you represent ${agentProfile.company_name}` : ''}.
+- Do NOT volunteer all context information at once — use it naturally as the conversation requires.`);
+    }
+
     parts.push(missionParts.join('\n'));
   }
 
@@ -1526,7 +1558,7 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
   return parts.join('\n\n');
 }
 
-async function loadCallerContext(workspaceId: string, phoneNumber: string): Promise<string | undefined> {
+async function loadCallerContext(workspaceId: string, phoneNumber: string, direction: string = 'inbound'): Promise<string | undefined> {
   const [profile] = await db.select().from(callerProfiles)
     .where(and(
       eq(callerProfiles.workspace_id, workspaceId),
@@ -1543,8 +1575,11 @@ async function loadCallerContext(workspaceId: string, phoneNumber: string): Prom
     .orderBy(desc(callerMemoryFacts.created_at))
     .limit(10);
 
+  const isOutbound = direction === 'outbound';
+  const personLabel = isOutbound ? 'Person you are calling' : 'Caller';
+
   const parts: string[] = [];
-  if (profile.name) parts.push(`Caller name: ${profile.name}`);
+  if (profile.name) parts.push(`${personLabel} name: ${profile.name}`);
   if (profile.relationship) parts.push(`Relationship: ${profile.relationship}`);
   parts.push(`Previous calls: ${profile.total_calls}`);
 
