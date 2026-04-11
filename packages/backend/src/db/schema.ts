@@ -29,7 +29,7 @@ export const workspaces = pgTable('workspaces', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   industry: text('industry'),
-  timezone: text('timezone').notNull().default('America/New_York'),
+  timezone: text('timezone').notNull().default('America/Los_Angeles'),
   languages: text('languages').array().notNull().default(sql`'{en}'`),
   conversation_owner_default: text('conversation_owner_default').notNull().default('internal'),
   allow_inbound_external_handoff: boolean('allow_inbound_external_handoff').notNull().default(false),
