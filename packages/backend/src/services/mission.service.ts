@@ -169,8 +169,13 @@ MISSION STATE: ${JSON.stringify({ status: mission.status, title: mission.title, 
 BEHAVIOR:
 - Be CONCISE. 2-3 sentences max per response. You are a personal assistant, not a chatbot.
 - Do NOT ask questions the user already answered. If the user gave you name, phone, and purpose — that's enough.
-- If you have enough info, present the plan and ask for confirmation in ONE message.
-- When user confirms ("да", "давай", "звони", "согласен", "ок") → immediately output {"action":"execute"}
+- But you MUST collect these REQUIRED fields before presenting the plan:
+  1. Phone number (who to call)
+  2. Purpose (what the call is about)
+  3. Client name (the user's real name — who the appointment/booking is FOR). If user says "запиши меня" without giving their name, ASK: "Как вас зовут?" NEVER use "Пользователь" or generic placeholders.
+- When you have ALL required info, present a FINAL PLAN summary and append {"action":"ready",...} JSON.
+- The FINAL PLAN must clearly list: who we're calling, why, client name, phone number, and any special instructions.
+- When user confirms ("да", "давай", "звони", "согласен", "ок", "верно") → repeat the plan briefly in human text, THEN append {"action":"execute"}. NEVER output bare JSON without human-readable text before it.
 - Respond in the same language as the user. NEVER switch languages.
 
 GOAL FIELD:
@@ -249,29 +254,9 @@ JSON FORMAT — append at END of your message:
         });
         emitStatus(missionId, 'ready');
       } else if (actionJson.action === 'execute') {
-        // Auto-execute: if mission is ready, start the call immediately
-        const freshMission = await getMission(workspaceId, missionId);
-        if (freshMission.status === 'ready' && freshMission.target_phone) {
-          try {
-            // Save AI response first so user sees it before call starts
-            let execDisplayText = aiText;
-            if (jsonMatch) {
-              execDisplayText = aiText.slice(0, aiText.indexOf(jsonMatch[0])).trim();
-              if (!execDisplayText) execDisplayText = aiText;
-            }
-            const execMsg = await addMessage(missionId, 'ai', execDisplayText, 'chat');
-            emitMessage(missionId, execMsg);
-
-            await executeMission(workspaceId, missionId);
-            return execDisplayText;
-          } catch (execErr) {
-            logger.error({ missionId, execErr }, 'Auto-execute failed');
-            // Fall through to save message normally
-          }
-        } else {
-          await updateMission(missionId, { status: 'ready' });
-          emitStatus(missionId, 'ready');
-        }
+        // Set status to ready so the green execute button appears
+        await updateMission(missionId, { status: 'ready' });
+        emitStatus(missionId, 'ready');
       } else if (actionJson.action === 'schedule' && actionJson.at) {
         await updateMission(missionId, {
           scheduled_at: actionJson.at,
