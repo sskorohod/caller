@@ -178,7 +178,14 @@ ${JSON.stringify({ status: mission.status, title: mission.title, target_phone: m
 RESPONSE FORMAT:
 - For normal conversation: respond naturally in the user's language
 - When you have all details, include JSON at the END of your message:
-  {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","language":"en","context":{...},"fallback_action":"report"}}
+  {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"...","language":"en","context":{"target_name":"...","client_name":"..."},"fallback_action":"report"}}
+
+CRITICAL — context field naming:
+- "target_name": the person being CALLED (who picks up the phone)
+- "client_name": the person ON WHOSE BEHALF the call is made (the user who asked you to call)
+- These are TWO DIFFERENT people. ALWAYS separate them. NEVER mix them up.
+- The goal should clearly state what to do FOR the client WITH the target.
+- Example: if user says "Call the salon and book a haircut for me" → target_name = salon contact, client_name = user's name
 - When user confirms to call NOW: {"action":"execute"}
 - When user wants to schedule: {"action":"schedule","at":"2026-04-03T09:00:00Z"}
 

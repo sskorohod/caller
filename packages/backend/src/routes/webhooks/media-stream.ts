@@ -1470,11 +1470,23 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
   // Identity block — crystal clear who is who
   if (call?.direction === 'outbound') {
     const ctx = call.context as any;
-    const targetName = ctx?.name || ctx?.target_name || ctx?.contact_name;
-    parts.push(`YOUR IDENTITY:
-- YOUR name is: ${agentProfile.display_name}${agentProfile.company_name ? ` (from ${agentProfile.company_name})` : ''}
-- You are making an OUTBOUND phone call${targetName ? ` to: ${targetName}` : ''} (${call.to_number})
-- REMEMBER: YOU are ${agentProfile.display_name}. ${targetName ? `The OTHER person is ${targetName}.` : ''} NEVER confuse these.`);
+    const targetName = ctx?.target_name || ctx?.name || ctx?.contact_name;
+    const clientName = ctx?.client_name;
+
+    const identityLines = [
+      `- YOUR name is: ${agentProfile.display_name}${agentProfile.company_name ? ` (from ${agentProfile.company_name})` : ''}`,
+      `- You are making an OUTBOUND phone call to: ${call.to_number}`,
+    ];
+    if (targetName) {
+      identityLines.push(`- The person you are CALLING (who picks up the phone) is: ${targetName}`);
+    }
+    if (clientName) {
+      identityLines.push(`- You are calling ON BEHALF OF: ${clientName}`);
+      identityLines.push(`- CRITICAL: "${targetName || 'the person on the phone'}" and "${clientName}" are TWO DIFFERENT people. ${targetName ? `${targetName} is who you are talking to.` : ''} ${clientName} is who you are doing this FOR.`);
+    }
+    identityLines.push(`- REMEMBER: YOU are ${agentProfile.display_name}. NEVER introduce yourself as anyone else.`);
+
+    parts.push(`WHO IS WHO:\n${identityLines.join('\n')}`);
   } else {
     parts.push(`You are ${agentProfile.display_name}, an AI phone agent.`);
     if (agentProfile.company_name) parts.push(`You represent ${agentProfile.company_name}.`);
@@ -1489,8 +1501,9 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
     missionParts.push(`MISSION GOAL: ${call.goal}`);
 
     if (call.context && Object.keys(call.context).length > 0) {
+      const skipKeys = ['name', 'target_name', 'contact_name', 'client_name'];
       const contextLines = Object.entries(call.context)
-        .filter(([key]) => !['name', 'target_name', 'contact_name'].includes(key))
+        .filter(([key]) => !skipKeys.includes(key))
         .map(([key, value]) => `- ${key.replace(/_/g, ' ')}: ${value}`)
         .join('\n');
       if (contextLines) {
