@@ -134,6 +134,10 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         twilio_call_sid: callSid,
       } as any);
 
+      // Start recording for translator call
+      telephonyService.startCallRecording(workspace.id, callSid)
+        .catch((err: unknown) => { app.log.warn({ err, callId: translatorCall.id }, 'Failed to start recording on translator call'); });
+
       // Create AI session for cost tracking
       await callService.createAiSession({
         callId: translatorCall.id,
