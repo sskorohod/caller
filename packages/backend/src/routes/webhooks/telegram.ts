@@ -30,6 +30,9 @@ const pendingDelay = new Map<string, { missionId: string; workspaceId: string; p
 // Scheduled mission timers
 const scheduledTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+// Active calls per chat (for voice injection during calls)
+const activeCalls = new Map<string, { callId: string; workspaceId: string }>();
+
 // Bot commands menu
 const BOT_COMMANDS = [
   { command: 'mission', description: '📞 Create a phone call mission' },
@@ -181,7 +184,11 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
               const callId = freshMission.call_id;
 
               if (callId) {
-                const msgId = await sendTelegramMessageReturningId(ws.botToken, cbChatId, '📞 <b>Звонок начался...</b>');
+                // Track active call for voice injection
+                activeCalls.set(cbChatId, { callId, workspaceId: ws.workspaceId });
+
+                const msgId = await sendTelegramMessageReturningId(ws.botToken, cbChatId,
+                  '📞 <b>Звонок начался...</b>\n\n<i>🎤 Отправьте голосовое или текст — это будет подсказка агенту.</i>');
 
                 if (msgId) {
                   const lines: string[] = [];
@@ -214,6 +221,7 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
                   const onEnded = async () => {
                     finished = true;
+                    activeCalls.delete(cbChatId);
                     callEvents.off(`transcript:${callId}`, onTranscript);
                     if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
                     const header = '✅ <b>Звонок завершён</b>\n\n';
@@ -348,6 +356,44 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
       await sendTelegramPlainMessage(ws.botToken, chatId,
         `⏰ Звонок отложен на <b>${timeStr}</b>. Напомню, когда придёт время.`
       );
+      return reply.send({ ok: true });
+    }
+
+    // ─── Active call: inject voice/text as hint to the agent ───
+    if (!command && activeCalls.has(chatId)) {
+      const activeCall = activeCalls.get(chatId)!;
+      const ws = await findWorkspaceByChatId(chatId);
+      if (!ws) return reply.send({ ok: true });
+
+      let hintText = text;
+
+      // Voice → transcribe
+      if (hasVoice && !hasText) {
+        try {
+          const openaiCreds = await getProviderCredential(ws.workspaceId, 'openai');
+          hintText = await transcribeVoiceMessage(ws.botToken, message.voice.file_id, openaiCreds.api_key);
+        } catch (err) {
+          log.error({ err, chatId }, 'Voice hint transcription failed');
+          await sendTelegramPlainMessage(ws.botToken, chatId, '❌ Не удалось распознать.');
+          return reply.send({ ok: true });
+        }
+      }
+
+      if (hintText) {
+        try {
+          const { getActiveOrchestrator } = await import('./media-stream.js');
+          const orch = getActiveOrchestrator(activeCall.callId);
+          if (orch && 'injectInstruction' in orch) {
+            (orch as any).injectInstruction(hintText);
+            await sendTelegramPlainMessage(ws.botToken, chatId, `💡 <i>${hintText}</i>`);
+          } else {
+            await sendTelegramPlainMessage(ws.botToken, chatId, '⚠️ Звонок не найден или завершён.');
+            activeCalls.delete(chatId);
+          }
+        } catch (err) {
+          log.error({ err, chatId }, 'Inject hint failed');
+        }
+      }
       return reply.send({ ok: true });
     }
 
