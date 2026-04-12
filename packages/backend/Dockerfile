@@ -24,6 +24,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install ffmpeg for audio conversion (MP3 → OGG Opus for Telegram voice)
+RUN apk add --no-cache ffmpeg
+
 # Install production deps
 COPY packages/backend/package.json ./
 RUN npm install --omit=dev && npm cache clean --force

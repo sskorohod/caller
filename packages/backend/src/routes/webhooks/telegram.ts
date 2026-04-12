@@ -518,17 +518,33 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
               audioBuffer = Buffer.from(await res.arrayBuffer());
             }
 
-            // Send as audio file via Telegram
-            const formData = new FormData();
-            formData.append('chat_id', chatId);
-            formData.append('audio', new Blob([new Uint8Array(audioBuffer)], { type: 'audio/mpeg' }), 'call_recording.mp3');
-            formData.append('title', 'Call Recording');
-            formData.append('performer', 'Caller');
+            // Convert MP3 to OGG Opus for Telegram voice message
+            const { execSync } = await import('child_process');
+            const { writeFileSync, readFileSync, unlinkSync } = await import('fs');
+            const { join } = await import('path');
+            const tmpDir = '/tmp';
+            const ts = Date.now();
+            const mp3Path = join(tmpDir, `rec_${ts}.mp3`);
+            const oggPath = join(tmpDir, `rec_${ts}.ogg`);
 
-            await fetch(`https://api.telegram.org/bot${botToken}/sendAudio`, {
-              method: 'POST',
-              body: formData,
-            });
+            writeFileSync(mp3Path, audioBuffer);
+            try {
+              execSync(`ffmpeg -i ${mp3Path} -c:a libopus -b:a 48k -ar 48000 -ac 1 ${oggPath}`, { timeout: 30000 });
+              const oggBuffer = readFileSync(oggPath);
+
+              // Send as voice message via Telegram
+              const formData = new FormData();
+              formData.append('chat_id', chatId);
+              formData.append('voice', new Blob([new Uint8Array(oggBuffer)], { type: 'audio/ogg' }), 'voice.ogg');
+
+              await fetch(`https://api.telegram.org/bot${botToken}/sendVoice`, {
+                method: 'POST',
+                body: formData,
+              });
+            } finally {
+              try { unlinkSync(mp3Path); } catch { /* ignore */ }
+              try { unlinkSync(oggPath); } catch { /* ignore */ }
+            }
           } catch (err) {
             log.error({ err, chatId }, 'Failed to send recording');
             await sendReply(botToken, chatId, '❌ Не удалось отправить запись.');
