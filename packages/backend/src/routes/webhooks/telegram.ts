@@ -154,6 +154,65 @@ function parseDelay(input: string): number | null {
   return null;
 }
 
+/** Download recording, convert to OGG, send as Telegram voice */
+async function sendRecordingVoice(botToken: string, chatId: string, workspaceId: string, callId: string) {
+  try {
+    const { aiCallSessions } = await import('../../db/schema.js');
+    const [session] = await db.select({ recording_url: aiCallSessions.recording_url, summary: aiCallSessions.summary })
+      .from(aiCallSessions).where(eq(aiCallSessions.call_id, callId));
+
+    if (!session?.recording_url) {
+      await sendTelegramPlainMessage(botToken, chatId, '📭 Запись не найдена.');
+      return;
+    }
+
+    await sendTelegramPlainMessage(botToken, chatId, '⏳ Загружаю запись...');
+
+    let audioBuffer: Buffer;
+    if (session.recording_url.startsWith('minio://')) {
+      const key = session.recording_url.replace('minio://', '');
+      const { getRecordingBuffer } = await import('../../services/recording-storage.service.js');
+      audioBuffer = await getRecordingBuffer(key);
+    } else {
+      const { getTwilioCreds } = await import('../../services/telephony.service.js');
+      const creds = await getTwilioCreds(workspaceId);
+      const authHeader = 'Basic ' + Buffer.from(`${creds.account_sid}:${creds.auth_token}`).toString('base64');
+      const mp3Url = session.recording_url.endsWith('.mp3') ? session.recording_url : `${session.recording_url}.mp3`;
+      const res = await fetch(mp3Url, { headers: { Authorization: authHeader } });
+      if (!res.ok) throw new Error('Failed to fetch from Twilio');
+      audioBuffer = Buffer.from(await res.arrayBuffer());
+    }
+
+    const { execSync } = await import('child_process');
+    const { writeFileSync, readFileSync, unlinkSync } = await import('fs');
+    const { join } = await import('path');
+    const ts = Date.now();
+    const mp3Path = join('/tmp', `rec_${ts}.mp3`);
+    const oggPath = join('/tmp', `rec_${ts}.ogg`);
+
+    writeFileSync(mp3Path, audioBuffer);
+    try {
+      execSync(`ffmpeg -i ${mp3Path} -c:a libopus -b:a 48k -ar 48000 -ac 1 ${oggPath}`, { timeout: 30000 });
+      const oggBuffer = readFileSync(oggPath);
+
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      formData.append('voice', new Blob([new Uint8Array(oggBuffer)], { type: 'audio/ogg' }), 'voice.ogg');
+
+      await fetch(`https://api.telegram.org/bot${botToken}/sendVoice`, {
+        method: 'POST',
+        body: formData,
+      });
+    } finally {
+      try { unlinkSync(mp3Path); } catch { /* ignore */ }
+      try { unlinkSync(oggPath); } catch { /* ignore */ }
+    }
+  } catch (err) {
+    log.error({ err, chatId, callId }, 'Failed to send recording voice');
+    await sendTelegramPlainMessage(botToken, chatId, '❌ Не удалось отправить запись.');
+  }
+}
+
 const telegramWebhook: FastifyPluginAsync = async (app) => {
   // POST /webhooks/telegram — incoming updates from Telegram
   app.post('/telegram', async (request, reply) => {
@@ -273,6 +332,12 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             const timer = scheduledTimers.get(missionId);
             if (timer) { clearTimeout(timer); scheduledTimers.delete(missionId); }
             await sendTelegramPlainMessage(ws.botToken, cbChatId, '❌ Миссия отменена.');
+
+          } else if (cbData.startsWith('rec:')) {
+            // Recording selection: rec:shortId:fullCallId
+            const callId = cbData.split(':')[2];
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, '⏳ Загружаю...');
+            await sendRecordingVoice(ws.botToken, cbChatId, ws.workspaceId, callId);
 
           } else if (cbData.startsWith('tone:')) {
             // Tone selection: tone:neutral:missionId
@@ -527,76 +592,51 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
         case '/recording': {
           try {
-            // Get last completed call for this workspace
             const { calls: callsTable, aiCallSessions } = await import('../../db/schema.js');
-            const [lastCall] = await db.select({ id: callsTable.id })
+            // Get 5 last completed calls with summaries
+            const recentCalls = await db.select({
+              id: callsTable.id,
+              to_number: callsTable.to_number,
+              from_number: callsTable.from_number,
+              direction: callsTable.direction,
+              created_at: callsTable.created_at,
+            })
               .from(callsTable)
               .where(and(eq(callsTable.workspace_id, workspaceId), eq(callsTable.status, 'completed')))
               .orderBy(desc(callsTable.created_at))
-              .limit(1);
+              .limit(5);
 
-            if (!lastCall) {
+            if (!recentCalls.length) {
               await sendReply(botToken, chatId, '📭 Нет завершённых звонков.');
               break;
             }
 
-            const [session] = await db.select({ recording_url: aiCallSessions.recording_url })
-              .from(aiCallSessions)
-              .where(eq(aiCallSessions.call_id, lastCall.id));
+            // Load summaries for each call
+            const buttons: Array<Array<{ text: string; callback_data: string }>> = [];
+            for (const call of recentCalls) {
+              const [sess] = await db.select({ summary: aiCallSessions.summary, recording_url: aiCallSessions.recording_url })
+                .from(aiCallSessions).where(eq(aiCallSessions.call_id, call.id));
+              if (!sess?.recording_url) continue;
 
-            if (!session?.recording_url) {
-              await sendReply(botToken, chatId, '📭 Запись последнего звонка не найдена.');
+              const date = new Date(call.created_at as any);
+              const timeStr = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+              const phone = call.direction === 'outbound' ? call.to_number : call.from_number;
+              const summary = sess.summary ? sess.summary.slice(0, 40) : phone;
+              const label = `${timeStr} — ${summary}`;
+
+              buttons.push([{ text: label, callback_data: `rec:${call.id.slice(0, 8)}:${call.id}` }]);
+            }
+
+            if (!buttons.length) {
+              await sendReply(botToken, chatId, '📭 Нет записей для прослушивания.');
               break;
             }
 
-            await sendReply(botToken, chatId, '⏳ Загружаю запись...');
-
-            let audioBuffer: Buffer;
-            if (session.recording_url.startsWith('minio://')) {
-              const key = session.recording_url.replace('minio://', '');
-              const { getRecordingBuffer } = await import('../../services/recording-storage.service.js');
-              audioBuffer = await getRecordingBuffer(key);
-            } else {
-              // Twilio URL — download with auth
-              const { getTwilioCreds } = await import('../../services/telephony.service.js');
-              const creds = await getTwilioCreds(workspaceId);
-              const authHeader = 'Basic ' + Buffer.from(`${creds.account_sid}:${creds.auth_token}`).toString('base64');
-              const mp3Url = session.recording_url.endsWith('.mp3') ? session.recording_url : `${session.recording_url}.mp3`;
-              const res = await fetch(mp3Url, { headers: { Authorization: authHeader } });
-              if (!res.ok) throw new Error('Failed to fetch from Twilio');
-              audioBuffer = Buffer.from(await res.arrayBuffer());
-            }
-
-            // Convert MP3 to OGG Opus for Telegram voice message
-            const { execSync } = await import('child_process');
-            const { writeFileSync, readFileSync, unlinkSync } = await import('fs');
-            const { join } = await import('path');
-            const tmpDir = '/tmp';
-            const ts = Date.now();
-            const mp3Path = join(tmpDir, `rec_${ts}.mp3`);
-            const oggPath = join(tmpDir, `rec_${ts}.ogg`);
-
-            writeFileSync(mp3Path, audioBuffer);
-            try {
-              execSync(`ffmpeg -i ${mp3Path} -c:a libopus -b:a 48k -ar 48000 -ac 1 ${oggPath}`, { timeout: 30000 });
-              const oggBuffer = readFileSync(oggPath);
-
-              // Send as voice message via Telegram
-              const formData = new FormData();
-              formData.append('chat_id', chatId);
-              formData.append('voice', new Blob([new Uint8Array(oggBuffer)], { type: 'audio/ogg' }), 'voice.ogg');
-
-              await fetch(`https://api.telegram.org/bot${botToken}/sendVoice`, {
-                method: 'POST',
-                body: formData,
-              });
-            } finally {
-              try { unlinkSync(mp3Path); } catch { /* ignore */ }
-              try { unlinkSync(oggPath); } catch { /* ignore */ }
-            }
+            await sendTelegramMessageWithButtons(botToken, chatId,
+              '🎧 <b>Записи звонков</b>\n\nВыберите запись:', buttons);
           } catch (err) {
-            log.error({ err, chatId }, 'Failed to send recording');
-            await sendReply(botToken, chatId, '❌ Не удалось отправить запись.');
+            log.error({ err, chatId }, 'Failed to list recordings');
+            await sendReply(botToken, chatId, '❌ Не удалось загрузить список записей.');
           }
           break;
         }
