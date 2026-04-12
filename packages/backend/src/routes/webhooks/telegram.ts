@@ -6,12 +6,24 @@ import { decrypt } from '../../lib/crypto.js';
 import { env } from '../../config/env.js';
 import { getActiveConferenceTranslators } from './media-stream.js';
 import * as callService from '../../services/call.service.js';
+import * as missionService from '../../services/mission.service.js';
+import {
+  sendTelegramPlainMessage,
+  sendTelegramMessageWithButtons,
+  answerCallbackQuery,
+  transcribeVoiceMessage,
+} from '../../services/telegram.service.js';
+import { getProviderCredential } from '../../services/provider.service.js';
 import pino from 'pino';
 
 const log = pino({ name: 'telegram-webhook' });
 
+// Active mission sessions per chat (in-memory)
+const activeMissions = new Map<string, { missionId: string; workspaceId: string }>();
+
 // Bot commands menu
 const BOT_COMMANDS = [
+  { command: 'mission', description: '📞 Create a phone call mission' },
   { command: 'live', description: 'Get live translation link' },
   { command: 'hangup', description: 'End current call' },
   { command: 'pause', description: 'Pause translator' },
@@ -55,19 +67,124 @@ function getActiveCallForWorkspace(workspaceId: string): { callId: string; trans
   return null;
 }
 
+/** Process a mission chat message (text) and send AI response back to Telegram */
+async function handleMissionMessage(botToken: string, chatId: string, workspaceId: string, missionId: string, userText: string) {
+  try {
+    const aiResponse = await missionService.processChatMessage(workspaceId, missionId, userText);
+
+    // Check if AI response contains a ready plan
+    const planMatch = aiResponse.match(/\{[\s\S]*"action"\s*:\s*"ready"[\s\S]*\}/);
+    if (planMatch) {
+      // Strip JSON from display text
+      const displayText = aiResponse.replace(planMatch[0], '').trim();
+      const planText = displayText || '✅ План готов!';
+
+      await sendTelegramMessageWithButtons(botToken, chatId, planText, [
+        [
+          { text: '📞 Позвонить', callback_data: `mission_call:${missionId}` },
+          { text: '❌ Отменить', callback_data: `mission_cancel:${missionId}` },
+        ],
+      ]);
+    } else {
+      // Regular AI response — just send text
+      const displayText = aiResponse.length > 4000 ? aiResponse.slice(0, 4000) + '…' : aiResponse;
+      await sendTelegramPlainMessage(botToken, chatId, displayText);
+    }
+  } catch (err) {
+    log.error({ err, missionId, chatId }, 'Mission chat error');
+    await sendTelegramPlainMessage(botToken, chatId, '❌ Ошибка обработки. Попробуйте ещё раз.');
+  }
+}
+
 const telegramWebhook: FastifyPluginAsync = async (app) => {
   // POST /webhooks/telegram — incoming updates from Telegram
   app.post('/telegram', async (request, reply) => {
     const body = request.body as any;
+
+    // ─── Handle callback_query (inline button presses) ─────────────
+    const callbackQuery = body?.callback_query;
+    if (callbackQuery) {
+      const cbData = callbackQuery.data as string;
+      const cbChatId = String(callbackQuery.message?.chat?.id);
+      const ws = await findWorkspaceByChatId(cbChatId);
+
+      if (ws) {
+        try {
+          if (cbData.startsWith('mission_call:')) {
+            const missionId = cbData.split(':')[1];
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, '📞 Звоню...');
+            await sendTelegramPlainMessage(ws.botToken, cbChatId, '📞 Начинаю звонок...');
+            activeMissions.delete(cbChatId);
+
+            try {
+              await missionService.executeMission(ws.workspaceId, missionId);
+            } catch (execErr: any) {
+              log.error({ execErr, missionId }, 'Mission execute from Telegram failed');
+              await sendTelegramPlainMessage(ws.botToken, cbChatId, `❌ Не удалось начать звонок: ${execErr.message || 'ошибка'}`);
+            }
+          } else if (cbData.startsWith('mission_cancel:')) {
+            const missionId = cbData.split(':')[1];
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Отменено');
+            await missionService.updateMission(missionId, { status: 'failed' });
+            activeMissions.delete(cbChatId);
+            await sendTelegramPlainMessage(ws.botToken, cbChatId, '❌ Миссия отменена.');
+          } else {
+            await answerCallbackQuery(ws.botToken, callbackQuery.id);
+          }
+        } catch (err) {
+          log.error({ err, cbData, cbChatId }, 'Callback query error');
+          await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Ошибка');
+        }
+      }
+
+      return reply.send({ ok: true });
+    }
+
+    // ─── Handle messages (text + voice) ────────────────────────────
     const message = body?.message;
-    if (!message?.text || !message?.chat?.id) {
+    if (!message?.chat?.id) {
       return reply.send({ ok: true });
     }
 
     const chatId = String(message.chat.id);
-    const text = message.text.trim();
-    const command = text.startsWith('/') ? text.split(/\s|@/)[0].toLowerCase() : null;
+    const hasText = !!message.text;
+    const hasVoice = !!message.voice;
 
+    if (!hasText && !hasVoice) {
+      return reply.send({ ok: true });
+    }
+
+    const text = hasText ? message.text.trim() : '';
+    const command = (hasText && text.startsWith('/')) ? text.split(/\s|@/)[0].toLowerCase() : null;
+
+    // ─── Mission mode: non-command text or voice → forward to mission chat ───
+    if (!command && activeMissions.has(chatId)) {
+      const mission = activeMissions.get(chatId)!;
+      const ws = await findWorkspaceByChatId(chatId);
+      if (!ws) return reply.send({ ok: true });
+
+      let userText = text;
+
+      // Voice message → transcribe
+      if (hasVoice && !hasText) {
+        try {
+          const openaiCreds = await getProviderCredential(ws.workspaceId, 'openai');
+          userText = await transcribeVoiceMessage(ws.botToken, message.voice.file_id, openaiCreds.api_key);
+          await sendTelegramPlainMessage(ws.botToken, chatId, `🎤 <i>${userText}</i>`);
+        } catch (err) {
+          log.error({ err, chatId }, 'Voice transcription failed');
+          await sendTelegramPlainMessage(ws.botToken, chatId, '❌ Не удалось распознать голосовое сообщение.');
+          return reply.send({ ok: true });
+        }
+      }
+
+      if (userText) {
+        await handleMissionMessage(ws.botToken, chatId, ws.workspaceId, mission.missionId, userText);
+      }
+      return reply.send({ ok: true });
+    }
+
+    // Non-command, no active mission → ignore
     if (!command) return reply.send({ ok: true });
 
     // Try to find workspace by existing chat_id
@@ -100,8 +217,8 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
             await sendReply(creds.bot_token, chatId,
               '✅ <b>Paired successfully!</b>\n\n' +
-              'You will now receive translator notifications here.\n\n' +
               'Commands:\n' +
+              '/mission — 📞 Создать миссию (звонок)\n' +
               '/live — Live translation link\n' +
               '/hangup — End current call\n' +
               '/pause — Pause translator\n' +
@@ -131,6 +248,38 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
     try {
       switch (command) {
+        case '/mission': {
+          try {
+            const mission = await missionService.createMission(workspaceId, 'telegram');
+            activeMissions.set(chatId, { missionId: mission.id, workspaceId });
+            await sendReply(botToken, chatId,
+              '📞 <b>Новая миссия</b>\n\n' +
+              'Опишите, что нужно сделать:\n' +
+              '• Кому позвонить (имя, номер)\n' +
+              '• Зачем (записать, уточнить, etc.)\n' +
+              '• Ваше имя\n\n' +
+              'Можно текстом или 🎤 голосовым сообщением.\n' +
+              'Для отмены: /cancel'
+            );
+          } catch (err) {
+            log.error({ err, chatId }, 'Failed to create mission');
+            await sendReply(botToken, chatId, '❌ Не удалось создать миссию.');
+          }
+          break;
+        }
+
+        case '/cancel': {
+          if (activeMissions.has(chatId)) {
+            const mission = activeMissions.get(chatId)!;
+            await missionService.updateMission(mission.missionId, { status: 'failed' });
+            activeMissions.delete(chatId);
+            await sendReply(botToken, chatId, '❌ Миссия отменена.');
+          } else {
+            await sendReply(botToken, chatId, '📭 Нет активной миссии.');
+          }
+          break;
+        }
+
         case '/live': {
           const active = getActiveCallForWorkspace(workspaceId);
           if (!active) {
@@ -235,9 +384,10 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
         case '/start': {
           await sendReply(botToken, chatId,
-            '🌐 <b>Caller Live Translator</b>\n\n' +
+            '🌐 <b>Caller</b>\n\n' +
             'Commands:\n' +
-            '/live — Get live translation link\n' +
+            '/mission — 📞 Создать миссию (звонок)\n' +
+            '/live — Live translation link\n' +
             '/hangup — End current call\n' +
             '/pause — Pause translator\n' +
             '/resume — Resume translator\n' +

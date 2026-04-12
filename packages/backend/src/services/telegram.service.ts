@@ -90,6 +90,78 @@ export async function sendTranslatorSessionStart(
   return sendTelegramMessage(botToken, chatId, lines.join('\n'));
 }
 
+// ─── Mission support ──────────────────────────────────────────────────────
+
+export async function sendTelegramMessageWithButtons(
+  botToken: string,
+  chatId: string,
+  text: string,
+  buttons: Array<Array<{ text: string; callback_data: string }>>,
+): Promise<boolean> {
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: buttons },
+    }),
+  });
+  return response.ok;
+}
+
+export async function sendTelegramPlainMessage(
+  botToken: string,
+  chatId: string,
+  text: string,
+): Promise<boolean> {
+  return sendTelegramMessage(botToken, chatId, text);
+}
+
+export async function answerCallbackQuery(
+  botToken: string,
+  callbackQueryId: string,
+  text?: string,
+): Promise<void> {
+  await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
+  });
+}
+
+export async function transcribeVoiceMessage(
+  botToken: string,
+  fileId: string,
+  openaiApiKey: string,
+): Promise<string> {
+  // 1. Get file path from Telegram
+  const fileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+  const fileData = await fileRes.json() as { ok: boolean; result: { file_path: string } };
+  if (!fileData.ok) throw new Error('Failed to get file from Telegram');
+
+  // 2. Download OGG voice file
+  const audioRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`);
+  if (!audioRes.ok) throw new Error('Failed to download voice file');
+  const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+
+  // 3. Transcribe with OpenAI Whisper
+  const formData = new FormData();
+  formData.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), 'voice.ogg');
+  formData.append('model', 'whisper-1');
+
+  const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${openaiApiKey}` },
+    body: formData,
+  });
+  if (!whisperRes.ok) throw new Error(`Whisper API error: ${whisperRes.status}`);
+  const result = await whisperRes.json() as { text: string };
+  return result.text;
+}
+
 export async function sendTranslatorSessionEnd(
   botToken: string,
   chatId: string,
