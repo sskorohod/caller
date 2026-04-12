@@ -75,7 +75,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">5. Billing and Payments</h2>
-            <p><strong className="text-white">Deposit Model:</strong> The Service operates on a prepaid deposit model. You add funds to your workspace balance, and usage costs are deducted automatically. Platform provider costs are marked up (currently 3x) to cover infrastructure, support, and margin.</p>
+            <p><strong className="text-white">Deposit Model:</strong> The Service operates on a prepaid deposit model. You add funds to your workspace balance, and usage costs are deducted automatically. Platform provider usage is billed from your deposit balance.</p>
             <p className="mt-2"><strong className="text-white">Subscriptions:</strong> Certain plans (Agents, Agents + MCP) require a monthly subscription in addition to usage-based charges. Subscriptions auto-renew unless canceled before the end of the billing period.</p>
             <p className="mt-2"><strong className="text-white">Refunds:</strong> Unused deposit balances may be refunded at the Company&apos;s discretion. Subscription fees are non-refundable except where required by law. We reserve the right to issue prorated refunds for service outages exceeding 24 consecutive hours.</p>
             <p className="mt-2"><strong className="text-white">Own Keys:</strong> If you provide your own API keys for third-party providers (e.g., Twilio, Deepgram), you are billed at cost or not billed for that provider. You are responsible for your own provider agreements and costs.</p>

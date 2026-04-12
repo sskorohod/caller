@@ -106,8 +106,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             ] : []),
             { label: t('nav.sectionSystem') || 'System', items: navItems.filter(i => {
               const systemItems = isTranslatorOnly
-                ? ['/dashboard/billing', '/dashboard/settings']
-                : ['/dashboard/audit', '/dashboard/billing', '/dashboard/settings'];
+                ? ['/dashboard/billing', '/dashboard/settings', '/dashboard/help']
+                : ['/dashboard/audit', '/dashboard/billing', '/dashboard/settings', '/dashboard/help'];
               return systemItems.includes(i.href);
             }) },
           ];

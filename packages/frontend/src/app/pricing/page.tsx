@@ -177,7 +177,7 @@ export default function PricingPage() {
             <h3 className="text-xl font-headline font-bold mb-2">Bring Your Own Keys or Use Ours</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>
               With the Agents plan, you can connect your own API keys for Twilio, OpenAI, Anthropic, ElevenLabs, and more.
-              Your keys = no usage charges. Or use our platform providers and pay from your deposit (provider cost x3).
+              Your keys = no usage charges. Or use our platform providers and pay from your deposit.
               Mix and match — use your Twilio but our AI, for example.
             </p>
           </div>
@@ -188,7 +188,7 @@ export default function PricingPage() {
             <h3 className="text-xl font-headline font-bold mb-2">How the Deposit Works</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>
               Top up your USD deposit via Stripe. When you use our providers (STT, LLM, TTS, telephony),
-              the real cost is multiplied by our markup and deducted from your balance.
+              usage costs are deducted from your balance.
               When your balance runs out, platform provider calls are paused — but your own keys keep working.
               No surprises, no overcharges.
             </p>

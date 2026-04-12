@@ -305,7 +305,7 @@ export default function LandingPage() {
               {[
                 { icon: 'mic', title: 'Premium Voices', desc: 'ElevenLabs, OpenAI TTS, xAI Grok — choose the perfect voice for your brand.', color: '#adc6ff' },
                 { icon: 'psychology', title: 'Top AI Models', desc: 'Claude Sonnet, GPT-4o, Grok — use the best LLM for each use case.', color: '#d0bcff' },
-                { icon: 'key', title: 'Bring Your Own Keys', desc: 'Use your own API keys for zero markup. Or use ours from your deposit.', color: '#4ade80' },
+                { icon: 'key', title: 'Bring Your Own Keys', desc: 'Use your own API keys for free. Or use ours from your deposit.', color: '#4ade80' },
                 { icon: 'menu_book', title: 'Knowledge Base', desc: 'Upload docs, FAQs, product catalogs. Your agents learn your business.', color: '#67e8f9' },
                 { icon: 'record_voice_over', title: 'Call Recording', desc: 'Every call recorded, transcribed, and analyzed. Full audit trail.', color: '#fbbf24' },
                 { icon: 'api', title: 'MCP API', desc: 'Integrate Caller into your workflow with our MCP server and webhooks.', color: '#f87171' },
@@ -338,7 +338,7 @@ export default function LandingPage() {
                 </h2>
                 <p className="text-base leading-relaxed mb-8" style={{ color: '#c2c6d6' }}>
                   Connect your own Twilio, OpenAI, Anthropic, or ElevenLabs API keys and pay nothing extra.
-                  Or use our platform providers — costs are charged from your USD deposit at a transparent 3x markup.
+                  Or use our platform providers — usage costs are charged from your USD deposit.
                   Mix and match per provider. Switch anytime.
                 </p>
                 <div className="space-y-3">
