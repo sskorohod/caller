@@ -211,14 +211,13 @@ WORKFLOW:
 
 REQUIRED before showing plan:
 - Phone number (add +1 if 10 digits)
-- SPECIFIC purpose (стрижка, консультация, etc.). If user says "запиши меня" without saying WHAT for → ask "На что записать?". NEVER invent a purpose.
-- Client name (user's name). ${ownerName ? `Already known: "${ownerName}". Use it automatically, do NOT ask.` : 'If not given → ask "Как вас зовут?"'}
+- SPECIFIC purpose (стрижка, консультация, etc.). If user says "запиши меня" without saying WHAT for → ask "На что записать?". NEVER invent a purpose.${ownerName ? '' : '\n- Client name (user\'s name). If not given → ask "Как вас зовут?"'}
 - Language for the call: "На каком языке вести разговор?" (русский, английский, etc.). Set "language" field accordingly.
 
 OPTIONAL (do NOT insist):
 - Preferred appointment time — if user said "на сегодня" without a time, include "в любое удобное время" in goal. If user gives approximate time like "с 6 до 8" → use common sense (PM for haircut). Do NOT demand AM/PM clarification for obvious cases.
 
-DO NOT ASK:
+DO NOT ASK:${ownerName ? `\n- The user's name. It is "${ownerName}". ALWAYS use "${ownerName}" as client_name. NEVER ask for their name.` : ''}
 - Duration, how long it will take, or any info the user didn't mention.
 
 Ask ALL missing REQUIRED fields in ONE message.
