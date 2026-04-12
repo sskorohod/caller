@@ -86,21 +86,51 @@ async function loadCallerContext(workspaceId: string, phone: string): Promise<st
   const cleanPhone = phone.replace(/[\s\-()]/g, '');
   const [profile] = await db.select().from(callerProfiles)
     .where(and(eq(callerProfiles.workspace_id, workspaceId), eq(callerProfiles.phone_number, cleanPhone)));
-  if (!profile) return null;
-
-  const facts = await db.select().from(callerMemoryFacts)
-    .where(and(eq(callerMemoryFacts.caller_profile_id, profile.id), eq(callerMemoryFacts.is_resolved, false)))
-    .orderBy(desc(callerMemoryFacts.created_at)).limit(10);
 
   const parts: string[] = [];
-  if (profile.name) parts.push(`Name: ${profile.name}`);
-  if ((profile as any).company) parts.push(`Company: ${(profile as any).company}`);
-  parts.push(`Previous calls: ${profile.total_calls}`);
-  if (facts.length > 0) {
-    parts.push('Recent facts:');
-    facts.forEach(f => parts.push(`- [${f.fact_type}] ${f.content}`));
+
+  // Profile info
+  if (profile) {
+    if (profile.name) parts.push(`Name: ${profile.name}`);
+    if ((profile as any).company) parts.push(`Company: ${(profile as any).company}`);
+    parts.push(`Previous calls: ${profile.total_calls}`);
+
+    const facts = await db.select().from(callerMemoryFacts)
+      .where(and(eq(callerMemoryFacts.caller_profile_id, profile.id), eq(callerMemoryFacts.is_resolved, false)))
+      .orderBy(desc(callerMemoryFacts.created_at)).limit(10);
+    if (facts.length > 0) {
+      parts.push('Key facts:');
+      facts.forEach(f => parts.push(`- [${f.fact_type}] ${f.content}`));
+    }
   }
-  return parts.join('\n');
+
+  // Load summaries from previous calls to/from this number
+  const previousCalls = await db.select({
+    id: calls.id,
+    direction: calls.direction,
+    created_at: calls.created_at,
+    goal: calls.goal,
+  }).from(calls)
+    .where(and(
+      eq(calls.workspace_id, workspaceId),
+      eq(calls.status, 'completed'),
+      sql`(${calls.to_number} = ${cleanPhone} OR ${calls.from_number} = ${cleanPhone})`,
+    ))
+    .orderBy(desc(calls.created_at))
+    .limit(5);
+
+  if (previousCalls.length > 0) {
+    parts.push('');
+    parts.push(`PREVIOUS CALLS with ${cleanPhone} (${previousCalls.length} most recent):`);
+    for (const call of previousCalls) {
+      const [sess] = await db.select({ summary: aiCallSessions.summary }).from(aiCallSessions).where(eq(aiCallSessions.call_id, call.id));
+      const date = new Date(call.created_at as any).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+      const summary = sess?.summary || call.goal || 'No summary';
+      parts.push(`- ${date}: ${summary}`);
+    }
+  }
+
+  return parts.length > 0 ? parts.join('\n') : null;
 }
 
 async function getLLM(workspaceId: string) {

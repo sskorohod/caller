@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import websocket from '@fastify/websocket';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../../config/db.js';
-import { calls as callsTable, callerProfiles, callerMemoryFacts, workspaces as workspacesTable } from '../../db/schema.js';
+import { calls as callsTable, callerProfiles, callerMemoryFacts, aiCallSessions, workspaces as workspacesTable } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
 import * as agentService from '../../services/agent.service.js';
 import * as workspaceService from '../../services/workspace.service.js';
@@ -1632,6 +1632,33 @@ async function loadCallerContext(workspaceId: string, phoneNumber: string, direc
       parts.push(`- [${fact.fact_type}] ${fact.content}`);
     }
   }
+
+  // Load summaries from previous calls
+  try {
+    const previousCalls = await db.select({
+      id: callsTable.id,
+      created_at: callsTable.created_at,
+    }).from(callsTable)
+      .where(and(
+        eq(callsTable.workspace_id, workspaceId),
+        eq(callsTable.status, 'completed'),
+        sql`(${callsTable.to_number} = ${phoneNumber} OR ${callsTable.from_number} = ${phoneNumber})`,
+      ))
+      .orderBy(desc(callsTable.created_at))
+      .limit(3);
+
+    if (previousCalls.length > 0) {
+      parts.push('');
+      parts.push('Previous call summaries:');
+      for (const pc of previousCalls) {
+        const [sess] = await db.select({ summary: aiCallSessions.summary }).from(aiCallSessions).where(eq(aiCallSessions.call_id, pc.id));
+        if (sess?.summary) {
+          const date = new Date(pc.created_at as any).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+          parts.push(`- ${date}: ${sess.summary}`);
+        }
+      }
+    }
+  } catch { /* ignore — summaries are optional context */ }
 
   return parts.join('\n');
 }
