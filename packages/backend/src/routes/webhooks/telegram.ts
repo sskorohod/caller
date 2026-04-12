@@ -611,35 +611,27 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
               break;
             }
 
-            // Build list text + numbered buttons
-            const lines: string[] = ['🎧 <b>Записи звонков</b>\n'];
             const buttons: Array<Array<{ text: string; callback_data: string }>> = [];
-            let idx = 0;
 
             for (const call of recentCalls) {
               const [sess] = await db.select({ summary: aiCallSessions.summary, recording_url: aiCallSessions.recording_url })
                 .from(aiCallSessions).where(eq(aiCallSessions.call_id, call.id));
               if (!sess?.recording_url) continue;
 
-              idx++;
               const date = new Date(call.created_at as any);
               const timeStr = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
               const phone = call.direction === 'outbound' ? call.to_number : call.from_number;
-              const summary = sess.summary ? sess.summary.slice(0, 80) : 'Нет описания';
+              const summary = sess.summary ? sess.summary.slice(0, 45) : 'Нет описания';
 
-              lines.push(`<b>${idx}.</b> 📅 ${timeStr} · ${phone}`);
-              lines.push(`    ${summary}\n`);
-
-              buttons.push([{ text: `▶️ ${idx}`, callback_data: `rec:${call.id.slice(0, 8)}:${call.id}` }]);
+              buttons.push([{ text: `📅 ${timeStr} · ${phone}\n${summary}`, callback_data: `rec:${call.id.slice(0, 8)}:${call.id}` }]);
             }
 
-            if (!idx) {
+            if (!buttons.length) {
               await sendReply(botToken, chatId, '📭 Нет записей для прослушивания.');
               break;
             }
 
-            lines.push('Нажмите номер для прослушивания:');
-            await sendTelegramMessageWithButtons(botToken, chatId, lines.join('\n'), buttons);
+            await sendTelegramMessageWithButtons(botToken, chatId, '🎧 <b>Записи звонков</b>\n\nВыберите запись:', buttons);
           } catch (err) {
             log.error({ err, chatId }, 'Failed to list recordings');
             await sendReply(botToken, chatId, '❌ Не удалось загрузить список записей.');
