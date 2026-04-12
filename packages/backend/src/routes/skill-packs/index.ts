@@ -13,6 +13,7 @@ const createSkillPackSchema = z.object({
   allowed_tools: z.array(z.string()).optional(),
   escalation_conditions: z.array(z.unknown()).optional(),
   completion_criteria: z.record(z.unknown()).optional(),
+  interruption_rules: z.record(z.unknown()).optional(),
   conversation_rules: z.string().optional(),
   is_active: z.boolean().optional(),
 });
