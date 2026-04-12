@@ -150,10 +150,13 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private onConversationCreated(): void {
     logger.info({ callId: this.config.call.id }, 'Grok conversation created, sending session.update');
 
-    const lang = this.config.agentProfile.language;
+    // Mission context language overrides agent profile language
+    const callCtx = (this.config.call as any).context;
+    const lang = callCtx?.language || this.config.agentProfile.language;
+    const langMap: Record<string, string> = { ru: 'Russian', en: 'English', es: 'Spanish', de: 'German', fr: 'French', hy: 'Armenian', he: 'Hebrew', uk: 'Ukrainian' };
     const langInstruction = lang === 'auto'
       ? '\n\nIMPORTANT: Detect the language the caller is speaking and respond in the same language. Switch languages mid-conversation if the caller switches.'
-      : `\n\nIMPORTANT: Always respond in ${lang === 'ru' ? 'Russian' : lang === 'es' ? 'Spanish' : lang === 'de' ? 'German' : lang === 'fr' ? 'French' : 'English'}.`;
+      : `\n\nIMPORTANT: Always respond in ${langMap[lang] || 'English'}. ALL your speech MUST be in ${langMap[lang] || 'English'} — never switch to another language.`;
 
     // Add current date/time in workspace timezone
     const tz = this.config.timezone || 'America/Los_Angeles';

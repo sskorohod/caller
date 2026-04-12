@@ -266,7 +266,7 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             await sendTelegramPlainMessage(ws.botToken, cbChatId, '❌ Миссия отменена.');
 
           } else if (cbData.startsWith('tone:')) {
-            // Tone selection: tone:neutral:missionId, tone:formal:missionId, tone:friendly:missionId
+            // Tone selection: tone:neutral:missionId
             const parts = cbData.split(':');
             const tone = parts[1];
             const missionId = parts[2];
@@ -279,14 +279,16 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             ctx.tone = tone;
             await missionService.updateMission(missionId, { context: ctx });
 
-            // Activate mission mode
-            activeMissions.set(cbChatId, { missionId, workspaceId: ws.workspaceId, tone });
+            // Activate mission mode — ready for task description
+            // Language will be asked by the AI planner as part of the conversation
+            activeMissions.set(cbChatId, { missionId, workspaceId: ws.workspaceId });
 
             await sendTelegramPlainMessage(ws.botToken, cbChatId,
               `${toneLabels[tone] || tone} — выбран.\n\n` +
               'Теперь опишите задачу:\n' +
               '• Кому позвонить (имя, номер)\n' +
               '• Зачем\n' +
+              '• На каком языке вести разговор\n' +
               '• Ваше имя\n\n' +
               'Можно текстом или 🎤 голосовым.'
             );

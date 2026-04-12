@@ -1571,10 +1571,15 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
   const femaleVoices = ['eve', 'tara', 'ara', 'nova', 'shimmer', 'alloy', 'coral'];
   const isFemale = femaleVoices.includes((agentProfile.voice_id || '').toLowerCase());
 
-  if (agentProfile.language === 'ru') {
+  // Language: mission context overrides agent profile
+  const callLanguage = (call?.context as any)?.language || agentProfile.language || 'en';
+  const langNames: Record<string, string> = { ru: 'Russian', en: 'English', es: 'Spanish', de: 'German', fr: 'French', hy: 'Armenian', he: 'Hebrew', uk: 'Ukrainian' };
+  const langName = langNames[callLanguage] || callLanguage;
+
+  if (callLanguage === 'ru') {
     parts.push(`Speak in Russian. Respond naturally as if on a phone call.${isFemale ? '\nВАЖНО: Ты женщина. Используй женский род в речи (я позвонила, я записала, я уточнила, рада помочь). НИКОГДА не используй мужской род (позвонил, записал, уточнил).' : ''}`);
   } else {
-    parts.push('Speak in English. Respond naturally as if on a phone call.');
+    parts.push(`Speak in ${langName}. Respond naturally as if on a phone call. ALL your speech MUST be in ${langName} — never switch to another language unless explicitly asked.`);
   }
   parts.push('Keep responses concise — this is a phone conversation, not a chat.');
   // Tone from mission context or default
