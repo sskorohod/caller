@@ -1573,7 +1573,15 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
     parts.push('Speak in English. Respond naturally as if on a phone call.');
   }
   parts.push('Keep responses concise — this is a phone conversation, not a chat.');
-  parts.push('TONE: Professional and polite. Use formal register ("вы", not "ты"). Be respectful but efficient.');
+  // Tone from mission context or default
+  const callTone = (call?.context as any)?.tone;
+  if (callTone === 'friendly') {
+    parts.push('TONE: Friendly, warm, and casual. Use informal register ("ты"). Be cheerful, can use light humor. Sound like a friend helping out.');
+  } else if (callTone === 'formal') {
+    parts.push('TONE: Strictly formal and official. Use formal register ("вы"). Be very polite, structured, business-like. No jokes or casual language.');
+  } else {
+    parts.push('TONE: Professional and polite. Use formal register ("вы"). Be respectful but efficient.');
+  }
   parts.push('Never use markdown, bullet points, or formatting. Speak naturally.');
   parts.push(`CALL ENDING RULES:
 - When the caller says goodbye ("bye", "пока", "до свидания", "всё, пока") — say ONE short farewell (max 5 words) and add [END_CALL] at the end.

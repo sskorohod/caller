@@ -179,7 +179,6 @@ REQUIRED before showing plan:
 - SPECIFIC purpose (стрижка, консультация, etc.). If user says "запиши меня" without saying WHAT for → ask "На что записать?". NEVER invent a purpose.
 - Client name (user's name). If not given → ask "Как вас зовут?"
 - Language for the call: "На каком языке вести разговор?" (русский, английский, etc.). Set "language" field accordingly.
-- When to call: "Звоним сейчас или запланировать на позже?" If user says later → ask for date/time and use {"action":"schedule","at":"ISO8601"} instead of {"action":"ready"}.
 
 OPTIONAL (do NOT insist):
 - Preferred appointment time — if user said "на сегодня" without a time, include "в любое удобное время" in goal. If user gives approximate time like "с 6 до 8" → use common sense (PM for haircut). Do NOT demand AM/PM clarification for obvious cases.

@@ -19,7 +19,13 @@ import pino from 'pino';
 const log = pino({ name: 'telegram-webhook' });
 
 // Active mission sessions per chat (in-memory)
-const activeMissions = new Map<string, { missionId: string; workspaceId: string }>();
+const activeMissions = new Map<string, { missionId: string; workspaceId: string; tone?: string }>();
+
+// Chats waiting for delay input (after pressing "Отложить")
+const pendingDelay = new Map<string, { missionId: string; workspaceId: string; planText: string }>();
+
+// Scheduled mission timers
+const scheduledTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Bot commands menu
 const BOT_COMMANDS = [
@@ -67,6 +73,39 @@ function getActiveCallForWorkspace(workspaceId: string): { callId: string; trans
   return null;
 }
 
+/** Send plan card with 3 buttons */
+async function sendPlanCard(botToken: string, chatId: string, missionId: string, planText: string) {
+  await sendTelegramMessageWithButtons(botToken, chatId, planText, [
+    [
+      { text: '📞 Позвонить', callback_data: `mission_call:${missionId}` },
+      { text: '⏰ Отложить', callback_data: `mission_delay:${missionId}` },
+      { text: '❌ Отменить', callback_data: `mission_cancel:${missionId}` },
+    ],
+  ]);
+}
+
+/** Schedule a mission call with timer and Telegram reminder */
+function scheduleMissionCall(
+  botToken: string, chatId: string, workspaceId: string,
+  missionId: string, planText: string, delayMs: number,
+) {
+  // Clear any existing timer
+  const existing = scheduledTimers.get(missionId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(async () => {
+    scheduledTimers.delete(missionId);
+    try {
+      await sendTelegramPlainMessage(botToken, chatId, '⏰ <b>Напоминание!</b> Время звонить:');
+      await sendPlanCard(botToken, chatId, missionId, planText);
+    } catch (err) {
+      log.error({ err, missionId }, 'Failed to send scheduled mission reminder');
+    }
+  }, delayMs);
+
+  scheduledTimers.set(missionId, timer);
+}
+
 /** Process a mission chat message (text) and send AI response back to Telegram */
 async function handleMissionMessage(botToken: string, chatId: string, workspaceId: string, missionId: string, userText: string) {
   try {
@@ -75,18 +114,10 @@ async function handleMissionMessage(botToken: string, chatId: string, workspaceI
     // Check if AI response contains a ready plan
     const planMatch = aiResponse.match(/\{[\s\S]*"action"\s*:\s*"ready"[\s\S]*\}/);
     if (planMatch) {
-      // Strip JSON from display text
       const displayText = aiResponse.replace(planMatch[0], '').trim();
       const planText = displayText || '✅ План готов!';
-
-      await sendTelegramMessageWithButtons(botToken, chatId, planText, [
-        [
-          { text: '📞 Позвонить', callback_data: `mission_call:${missionId}` },
-          { text: '❌ Отменить', callback_data: `mission_cancel:${missionId}` },
-        ],
-      ]);
+      await sendPlanCard(botToken, chatId, missionId, planText);
     } else {
-      // Regular AI response — just send text
       const displayText = aiResponse.length > 4000 ? aiResponse.slice(0, 4000) + '…' : aiResponse;
       await sendTelegramPlainMessage(botToken, chatId, displayText);
     }
@@ -94,6 +125,25 @@ async function handleMissionMessage(botToken: string, chatId: string, workspaceI
     log.error({ err, missionId, chatId }, 'Mission chat error');
     await sendTelegramPlainMessage(botToken, chatId, '❌ Ошибка обработки. Попробуйте ещё раз.');
   }
+}
+
+/** Parse delay string like "30", "1ч", "1ч 30м", "90 минут" → milliseconds */
+function parseDelay(input: string): number | null {
+  const s = input.trim().toLowerCase();
+
+  // Just a number → minutes
+  const justNum = s.match(/^(\d+)$/);
+  if (justNum) return parseInt(justNum[1], 10) * 60 * 1000;
+
+  // "Xч Yм" or "X ч Y м"
+  let totalMs = 0;
+  const hours = s.match(/(\d+)\s*(?:ч|час|hours?|h)/);
+  const mins = s.match(/(\d+)\s*(?:м|мин|минут|minutes?|m(?!s))/);
+  if (hours) totalMs += parseInt(hours[1], 10) * 3600 * 1000;
+  if (mins) totalMs += parseInt(mins[1], 10) * 60 * 1000;
+  if (totalMs > 0) return totalMs;
+
+  return null;
 }
 
 const telegramWebhook: FastifyPluginAsync = async (app) => {
@@ -115,6 +165,10 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             await answerCallbackQuery(ws.botToken, callbackQuery.id, '📞 Звоню...');
             await sendTelegramPlainMessage(ws.botToken, cbChatId, '📞 Начинаю звонок...');
             activeMissions.delete(cbChatId);
+            pendingDelay.delete(cbChatId);
+            // Clear any scheduled timer
+            const timer = scheduledTimers.get(missionId);
+            if (timer) { clearTimeout(timer); scheduledTimers.delete(missionId); }
 
             try {
               await missionService.executeMission(ws.workspaceId, missionId);
@@ -122,12 +176,55 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
               log.error({ execErr, missionId }, 'Mission execute from Telegram failed');
               await sendTelegramPlainMessage(ws.botToken, cbChatId, `❌ Не удалось начать звонок: ${execErr.message || 'ошибка'}`);
             }
+
+          } else if (cbData.startsWith('mission_delay:')) {
+            const missionId = cbData.split(':')[1];
+            await answerCallbackQuery(ws.botToken, callbackQuery.id);
+            // Get the plan text from the button message
+            const planText = callbackQuery.message?.text || '✅ План готов!';
+            pendingDelay.set(cbChatId, { missionId, workspaceId: ws.workspaceId, planText });
+            activeMissions.delete(cbChatId);
+            await sendTelegramPlainMessage(ws.botToken, cbChatId,
+              '⏰ На сколько отложить звонок?\n\n' +
+              'Примеры: <b>30</b> (минут), <b>1ч</b>, <b>1ч 30м</b>, <b>2 часа</b>'
+            );
+
           } else if (cbData.startsWith('mission_cancel:')) {
             const missionId = cbData.split(':')[1];
             await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Отменено');
             await missionService.updateMission(missionId, { status: 'failed' });
             activeMissions.delete(cbChatId);
+            pendingDelay.delete(cbChatId);
+            const timer = scheduledTimers.get(missionId);
+            if (timer) { clearTimeout(timer); scheduledTimers.delete(missionId); }
             await sendTelegramPlainMessage(ws.botToken, cbChatId, '❌ Миссия отменена.');
+
+          } else if (cbData.startsWith('tone:')) {
+            // Tone selection: tone:neutral:missionId, tone:formal:missionId, tone:friendly:missionId
+            const parts = cbData.split(':');
+            const tone = parts[1];
+            const missionId = parts[2];
+            const toneLabels: Record<string, string> = { neutral: '🔹 Обычный', formal: '💼 Официальный', friendly: '😄 Дружеский' };
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, toneLabels[tone] || tone);
+
+            // Save tone in mission context
+            const mission = await missionService.getMission(ws.workspaceId, missionId);
+            const ctx = (mission.context as any) || {};
+            ctx.tone = tone;
+            await missionService.updateMission(missionId, { context: ctx });
+
+            // Activate mission mode
+            activeMissions.set(cbChatId, { missionId, workspaceId: ws.workspaceId, tone });
+
+            await sendTelegramPlainMessage(ws.botToken, cbChatId,
+              `${toneLabels[tone] || tone} — выбран.\n\n` +
+              'Теперь опишите задачу:\n' +
+              '• Кому позвонить (имя, номер)\n' +
+              '• Зачем\n' +
+              '• Ваше имя\n\n' +
+              'Можно текстом или 🎤 голосовым.'
+            );
+
           } else {
             await answerCallbackQuery(ws.botToken, callbackQuery.id);
           }
@@ -156,6 +253,34 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
     const text = hasText ? message.text.trim() : '';
     const command = (hasText && text.startsWith('/')) ? text.split(/\s|@/)[0].toLowerCase() : null;
+
+    // ─── Pending delay input: user typing delay time ───
+    if (!command && pendingDelay.has(chatId) && hasText) {
+      const delay = pendingDelay.get(chatId)!;
+      const ws = await findWorkspaceByChatId(chatId);
+      if (!ws) return reply.send({ ok: true });
+
+      const delayMs = parseDelay(text);
+      if (!delayMs) {
+        await sendTelegramPlainMessage(ws.botToken, chatId,
+          '❓ Не понял. Введите время, например: <b>30</b> (минут), <b>1ч</b>, <b>2ч 15м</b>'
+        );
+        return reply.send({ ok: true });
+      }
+
+      pendingDelay.delete(chatId);
+      const delayMins = Math.round(delayMs / 60000);
+      const h = Math.floor(delayMins / 60);
+      const m = delayMins % 60;
+      const timeStr = h > 0 ? `${h}ч ${m}м` : `${m} мин`;
+
+      scheduleMissionCall(ws.botToken, chatId, ws.workspaceId, delay.missionId, delay.planText, delayMs);
+
+      await sendTelegramPlainMessage(ws.botToken, chatId,
+        `⏰ Звонок отложен на <b>${timeStr}</b>. Напомню, когда придёт время.`
+      );
+      return reply.send({ ok: true });
+    }
 
     // ─── Mission mode: non-command text or voice → forward to mission chat ───
     if (!command && activeMissions.has(chatId)) {
@@ -250,23 +375,22 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
       switch (command) {
         case '/mission': {
           try {
-            // Get workspace owner/member userId for created_by field
             const [member] = await db.select({ user_id: workspaceMembers.user_id })
               .from(workspaceMembers)
               .where(eq(workspaceMembers.workspace_id, workspaceId))
               .limit(1);
             const userId = member?.user_id || workspaceId;
             const mission = await missionService.createMission(workspaceId, userId);
-            activeMissions.set(chatId, { missionId: mission.id, workspaceId });
-            await sendReply(botToken, chatId,
-              '📞 <b>Новая миссия</b>\n\n' +
-              'Опишите, что нужно сделать:\n' +
-              '• Кому позвонить (имя, номер)\n' +
-              '• Зачем (записать, уточнить, etc.)\n' +
-              '• Ваше имя\n\n' +
-              'Можно текстом или 🎤 голосовым сообщением.\n' +
-              'Для отмены: /cancel'
-            );
+
+            // Ask for tone of voice first
+            await sendTelegramMessageWithButtons(botToken, chatId,
+              '📞 <b>Новая миссия</b>\n\nВыберите тон разговора:', [
+              [
+                { text: '🔹 Обычный', callback_data: `tone:neutral:${mission.id}` },
+                { text: '💼 Официальный', callback_data: `tone:formal:${mission.id}` },
+                { text: '😄 Дружеский', callback_data: `tone:friendly:${mission.id}` },
+              ],
+            ]);
           } catch (err) {
             log.error({ err, chatId }, 'Failed to create mission');
             await sendReply(botToken, chatId, '❌ Не удалось создать миссию.');
