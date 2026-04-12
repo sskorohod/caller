@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../../config/db.js';
-import { providerCredentials, workspaces, translatorSessions, callShareTokens } from '../../db/schema.js';
+import { providerCredentials, workspaces, translatorSessions, callShareTokens, workspaceMembers } from '../../db/schema.js';
 import { decrypt } from '../../lib/crypto.js';
 import { env } from '../../config/env.js';
 import { getActiveConferenceTranslators } from './media-stream.js';
@@ -250,7 +250,13 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
       switch (command) {
         case '/mission': {
           try {
-            const mission = await missionService.createMission(workspaceId, 'telegram');
+            // Get workspace owner/member userId for created_by field
+            const [member] = await db.select({ user_id: workspaceMembers.user_id })
+              .from(workspaceMembers)
+              .where(eq(workspaceMembers.workspace_id, workspaceId))
+              .limit(1);
+            const userId = member?.user_id || workspaceId;
+            const mission = await missionService.createMission(workspaceId, userId);
             activeMissions.set(chatId, { missionId: mission.id, workspaceId });
             await sendReply(botToken, chatId,
               '📞 <b>Новая миссия</b>\n\n' +
