@@ -235,10 +235,10 @@ ${this.personalContext}` : ''}`;
             silence_duration_ms: 1500,
             prefix_padding_ms: 400,
           },
-          input_audio_transcription: { model: 'whisper-1' },
+          input_audio_transcription: { model: 'grok-3-mini' },
           audio: {
-            input: { format: { type: 'audio/pcmu', rate: 8000 } },
-            output: { format: { type: 'audio/pcmu', rate: 8000 } },
+            input: { format: { type: 'audio/pcmu' } },
+            output: { format: { type: 'audio/pcmu' } },
           },
         },
       }));
