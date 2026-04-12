@@ -320,16 +320,33 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     // If hangup is pending — ignore caller speech, call is ending
     if (this.pendingHangup) return;
 
+    const trimmed = transcript.trim();
+
+    // Deduplicate: merge with previous caller turn if same/similar text or very recent
+    const prev = this.conversationHistory[this.conversationHistory.length - 1];
+    if (prev && prev.speaker === 'caller') {
+      const prevNorm = prev.text.toLowerCase().replace(/[?!.,\s]+/g, '');
+      const currNorm = trimmed.toLowerCase().replace(/[?!.,\s]+/g, '');
+      // Exact duplicate or one contains the other → merge (keep longer)
+      if (prevNorm === currNorm || prevNorm.includes(currNorm) || currNorm.includes(prevNorm)) {
+        if (trimmed.length > prev.text.length) {
+          prev.text = trimmed; // Keep the longer/more complete version
+          this.emit('transcript', { speaker: 'caller', text: trimmed, timestamp: new Date().toISOString(), isFinal: true });
+        }
+        return;
+      }
+    }
+
     this.turnCount++;
-    logger.info({ callId: this.config.call.id, turn: this.turnCount, text: transcript }, 'Caller utterance (Grok)');
+    logger.info({ callId: this.config.call.id, turn: this.turnCount, text: trimmed }, 'Caller utterance (Grok)');
 
     this.conversationHistory.push({
       speaker: 'caller',
-      text: transcript.trim(),
+      text: trimmed,
       timestamp: new Date().toISOString(),
     });
 
-    this.emit('transcript', { speaker: 'caller', text: transcript.trim(), timestamp: new Date().toISOString(), isFinal: true });
+    this.emit('transcript', { speaker: 'caller', text: trimmed, timestamp: new Date().toISOString(), isFinal: true });
   }
 
   /**
