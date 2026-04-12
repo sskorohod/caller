@@ -618,12 +618,9 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
                 .from(aiCallSessions).where(eq(aiCallSessions.call_id, call.id));
               if (!sess?.recording_url) continue;
 
-              const date = new Date(call.created_at as any);
-              const timeStr = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-              const phone = call.direction === 'outbound' ? call.to_number : call.from_number;
-              const summary = sess.summary ? sess.summary.slice(0, 45) : 'Нет описания';
+              const summary = sess.summary ? sess.summary.slice(0, 60) : 'Нет описания';
 
-              buttons.push([{ text: `📅 ${timeStr} · ${phone}\n${summary}`, callback_data: `rec:${call.id.slice(0, 8)}:${call.id}` }]);
+              buttons.push([{ text: summary, callback_data: `rec:${call.id.slice(0, 8)}:${call.id}` }]);
             }
 
             if (!buttons.length) {
