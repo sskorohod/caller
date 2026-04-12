@@ -172,7 +172,8 @@ WORKFLOW:
 1. User describes what they need
 2. If anything is missing (phone, purpose, name), ask in ONE short message
 3. When you have everything → show plan summary + JSON at the end
-4. If user confirms ("да", "давай", "ок") → repeat plan briefly + JSON at the end again
+4. If user confirms ("да", "давай", "ок", "готово") → repeat plan briefly + JSON at the end again
+5. If user wants to edit ("добавь", "измени", "ещё нужно...") → update the plan and show it again with JSON
 
 REQUIRED before showing plan:
 - Phone number (add +1 if 10 digits)

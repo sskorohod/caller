@@ -83,6 +83,9 @@ async function sendPlanCard(botToken: string, chatId: string, missionId: string,
     [
       { text: '📞 Позвонить', callback_data: `mission_call:${missionId}` },
       { text: '⏰ Отложить', callback_data: `mission_delay:${missionId}` },
+    ],
+    [
+      { text: '✏️ Редактировать', callback_data: `mission_edit:${missionId}` },
       { text: '❌ Отменить', callback_data: `mission_cancel:${missionId}` },
     ],
   ]);
@@ -253,6 +256,19 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             await sendTelegramPlainMessage(ws.botToken, cbChatId,
               '⏰ На сколько отложить звонок?\n\n' +
               'Примеры: <b>30</b> (минут), <b>1ч</b>, <b>1ч 30м</b>, <b>2 часа</b>'
+            );
+
+          } else if (cbData.startsWith('mission_edit:')) {
+            const missionId = cbData.split(':')[1];
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, '✏️');
+
+            // Re-activate mission mode so user can add more details
+            activeMissions.set(cbChatId, { missionId, workspaceId: ws.workspaceId });
+
+            await sendTelegramPlainMessage(ws.botToken, cbChatId,
+              '✏️ Что хотите изменить или дополнить в плане?\n\n' +
+              'Напишите текстом или 🎤 голосовым.\n' +
+              'Когда закончите — напишите <b>готово</b>.'
             );
 
           } else if (cbData.startsWith('mission_cancel:')) {
