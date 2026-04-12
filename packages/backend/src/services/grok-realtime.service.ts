@@ -245,7 +245,7 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
           content: [
             {
               type: 'input_text',
-              text: `[System: The call just connected. The other person picked up. Follow your mission instructions step by step — start with confirming their identity.]`,
+              text: `[System: The call just connected. The other person picked up. Introduce yourself and state why you're calling. Do NOT ask if this is the right person — just introduce yourself and get to the point.]`,
             },
           ],
         },
@@ -365,6 +365,13 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private onResponseDone(): void {
     const text = this.currentAgentTranscript.trim();
     if (text) {
+      // If hangup is pending, skip any new agent responses (prevents double goodbye)
+      if (this.pendingHangup) {
+        logger.debug({ callId: this.config.call.id, text: text.slice(0, 50) }, 'Skipping agent response — hangup pending');
+        this.currentAgentTranscript = '';
+        return;
+      }
+
       // Deduplicate: skip if identical to last agent response
       const lastAgent = [...this.conversationHistory].reverse().find(t => t.speaker === 'agent');
       if (lastAgent && lastAgent.text === text) {
