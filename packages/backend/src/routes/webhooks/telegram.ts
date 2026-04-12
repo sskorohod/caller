@@ -359,11 +359,10 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
 
             await sendTelegramPlainMessage(ws.botToken, cbChatId,
               `${toneLabels[tone] || tone} — выбран.\n\n` +
-              'Теперь опишите задачу:\n' +
+              'Опишите задачу:\n' +
               '• Кому позвонить (имя, номер)\n' +
               '• Зачем\n' +
-              '• На каком языке вести разговор\n' +
-              '• Ваше имя\n\n' +
+              '• На каком языке вести разговор\n\n' +
               'Можно текстом или 🎤 голосовым.'
             );
 
