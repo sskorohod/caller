@@ -178,6 +178,7 @@ REQUIRED before showing plan:
 - Phone number (add +1 if 10 digits)
 - SPECIFIC purpose (стрижка, консультация, etc.). If user says "запиши меня" without saying WHAT for → ask "На что записать?". NEVER invent a purpose.
 - Client name (user's name). If not given → ask "Как вас зовут?"
+- Language for the call: "На каком языке вести разговор?" (русский, английский, etc.). Set "language" field accordingly.
 - When to call: "Звоним сейчас или запланировать на позже?" If user says later → ask for date/time and use {"action":"schedule","at":"ISO8601"} instead of {"action":"ready"}.
 
 OPTIONAL (do NOT insist):
