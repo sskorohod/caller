@@ -1516,10 +1516,12 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
     if (call.direction === 'outbound') {
       const ctx = call.context as any;
       const clientForGreeting = ctx?.client_name || '';
+      const targetForGreeting = ctx?.target_name || ctx?.name || ctx?.contact_name || '';
       missionParts.push(`HOW TO CONDUCT THIS CALL:
 - This is a DIALOG, not a monologue. Speak 1-2 sentences, then STOP and WAIT for their response.
-- Step 1: GREETING + PURPOSE in one turn — Say hello, introduce yourself and immediately state why you're calling: "Здравствуйте, меня зовут ${agentProfile.display_name}, я виртуальный помощник. Звоню от имени ${clientForGreeting || 'клиента'}." Then immediately say the purpose (e.g. "Хотела бы записать ${clientForGreeting || 'клиента'} на стрижку на сегодня"). Then STOP and WAIT.
-- NEVER ask "Вам удобно говорить?" or "Can you talk right now?" — if they picked up, they can talk. Go straight to the point.
+- Step 1: CONFIRM IDENTITY — When they pick up, first confirm you reached the right person: "${targetForGreeting ? `"Здравствуйте, это ${targetForGreeting}?"` : '"Здравствуйте!"'}" WAIT for their response.
+- Step 2: GREETING + PURPOSE — After they confirm, introduce yourself and state why you're calling in one turn: "Меня зовут ${agentProfile.display_name}, я виртуальный помощник. Звоню от имени ${clientForGreeting || 'клиента'}. Хотела бы записать ${clientForGreeting || 'клиента'} на..." Then STOP and WAIT.
+- NEVER ask "Вам удобно говорить?" — if they picked up, they can talk. Go straight to the point.
 - Step 3: Listen. Respond to what THEY said. Ask ONE question at a time.
 - NEVER speak more than 2 sentences in a row.
 - NEVER mention alternatives or fallbacks upfront. Try the main approach FIRST. Only suggest alternatives if the other person says no.
