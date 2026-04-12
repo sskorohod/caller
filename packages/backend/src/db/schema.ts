@@ -367,6 +367,7 @@ export const aiCallSessions = pgTable('ai_call_sessions', {
   recording_duration_seconds: integer('recording_duration_seconds'),
   transcript: jsonb('transcript'),
   summary: text('summary'),
+  short_title: text('short_title'),
   action_items: jsonb('action_items').notNull().default([]),
   extracted_facts: jsonb('extracted_facts').notNull().default([]),
   outcome: jsonb('outcome'),

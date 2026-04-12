@@ -614,13 +614,19 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             const buttons: Array<Array<{ text: string; callback_data: string }>> = [];
 
             for (const call of recentCalls) {
-              const [sess] = await db.select({ summary: aiCallSessions.summary, recording_url: aiCallSessions.recording_url })
+              const [sess] = await db.select({ summary: aiCallSessions.summary, short_title: aiCallSessions.short_title, recording_url: aiCallSessions.recording_url })
                 .from(aiCallSessions).where(eq(aiCallSessions.call_id, call.id));
               if (!sess?.recording_url) continue;
 
-              const summary = sess.summary ? sess.summary.slice(0, 60) : 'Нет описания';
+              // short_title (best) → first sentence of summary → fallback
+              let title = (sess as any).short_title;
+              if (!title && sess.summary) {
+                const firstSentence = sess.summary.split(/[.!?]/)[0].trim();
+                title = firstSentence.slice(0, 50);
+              }
+              title = title || 'Звонок';
 
-              buttons.push([{ text: summary, callback_data: `rec:${call.id.slice(0, 8)}:${call.id}` }]);
+              buttons.push([{ text: title, callback_data: `rec:${call.id.slice(0, 8)}:${call.id}` }]);
             }
 
             if (!buttons.length) {

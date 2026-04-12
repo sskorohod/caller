@@ -74,17 +74,19 @@ export function startPostCallWorker(): Worker {
           {
             role: 'system',
             content: `You are an analytics assistant. Analyze the following phone call transcript and provide:
-1. A concise summary (2-3 sentences)
-2. Action items (if any)
-3. Sentiment (positive/neutral/negative)
-4. Key facts about the caller that should be remembered
-5. QA evaluation: score 0-10 and criteria breakdown
+1. A short title (max 5-6 words) — the essence of what the call was about. Examples: "Запись к Мануку на стрижку", "Что ест кошка Бася", "Уточнение номера паспорта"
+2. A concise summary (2-3 sentences)
+3. Action items (if any)
+4. Sentiment (positive/neutral/negative)
+5. Key facts about the caller that should be remembered
+6. QA evaluation: score 0-10 and criteria breakdown
 
-IMPORTANT: Write ALL output (summary, action_items, extracted_facts, quality_flags, qa_criteria comments) in ${summaryLang}.
+IMPORTANT: Write ALL output (short_title, summary, action_items, extracted_facts, quality_flags, qa_criteria comments) in ${summaryLang}.
 CRITICAL: Do NOT localize or adapt proper nouns, brand names, institutions, or cultural references. Keep them exactly as mentioned in the conversation. For example: DMV stays DMV (not ГИБДД), Costco stays Costco, etc. Write in ${summaryLang} but preserve original terminology.
 
 Respond in JSON format:
 {
+  "short_title": "...",
   "summary": "...",
   "action_items": ["..."],
   "sentiment": "positive|neutral|negative",
@@ -142,6 +144,7 @@ Respond in JSON format:
         const qaScore = typeof result.qa_score === 'number' ? result.qa_score : null;
         await callService.updateAiSession(sessionId, {
           summary: result.summary,
+          short_title: result.short_title ?? null,
           action_items: result.action_items ?? [],
           extracted_facts: result.extracted_facts ?? [],
           sentiment: result.sentiment,
