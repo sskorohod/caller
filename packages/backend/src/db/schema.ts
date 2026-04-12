@@ -29,6 +29,7 @@ export const workspaces = pgTable('workspaces', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   industry: text('industry'),
+  owner_name: text('owner_name'),
   timezone: text('timezone').notNull().default('America/Los_Angeles'),
   languages: text('languages').array().notNull().default(sql`'{en}'`),
   conversation_owner_default: text('conversation_owner_default').notNull().default('internal'),

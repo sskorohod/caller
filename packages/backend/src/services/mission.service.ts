@@ -1,6 +1,6 @@
 import pino from 'pino';
 import { db } from '../config/db.js';
-import { missions, missionMessages, callerProfiles, callerMemoryFacts, agentProfiles, calls, aiCallSessions } from '../db/schema.js';
+import { missions, missionMessages, callerProfiles, callerMemoryFacts, agentProfiles, calls, aiCallSessions, workspaces } from '../db/schema.js';
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { createLLMProvider, type LLMMessage } from './llm.service.js';
 import * as agentService from './agent.service.js';
@@ -154,6 +154,10 @@ export async function processChatMessage(workspaceId: string, missionId: string,
     return `- ${a.name} (${a.display_name}, id: ${a.id})${desc}`;
   }).join('\n');
 
+  // Load workspace owner name
+  const [ws] = await db.select({ owner_name: workspaces.owner_name }).from(workspaces).where(eq(workspaces.id, workspaceId));
+  const ownerName = ws?.owner_name || '';
+
   // Build LLM messages
   const now = new Date().toISOString();
   const defaultAgent = agents[0];
@@ -163,7 +167,7 @@ CRITICAL RULE: When you have all info OR user confirms, you MUST end your messag
 {"action":"ready","plan":{"title":"...","target_phone":"+1...","goal":"...","agent_profile_id":"${defaultAgent?.id || ''}","language":"ru","context":{"target_name":"...","client_name":"..."},"fallback_action":"report"}}
 If your message does NOT end with this JSON when the plan is complete, the system BREAKS. The JSON triggers the call button.
 
-Current date/time: ${now}
+Current date/time: ${now}${ownerName ? `\nUSER'S NAME: ${ownerName} (use as client_name — do NOT ask for their name)` : ''}
 Agents: ${agentsList}
 ${callerContext}
 Mission state: ${JSON.stringify({ status: mission.status, title: mission.title, target_phone: mission.target_phone, goal: mission.goal, context: mission.context })}
@@ -178,7 +182,7 @@ WORKFLOW:
 REQUIRED before showing plan:
 - Phone number (add +1 if 10 digits)
 - SPECIFIC purpose (стрижка, консультация, etc.). If user says "запиши меня" without saying WHAT for → ask "На что записать?". NEVER invent a purpose.
-- Client name (user's name). If not given → ask "Как вас зовут?"
+- Client name (user's name). ${ownerName ? `Already known: "${ownerName}". Use it automatically, do NOT ask.` : 'If not given → ask "Как вас зовут?"'}
 - Language for the call: "На каком языке вести разговор?" (русский, английский, etc.). Set "language" field accordingly.
 
 OPTIONAL (do NOT insist):
