@@ -2,70 +2,59 @@
 import { useMemo } from 'react';
 
 interface Props {
-  content: string; // markdown-like content
+  content: string;
+  accentColor?: string;
 }
 
 /**
- * Simple markdown renderer for help articles.
- * Supports: # headings, ## headings, ### headings, **bold**, `code`, ```code blocks```,
- * - lists, > blockquotes, | tables, [links](url), empty lines as paragraph breaks.
+ * Professional markdown renderer for help articles.
+ * Supports: headings, bold, code, code blocks, lists, blockquotes, tables, links.
  */
-export function HelpArticle({ content }: Props) {
-  const html = useMemo(() => renderMarkdown(content), [content]);
+export function HelpArticle({ content, accentColor = '#6366f1' }: Props) {
+  const html = useMemo(() => renderMarkdown(content, accentColor), [content, accentColor]);
 
   return (
     <div
-      className="help-article prose prose-sm max-w-none"
+      className="help-article"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }
 
-function renderMarkdown(md: string): string {
+function renderMarkdown(md: string, accent: string): string {
   const lines = md.split('\n');
   const out: string[] = [];
   let inCodeBlock = false;
   let inTable = false;
   let inList = false;
+  let listType: 'ul' | 'ol' = 'ul';
   let inBlockquote = false;
   let paragraph: string[] = [];
 
   const flushParagraph = () => {
     if (paragraph.length > 0) {
-      out.push(`<p class="text-sm leading-relaxed text-[var(--th-text-muted)] mb-3">${paragraph.join(' ')}</p>`);
+      out.push(`<p style="color:var(--th-text-muted);font-size:14px;line-height:1.7;margin-bottom:12px">${paragraph.join(' ')}</p>`);
       paragraph = [];
     }
   };
 
   const flushList = () => {
-    if (inList) {
-      out.push('</ul>');
-      inList = false;
-    }
+    if (inList) { out.push('</div>'); inList = false; }
   };
 
   const flushBlockquote = () => {
-    if (inBlockquote) {
-      out.push('</div>');
-      inBlockquote = false;
-    }
+    if (inBlockquote) { out.push('</div></div>'); inBlockquote = false; }
   };
 
   const flushTable = () => {
-    if (inTable) {
-      out.push('</tbody></table></div>');
-      inTable = false;
-    }
+    if (inTable) { out.push('</tbody></table></div></div>'); inTable = false; }
   };
 
   const inline = (text: string): string => {
     return text
-      // code
-      .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-[var(--th-card-hover)] text-[var(--th-primary-light)] text-xs font-mono">$1</code>')
-      // bold
-      .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-[var(--th-text)] font-semibold">$1</strong>')
-      // links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-[var(--th-primary-light)] hover:underline">$1</a>');
+      .replace(/`([^`]+)`/g, `<code style="padding:2px 6px;border-radius:6px;background:var(--th-card-hover);color:${accent};font-size:12px;font-family:ui-monospace,monospace;font-weight:500">$1</code>`)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--th-text);font-weight:600">$1</strong>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener" style="color:${accent};text-decoration:none;font-weight:500;border-bottom:1px solid ${accent}40">$1</a>`);
   };
 
   for (const rawLine of lines) {
@@ -74,14 +63,11 @@ function renderMarkdown(md: string): string {
     // Code blocks
     if (line.trim().startsWith('```')) {
       if (inCodeBlock) {
-        out.push('</code></pre>');
+        out.push('</code></pre></div>');
         inCodeBlock = false;
       } else {
-        flushParagraph();
-        flushList();
-        flushBlockquote();
-        flushTable();
-        out.push('<pre class="rounded-xl bg-[var(--th-card-hover)] p-4 mb-3 overflow-x-auto"><code class="text-xs font-mono text-[var(--th-text-muted)]">');
+        flushParagraph(); flushList(); flushBlockquote(); flushTable();
+        out.push(`<div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--th-card-border-subtle)"><div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--th-surface);border-bottom:1px solid var(--th-card-border-subtle)"><span style="width:6px;height:6px;border-radius:50%;background:#ef4444;opacity:0.6"></span><span style="width:6px;height:6px;border-radius:50%;background:#eab308;opacity:0.6"></span><span style="width:6px;height:6px;border-radius:50%;background:#22c55e;opacity:0.6"></span><span style="margin-left:8px;font-size:10px;color:var(--th-text-muted);font-family:ui-monospace,monospace">code</span></div><pre style="padding:16px;margin:0;overflow-x:auto;background:var(--th-card-hover)"><code style="font-size:12px;line-height:1.6;font-family:ui-monospace,monospace;color:var(--th-text-muted)">`);
         inCodeBlock = true;
       }
       continue;
@@ -93,10 +79,7 @@ function renderMarkdown(md: string): string {
 
     // Empty line
     if (line.trim() === '') {
-      flushParagraph();
-      flushList();
-      flushBlockquote();
-      flushTable();
+      flushParagraph(); flushList(); flushBlockquote(); flushTable();
       continue;
     }
 
@@ -104,19 +87,19 @@ function renderMarkdown(md: string): string {
     const h1 = line.match(/^# (.+)$/);
     if (h1) {
       flushParagraph(); flushList(); flushBlockquote(); flushTable();
-      out.push(`<h1 class="text-xl font-bold text-[var(--th-text)] mb-3 mt-1">${inline(h1[1])}</h1>`);
+      out.push(`<h1 style="font-size:20px;font-weight:700;color:var(--th-text);margin-bottom:12px;margin-top:4px;display:flex;align-items:center;gap:8px">${inline(h1[1])}</h1>`);
       continue;
     }
     const h2 = line.match(/^## (.+)$/);
     if (h2) {
       flushParagraph(); flushList(); flushBlockquote(); flushTable();
-      out.push(`<h2 class="text-base font-bold text-[var(--th-text)] mb-2 mt-5">${inline(h2[1])}</h2>`);
+      out.push(`<div style="margin-top:28px;margin-bottom:12px;display:flex;align-items:center;gap:8px"><div style="width:3px;height:18px;border-radius:2px;background:${accent}"></div><h2 style="font-size:15px;font-weight:700;color:var(--th-text);margin:0">${inline(h2[1])}</h2></div>`);
       continue;
     }
     const h3 = line.match(/^### (.+)$/);
     if (h3) {
       flushParagraph(); flushList(); flushBlockquote(); flushTable();
-      out.push(`<h3 class="text-sm font-bold text-[var(--th-text)] mb-2 mt-4">${inline(h3[1])}</h3>`);
+      out.push(`<h3 style="font-size:13px;font-weight:700;color:var(--th-text);margin-top:20px;margin-bottom:8px">${inline(h3[1])}</h3>`);
       continue;
     }
 
@@ -124,10 +107,10 @@ function renderMarkdown(md: string): string {
     if (line.trim().startsWith('> ')) {
       flushParagraph(); flushList(); flushTable();
       if (!inBlockquote) {
-        out.push('<div class="border-l-2 border-[var(--th-primary)] pl-4 py-2 mb-3 rounded-r-lg bg-[var(--th-primary)]/5">');
+        out.push(`<div style="margin-bottom:16px;border-radius:12px;border:1px solid ${accent}20;background:${accent}08;padding:12px 16px;display:flex;gap:10px"><div style="flex-shrink:0;margin-top:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${accent}" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg></div><div>`);
         inBlockquote = true;
       }
-      out.push(`<p class="text-sm text-[var(--th-text-muted)]">${inline(line.trim().slice(2))}</p>`);
+      out.push(`<p style="font-size:13px;color:var(--th-text-muted);line-height:1.6;margin:0">${inline(line.trim().slice(2))}</p>`);
       continue;
     } else if (inBlockquote) {
       flushBlockquote();
@@ -138,22 +121,20 @@ function renderMarkdown(md: string): string {
       flushParagraph(); flushList(); flushBlockquote();
       const cells = line.trim().split('|').filter(c => c.trim() !== '');
 
-      // Skip separator row
       if (cells.every(c => /^[\s-:]+$/.test(c))) continue;
 
       if (!inTable) {
-        out.push('<div class="overflow-x-auto mb-3"><table class="w-full text-sm border-collapse">');
-        // First row = header
+        out.push(`<div style="margin-bottom:16px;border-radius:12px;border:1px solid var(--th-card-border-subtle);overflow:hidden"><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`);
         out.push('<thead><tr>');
         for (const cell of cells) {
-          out.push(`<th class="text-left px-3 py-2 text-[var(--th-text)] font-semibold border-b border-[var(--th-card-border-subtle)] text-xs">${inline(cell.trim())}</th>`);
+          out.push(`<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--th-text);text-transform:uppercase;letter-spacing:0.05em;background:var(--th-surface);border-bottom:1px solid var(--th-card-border-subtle)">${inline(cell.trim())}</th>`);
         }
         out.push('</tr></thead><tbody>');
         inTable = true;
       } else {
         out.push('<tr>');
         for (const cell of cells) {
-          out.push(`<td class="px-3 py-2 text-[var(--th-text-muted)] border-b border-[var(--th-card-border-subtle)] text-xs">${inline(cell.trim())}</td>`);
+          out.push(`<td style="padding:10px 14px;font-size:13px;color:var(--th-text-muted);border-bottom:1px solid var(--th-card-border-subtle)">${inline(cell.trim())}</td>`);
         }
         out.push('</tr>');
       }
@@ -162,33 +143,37 @@ function renderMarkdown(md: string): string {
       flushTable();
     }
 
-    // List items
+    // Unordered list
     if (line.trim().match(/^[-*] /)) {
       flushParagraph(); flushBlockquote(); flushTable();
-      if (!inList) {
-        out.push('<ul class="space-y-1.5 mb-3 ml-1">');
+      if (!inList || listType !== 'ul') {
+        if (inList) flushList();
+        out.push('<div style="margin-bottom:12px;display:flex;flex-direction:column;gap:6px;margin-left:4px">');
         inList = true;
+        listType = 'ul';
       }
       const text = line.trim().replace(/^[-*] /, '');
-      out.push(`<li class="flex items-start gap-2 text-sm text-[var(--th-text-muted)]"><span class="w-1.5 h-1.5 rounded-full bg-[var(--th-primary)] mt-2 shrink-0"></span><span>${inline(text)}</span></li>`);
+      out.push(`<div style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--th-text-muted);line-height:1.6"><span style="width:6px;height:6px;border-radius:50%;background:${accent};margin-top:8px;flex-shrink:0;opacity:0.7"></span><span>${inline(text)}</span></div>`);
       continue;
     }
 
     // Ordered list
     if (line.trim().match(/^\d+\. /)) {
       flushParagraph(); flushBlockquote(); flushTable();
-      if (!inList) {
-        out.push('<ul class="space-y-1.5 mb-3 ml-1">');
+      if (!inList || listType !== 'ol') {
+        if (inList) flushList();
+        out.push('<div style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px;margin-left:4px">');
         inList = true;
+        listType = 'ol';
       }
       const match = line.trim().match(/^(\d+)\. (.+)$/);
       if (match) {
-        out.push(`<li class="flex items-start gap-2 text-sm text-[var(--th-text-muted)]"><span class="w-5 h-5 rounded-full bg-[var(--th-primary)]/10 text-[var(--th-primary-light)] flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">${match[1]}</span><span>${inline(match[2])}</span></li>`);
+        out.push(`<div style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--th-text-muted);line-height:1.6"><span style="width:22px;height:22px;border-radius:50%;background:${accent}12;color:${accent};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;margin-top:1px">${match[1]}</span><span>${inline(match[2])}</span></div>`);
       }
       continue;
     }
 
-    // Otherwise: paragraph text
+    // Paragraph
     if (inList) flushList();
     paragraph.push(inline(line.trim()));
   }
