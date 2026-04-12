@@ -229,12 +229,11 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
 
     const greeting = this.config.agentProfile.greeting_message;
     const isOutbound = this.config.call.direction === 'outbound';
+    const hasMission = !!(this.config.call as any).goal;
 
-    if (greeting) {
-      const greetingInstruction = isOutbound
-        ? `[System: The call just connected. You called this person. Say ONLY this greeting: "${greeting}". Do NOT explain your mission yet — just greet and WAIT for their response. Keep it under 2 sentences.]`
-        : `[System: The call just connected. Greet the caller with: "${greeting}"]`;
-
+    // For outbound mission calls, skip separate greeting — the mission prompt
+    // already has step-by-step instructions (confirm identity → introduce → state purpose)
+    if (isOutbound && hasMission) {
       this.sendGrok({
         type: 'conversation.item.create',
         item: {
@@ -243,13 +242,28 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
           content: [
             {
               type: 'input_text',
-              text: greetingInstruction,
+              text: `[System: The call just connected. The other person picked up. Follow your mission instructions step by step — start with confirming their identity.]`,
+            },
+          ],
+        },
+      });
+    } else if (greeting) {
+      this.sendGrok({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: isOutbound
+                ? `[System: The call just connected. You called this person. Say ONLY this greeting: "${greeting}". Do NOT explain your mission yet — just greet and WAIT for their response. Keep it under 2 sentences.]`
+                : `[System: The call just connected. Greet the caller with: "${greeting}"]`,
             },
           ],
         },
       });
     } else if (isOutbound) {
-      // No custom greeting for outbound — generate a brief one
       this.sendGrok({
         type: 'conversation.item.create',
         item: {
