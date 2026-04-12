@@ -1481,10 +1481,11 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
       identityLines.push(`- The person you are CALLING (who picks up the phone) is: ${targetName}`);
     }
     if (clientName) {
-      identityLines.push(`- You are calling ON BEHALF OF: ${clientName}`);
-      identityLines.push(`- CRITICAL: "${targetName || 'the person on the phone'}" and "${clientName}" are TWO DIFFERENT people. ${targetName ? `${targetName} is who you are talking to.` : ''} ${clientName} is who you are doing this FOR.`);
+      identityLines.push(`- The CLIENT you are doing this for is: ${clientName}`);
+      identityLines.push(`- When speaking to ${targetName || 'the other person'}, say: "Я хотела бы записать ${clientName}..." or "I'd like to book for ${clientName}..."`);
+      identityLines.push(`- NEVER say "${clientName} is calling" or "This is ${clientName}". YOU are ${agentProfile.display_name}, and you are booking/arranging something FOR ${clientName}.`);
     }
-    identityLines.push(`- REMEMBER: YOU are ${agentProfile.display_name}. NEVER introduce yourself as anyone else.`);
+    identityLines.push(`- REMEMBER: YOU are ${agentProfile.display_name}. Introduce yourself as ${agentProfile.display_name}. NEVER introduce yourself as ${clientName || 'the client'}.`);
 
     parts.push(`WHO IS WHO:\n${identityLines.join('\n')}`);
   } else {
