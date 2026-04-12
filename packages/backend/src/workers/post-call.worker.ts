@@ -286,6 +286,50 @@ Respond in JSON format:
             });
 
             logger.info({ callId, missionId: mission.id }, 'Mission updated with call result');
+
+            // Send report to Telegram if bot is configured
+            try {
+              const { providerCredentials: pcTable } = await import('../db/schema.js');
+              const { decrypt: decryptCred } = await import('../lib/crypto.js');
+              const { sendTelegramPlainMessage } = await import('../services/telegram.service.js');
+
+              const [tgCred] = await db.select({ credential_data: pcTable.credential_data })
+                .from(pcTable)
+                .where(eq(pcTable.provider, 'telegram'));
+
+              // Also match workspace
+              const tgRows = await db.select({ workspace_id: pcTable.workspace_id, credential_data: pcTable.credential_data })
+                .from(pcTable)
+                .where(eq(pcTable.provider, 'telegram'));
+
+              for (const row of tgRows) {
+                if (row.workspace_id !== workspaceId) continue;
+                const creds = JSON.parse(decryptCred(row.credential_data)) as { bot_token: string; chat_id: string };
+                if (!creds.bot_token || !creds.chat_id) continue;
+
+                const sentimentEmoji = result.sentiment === 'positive' ? '😊' : result.sentiment === 'negative' ? '😟' : '😐';
+                const lines = [
+                  `📋 <b>Отчёт о звонке</b>`,
+                  ``,
+                  `${sentimentEmoji} ${result.summary || 'Нет summary.'}`,
+                ];
+                if (result.action_items?.length) {
+                  lines.push('', '📌 <b>Задачи:</b>');
+                  for (const item of result.action_items) {
+                    lines.push(`• ${item}`);
+                  }
+                }
+                if (qaScore != null) {
+                  lines.push('', `⭐ Оценка: ${qaScore}/10`);
+                }
+
+                await sendTelegramPlainMessage(creds.bot_token, creds.chat_id, lines.join('\n'));
+                logger.info({ callId, missionId: mission.id }, 'Mission report sent to Telegram');
+                break;
+              }
+            } catch (tgErr) {
+              logger.warn({ tgErr, callId }, 'Failed to send mission report to Telegram');
+            }
           }
         } catch (missionErr) {
           logger.error({ missionErr, callId }, 'Failed to update mission after call');
