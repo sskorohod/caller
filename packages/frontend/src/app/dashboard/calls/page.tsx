@@ -420,6 +420,47 @@ function MobileCallCard({ call, agentMap, onClick, onDelete }: { call: Call; age
   );
 }
 
+function RecordingPlayer({ callId }: { callId: string }) {
+  const t = useT();
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let revoked = false;
+    (async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('caller_token') : null;
+        const res = await fetch(`/api/calls/${callId}/recording`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (revoked) return;
+        setAudioUrl(URL.createObjectURL(blob));
+      } catch {
+        if (!revoked) setError(true);
+      } finally {
+        if (!revoked) setLoading(false);
+      }
+    })();
+    return () => { revoked = true; };
+  }, [callId]);
+
+  useEffect(() => {
+    return () => { if (audioUrl) URL.revokeObjectURL(audioUrl); };
+  }, [audioUrl]);
+
+  return (
+    <div className="rounded-2xl bg-[var(--th-surface)] p-4">
+      <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-2">{t('calls.recording')}</p>
+      {loading && <p className="text-xs text-[var(--th-text-muted)]">Loading...</p>}
+      {error && <p className="text-xs text-red-400">Recording unavailable</p>}
+      {audioUrl && <audio controls className="w-full rounded-lg" src={audioUrl} />}
+    </div>
+  );
+}
+
 export default function CallsPage() {
   const t = useT();
   const toast = useToast();
@@ -990,10 +1031,7 @@ export default function CallsPage() {
 
                     {/* Recording */}
                     {session?.recording_url && (
-                      <div className="rounded-2xl bg-[var(--th-surface)] p-4">
-                        <p className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-2">{t('calls.recording')}</p>
-                        <audio controls className="w-full rounded-lg" src={`/api/calls/${selected!.id}/recording`} />
-                      </div>
+                      <RecordingPlayer callId={selected!.id} />
                     )}
 
                     {/* Transcript */}
