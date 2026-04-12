@@ -1514,10 +1514,12 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
 
     // Conversation discipline for outbound calls
     if (call.direction === 'outbound') {
+      const ctx = call.context as any;
+      const clientForGreeting = ctx?.client_name || '';
       missionParts.push(`HOW TO CONDUCT THIS CALL:
 - This is a DIALOG, not a monologue. Speak 1-2 sentences, then STOP and WAIT for their response.
-- Step 1: Greet briefly (your name only). WAIT.
-- Step 2: After they respond, say ONE sentence about why you're calling. WAIT.
+- Step 1: GREETING — Say hello, introduce yourself: "Здравствуйте, меня зовут ${agentProfile.display_name}, я виртуальный помощник${clientForGreeting ? ` ${clientForGreeting}` : ''}." Then STOP and WAIT for their response.
+- Step 2: After they respond, say ONE sentence about why you're calling (e.g. "Я звоню, чтобы записать ${clientForGreeting || 'клиента'} на стрижку на сегодня"). WAIT.
 - Step 3: Listen. Respond to what THEY said. Ask ONE question at a time.
 - NEVER speak more than 2 sentences in a row.
 - NEVER mention alternatives or fallbacks upfront. Try the main approach FIRST. Only suggest alternatives if the other person says no.
