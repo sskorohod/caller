@@ -155,8 +155,8 @@ export async function processChatMessage(workspaceId: string, missionId: string,
   }).join('\n');
 
   // Load workspace owner name
-  const [ws] = await db.select({ owner_name: workspaces.owner_name }).from(workspaces).where(eq(workspaces.id, workspaceId));
-  const ownerName = ws?.owner_name || '';
+  const [ws] = await db.select({ owner_name: workspaces.owner_name, name: workspaces.name }).from(workspaces).where(eq(workspaces.id, workspaceId));
+  const ownerName = ws?.owner_name || ws?.name || '';
 
   // Build LLM messages
   const now = new Date().toISOString();
