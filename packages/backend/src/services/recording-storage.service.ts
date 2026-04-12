@@ -100,6 +100,19 @@ export async function getPresignedUrl(objectKey: string, expirySeconds = 3600): 
 }
 
 /**
+ * Get recording as Buffer from MinIO (for proxying to client).
+ */
+export async function getRecordingBuffer(objectKey: string): Promise<Buffer> {
+  const client = getClient();
+  const stream = await client.getObject(env.MINIO_BUCKET, objectKey);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
  * Delete a recording from MinIO.
  */
 export async function deleteRecording(objectKey: string): Promise<void> {

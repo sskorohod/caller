@@ -398,9 +398,16 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
     if (url.startsWith('minio://')) {
       const key = url.replace('minio://', '');
-      const { getPresignedUrl } = await import('../../services/recording-storage.service.js');
-      const presigned = await getPresignedUrl(key);
-      reply.redirect(presigned);
+      try {
+        const { getRecordingBuffer } = await import('../../services/recording-storage.service.js');
+        const buffer = await getRecordingBuffer(key);
+        reply.header('Content-Type', 'audio/mpeg');
+        reply.header('Cache-Control', 'private, max-age=3600');
+        reply.send(buffer);
+      } catch (err) {
+        request.log.error({ err, callId: id, key }, 'Failed to get recording from MinIO');
+        reply.status(500).send({ error: 'Recording playback failed' });
+      }
       return;
     }
 
