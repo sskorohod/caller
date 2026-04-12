@@ -96,8 +96,18 @@ export function PlanHeroCard({ info, onSubscribe, onCancelClick, t }: PlanHeroCa
             </div>
           )}
 
+          {/* Subscribe button for trialing users — to add payment before trial ends */}
+          {info.subscription_status === 'trialing' && (
+            <button
+              onClick={() => onSubscribe(info.plan)}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-semibold rounded-xl shadow-[0_2px_8px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_12px_rgba(16,185,129,0.4)] transition-[box-shadow,transform]"
+            >
+              {t('billing.subscribeNow')}
+            </button>
+          )}
+
           {/* Upgrade buttons */}
-          {info.plan !== 'agents_mcp' && (
+          {info.subscription_status !== 'trialing' && info.plan !== 'agents_mcp' && (
             <div className="flex gap-2">
               {info.plan === 'translator' && (
                 <button

@@ -41,6 +41,37 @@ export default function BillingPage() {
       {/* Low balance alert */}
       <LowBalanceBanner balance={info.balance_usd} onQuickDeposit={topUp} t={t} />
 
+      {/* Trial banner */}
+      {info.subscription_status === 'trialing' && info.subscription_current_period_end && (() => {
+        const daysLeft = Math.max(0, Math.ceil((new Date(info.subscription_current_period_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+        return (
+          <div className="rounded-2xl border p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4"
+            style={{
+              background: daysLeft <= 3
+                ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.04))'
+                : 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.04))',
+              borderColor: daysLeft <= 3 ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.3)',
+            }}>
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-[var(--th-text)]">
+                {daysLeft > 0
+                  ? `${t('billing.trialDaysLeft').replace('{days}', String(daysLeft))}`
+                  : t('billing.trialExpiresToday')}
+              </div>
+              <div className="text-[11px] text-[var(--th-text-muted)] mt-0.5">
+                {t('billing.trialSubscribePrompt')}
+              </div>
+            </div>
+            <button
+              onClick={() => subscribe(info.plan)}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-semibold rounded-xl shadow-[0_2px_8px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_12px_rgba(16,185,129,0.4)] transition-[box-shadow,transform] whitespace-nowrap"
+            >
+              {t('billing.subscribeNow')}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Hero: current plan */}
       <PlanHeroCard
         info={info}

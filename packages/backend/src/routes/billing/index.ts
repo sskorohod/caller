@@ -22,6 +22,22 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       .from(workspaces)
       .where(eq(workspaces.id, request.auth.workspaceId));
 
+    // Auto-downgrade expired trials
+    if (ws?.subscription_status === 'trialing' && ws.subscription_current_period_end) {
+      const now = new Date();
+      if (now > new Date(ws.subscription_current_period_end)) {
+        await db.update(workspaces).set({
+          plan: 'translator',
+          subscription_status: 'none',
+          subscription_current_period_end: null,
+          updated_at: now,
+        }).where(eq(workspaces.id, request.auth.workspaceId));
+        ws.plan = 'translator';
+        ws.subscription_status = 'none';
+        ws.subscription_current_period_end = null;
+      }
+    }
+
     const plan = getPlanConfig((ws?.plan as WorkspacePlan) || 'translator');
 
     return {
@@ -74,7 +90,46 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     return result;
   });
 
+  // ─── POST /start-trial ─────────────────────────────────────────────
+  // Activate 15-day free trial without Stripe — no credit card required
+  app.post('/start-trial', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request) => {
+    const body = z.object({
+      plan: z.enum(['agents', 'agents_mcp']),
+    }).parse(request.body);
+
+    const planConfig = PLANS[body.plan];
+    if (!planConfig.trialDays) {
+      throw new Error(`Plan ${body.plan} does not support trial`);
+    }
+
+    // Check eligibility: never had a subscription or trial
+    const [ws] = await db.select({
+      stripe_subscription_id: workspaces.stripe_subscription_id,
+      subscription_status: workspaces.subscription_status,
+    }).from(workspaces).where(eq(workspaces.id, request.auth.workspaceId));
+
+    if (ws?.stripe_subscription_id || (ws?.subscription_status && ws.subscription_status !== 'none')) {
+      throw new Error('Trial is only available for new subscribers');
+    }
+
+    // Activate trial directly in DB — no Stripe involved
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + planConfig.trialDays);
+
+    await db.update(workspaces).set({
+      plan: body.plan,
+      subscription_status: 'trialing',
+      subscription_current_period_end: trialEnd,
+      updated_at: new Date(),
+    }).where(eq(workspaces.id, request.auth.workspaceId));
+
+    return { success: true, trial_ends_at: trialEnd.toISOString() };
+  });
+
   // ─── POST /subscription ────────────────────────────────────────────
+  // Subscribe via Stripe Checkout — used after trial or for direct purchase
   app.post('/subscription', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
@@ -87,26 +142,15 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       throw new Error(`No Stripe price configured for plan ${body.plan}`);
     }
 
-    // Trial eligibility: only for workspaces that never had a subscription
-    const [ws] = await db.select({
-      stripe_subscription_id: workspaces.stripe_subscription_id,
-      subscription_status: workspaces.subscription_status,
-    }).from(workspaces).where(eq(workspaces.id, request.auth.workspaceId));
-
-    const isTrialEligible = !ws?.stripe_subscription_id && ws?.subscription_status === 'none';
-    const trialDays = isTrialEligible ? planConfig.trialDays : 0;
-
     const origin = (request.headers.origin || request.headers.referer || '').replace(/\/$/, '');
     const result = await createSubscription({
       workspaceId: request.auth.workspaceId,
       priceId: planConfig.stripePriceId,
       plan: body.plan,
-      trialDays,
+      trialDays: 0,
       successUrl: `${origin}/dashboard/billing?subscribed=true`,
       cancelUrl: `${origin}/dashboard/billing?canceled=true`,
     });
-
-    // Plan is NOT updated here — it will be set by the webhook after payment confirms
 
     return result;
   });
@@ -115,7 +159,23 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
   app.delete('/subscription', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
-    await cancelSubscription(request.auth.workspaceId);
+    // Check if this is a trial (no Stripe subscription) or a paid subscription
+    const [ws] = await db.select({
+      stripe_subscription_id: workspaces.stripe_subscription_id,
+      subscription_status: workspaces.subscription_status,
+    }).from(workspaces).where(eq(workspaces.id, request.auth.workspaceId));
+
+    if (ws?.subscription_status === 'trialing' && !ws.stripe_subscription_id) {
+      // Cancel trial — just downgrade directly, no Stripe call needed
+      await db.update(workspaces).set({
+        plan: 'translator',
+        subscription_status: 'none',
+        subscription_current_period_end: null,
+        updated_at: new Date(),
+      }).where(eq(workspaces.id, request.auth.workspaceId));
+    } else {
+      await cancelSubscription(request.auth.workspaceId);
+    }
     return { success: true };
   });
 

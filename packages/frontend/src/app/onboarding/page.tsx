@@ -87,17 +87,11 @@ export default function OnboardingPage() {
         return;
       }
 
-      // For paid plans, create Stripe subscription checkout
-      const result = await api.post<{ url: string }>('/billing/subscription', { plan: planId });
-      if (result.url) {
-        window.location.href = result.url;
-      } else {
-        // Fallback if no Stripe configured yet
-        router.push('/dashboard');
-      }
+      // Start free trial — no credit card required
+      await api.post('/billing/start-trial', { plan: planId });
+      router.push('/dashboard');
     } catch (err) {
-      // If subscription creation fails (e.g., no Stripe price configured), just go to dashboard
-      console.error('Subscription error:', err);
+      console.error('Trial start error:', err);
       router.push('/dashboard');
     } finally {
       setLoading(null);

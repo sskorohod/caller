@@ -7,6 +7,21 @@ import { UnauthorizedError, ForbiddenError } from '../lib/errors.js';
 import { verifyApiKey } from '../lib/crypto.js';
 import type { WorkspacePlan, ProviderConfig } from '../models/types.js';
 
+/** Check if a trialing workspace has expired and auto-downgrade */
+async function checkTrialExpiry(workspaceId: string, subscriptionStatus: string, periodEnd: Date | null): Promise<WorkspacePlan | null> {
+  if (subscriptionStatus !== 'trialing' || !periodEnd) return null;
+  if (new Date() <= new Date(periodEnd)) return null;
+
+  await db.update(workspaces).set({
+    plan: 'translator',
+    subscription_status: 'none',
+    subscription_current_period_end: null,
+    updated_at: new Date(),
+  }).where(eq(workspaces.id, workspaceId));
+
+  return 'translator';
+}
+
 export interface AuthContext {
   userId: string;
   workspaceId: string;
@@ -42,6 +57,8 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
     plan: workspaces.plan,
     balance_usd: workspaces.balance_usd,
     provider_config: workspaces.provider_config,
+    subscription_status: workspaces.subscription_status,
+    subscription_current_period_end: workspaces.subscription_current_period_end,
   })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspace_id))
@@ -51,12 +68,20 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
   if (!rows.length) throw new ForbiddenError('No workspace membership found');
 
   const row = rows[0];
+
+  // Auto-downgrade expired trials
+  const downgraded = await checkTrialExpiry(
+    row.workspace_id,
+    row.subscription_status || 'none',
+    row.subscription_current_period_end,
+  );
+
   request.auth = {
     userId,
     workspaceId: row.workspace_id,
     role: row.role as AuthContext['role'],
     authMethod: 'session',
-    plan: (row.plan as WorkspacePlan) || 'translator',
+    plan: downgraded || (row.plan as WorkspacePlan) || 'translator',
     balanceUsd: parseFloat(row.balance_usd as string) || 0,
     providerConfig: (row.provider_config as ProviderConfig) || {},
   };
@@ -99,17 +124,26 @@ export async function authenticateApiKey(request: FastifyRequest, reply: Fastify
     plan: workspaces.plan,
     balance_usd: workspaces.balance_usd,
     provider_config: workspaces.provider_config,
+    subscription_status: workspaces.subscription_status,
+    subscription_current_period_end: workspaces.subscription_current_period_end,
   })
     .from(workspaces)
     .where(eq(workspaces.id, matched.workspace_id))
     .limit(1);
+
+  // Auto-downgrade expired trials
+  const downgraded = ws ? await checkTrialExpiry(
+    matched.workspace_id,
+    ws.subscription_status || 'none',
+    ws.subscription_current_period_end,
+  ) : null;
 
   request.auth = {
     userId: 'api_key',
     workspaceId: matched.workspace_id,
     role: 'operator',
     authMethod: 'api_key',
-    plan: (ws?.plan as WorkspacePlan) || 'translator',
+    plan: downgraded || (ws?.plan as WorkspacePlan) || 'translator',
     balanceUsd: ws ? parseFloat(ws.balance_usd as string) || 0 : 0,
     providerConfig: (ws?.provider_config as ProviderConfig) || {},
   };
