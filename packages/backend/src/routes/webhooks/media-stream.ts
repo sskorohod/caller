@@ -1557,8 +1557,12 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
     parts.push(`KNOWLEDGE BASES: You have access to these knowledge bases: ${kbNames}. Relevant excerpts will be provided during the conversation. Use them to give accurate, informed answers.`);
   }
 
+  // Determine agent gender from voice for correct grammar
+  const femaleVoices = ['eve', 'tara', 'ara', 'nova', 'shimmer', 'alloy', 'coral'];
+  const isFemale = femaleVoices.includes((agentProfile.voice_id || '').toLowerCase());
+
   if (agentProfile.language === 'ru') {
-    parts.push('Speak in Russian. Respond naturally as if on a phone call.');
+    parts.push(`Speak in Russian. Respond naturally as if on a phone call.${isFemale ? '\nВАЖНО: Ты женщина. Используй женский род в речи (я позвонила, я записала, я уточнила, рада помочь). НИКОГДА не используй мужской род (позвонил, записал, уточнил).' : ''}`);
   } else {
     parts.push('Speak in English. Respond naturally as if on a phone call.');
   }
