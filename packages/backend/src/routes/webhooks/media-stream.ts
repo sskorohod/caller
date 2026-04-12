@@ -1572,6 +1572,7 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
     parts.push('Speak in English. Respond naturally as if on a phone call.');
   }
   parts.push('Keep responses concise — this is a phone conversation, not a chat.');
+  parts.push('TONE: Professional and polite. Use formal register ("вы", not "ты"). Be respectful but efficient.');
   parts.push('Never use markdown, bullet points, or formatting. Speak naturally.');
   parts.push(`CALL ENDING RULES:
 - When the caller says goodbye ("bye", "пока", "до свидания", "всё, пока") — say ONE short farewell (max 5 words) and add [END_CALL] at the end.
