@@ -12,6 +12,7 @@ export interface PlanConfig {
   id: WorkspacePlan;
   name: string;
   hasSubscription: boolean;     // false for translator (deposit-only)
+  trialDays: number;            // 0 = no trial
   features: PlanFeatures;
   stripePriceId: string | null; // null for translator
 }
@@ -21,6 +22,7 @@ export const PLANS: Record<WorkspacePlan, PlanConfig> = {
     id: 'translator',
     name: 'Translator',
     hasSubscription: false,
+    trialDays: 0,
     features: {
       liveTranslator: true,
       aiAgents: false,
@@ -34,6 +36,7 @@ export const PLANS: Record<WorkspacePlan, PlanConfig> = {
     id: 'agents',
     name: 'Agents',
     hasSubscription: true,
+    trialDays: 15,
     features: {
       liveTranslator: true,
       aiAgents: true,
@@ -47,6 +50,7 @@ export const PLANS: Record<WorkspacePlan, PlanConfig> = {
     id: 'agents_mcp',
     name: 'Agents + MCP',
     hasSubscription: true,
+    trialDays: 15,
     features: {
       liveTranslator: true,
       aiAgents: true,

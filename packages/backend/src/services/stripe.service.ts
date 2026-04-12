@@ -255,6 +255,7 @@ export async function createSubscription(params: {
   workspaceId: string;
   priceId: string;
   plan: string;
+  trialDays: number;
   successUrl: string;
   cancelUrl: string;
 }): Promise<{ url: string; sessionId: string }> {
@@ -283,6 +284,7 @@ export async function createSubscription(params: {
     'metadata[workspace_id]': params.workspaceId,
     'metadata[type]': 'subscription',
     'metadata[intended_plan]': params.plan,
+    ...(params.trialDays > 0 ? { 'subscription_data[trial_period_days]': String(params.trialDays) } : {}),
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
   }, key);

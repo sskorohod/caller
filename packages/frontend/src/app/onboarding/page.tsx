@@ -12,6 +12,7 @@ const plans = [
     price: null,
     priceLabel: 'Free to start',
     priceNote: '$2 credit included. Pay as you go.',
+    trialDays: 0,
     icon: 'translate',
     color: '#adc6ff',
     gradient: 'from-blue-500/10 to-indigo-500/10',
@@ -31,7 +32,8 @@ const plans = [
     tagline: 'AI phone agents for your business',
     price: 49,
     priceLabel: '$49/mo',
-    priceNote: 'Bring your own keys or use ours.',
+    priceNote: '15-day free trial, then $49/mo.',
+    trialDays: 15,
     icon: 'smart_toy',
     color: '#4ade80',
     gradient: 'from-green-500/10 to-emerald-500/10',
@@ -44,7 +46,7 @@ const plans = [
       'Call recording & transcription',
       'Knowledge base & workflows',
     ],
-    cta: 'Subscribe',
+    cta: 'Start Free Trial',
     ctaStyle: 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 text-black font-bold',
   },
   {
@@ -53,7 +55,8 @@ const plans = [
     tagline: 'Full platform with API access',
     price: 99,
     priceLabel: '$99/mo',
-    priceNote: 'Unlimited agents & numbers.',
+    priceNote: '15-day free trial, then $99/mo.',
+    trialDays: 15,
     icon: 'hub',
     color: '#d0bcff',
     gradient: 'from-purple-500/10 to-violet-500/10',
@@ -65,7 +68,7 @@ const plans = [
       'Unlimited phone numbers',
       'OAuth 2.0 & webhooks',
     ],
-    cta: 'Subscribe',
+    cta: 'Start Free Trial',
     ctaStyle: 'bg-white/10 hover:bg-white/15 border border-white/20',
   },
 ];
@@ -160,6 +163,12 @@ export default function OnboardingPage() {
                   </span>
                 )}
                 <div className="text-[11px] mt-0.5" style={{ color: '#c2c6d6' }}>{plan.priceNote}</div>
+                {plan.trialDays > 0 && (
+                  <div className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                    style={{ background: 'rgba(74, 222, 128, 0.12)', color: '#4ade80' }}>
+                    {plan.trialDays}-day free trial
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 mb-6 flex-1">

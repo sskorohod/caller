@@ -11,6 +11,7 @@ interface PlanHeroCardProps {
 
 const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   active: { cls: 'bg-[var(--th-success-bg)] text-[var(--th-success-text)]', label: 'billing.statusActive' },
+  trialing: { cls: 'bg-[var(--th-info-bg)] text-[var(--th-info-text)]', label: 'billing.statusTrialing' },
   canceled: { cls: 'bg-[var(--th-warning-bg)] text-[var(--th-warning-text)]', label: 'billing.statusCanceled' },
   past_due: { cls: 'bg-[var(--th-error-bg)] text-[var(--th-error-text)]', label: 'billing.statusPastDue' },
   none: { cls: 'bg-[var(--th-surface)] text-[var(--th-text-muted)]', label: 'billing.statusFree' },
@@ -84,9 +85,11 @@ export function PlanHeroCard({ info, onSubscribe, onCancelClick, t }: PlanHeroCa
 
         {/* Right: billing date + actions */}
         <div className="flex flex-col items-end gap-3 shrink-0">
-          {info.subscription_status === 'active' && info.subscription_current_period_end && (
+          {(info.subscription_status === 'active' || info.subscription_status === 'trialing') && info.subscription_current_period_end && (
             <div className="text-right">
-              <div className="text-[11px] text-[var(--th-text-muted)]">{t('billing.nextBilling')}</div>
+              <div className="text-[11px] text-[var(--th-text-muted)]">
+                {info.subscription_status === 'trialing' ? t('billing.trialEnds') : t('billing.nextBilling')}
+              </div>
               <div className="text-sm font-semibold text-[var(--th-text)]">
                 {new Date(info.subscription_current_period_end).toLocaleDateString()}
               </div>
@@ -114,7 +117,7 @@ export function PlanHeroCard({ info, onSubscribe, onCancelClick, t }: PlanHeroCa
           )}
 
           {/* Cancel link */}
-          {info.subscription_status === 'active' && (
+          {(info.subscription_status === 'active' || info.subscription_status === 'trialing') && (
             <button
               onClick={onCancelClick}
               className="text-[11px] text-[var(--th-text-muted)] hover:text-[var(--th-error-text)] transition-colors"

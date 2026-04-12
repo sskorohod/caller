@@ -52,6 +52,11 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
                     {price === 0 ? t('billing.depositOnly') : `/ ${t('billing.month')}`}
                   </span>
                 </div>
+                {price > 0 && (
+                  <div className="text-[11px] font-medium text-[var(--th-success-text)] mt-1">
+                    {t('billing.freeTrialDays')}
+                  </div>
+                )}
               </div>
 
               {/* Features */}

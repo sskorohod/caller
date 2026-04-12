@@ -143,6 +143,7 @@ app.get('/api/billing/plans', async () => {
   }
   return Object.values(PLANS).map(p => ({
     id: p.id, name: p.name, has_subscription: p.hasSubscription, features: p.features,
+    trial_days: p.trialDays,
     monthly_price: p.id === 'agents' ? (prices['billing_agents_monthly_price'] ?? 49)
       : p.id === 'agents_mcp' ? (prices['billing_agents_mcp_monthly_price'] ?? 99) : 0,
   }));

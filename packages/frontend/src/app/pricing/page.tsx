@@ -6,6 +6,7 @@ interface PlanData {
   id: string;
   name: string;
   monthly_price: number;
+  trial_days: number;
 }
 
 const PLAN_META: Record<string, { tagline: string; highlight: boolean; cta: string; priceNote: string; features: string[]; excluded: string[] }> = {
@@ -46,9 +47,9 @@ export default function PricingPage() {
       .catch(() => {
         // Fallback defaults
         setPlans([
-          { id: 'translator', name: 'Translator', monthly_price: 0 },
-          { id: 'agents', name: 'Agents', monthly_price: 49 },
-          { id: 'agents_mcp', name: 'Agents + MCP', monthly_price: 99 },
+          { id: 'translator', name: 'Translator', monthly_price: 0, trial_days: 0 },
+          { id: 'agents', name: 'Agents', monthly_price: 49, trial_days: 15 },
+          { id: 'agents_mcp', name: 'Agents + MCP', monthly_price: 99, trial_days: 15 },
         ]);
       });
   }, []);
@@ -134,6 +135,13 @@ export default function PricingPage() {
                     <span className="text-2xl font-headline font-bold" style={{ color: '#4ade80' }}>Free to start</span>
                   )}
                   <div className="text-xs mt-1" style={{ color: '#c2c6d6' }}>{meta.priceNote}</div>
+                  {plan.trial_days > 0 && (
+                    <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-semibold"
+                      style={{ background: 'rgba(74, 222, 128, 0.12)', color: '#4ade80' }}>
+                      <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
+                      {plan.trial_days}-day free trial
+                    </div>
+                  )}
                 </div>
 
                 <Link href="/login?mode=register"
@@ -141,7 +149,7 @@ export default function PricingPage() {
                   style={meta.highlight
                     ? { background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }
                     : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                  {meta.cta}
+                  {plan.trial_days > 0 ? 'Start Free Trial' : meta.cta}
                 </Link>
 
                 <div className="space-y-2.5 flex-1">

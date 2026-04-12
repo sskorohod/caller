@@ -1526,7 +1526,8 @@ function buildSystemPrompt(agentProfile: any, promptPacks: any[], attachedSkills
 - NEVER speak more than 2 sentences in a row.
 - NEVER mention alternatives or fallbacks upfront. Try the main approach FIRST. Only suggest alternatives if the other person says no.
 - NEVER dump all context at once. Use it piece by piece as the conversation flows.
-- When done, briefly confirm the result and say goodbye.`);
+- When done, briefly confirm the result and say goodbye.
+- NUMBERS & IDs: When someone dictates a number, ID, passport, phone number, or any sequence of digits/letters — repeat it back DIGIT BY DIGIT, LETTER BY LETTER (e.g. "С-Л-четыре-четыре-один-восемь-Д"). Never group digits (not "44 18" but "четыре, четыре, один, восемь"). This prevents mishearing.`);
     }
 
     parts.push(missionParts.join('\n\n'));

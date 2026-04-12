@@ -87,11 +87,21 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       throw new Error(`No Stripe price configured for plan ${body.plan}`);
     }
 
+    // Trial eligibility: only for workspaces that never had a subscription
+    const [ws] = await db.select({
+      stripe_subscription_id: workspaces.stripe_subscription_id,
+      subscription_status: workspaces.subscription_status,
+    }).from(workspaces).where(eq(workspaces.id, request.auth.workspaceId));
+
+    const isTrialEligible = !ws?.stripe_subscription_id && ws?.subscription_status === 'none';
+    const trialDays = isTrialEligible ? planConfig.trialDays : 0;
+
     const origin = (request.headers.origin || request.headers.referer || '').replace(/\/$/, '');
     const result = await createSubscription({
       workspaceId: request.auth.workspaceId,
       priceId: planConfig.stripePriceId,
       plan: body.plan,
+      trialDays,
       successUrl: `${origin}/dashboard/billing?subscribed=true`,
       cancelUrl: `${origin}/dashboard/billing?canceled=true`,
     });
