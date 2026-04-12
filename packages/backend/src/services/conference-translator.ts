@@ -450,6 +450,26 @@ ${this.personalContext}` : ''}`;
         const original = this.currentInputTranscript;
         const translated = this.currentOutputTranscript.trim();
 
+        // Greeting or system response (no input) — inject audio directly
+        if (!original && this.currentResponseAudio.length > 0) {
+          if (this.twilioSocket.readyState === 1) {
+            const chunkSize = 640;
+            for (const buf of this.currentResponseAudio) {
+              for (let i = 0; i < buf.length; i += chunkSize) {
+                this.twilioSocket.send(JSON.stringify({
+                  event: 'media',
+                  streamSid: this.streamSid,
+                  media: { payload: buf.subarray(i, i + chunkSize).toString('base64') },
+                }));
+              }
+            }
+          }
+          this.currentInputTranscript = '';
+          this.currentOutputTranscript = '';
+          this.currentResponseAudio = [];
+          break;
+        }
+
         if (original && translated) {
           // Same-language echo detection — if output matches input script, re-translate
           // Only works when languages use different scripts (e.g. Cyrillic vs Latin)
