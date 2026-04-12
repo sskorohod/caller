@@ -12,8 +12,11 @@ import {
   sendTelegramMessageWithButtons,
   answerCallbackQuery,
   transcribeVoiceMessage,
+  sendTelegramMessageReturningId,
+  editTelegramMessage,
 } from '../../services/telegram.service.js';
 import { getProviderCredential } from '../../services/provider.service.js';
+import { callEvents } from '../../realtime/call-events.js';
 import pino from 'pino';
 
 const log = pino({ name: 'telegram-webhook' });
@@ -163,15 +166,77 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
           if (cbData.startsWith('mission_call:')) {
             const missionId = cbData.split(':')[1];
             await answerCallbackQuery(ws.botToken, callbackQuery.id, '📞 Звоню...');
-            await sendTelegramPlainMessage(ws.botToken, cbChatId, '📞 Начинаю звонок...');
             activeMissions.delete(cbChatId);
             pendingDelay.delete(cbChatId);
-            // Clear any scheduled timer
             const timer = scheduledTimers.get(missionId);
             if (timer) { clearTimeout(timer); scheduledTimers.delete(missionId); }
 
             try {
               await missionService.executeMission(ws.workspaceId, missionId);
+
+              // Get call_id and start live transcript
+              const freshMission = await missionService.getMission(ws.workspaceId, missionId);
+              const callId = freshMission.call_id;
+
+              if (callId) {
+                const msgId = await sendTelegramMessageReturningId(ws.botToken, cbChatId, '📞 <b>Звонок начался...</b>');
+
+                if (msgId) {
+                  const lines: string[] = [];
+                  let updateTimer: ReturnType<typeof setTimeout> | null = null;
+                  let finished = false;
+
+                  const doUpdate = async () => {
+                    if (finished) return;
+                    const header = '📞 <b>Звонок идёт...</b>\n\n';
+                    let body = lines.join('\n');
+                    const maxLen = 4096 - header.length - 50;
+                    if (body.length > maxLen) body = '...\n' + body.slice(-maxLen);
+                    try { await editTelegramMessage(ws.botToken, cbChatId, msgId, header + body); } catch { /* ignore */ }
+                  };
+
+                  const throttledUpdate = () => {
+                    if (updateTimer || finished) return;
+                    updateTimer = setTimeout(() => {
+                      updateTimer = null;
+                      doUpdate();
+                    }, 2000);
+                  };
+
+                  const onTranscript = (entry: { speaker: string; text: string; isFinal: boolean }) => {
+                    if (!entry.isFinal || !entry.text?.trim()) return;
+                    const emoji = entry.speaker === 'agent' ? '🤖' : '👤';
+                    lines.push(`${emoji} ${entry.text.trim()}`);
+                    throttledUpdate();
+                  };
+
+                  const onEnded = async () => {
+                    finished = true;
+                    callEvents.off(`transcript:${callId}`, onTranscript);
+                    if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
+                    const header = '✅ <b>Звонок завершён</b>\n\n';
+                    let body = lines.join('\n') || 'Нет транскрипта.';
+                    const maxLen = 4096 - header.length - 10;
+                    if (body.length > maxLen) body = '...\n' + body.slice(-maxLen);
+                    try { await editTelegramMessage(ws.botToken, cbChatId, msgId, header + body); } catch { /* ignore */ }
+                  };
+
+                  callEvents.on(`transcript:${callId}`, onTranscript);
+                  callEvents.once(`call_ended:${callId}`, onEnded);
+
+                  // Safety timeout: clean up after 10 minutes
+                  setTimeout(() => {
+                    if (!finished) {
+                      finished = true;
+                      callEvents.off(`transcript:${callId}`, onTranscript);
+                      callEvents.off(`call_ended:${callId}`, onEnded);
+                      if (updateTimer) clearTimeout(updateTimer);
+                    }
+                  }, 600000);
+                }
+              } else {
+                await sendTelegramPlainMessage(ws.botToken, cbChatId, '📞 Звонок запущен.');
+              }
             } catch (execErr: any) {
               log.error({ execErr, missionId }, 'Mission execute from Telegram failed');
               await sendTelegramPlainMessage(ws.botToken, cbChatId, `❌ Не удалось начать звонок: ${execErr.message || 'ошибка'}`);

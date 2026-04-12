@@ -90,6 +90,43 @@ export async function sendTranslatorSessionStart(
   return sendTelegramMessage(botToken, chatId, lines.join('\n'));
 }
 
+// ─── Message editing (for live transcript) ────────────────────────────────
+
+export async function sendTelegramMessageReturningId(
+  botToken: string,
+  chatId: string,
+  text: string,
+): Promise<number | null> {
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+  });
+  const data = await response.json() as { ok: boolean; result?: { message_id: number } };
+  return data.ok ? data.result!.message_id : null;
+}
+
+export async function editTelegramMessage(
+  botToken: string,
+  chatId: string,
+  messageId: number,
+  text: string,
+): Promise<boolean> {
+  const url = `https://api.telegram.org/bot${botToken}/editMessageText`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+    }),
+  });
+  return response.ok;
+}
+
 // ─── Mission support ──────────────────────────────────────────────────────
 
 export async function sendTelegramMessageWithButtons(

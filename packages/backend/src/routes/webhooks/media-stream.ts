@@ -23,6 +23,7 @@ import { calculateLLMCost, calculateTTSCost, calculateSTTCost, calculateTelephon
 import type { DeepgramSTT } from '../../services/stt.service.js';
 import type { Call } from '../../models/types.js';
 import { getIo } from '../../realtime/io.js';
+import { callEvents } from '../../realtime/call-events.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'media-stream' });
@@ -1352,11 +1353,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     // Store orchestrator for live monitoring access
     activeOrchestrators.set(callId, orchestrator);
 
-    // Forward transcript events to Socket.IO for live monitoring
+    // Forward transcript events to Socket.IO for live monitoring + callEvents for Telegram
     orchestrator.on('transcript', (entry: { speaker: string; text: string; timestamp: string; isFinal: boolean }) => {
       const io = getIo();
       logger.info({ callId, speaker: entry.speaker, text: entry.text?.slice(0, 50), hasIo: !!io }, 'Forwarding transcript to Socket.IO');
       io?.to(`call:${callId}`).emit('call:transcript', { call_id: callId, ...entry });
+      // Emit to global callEvents for Telegram live transcript
+      callEvents.emit(`transcript:${callId}`, { speaker: entry.speaker, text: entry.text, isFinal: entry.isFinal });
     });
 
     // Forward agent TTS audio to browser listen room
@@ -1383,6 +1386,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     orchestrator.on('stopped', async (result: any) => {
       activeOrchestrators.delete(callId);
+      callEvents.emit(`call_ended:${callId}`);
       logger.info({ callId, reason: result.reason }, 'Orchestrator stopped');
       const session = await callService.getAiSession(callId);
       if (session) {
