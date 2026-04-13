@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Caller — AI Phone Agents & Live Translator',
-  description: 'Automate phone calls with AI agents or get real-time translation on any call. Start with $2 free credit.',
+  description: 'Automate phone calls with AI agents or get real-time translation on any call. Start with free credit.',
 };
 
 export default function LandingPage() {
@@ -93,7 +93,7 @@ export default function LandingPage() {
               </div>
 
               <p className="text-xs mt-5 font-medium" style={{ color: 'rgba(194,198,214,0.5)' }}>
-                $2 free credit included &bull; No credit card required
+                free credit included &bull; No credit card required
               </p>
             </div>
 
@@ -238,7 +238,7 @@ export default function LandingPage() {
                     No apps, no setup. Works with any phone. 10+ language pairs.
                   </p>
                   <div className="grid grid-cols-2 gap-3 mb-8">
-                    {['Real-time voice translation', '10+ languages', 'Live text transcript', 'Telegram alerts', 'Pay-as-you-go', '$2 free credit'].map(f => (
+                    {['Real-time voice translation', '10+ languages', 'Live text transcript', 'Telegram alerts', 'Pay-as-you-go', 'free credit'].map(f => (
                       <div key={f} className="flex items-center gap-2 text-xs">
                         <span className="material-symbols-outlined text-sm" style={{ color: '#adc6ff', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                         {f}
@@ -270,7 +270,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5">
               {[
                 { num: '01', icon: 'person_add', title: 'Create account', desc: 'Email and password. That\'s it. Your workspace is ready in seconds.', color: '#adc6ff' },
-                { num: '02', icon: 'tune', title: 'Choose your plan', desc: 'Translator for calls, Agents for automation, or both. Start with $2 free.', color: '#4ade80' },
+                { num: '02', icon: 'tune', title: 'Choose your plan', desc: 'Translator for calls, Agents for automation, or both. Start with free credit.', color: '#4ade80' },
                 { num: '03', icon: 'settings', title: 'Configure', desc: 'Set up AI agents with custom voice and prompts, or just start translating.', color: '#d0bcff' },
                 { num: '04', icon: 'rocket_launch', title: 'Go live', desc: 'Your agents answer calls. Your translator joins conferences. All from day one.', color: '#67e8f9' },
               ].map(step => (
@@ -397,7 +397,7 @@ export default function LandingPage() {
                 { q: 'What happens when my deposit runs out?', a: 'Calls using platform providers will pause. If you use your own API keys, everything keeps working. You can top up your deposit instantly via Stripe.' },
                 { q: 'Can I switch between my own keys and platform providers?', a: 'Yes. Per-provider toggle in the dashboard. You can use your own Twilio but our AI, for example. Switch anytime with one click.' },
                 { q: 'How many languages does the translator support?', a: 'We support 10+ language pairs with real-time voice translation and live text transcription. Language auto-detection included.' },
-                { q: 'Is there a free trial?', a: 'Every new account gets $2 free deposit credit. No credit card required to start. Use it for translation or AI agent calls.' },
+                { q: 'Is there a free trial?', a: 'Every new account gets free deposit credit. No credit card required to start. Use it for translation or AI agent calls.' },
               ].map((faq, i) => (
                 <div key={i} className="glass-panel rounded-xl p-5">
                   <h4 className="text-sm font-bold mb-2">{faq.q}</h4>
@@ -417,7 +417,7 @@ export default function LandingPage() {
                 Ready to automate your calls?
               </h2>
               <p className="text-base mb-8 max-w-lg mx-auto" style={{ color: '#c2c6d6' }}>
-                Create your account in 30 seconds. $2 free credit, no credit card.
+                Create your account in 30 seconds. free credit, no credit card.
               </p>
               <Link href="/login?mode=register"
                 className="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-base font-bold transition-all active:scale-[.97] group"

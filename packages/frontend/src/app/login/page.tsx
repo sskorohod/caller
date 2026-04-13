@@ -86,7 +86,7 @@ function LoginContent() {
           </h2>
           <p className="text-sm leading-relaxed mb-8" style={{ color: '#c2c6d6' }}>
             Automate your phone calls with AI agents or get real-time translation on any call.
-            Start with $2 free credit.
+            Start with free credit.
           </p>
           <div className="space-y-3">
             {[
@@ -197,7 +197,7 @@ function LoginContent() {
               <div className="mb-8">
                 <h1 className="text-2xl font-headline font-bold tracking-tight">Create account</h1>
                 <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
-                  Enter your email — we&apos;ll send a verification link. $2 free credit included.
+                  Enter your email — we&apos;ll send a verification link. Free credit included.
                 </p>
               </div>
 

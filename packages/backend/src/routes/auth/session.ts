@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { SignJWT } from 'jose';
 import { eq, and, gt, isNull } from 'drizzle-orm';
 import { db } from '../../config/db.js';
-import { users, workspaces, workspaceMembers, magicLinks } from '../../db/schema.js';
+import { users, workspaces, workspaceMembers, magicLinks, platformSettings } from '../../db/schema.js';
 import { env } from '../../config/env.js';
 import { UnauthorizedError } from '../../lib/errors.js';
 import { sendEmail, buildMagicLinkEmail } from '../../services/email.service.js';
@@ -137,16 +137,20 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       role: 'owner',
     });
 
-    // Credit $2 signup bonus
+    // Credit signup bonus from platform settings
     try {
       const { creditDeposit } = await import('../../services/billing.service.js');
-      await creditDeposit({
-        workspaceId: workspace.id,
-        amountUsd: 2.00,
-        type: 'signup_bonus',
-        description: 'Welcome bonus — $2 free credit',
-        referenceType: 'system',
-      });
+      const [bonusSetting] = await db.select().from(platformSettings).where(eq(platformSettings.key, 'billing_signup_bonus_usd'));
+      const bonusAmount = bonusSetting ? Number(typeof bonusSetting.value === 'string' ? JSON.parse(bonusSetting.value) : bonusSetting.value) : 2.00;
+      if (bonusAmount > 0) {
+        await creditDeposit({
+          workspaceId: workspace.id,
+          amountUsd: bonusAmount,
+          type: 'signup_bonus',
+          description: `Welcome bonus — $${bonusAmount} free credit`,
+          referenceType: 'system',
+        });
+      }
     } catch (err) {
       // Non-critical — don't fail registration
       app.log.error({ err }, 'Failed to credit signup bonus');
@@ -327,16 +331,20 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
           role: 'owner',
         });
 
-        // Credit $2 signup bonus
+        // Credit signup bonus from platform settings
         try {
           const { creditDeposit } = await import('../../services/billing.service.js');
-          await creditDeposit({
-            workspaceId: ws.id,
-            amountUsd: 2.00,
-            type: 'signup_bonus',
-            description: 'Welcome bonus — $2 free credit',
-            referenceType: 'system',
-          });
+          const [bonusSetting] = await db.select().from(platformSettings).where(eq(platformSettings.key, 'billing_signup_bonus_usd'));
+          const bonusAmount = bonusSetting ? Number(typeof bonusSetting.value === 'string' ? JSON.parse(bonusSetting.value) : bonusSetting.value) : 2.00;
+          if (bonusAmount > 0) {
+            await creditDeposit({
+              workspaceId: ws.id,
+              amountUsd: bonusAmount,
+              type: 'signup_bonus',
+              description: `Welcome bonus — $${bonusAmount} free credit`,
+              referenceType: 'system',
+            });
+          }
         } catch { /* non-critical */ }
       }
     } else {

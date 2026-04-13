@@ -15,7 +15,7 @@ const PLAN_META: Record<string, { tagline: string; highlight: boolean; cta: stri
     priceNote: 'No monthly fee — pay only for what you use',
     highlight: false,
     cta: 'Get Started',
-    features: ['$2 free credit on signup', 'Live translator (merge to call)', '10+ language pairs', 'Real-time text translation', 'Telegram notifications', 'Pay-as-you-go from deposit'],
+    features: ['Free credit on signup', 'Live translator (merge to call)', '10+ language pairs', 'Real-time text translation', 'Telegram notifications', 'Pay-as-you-go from deposit'],
     excluded: ['AI Phone Agents', 'MCP API Access', 'Custom agent profiles'],
   },
   agents: {
