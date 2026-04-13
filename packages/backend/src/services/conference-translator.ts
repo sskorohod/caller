@@ -106,13 +106,19 @@ export class ConferenceTranslator extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    // Get xAI API key
-    const [row] = await db.select({ credential_data: providerCredentials.credential_data })
+    // Get xAI API key — own workspace first, fallback to platform
+    let [row] = await db.select({ credential_data: providerCredentials.credential_data })
       .from(providerCredentials)
       .where(and(
         eq(providerCredentials.workspace_id, this.workspaceId),
         eq(providerCredentials.provider, 'xai'),
       ));
+    if (!row) {
+      [row] = await db.select({ credential_data: providerCredentials.credential_data })
+        .from(providerCredentials)
+        .where(eq(providerCredentials.provider, 'xai'))
+        .limit(1);
+    }
     if (!row) throw new Error('xAI credentials not configured — required for conference translator');
     const creds = JSON.parse(decrypt(row.credential_data)) as { api_key: string };
     const apiKey = creds.api_key;
