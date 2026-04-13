@@ -4,6 +4,7 @@ import { useState } from 'react';
 import AnimatedSection from './AnimatedSection';
 import AnimatedCounter from './AnimatedCounter';
 import FaqAccordion from './FaqAccordion';
+import ContactPopup from './ContactPopup';
 
 /* ── Inline styles tag ───────────────────────────────────────────────── */
 function LandingStyles() {
@@ -281,7 +282,7 @@ export default function LandingClient() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium">
             {[
               { label: 'Products', href: '#products' },
-              { label: 'How it Works', href: '#how-it-works' },
+              { label: 'Translator', href: '/translator' },
               { label: 'Features', href: '#features' },
               { label: 'Pricing', href: '/pricing' },
               { label: 'FAQ', href: '#faq' },
@@ -308,8 +309,8 @@ export default function LandingClient() {
         {/* Mobile dropdown */}
         {mobileNav && (
           <div className="md:hidden px-4 pb-4 space-y-1" style={{ background: 'rgba(14, 19, 31, 0.95)', backdropFilter: 'blur(24px)' }}>
-            {['Products', 'How it Works', 'Features', 'Pricing', 'FAQ'].map(label => (
-              <a key={label} href={label === 'Pricing' ? '/pricing' : `#${label.toLowerCase().replace(/ /g, '-')}`}
+            {['Products', 'Translator', 'Features', 'Pricing', 'FAQ'].map(label => (
+              <a key={label} href={label === 'Pricing' ? '/pricing' : label === 'Translator' ? '/translator' : `#${label.toLowerCase().replace(/ /g, '-')}`}
                 onClick={() => setMobileNav(false)}
                 className="block py-3 text-sm font-medium" style={{ color: '#a0a8c0' }}>
                 {label}
@@ -532,8 +533,8 @@ export default function LandingClient() {
                       ))}
                     </div>
 
-                    <Link href="/login?mode=register" className="inline-flex items-center gap-2 text-sm font-bold group/link transition-all" style={{ color: '#adc6ff' }}>
-                      Try translator free
+                    <Link href="/translator" className="inline-flex items-center gap-2 text-sm font-bold group/link transition-all" style={{ color: '#adc6ff' }}>
+                      Learn more
                       <span className="material-symbols-outlined text-base group-hover/link:translate-x-1 transition-transform">arrow_forward</span>
                     </Link>
                   </div>
@@ -793,6 +794,8 @@ export default function LandingClient() {
           </div>
         </div>
       </footer>
+
+      <ContactPopup />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AnimatedSection from '@/app/_landing/AnimatedSection';
+import ContactPopup from '@/app/_landing/ContactPopup';
 import { HelpArticle } from '@/app/dashboard/help/_components/HelpArticle';
 import { DOC_SECTIONS, type DocSection, type DocArticle } from './_lib/docs-data';
 
@@ -548,6 +549,8 @@ function DocsPageInner() {
           </div>
         </div>
       </footer>
+
+      <ContactPopup />
     </div>
   );
 }

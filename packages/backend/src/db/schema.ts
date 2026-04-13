@@ -751,3 +751,18 @@ export const supportMessages = pgTable('support_messages', {
 }, (t) => [
   index('idx_support_messages_ticket').on(t.ticket_id, t.created_at),
 ]);
+
+// ── Contact Messages (public, no auth) ─────────────────────
+export const contactMessages = pgTable('contact_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  subject: text('subject').notNull(),
+  message: text('message').notNull(),
+  status: text('status').notNull().default('new'), // 'new' | 'read' | 'archived'
+  ip_address: text('ip_address'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_contact_messages_status').on(t.status, t.created_at),
+  index('idx_contact_messages_created').on(t.created_at),
+]);

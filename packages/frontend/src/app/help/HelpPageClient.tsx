@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { HELP_CATEGORIES } from '@/app/dashboard/help/_lib/help-data';
 import { HelpArticle } from '@/app/dashboard/help/_components/HelpArticle';
 import AnimatedSection from '@/app/_landing/AnimatedSection';
+import ContactPopup from '@/app/_landing/ContactPopup';
 
 /* ── Styles ─────────────────────────────────────────────────────────── */
 function HelpStyles() {
@@ -595,6 +596,8 @@ export default function HelpPageClient() {
           </div>
         </div>
       </footer>
+
+      <ContactPopup />
     </div>
   );
 }

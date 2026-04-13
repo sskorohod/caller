@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import AnimatedSection from '@/app/_landing/AnimatedSection';
 import FaqAccordion from '@/app/_landing/FaqAccordion';
+import ContactPopup from '@/app/_landing/ContactPopup';
 
 /* ── Styles ─────────────────────────────────────────────────────────────── */
 function TranslatorStyles() {
@@ -890,6 +891,8 @@ export default function TranslatorPageClient() {
           </div>
         </div>
       </footer>
+
+      <ContactPopup />
     </div>
   );
 }

@@ -150,6 +150,7 @@ app.get('/api/billing/plans', async () => {
 });
 await app.register(import('./routes/billing/index.js'), { prefix: '/api/billing' });
 await app.register(import('./routes/support/index.js'), { prefix: '/api/support' });
+await app.register(import('./routes/contact/index.js'), { prefix: '/api/contact' });
 await app.register(import('./routes/admin/index.js'), { prefix: '/api/admin' });
 
 // Start post-call worker (BullMQ)
