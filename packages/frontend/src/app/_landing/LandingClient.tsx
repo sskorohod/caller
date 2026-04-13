@@ -293,8 +293,8 @@ export default function LandingClient() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white hidden sm:inline" style={{ color: '#a0a8c0' }}>Log in</Link>
-            <Link href="/login?mode=register" className="px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cta-glow"
+            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>Log in</Link>
+            <Link href="/login?mode=register" className="px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cta-glow hidden sm:inline-flex"
               style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
               Get Started
             </Link>
@@ -315,6 +315,13 @@ export default function LandingClient() {
                 {label}
               </a>
             ))}
+            <div className="pt-3 mt-2 flex flex-col gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <Link href="/login?mode=register" onClick={() => setMobileNav(false)}
+                className="w-full py-3 rounded-xl text-sm font-bold text-center cta-glow"
+                style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
+                Get Started Free
+              </Link>
+            </div>
           </div>
         )}
       </header>
