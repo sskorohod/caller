@@ -36,6 +36,9 @@ export function requireMcpAccess() {
 export function requireDialerAccess() {
   return async (request: FastifyRequest, _reply: FastifyReply) => {
     if (request.auth.plan !== 'translator') return; // non-translator plans have full dialer access
+    // Admin shared platform Twilio via provider_config
+    if ((request.auth.providerConfig as any)?.twilio === 'platform') return;
+    // Own Twilio credentials in workspace
     const { db } = await import('../config/db.js');
     const { providerCredentials } = await import('../db/schema.js');
     const { eq, and } = await import('drizzle-orm');
