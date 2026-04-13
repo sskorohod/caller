@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authenticateUser, authenticateApiKey, authenticateAny, requireRole } from '../../middleware/auth.js';
-import { requireMcpAccess } from '../../middleware/plan-gate.js';
+import { requireMcpAccess, requireDialerAccess } from '../../middleware/plan-gate.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as agentService from '../../services/agent.service.js';
@@ -543,7 +543,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/calls/dial — manual call from browser (no AI agent)
   app.post('/dial', {
-    preHandler: [authenticateUser],
+    preHandler: [authenticateUser, requireDialerAccess()],
   }, async (request, reply) => {
     const body = z.object({
       to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
@@ -629,7 +629,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /api/calls/voice-token — Twilio AccessToken for browser calling
   app.get('/voice-token', {
-    preHandler: [authenticateUser],
+    preHandler: [authenticateUser, requireDialerAccess()],
   }, async (request) => {
     return telephonyService.generateVoiceToken(request.auth.workspaceId, request.auth.userId);
   });

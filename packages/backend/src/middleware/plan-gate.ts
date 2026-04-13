@@ -29,6 +29,29 @@ export function requireMcpAccess() {
 }
 
 /**
+ * Require own Twilio credentials for outbound dialer.
+ * Translator-plan users can only use the dialer if admin has shared
+ * Twilio credentials to their workspace (not via platform fallback).
+ */
+export function requireDialerAccess() {
+  return async (request: FastifyRequest, _reply: FastifyReply) => {
+    if (request.auth.plan !== 'translator') return; // non-translator plans have full dialer access
+    const { db } = await import('../config/db.js');
+    const { providerCredentials } = await import('../db/schema.js');
+    const { eq, and } = await import('drizzle-orm');
+    const [own] = await db.select({ id: providerCredentials.id })
+      .from(providerCredentials)
+      .where(and(
+        eq(providerCredentials.workspace_id, request.auth.workspaceId),
+        eq(providerCredentials.provider, 'twilio'),
+      ));
+    if (!own) {
+      throw new ForbiddenError('Outbound dialer requires Twilio credentials. Contact admin to enable.');
+    }
+  };
+}
+
+/**
  * Require workspace to have positive deposit balance (for platform provider usage).
  * Skips check if workspace uses only own keys.
  */
