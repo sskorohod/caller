@@ -1034,7 +1034,7 @@ export default function AgentEditPage() {
       </div>
 
       {/* Body: sidebar + content */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0">
         {/* Sidebar — desktop */}
         <nav className="hidden md:flex flex-col w-48 border-r border-[var(--th-card-border-subtle)] bg-[var(--th-card)] py-3 flex-shrink-0">
           {SECTIONS.map(s => (
@@ -1055,7 +1055,7 @@ export default function AgentEditPage() {
         </nav>
 
         {/* Mobile tabs */}
-        <div className="md:hidden flex overflow-x-auto border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] px-2 py-1.5 gap-1 flex-shrink-0 scrollbar-none">
+        <div className="md:hidden flex overflow-x-auto border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] px-2 py-1.5 gap-1 shrink-0 scrollbar-none">
           {SECTIONS.map(s => (
             <button
               key={s}
