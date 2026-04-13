@@ -385,6 +385,21 @@ export default function SkillEditor({ skillId, initialForm }: SkillEditorProps) 
         </div>
       </div>
 
+      {/* Mobile tabs */}
+      <div className="md:hidden flex overflow-x-auto border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] px-2 py-1.5 gap-1 flex-shrink-0 scrollbar-none">
+        {SECTIONS.map(s => (
+          <button key={s} type="button" onClick={() => setSection(s)}
+            className={`flex items-center gap-1 px-3 py-2 min-h-[44px] text-xs rounded-lg whitespace-nowrap transition-all ${
+              section === s
+                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold'
+                : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)]'
+            }`}>
+            <span className="material-symbols-outlined text-base">{SECTION_ICONS[s]}</span>
+            <span>{t(SECTION_KEYS[s])}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Body: sidebar + content */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar — desktop */}
@@ -401,21 +416,6 @@ export default function SkillEditor({ skillId, initialForm }: SkillEditorProps) 
             </button>
           ))}
         </nav>
-
-        {/* Mobile tabs */}
-        <div className="md:hidden flex overflow-x-auto border-b border-[var(--th-card-border-subtle)] bg-[var(--th-card)] px-2 py-1.5 gap-1 flex-shrink-0 scrollbar-none">
-          {SECTIONS.map(s => (
-            <button key={s} type="button" onClick={() => setSection(s)}
-              className={`flex items-center gap-1 px-3 py-2 min-h-[44px] text-xs rounded-lg whitespace-nowrap transition-all ${
-                section === s
-                  ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white font-semibold'
-                  : 'text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)]'
-              }`}>
-              <span className="material-symbols-outlined text-base">{SECTION_ICONS[s]}</span>
-              <span>{t(SECTION_KEYS[s])}</span>
-            </button>
-          ))}
-        </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
