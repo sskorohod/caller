@@ -1,125 +1,106 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { useT } from '@/lib/i18n';
-import { useIsMobile } from '@/lib/useBreakpoint';
+import { useT, useLang } from '@/lib/i18n';
+import { useToast } from '@/lib/toast';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import MobilePageHeader from '@/components/MobilePageHeader';
-
-interface PromptPack {
-  id: string;
-  name: string;
-  description: string | null;
-  content: string;
-  category: string | null;
-  is_active: boolean;
-  created_at: string;
-}
-
-interface PromptPackForm {
-  name: string;
-  description: string;
-  content: string;
-  category: string;
-}
-
-const EMPTY_FORM: PromptPackForm = { name: '', description: '', content: '', category: '' };
-
-const CATEGORIES = ['greeting', 'objection', 'closing', 'qualification', 'follow-up', 'general'];
+import type { PromptPack } from './_lib/types';
+import PromptCard from './_components/PromptCard';
+import PromptFilters from './_components/PromptFilters';
 
 export default function PromptsPage() {
   const t = useT();
-  const isMobile = useIsMobile();
+  const lang = useLang();
+  const toast = useToast();
+  const router = useRouter();
+
   const [packs, setPacks] = useState<PromptPack[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<PromptPackForm>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [loadError, setLoadError] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<PromptPack | null>(null);
-  const [deleteError, setDeleteError] = useState('');
 
-  function loadPacks() {
-    setLoadError('');
+  // Filters
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [status, setStatus] = useState('');
+
+  // Delete
+  const [deleteTarget, setDeleteTarget] = useState<PromptPack | null>(null);
+
+  function load() {
     api.get<{ prompt_packs: PromptPack[] }>('/prompt-packs')
       .then(r => setPacks(r.prompt_packs ?? []))
-      .catch((err: unknown) => setLoadError((err as Error)?.message ?? 'Failed to load prompt packs'))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { loadPacks(); }, []);
+  useEffect(() => { load(); }, []);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setSaving(true);
-    try {
-      const payload: Record<string, string> = {
-        name: form.name,
-        content: form.content,
-      };
-      if (form.description) payload.description = form.description;
-      if (form.category) payload.category = form.category;
-
-      if (editId) {
-        await api.patch(`/prompt-packs/${editId}`, payload);
-      } else {
-        await api.post('/prompt-packs', payload);
-      }
-      closeModal();
-      loadPacks();
-    } catch (err: unknown) {
-      setError((err as Error).message);
-    } finally {
-      setSaving(false);
+  // Filter
+  const filtered = useMemo(() => {
+    let result = packs;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.description ?? '').toLowerCase().includes(q) ||
+        p.content.toLowerCase().includes(q)
+      );
     }
-  }
+    if (category) {
+      result = result.filter(p => p.category === category);
+    }
+    if (status === 'active') {
+      result = result.filter(p => p.is_active);
+    } else if (status === 'inactive') {
+      result = result.filter(p => !p.is_active);
+    }
+    return result;
+  }, [packs, search, category, status]);
 
-  function openEdit(pack: PromptPack) {
-    setEditId(pack.id);
-    setForm({
-      name: pack.name,
-      description: pack.description ?? '',
-      content: pack.content,
-      category: pack.category ?? '',
-    });
-    setError('');
-    setModal(true);
-  }
-
-  function closeModal() {
-    setModal(false);
-    setEditId(null);
-    setForm(EMPTY_FORM);
-    setError('');
+  async function handleToggle(pack: PromptPack) {
+    const newActive = !pack.is_active;
+    // Optimistic update
+    setPacks(prev => prev.map(p => p.id === pack.id ? { ...p, is_active: newActive } : p));
+    try {
+      await api.patch(`/prompt-packs/${pack.id}`, { is_active: newActive });
+      toast.success(newActive ? t('prompts.toggledOn') : t('prompts.toggledOff'));
+    } catch {
+      // Revert
+      setPacks(prev => prev.map(p => p.id === pack.id ? { ...p, is_active: !newActive } : p));
+    }
   }
 
   async function handleDeleteConfirm() {
     if (!deleteTarget) return;
     try {
       await api.delete(`/prompt-packs/${deleteTarget.id}`);
+      toast.success(t('prompts.deleted'));
       setDeleteTarget(null);
-      setDeleteError('');
-      loadPacks();
+      load();
     } catch (err: unknown) {
-      setDeleteError((err as Error).message);
+      toast.error((err as Error).message);
     }
   }
 
   return (
     <div className="space-y-3 md:space-y-5">
+      {/* Mobile header */}
       <MobilePageHeader title={t('prompts.title')} subtitle={t('prompts.subtitle')} />
+
+      {/* Desktop header */}
       <div className="hidden md:flex items-center justify-between">
-        <div>
-          <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{t('prompts.title')}</h2>
-          <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('prompts.subtitle')}</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 flex items-center justify-center shadow-[0_2px_8px_var(--th-shadow-primary)]">
+            <span className="material-symbols-outlined text-white text-xl">psychology</span>
+          </div>
+          <div>
+            <h2 className="text-lg md:text-xl font-bold text-[var(--th-text)]">{t('prompts.title')}</h2>
+            <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('prompts.subtitle')}</p>
+          </div>
         </div>
-        <button
-          onClick={() => setModal(true)}
-          className="px-4 py-2.5 btn-primary shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2"
-        >
+        <button onClick={() => router.push('/dashboard/prompts/new')}
+          className="px-4 py-2.5 btn-primary shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
@@ -127,114 +108,55 @@ export default function PromptsPage() {
         </button>
       </div>
 
-      {loadError ? (
-        <div className="bg-[var(--th-error-bg)] border border-[var(--th-card-border-subtle)] rounded-2xl p-4 md:p-6 text-center shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-          <p className="text-sm font-medium text-[var(--th-error-text)]">{loadError}</p>
-          <button onClick={loadPacks} className="mt-3 px-4 py-2 text-sm font-medium text-[var(--th-error-text)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.retry')}</button>
-        </div>
-      ) : loading ? (
+      {/* Filters */}
+      {!loading && packs.length > 0 && (
+        <PromptFilters
+          search={search} onSearchChange={setSearch}
+          category={category} onCategoryChange={setCategory}
+          status={status} onStatusChange={setStatus}
+          lang={lang}
+        />
+      )}
+
+      {/* Content */}
+      {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 animate-pulse space-y-3 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-              <div className="w-10 h-10 bg-[var(--th-skeleton)] rounded-lg" />
+              <div className="w-10 h-10 bg-[var(--th-skeleton)] rounded-xl" />
               <div className="h-4 bg-[var(--th-skeleton)] rounded-lg w-2/3" />
-              <div className="h-3 bg-[var(--th-skeleton)] rounded-lg w-1/2" />
+              <div className="h-3 bg-[var(--th-skeleton)] rounded-lg w-full" />
+              <div className="h-12 bg-[var(--th-skeleton)] rounded-lg w-full" />
             </div>
           ))}
         </div>
       ) : packs.length === 0 ? (
         <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] flex flex-col items-center justify-center py-20 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-          <div className="w-14 h-14 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center mb-4">
-            <svg className="w-7 h-7 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
+          <div className="w-14 h-14 bg-gradient-to-br from-[var(--th-primary)] to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-[0_4px_16px_var(--th-shadow-primary)]">
+            <span className="material-symbols-outlined text-white text-2xl">psychology</span>
           </div>
           <p className="text-sm font-semibold text-[var(--th-text-secondary)]">{t('prompts.noPacks')}</p>
           <p className="text-xs text-[var(--th-text-muted)] mt-1 mb-4">{t('prompts.noPacksDesc')}</p>
-          <button onClick={() => setModal(true)} className="px-4 py-2 btn-primary">
-            {t('prompts.createPack')}
-          </button>
+          <button onClick={() => router.push('/dashboard/prompts/new')} className="px-4 py-2 btn-primary">{t('prompts.createPack')}</button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] py-12 text-center shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+          <p className="text-sm text-[var(--th-text-muted)]">{t('common.noResults')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
-          {packs.map(pack => (
-            <div key={pack.id} className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] hover:shadow-[0_4px_12px_var(--th-shadow),0_12px_32px_var(--th-card-glow)] transition-shadow group">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-[var(--th-primary-bg)] rounded-2xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-[var(--th-primary-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                  </svg>
-                </div>
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      await api.patch(`/prompt-packs/${pack.id}`, { is_active: !pack.is_active });
-                      loadPacks();
-                    } catch { /* ignore */ }
-                  }}
-                  className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${
-                    pack.is_active ? 'bg-[var(--th-success-icon)]' : 'bg-[var(--th-border)]'
-                  }`}
-                  title={pack.is_active ? 'Active — click to deactivate' : 'Inactive — click to activate'}
-                >
-                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                    pack.is_active ? 'translate-x-[18px]' : 'translate-x-[2px]'
-                  }`} />
-                </button>
-              </div>
-              <h3 className="font-semibold text-[var(--th-text)] text-sm">{pack.name}</h3>
-              {pack.description && (
-                <p className="text-xs text-[var(--th-text-muted)] mt-1 line-clamp-2">{pack.description}</p>
-              )}
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {pack.category && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--th-primary-bg)] text-[var(--th-primary-text)]">{pack.category}</span>
-                )}
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
-                  Created {new Date(pack.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </p>
-                <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => openEdit(pack)}
-                    className="p-1.5 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-muted)] hover:text-[var(--th-primary-text)] transition-colors"
-                    aria-label="Edit"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => { setDeleteTarget(pack); setDeleteError(''); }}
-                    className="p-1.5 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center rounded-lg hover:bg-[var(--th-surface)] text-[var(--th-text-muted)] hover:text-red-500 transition-colors"
-                    aria-label="Delete"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
+          {filtered.map(pack => (
+            <PromptCard key={pack.id} pack={pack} onToggle={handleToggle} onDelete={setDeleteTarget} />
           ))}
         </div>
       )}
-
-      {/* Mobile FAB */}
-      <FloatingActionButton
-        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>}
-        label={t('prompts.newPack')}
-        onClick={() => setModal(true)}
-      />
 
       {/* Delete Confirm Modal */}
       {deleteTarget && (
         <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)} role="dialog" aria-modal="true">
           <div className="bg-[var(--th-modal)] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)] w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-5 space-y-4">
-              <div className="w-11 h-11 bg-[var(--th-error-bg)] rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-[var(--th-surface)] rounded-2xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-[var(--th-error-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                 </svg>
@@ -243,7 +165,6 @@ export default function PromptsPage() {
                 <h3 className="text-base font-semibold text-[var(--th-text)]">{t('prompts.deletePack')}</h3>
                 <p className="text-sm text-[var(--th-text-muted)] mt-1">{t('prompts.deleteConfirm', { name: deleteTarget.name })}</p>
               </div>
-              {deleteError && <p className="text-sm text-[var(--th-error-text)]">{deleteError}</p>}
               <div className="flex justify-end gap-3">
                 <button onClick={() => setDeleteTarget(null)} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
                 <button onClick={handleDeleteConfirm} className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:shadow-[0_4px_16px_rgba(239,68,68,0.3)] text-white text-sm font-semibold rounded-lg transition-all">{t('common.delete')}</button>
@@ -253,75 +174,12 @@ export default function PromptsPage() {
         </div>
       )}
 
-      {/* Create/Edit Modal */}
-      {modal && (
-        <div className="fixed inset-0 bg-[var(--th-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeModal} onKeyDown={e => e.key === 'Escape' && closeModal()} role="dialog" aria-modal="true">
-          <div className="bg-[var(--th-modal)] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-[var(--th-card-border-subtle)] w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--th-card-border-subtle)]">
-              <h2 className="text-base font-semibold text-[var(--th-text)]">{editId ? t('prompts.editPack') : t('prompts.newPack')}</h2>
-              <button onClick={closeModal} className="p-1.5 hover:bg-[var(--th-surface)] rounded-lg" aria-label="Close">
-                <svg className="w-4 h-4 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">{t('prompts.name')}</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Appointment Booking Prompt"
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)] transition-colors"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">{t('prompts.description')}</label>
-                <input
-                  type="text"
-                  value={form.description}
-                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  placeholder="Optional description of this prompt pack"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)] transition-colors"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">{t('prompts.category')}</label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)]"
-                >
-                  <option value="">{t('prompts.noCategory')}</option>
-                  {CATEGORIES.map(c => (
-                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">{t('prompts.content')}</label>
-                <textarea
-                  rows={6}
-                  value={form.content}
-                  onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
-                  placeholder="Enter the prompt template content..."
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary-text)]/20 focus:border-[var(--th-primary-text)] transition-colors font-mono"
-                />
-              </div>
-              {error && <p className="text-sm text-[var(--th-error-text)]">{error}</p>}
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 text-sm text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] rounded-lg transition-colors">{t('common.cancel')}</button>
-                <button type="submit" disabled={saving} className="px-4 py-2.5 btn-primary disabled:opacity-60">
-                  {saving ? t('prompts.saving') : editId ? t('prompts.saveChanges') : t('prompts.createPack')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Mobile FAB */}
+      <FloatingActionButton
+        icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>}
+        label={t('prompts.newPack')}
+        onClick={() => router.push('/dashboard/prompts/new')}
+      />
     </div>
   );
 }
