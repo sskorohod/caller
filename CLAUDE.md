@@ -14,7 +14,7 @@
 - **Telephony**: Twilio (BYO model)
 - **STT**: Deepgram Nova-2 (primary), OpenAI Whisper (fallback)
 - **LLM**: Claude Sonnet (primary), GPT-4o-mini (economy)
-- **TTS**: ElevenLabs (primary), OpenAI TTS (fallback)
+- **TTS**: xAI Grok TTS (primary), OpenAI TTS, ElevenLabs
 
 ## Commands
 - `npm run dev:backend` — start backend dev server

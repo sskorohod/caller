@@ -119,7 +119,7 @@ export const agentProfiles = pgTable('agent_profiles', {
   company_name: text('company_name'),
   company_identity: text('company_identity'),
   language: text('language').notNull().default('en'),
-  voice_provider: text('voice_provider').notNull().default('elevenlabs'),
+  voice_provider: text('voice_provider').notNull().default('xai'),
   voice_id: text('voice_id'),
   voice_settings: jsonb('voice_settings').notNull().default({}),
   llm_provider: text('llm_provider').notNull().default('anthropic'),
@@ -555,7 +555,7 @@ export const translatorSubscribers = pgTable('translator_subscribers', {
   tone: text('tone').notNull().default('business'), // 'neutral' | 'business' | 'friendly' | 'medical' | 'legal'
   personal_context: text('personal_context').notNull().default(''), // free-form personal info for accurate translation
   greeting_text: text('greeting_text').notNull().default('Hello, I am your live translator. I will be translating this conversation.'),
-  tts_provider: text('tts_provider').notNull().default('elevenlabs'),
+  tts_provider: text('tts_provider').notNull().default('xai'),
   tts_voice_id: text('tts_voice_id'),
   telegram_chat_id: text('telegram_chat_id'),
   stripe_customer_id: text('stripe_customer_id'),
@@ -723,4 +723,31 @@ export const callShareTokens = pgTable('call_share_tokens', {
 }, (t) => [
   index('idx_share_tokens_token').on(t.token),
   index('idx_share_tokens_call').on(t.call_id),
+]);
+
+// ============================================================
+// SUPPORT TICKETS (user→admin chat from Help page)
+// ============================================================
+export const supportTickets = pgTable('support_tickets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  user_id: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  subject: text('subject').notNull(),
+  status: text('status').notNull().default('open'), // 'open' | 'replied' | 'closed'
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_support_tickets_workspace').on(t.workspace_id, t.created_at),
+  index('idx_support_tickets_status').on(t.status),
+]);
+
+export const supportMessages = pgTable('support_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ticket_id: uuid('ticket_id').notNull().references(() => supportTickets.id, { onDelete: 'cascade' }),
+  sender_role: text('sender_role').notNull(), // 'user' | 'admin'
+  sender_id: uuid('sender_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_support_messages_ticket').on(t.ticket_id, t.created_at),
 ]);
