@@ -106,6 +106,15 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
       throw new Error('Connection not found');
     }
 
+    // Auto-configure Twilio webhook when ai_answering_enabled changes
+    if (body.ai_answering_enabled !== undefined && updated.twilio_sid) {
+      telephonyService.configureTwilioInboundWebhook(
+        request.auth.workspaceId, updated.twilio_sid, body.ai_answering_enabled,
+      ).catch(err => {
+        request.log.warn({ err, connectionId: id }, 'Failed to configure Twilio inbound webhook');
+      });
+    }
+
     return updated;
   });
 

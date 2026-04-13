@@ -247,7 +247,39 @@ export async function createTelephonyConnection(params: {
     .returning();
 
   if (!created) throw new Error('Failed to create connection');
+
+  // Auto-configure Twilio webhook if AI answering enabled
+  if (params.aiAnsweringEnabled && params.twilioSid) {
+    configureTwilioInboundWebhook(params.workspaceId, params.twilioSid, true)
+      .catch(err => logger.warn({ err, workspaceId: params.workspaceId }, 'Failed to auto-configure Twilio webhook on creation'));
+  }
+
   return created as unknown as TelephonyConnection;
+}
+
+/**
+ * Configure Twilio phone number Voice URL for inbound call handling.
+ * Called when ai_answering_enabled is toggled.
+ */
+export async function configureTwilioInboundWebhook(workspaceId: string, twilioSid: string, enabled: boolean): Promise<void> {
+  const creds = await getTwilioCreds(workspaceId);
+  const client = twilio(creds.account_sid, creds.auth_token);
+
+  if (enabled) {
+    await client.incomingPhoneNumbers(twilioSid).update({
+      voiceUrl: `https://${env.API_DOMAIN}/webhooks/twilio/inbound`,
+      voiceMethod: 'POST',
+      statusCallback: `https://${env.API_DOMAIN}/webhooks/twilio/status`,
+      statusCallbackMethod: 'POST',
+    });
+    logger.info({ workspaceId, twilioSid }, 'Configured Twilio inbound webhook');
+  } else {
+    await client.incomingPhoneNumbers(twilioSid).update({
+      voiceUrl: '',
+      statusCallback: '',
+    });
+    logger.info({ workspaceId, twilioSid }, 'Cleared Twilio inbound webhook');
+  }
 }
 
 // ─── Twilio Voice SDK (Browser) ─────────────────────────────────────────────
