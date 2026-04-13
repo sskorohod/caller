@@ -4,6 +4,7 @@ import { useT, useI18n } from '@/lib/i18n';
 import { HELP_CATEGORIES } from './_lib/help-data';
 import { HelpSidebar } from './_components/HelpSidebar';
 import { HelpArticle } from './_components/HelpArticle';
+import { SupportChat } from './_components/SupportChat';
 
 const CAT_COLORS: Record<string, { accent: string; gradient: string }> = {
   'getting-started': { accent: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.02) 100%)' },
@@ -22,7 +23,8 @@ export default function HelpPage() {
   const { lang } = useI18n();
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
-  const [mobileView, setMobileView] = useState<null | 'sidebar' | 'article'>(null);
+  const [mobileView, setMobileView] = useState<null | 'sidebar' | 'article' | 'support'>(null);
+  const [showSupport, setShowSupport] = useState(false);
 
   const handleSelect = useCallback((catId: string, artId: string) => {
     setActiveCatId(catId);
@@ -38,6 +40,8 @@ export default function HelpPage() {
   const handleMobileBack = useCallback(() => {
     if (mobileView === 'article') {
       setMobileView('sidebar');
+    } else if (mobileView === 'support') {
+      setMobileView(null);
     } else {
       setMobileView(null);
       setActiveCatId(null);
@@ -86,42 +90,69 @@ export default function HelpPage() {
               catColors={CAT_COLORS}
               activeArticleId={activeArticleId}
               activeCatId={activeCatId}
-              onSelect={handleSelect}
+              onSelect={(catId, artId) => { setShowSupport(false); handleSelect(catId, artId); }}
               lang={lang}
               t={t}
             />
+            {/* Support button */}
+            <div className="mt-3 pt-3 border-t border-[var(--th-card-border-subtle)]">
+              <button
+                onClick={() => { setShowSupport(!showSupport); setActiveArticleId(null); setActiveCatId(null); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  showSupport
+                    ? 'bg-[var(--th-primary)]/10 text-[var(--th-primary)]'
+                    : 'text-[var(--th-text-muted)] hover:text-[var(--th-text)] hover:bg-[var(--th-card-hover)]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: showSupport ? "'FILL' 1, 'wght' 400" : "'FILL' 0, 'wght' 400" }}>
+                  support_agent
+                </span>
+                {t('help.support')}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Content */}
         <div className="col-span-8 lg:col-span-9">
           <div className="relative overflow-hidden rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-5 md:p-6 lg:p-8 min-h-[60vh] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-            {/* Glow accent from active category */}
-            {activeCatColor && (
-              <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full opacity-15 blur-3xl pointer-events-none transition-all duration-500" style={{ background: activeCatColor.accent }} />
-            )}
-            <div className="relative">
-              {activeArticle ? (
-                <>
-                  {/* Breadcrumb */}
-                  {activeCat && (
-                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--th-card-border-subtle)]">
-                      <span className="material-symbols-outlined text-sm" style={{ color: activeCatColor?.accent || '#6366f1', fontVariationSettings: "'FILL' 1, 'wght' 400" }}>
-                        {activeCat.icon}
-                      </span>
-                      <span className="text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t(activeCat.titleKey)}</span>
-                      <svg className="w-3 h-3 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                      <span className="text-[11px] font-semibold text-[var(--th-text)] tracking-wider">{t(activeArticle.titleKey)}</span>
-                    </div>
+            {showSupport ? (
+              <>
+                <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: '#6366f1' }} />
+                <div className="relative">
+                  <SupportChat />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Glow accent from active category */}
+                {activeCatColor && (
+                  <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full opacity-15 blur-3xl pointer-events-none transition-all duration-500" style={{ background: activeCatColor.accent }} />
+                )}
+                <div className="relative">
+                  {activeArticle ? (
+                    <>
+                      {/* Breadcrumb */}
+                      {activeCat && (
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--th-card-border-subtle)]">
+                          <span className="material-symbols-outlined text-sm" style={{ color: activeCatColor?.accent || '#6366f1', fontVariationSettings: "'FILL' 1, 'wght' 400" }}>
+                            {activeCat.icon}
+                          </span>
+                          <span className="text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">{t(activeCat.titleKey)}</span>
+                          <svg className="w-3 h-3 text-[var(--th-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                          </svg>
+                          <span className="text-[11px] font-semibold text-[var(--th-text)] tracking-wider">{t(activeArticle.titleKey)}</span>
+                        </div>
+                      )}
+                      <HelpArticle content={activeContent} accentColor={activeCatColor?.accent} />
+                    </>
+                  ) : (
+                    <WelcomeScreen categories={HELP_CATEGORIES} catColors={CAT_COLORS} onSelect={handleSelect} lang={lang} t={t} />
                   )}
-                  <HelpArticle content={activeContent} accentColor={activeCatColor?.accent} />
-                </>
-              ) : (
-                <WelcomeScreen categories={HELP_CATEGORIES} catColors={CAT_COLORS} onSelect={handleSelect} lang={lang} t={t} />
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -167,6 +198,29 @@ export default function HelpPage() {
                 );
               })}
             </div>
+
+            {/* Support card */}
+            <button
+              onClick={() => setMobileView('support')}
+              className="w-full relative overflow-hidden rounded-xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-3.5 text-left hover:shadow-[0_2px_8px_var(--th-shadow)] transition-all group"
+            >
+              <div className="absolute -top-6 -right-6 w-16 h-16 rounded-full opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" style={{ background: '#6366f1' }} />
+              <div className="relative flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.12)' }}>
+                  <span className="material-symbols-outlined text-base" style={{ color: '#818cf8', fontVariationSettings: "'FILL' 1, 'wght' 400" }}>support_agent</span>
+                </div>
+                <div>
+                  <div className="text-[13px] font-semibold text-[var(--th-text)]">{t('help.support')}</div>
+                  <div className="text-[10px] text-[var(--th-text-muted)]">{t('help.support.subtitle')}</div>
+                </div>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {mobileView === 'support' && (
+          <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
+            <SupportChat />
           </div>
         )}
 

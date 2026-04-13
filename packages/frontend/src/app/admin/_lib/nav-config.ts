@@ -8,6 +8,7 @@ export const navSections = [
   {
     label: 'Management',
     items: [
+      { href: '/admin/tickets', icon: 'support_agent', label: 'Support Tickets' },
       { href: '/admin/sessions', icon: 'history', label: 'Sessions' },
       { href: '/admin/promo', icon: 'confirmation_number', label: 'Promo Codes' },
     ],
@@ -46,6 +47,7 @@ export const adminMoreSections = [
   {
     label: 'Management',
     items: [
+      { href: '/admin/tickets', icon: 'support_agent', label: 'Support Tickets' },
       { href: '/admin/sessions', icon: 'history', label: 'Sessions' },
       { href: '/admin/promo', icon: 'confirmation_number', label: 'Promo Codes' },
     ],
