@@ -759,14 +759,14 @@ export default function LandingClient() {
               {[
                 { title: 'Product', links: [
                   { label: 'AI Agents', href: '#products' },
-                  { label: 'Live Translator', href: '#products' },
+                  { label: 'Live Translator', href: '/translator' },
                   { label: 'Pricing', href: '/pricing' },
                   { label: 'Features', href: '#features' },
                 ] },
                 { title: 'Resources', links: [
-                  { label: 'Documentation', href: '#' },
-                  { label: 'API Reference', href: '#' },
-                  { label: 'Help Center', href: '#' },
+                  { label: 'Documentation', href: '/docs' },
+                  { label: 'API Reference', href: '/docs?section=api' },
+                  { label: 'Help Center', href: '/help' },
                 ] },
                 { title: 'Legal', links: [
                   { label: 'Privacy Policy', href: '/privacy' },
