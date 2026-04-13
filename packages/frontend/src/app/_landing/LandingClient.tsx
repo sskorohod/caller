@@ -25,8 +25,12 @@ function LandingStyles() {
       @keyframes float-delayed { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
       @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(2.5); opacity: 0; } }
       @keyframes pulse-glow { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
-      @keyframes orbit { 0% { transform: rotate(0deg) translateX(120px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(120px) rotate(-360deg); } }
-      @keyframes orbit-reverse { 0% { transform: rotate(0deg) translateX(90px) rotate(0deg); } 100% { transform: rotate(-360deg) translateX(90px) rotate(360deg); } }
+      @keyframes orbit { 0% { transform: rotate(0deg) translateX(60px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(60px) rotate(-360deg); } }
+      @keyframes orbit-reverse { 0% { transform: rotate(0deg) translateX(45px) rotate(0deg); } 100% { transform: rotate(-360deg) translateX(45px) rotate(360deg); } }
+      @media (min-width: 640px) {
+        @keyframes orbit { 0% { transform: rotate(0deg) translateX(120px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(120px) rotate(-360deg); } }
+        @keyframes orbit-reverse { 0% { transform: rotate(0deg) translateX(90px) rotate(0deg); } 100% { transform: rotate(-360deg) translateX(90px) rotate(360deg); } }
+      }
       @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
       @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
       @keyframes wave-flow { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
@@ -145,7 +149,7 @@ function HeroVisual() {
                     <div className="absolute top-0 right-0 w-16 h-16 rounded-full" style={{ background: kpi.glow, filter: 'blur(20px)' }} />
                     <div className="relative">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[8px] md:text-[9px] uppercase tracking-wider font-medium" style={{ color: 'rgba(194,198,214,0.4)' }}>{kpi.label}</span>
+                        <span className="text-[9px] sm:text-[10px] md:text-[11px] uppercase tracking-wider font-medium" style={{ color: 'rgba(194,198,214,0.4)' }}>{kpi.label}</span>
                         <span className="material-symbols-outlined text-xs md:text-sm" style={{ color: kpi.color, opacity: 0.6 }}>{kpi.icon}</span>
                       </div>
                       <div className="text-base md:text-lg font-headline font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
@@ -162,7 +166,7 @@ function HeroVisual() {
               {/* Chart + Recent calls */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                 <div className="md:col-span-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="text-[9px] uppercase tracking-wider font-medium mb-3" style={{ color: 'rgba(194,198,214,0.4)' }}>Calls This Week</div>
+                  <div className="text-[10px] sm:text-[11px] uppercase tracking-wider font-medium mb-3" style={{ color: 'rgba(194,198,214,0.4)' }}>Calls This Week</div>
                   <div className="flex items-end gap-1.5 h-20 md:h-24">
                     {[35, 52, 41, 68, 55, 78, 62].map((h, i) => (
                       <div key={i} className="flex-1 rounded-t transition-all" style={{
@@ -190,7 +194,7 @@ function HeroVisual() {
                           }}>call</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[10px] font-medium truncate">{c.phone}</div>
+                          <div className="text-[11px] sm:text-[12px] font-medium truncate">{c.phone}</div>
                         </div>
                         <span className="text-[9px] tabular-nums" style={{ color: c.dur === 'live' ? '#818cf8' : 'rgba(194,198,214,0.4)' }}>{c.dur}</span>
                       </div>
@@ -229,7 +233,7 @@ function LogoStrip() {
   const logos = ['Twilio', 'Anthropic', 'OpenAI', 'xAI', 'Deepgram', 'ElevenLabs', 'Twilio', 'Anthropic', 'OpenAI', 'xAI', 'Deepgram', 'ElevenLabs'];
   return (
     <div className="overflow-hidden relative py-6" style={{ maskImage: 'linear-gradient(90deg, transparent, black 15%, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(90deg, transparent, black 15%, black 85%, transparent)' }}>
-      <div className="flex gap-12 items-center whitespace-nowrap" style={{ animation: 'marquee 30s linear infinite' }}>
+      <div className="flex gap-6 sm:gap-8 md:gap-12 items-center whitespace-nowrap" style={{ animation: 'marquee 30s linear infinite' }}>
         {logos.map((name, i) => (
           <span key={i} className="font-headline font-bold text-sm md:text-base opacity-30 hover:opacity-60 transition-opacity cursor-default select-none">{name}</span>
         ))}
@@ -375,13 +379,13 @@ function LandingContent() {
               <AnimatedSection delay={300}>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
                   <Link href="/login?mode=register"
-                    className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-bold transition-all active:scale-[.97] flex items-center justify-center gap-3 group cta-glow"
+                    className="w-full sm:w-auto px-5 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base font-bold transition-all active:scale-[.97] flex items-center justify-center gap-3 group cta-glow"
                     style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
                     {t('Get Started Free', 'Начать бесплатно')}
                     <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
                   </Link>
                   <Link href="/pricing"
-                    className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-medium transition-all active:scale-[.97] text-center flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto px-5 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base font-medium transition-all active:scale-[.97] text-center flex items-center justify-center gap-2"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     <span className="material-symbols-outlined text-lg" style={{ color: '#818cf8' }}>play_circle</span>
                     {t('View Pricing', 'Тарифы')}
@@ -419,7 +423,7 @@ function LandingContent() {
         {/* ═══ Stats Counters ═══════════════════════════════════════ */}
         <section className="py-14 md:py-20 px-4 sm:px-6">
           <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
               {[
                 { value: 10000, suffix: '+', label: t('Calls Processed', 'Обработано звонков'), icon: 'call', color: '#adc6ff' },
                 { value: 15, suffix: '+', label: t('Languages', 'Языков'), icon: 'translate', color: '#4ade80' },
@@ -461,7 +465,7 @@ function LandingContent() {
               </p>
             </AnimatedSection>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
               {/* AI Agents */}
               <AnimatedSection delay={100} animation="fade-left">
                 <div className="rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden group bento-card h-full"
@@ -589,7 +593,7 @@ function LandingContent() {
               </p>
             </AnimatedSection>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5 relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-5 relative">
               {/* Connector line (desktop only) */}
               <div className="absolute top-1/3 left-[12%] right-[12%] h-px hidden md:block" style={{ background: 'linear-gradient(90deg, transparent, rgba(129,140,248,0.2), rgba(129,140,248,0.2), transparent)' }} />
 
@@ -725,7 +729,7 @@ function LandingContent() {
         {/* ═══ Provider Toggle Explainer ═════════════════════════ */}
         <section className="py-16 sm:py-24 md:py-32 px-4 sm:px-6" style={{ background: 'rgba(22,28,40,0.4)' }}>
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 sm:gap-16 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-16 items-center">
               <AnimatedSection animation="fade-left">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-6"
                   style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.15)', color: '#4ade80' }}>
@@ -905,7 +909,7 @@ function LandingContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-12">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8 md:gap-12">
               {[
                 { title: t('Product', 'Продукт'), links: [
                   { label: t('AI Agents', 'AI Агенты'), href: '#products' },
