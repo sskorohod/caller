@@ -262,6 +262,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <BottomTabBar
         tabs={getBottomTabs(plan)}
         moreItems={getMoreItems(plan)}
+        userEmail={user?.email}
+        onLogout={logout}
       />
     </div>
     </SocketProvider>

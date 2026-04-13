@@ -243,7 +243,7 @@ export default function OverviewPage() {
 
       {/* Row 5: Recent Calls */}
       <div className="flex-1 min-h-0 md:overflow-y-auto">
-        <RecentCallsTable calls={calls} t={t} />
+        <RecentCallsTable calls={calls} agents={agents} t={t} />
       </div>
     </div>
   );

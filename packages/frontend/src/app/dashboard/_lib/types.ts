@@ -30,6 +30,9 @@ export interface RecentCall {
   from_number?: string;
   duration_seconds: number | null;
   cost_total: string | null;
+  summary?: string | null;
+  sentiment?: string | null;
+  agent_profile_id?: string | null;
   created_at: string;
 }
 
