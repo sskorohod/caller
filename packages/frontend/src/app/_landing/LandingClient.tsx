@@ -5,6 +5,7 @@ import AnimatedSection from './AnimatedSection';
 import AnimatedCounter from './AnimatedCounter';
 import FaqAccordion from './FaqAccordion';
 import ContactPopup from './ContactPopup';
+import { useLang, LangSwitcher, LangProvider } from './useLang';
 
 /* ── Inline styles tag ───────────────────────────────────────────────── */
 function LandingStyles() {
@@ -258,10 +259,11 @@ function WaveformBars({ color = '#adc6ff', count = 24 }: { color?: string; count
 }
 
 /* ══════════════════════════════════════════════════════════════════════ */
-/* ── MAIN LANDING COMPONENT ──────────────────────────────────────────── */
+/* ── MAIN LANDING CONTENT (bilingual) ────────────────────────────────── */
 /* ══════════════════════════════════════════════════════════════════════ */
 
-export default function LandingClient() {
+function LandingContent() {
+  const { t } = useLang();
   const [mobileNav, setMobileNav] = useState(false);
 
   return (
@@ -281,10 +283,10 @@ export default function LandingClient() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8 text-sm font-medium">
             {[
-              { label: 'Products', href: '#products' },
-              { label: 'Translator', href: '/translator' },
-              { label: 'Features', href: '#features' },
-              { label: 'Pricing', href: '/pricing' },
+              { label: t('Products', 'Продукты'), href: '#products' },
+              { label: t('Translator', 'Переводчик'), href: '/translator' },
+              { label: t('Features', 'Возможности'), href: '#features' },
+              { label: t('Pricing', 'Цены'), href: '/pricing' },
               { label: 'FAQ', href: '#faq' },
             ].map(l => (
               <a key={l.label} href={l.href} className="transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>
@@ -294,10 +296,11 @@ export default function LandingClient() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>Log in</Link>
+            <LangSwitcher />
+            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>{t('Log in', 'Войти')}</Link>
             <Link href="/login?mode=register" className="px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cta-glow hidden sm:inline-flex"
               style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-              Get Started
+              {t('Get Started', 'Начать')}
             </Link>
             {/* Mobile hamburger */}
             <button className="md:hidden w-10 h-10 flex items-center justify-center" onClick={() => setMobileNav(!mobileNav)}>
@@ -309,18 +312,25 @@ export default function LandingClient() {
         {/* Mobile dropdown */}
         {mobileNav && (
           <div className="md:hidden px-4 pb-4 space-y-1" style={{ background: 'rgba(14, 19, 31, 0.95)', backdropFilter: 'blur(24px)' }}>
-            {['Products', 'Translator', 'Features', 'Pricing', 'FAQ'].map(label => (
-              <a key={label} href={label === 'Pricing' ? '/pricing' : label === 'Translator' ? '/translator' : `#${label.toLowerCase().replace(/ /g, '-')}`}
+            {[
+              { label: t('Products', 'Продукты'), href: '#products' },
+              { label: t('Translator', 'Переводчик'), href: '/translator' },
+              { label: t('Features', 'Возможности'), href: '#features' },
+              { label: t('Pricing', 'Цены'), href: '/pricing' },
+              { label: 'FAQ', href: '#faq' },
+            ].map(item => (
+              <a key={item.label} href={item.href}
                 onClick={() => setMobileNav(false)}
                 className="block py-3 text-sm font-medium" style={{ color: '#a0a8c0' }}>
-                {label}
+                {item.label}
               </a>
             ))}
             <div className="pt-3 mt-2 flex flex-col gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <LangSwitcher className="w-full justify-center" />
               <Link href="/login?mode=register" onClick={() => setMobileNav(false)}
                 className="w-full py-3 rounded-xl text-sm font-bold text-center cta-glow"
                 style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                Get Started Free
+                {t('Get Started Free', 'Начать бесплатно')}
               </Link>
             </div>
           </div>
@@ -342,7 +352,7 @@ export default function LandingClient() {
                     <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: '#4ade80' }} />
                     <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#4ade80' }} />
                   </span>
-                  AI Phone Agents + Live Translator
+                  {t('AI Phone Agents + Live Translator', 'AI-агенты + Живой переводчик')}
                 </div>
               </AnimatedSection>
 
@@ -355,9 +365,10 @@ export default function LandingClient() {
 
               <AnimatedSection delay={200}>
                 <p className="text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto mb-8 md:mb-10" style={{ color: '#a0a8c0' }}>
-                  Deploy AI agents that handle inbound and outbound calls.
-                  Merge a live translator into any conversation.
-                  One platform, zero complexity.
+                  {t(
+                    'Deploy intelligent voice agents that handle calls 24/7, or merge a live translator into any conversation. One platform, zero complexity.',
+                    'Разворачивайте интеллектуальных голосовых агентов для обработки звонков 24/7 или подключайте живого переводчика к любому разговору. Одна платформа, никакой сложности.'
+                  )}
                 </p>
               </AnimatedSection>
 
@@ -366,18 +377,18 @@ export default function LandingClient() {
                   <Link href="/login?mode=register"
                     className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-bold transition-all active:scale-[.97] flex items-center justify-center gap-3 group cta-glow"
                     style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                    Start Free
+                    {t('Get Started Free', 'Начать бесплатно')}
                     <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
                   </Link>
                   <Link href="/pricing"
                     className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-medium transition-all active:scale-[.97] text-center flex items-center justify-center gap-2"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     <span className="material-symbols-outlined text-lg" style={{ color: '#818cf8' }}>play_circle</span>
-                    View Pricing
+                    {t('View Pricing', 'Тарифы')}
                   </Link>
                 </div>
                 <p className="text-xs mt-4 font-medium" style={{ color: 'rgba(160,168,192,0.5)' }}>
-                  Free credit included &bull; No credit card required
+                  {t('Free credit included • No credit card required', 'Бесплатный кредит • Без банковской карты')}
                 </p>
               </AnimatedSection>
             </div>
@@ -410,10 +421,10 @@ export default function LandingClient() {
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               {[
-                { value: 10000, suffix: '+', label: 'Calls Handled', icon: 'call', color: '#adc6ff' },
-                { value: 15, suffix: '+', label: 'Languages', icon: 'translate', color: '#4ade80' },
-                { value: 99, suffix: '%', label: 'Uptime', icon: 'speed', color: '#818cf8' },
-                { value: 300, suffix: 'ms', label: 'Avg Latency', icon: 'bolt', color: '#fbbf24' },
+                { value: 10000, suffix: '+', label: t('Calls Processed', 'Обработано звонков'), icon: 'call', color: '#adc6ff' },
+                { value: 15, suffix: '+', label: t('Languages', 'Языков'), icon: 'translate', color: '#4ade80' },
+                { value: 99, suffix: '%', label: t('Uptime', 'Аптайм'), icon: 'speed', color: '#818cf8' },
+                { value: 300, suffix: 'ms', label: t('Avg Latency', 'Ср. задержка'), icon: 'bolt', color: '#fbbf24' },
               ].map((stat, i) => (
                 <AnimatedSection key={stat.label} delay={i * 100}>
                   <div className="text-center">
@@ -437,13 +448,16 @@ export default function LandingClient() {
             <AnimatedSection className="text-center mb-12 md:mb-16">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4"
                 style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.15)', color: '#818cf8' }}>
-                Two-in-one platform
+                {t('Two-in-one platform', 'Два в одном')}
               </div>
               <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                Two products. <span className="gradient-text">One platform.</span>
+                {t('Two products.', 'Два продукта.')} <span className="gradient-text">{t('One platform.', 'Одна платформа.')}</span>
               </h2>
               <p className="text-sm sm:text-lg max-w-2xl mx-auto" style={{ color: '#a0a8c0' }}>
-                AI agents for your phone lines, or real-time translation on calls.
+                {t(
+                  'AI agents for your phone lines, or real-time translation on calls.',
+                  'AI-агенты для телефонных линий или перевод звонков в реальном времени.'
+                )}
               </p>
             </AnimatedSection>
 
@@ -461,15 +475,18 @@ export default function LandingClient() {
                         <span className="material-symbols-outlined text-2xl" style={{ color: '#4ade80' }}>smart_toy</span>
                       </div>
                       <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.15)' }}>
-                        From $49/mo
+                        {t('From $49/mo', 'От $49/мес')}
                       </div>
                     </div>
 
                     <h3 className="text-xl md:text-2xl font-headline font-extrabold mb-3">
-                      AI Phone <span className="gradient-text-green">Agents</span>
+                      {t('AI Phone', 'AI Телефонные')} <span className="gradient-text-green">{t('Agents', 'Агенты')}</span>
                     </h3>
                     <p className="text-sm leading-relaxed mb-6" style={{ color: '#a0a8c0' }}>
-                      Intelligent agents that answer inbound calls, make outbound calls, handle appointments, qualify leads, and more.
+                      {t(
+                        'Intelligent agents that answer inbound calls, make outbound calls, handle appointments, qualify leads, and more.',
+                        'Интеллектуальные агенты, которые отвечают на входящие звонки, совершают исходящие, управляют встречами, квалифицируют лиды и многое другое.'
+                      )}
                     </p>
 
                     {/* Mini waveform */}
@@ -478,7 +495,14 @@ export default function LandingClient() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 mb-6">
-                      {['Inbound & outbound calls', 'Custom voice & persona', 'Knowledge base RAG', 'Call recording & transcription', 'Skill packs & workflows', 'MCP API integration'].map(f => (
+                      {[
+                        t('Inbound & outbound calls', 'Входящие и исходящие звонки'),
+                        t('Custom voice & persona', 'Настраиваемый голос и персонаж'),
+                        t('Knowledge base RAG', 'База знаний RAG'),
+                        t('Call recording & transcription', 'Запись и транскрипция звонков'),
+                        t('Skill packs & workflows', 'Наборы навыков и сценарии'),
+                        t('MCP API integration', 'Интеграция через MCP API'),
+                      ].map(f => (
                         <div key={f} className="flex items-start gap-2 text-xs leading-snug">
                           <span className="material-symbols-outlined text-sm mt-0.5 shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                           <span>{f}</span>
@@ -487,7 +511,7 @@ export default function LandingClient() {
                     </div>
 
                     <Link href="/login?mode=register" className="inline-flex items-center gap-2 text-sm font-bold group/link transition-all" style={{ color: '#4ade80' }}>
-                      Start building agents
+                      {t('Start building agents', 'Начать создание агентов')}
                       <span className="material-symbols-outlined text-base group-hover/link:translate-x-1 transition-transform">arrow_forward</span>
                     </Link>
                   </div>
@@ -496,7 +520,7 @@ export default function LandingClient() {
 
               {/* Live Translator */}
               <AnimatedSection delay={200} animation="fade-right">
-                <div className="rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden group bento-card h-full"
+                <Link href="/translator" className="block rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden group bento-card h-full cursor-pointer"
                   style={{ background: 'linear-gradient(135deg, rgba(173,198,255,0.04), rgba(139,92,246,0.02))', border: '1px solid rgba(173,198,255,0.12)' }}>
                   <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
                     style={{ background: 'radial-gradient(circle, rgba(173,198,255,0.08), transparent)', filter: 'blur(60px)' }} />
@@ -507,16 +531,18 @@ export default function LandingClient() {
                         <span className="material-symbols-outlined text-2xl" style={{ color: '#adc6ff' }}>translate</span>
                       </div>
                       <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: 'rgba(173,198,255,0.08)', color: '#adc6ff', border: '1px solid rgba(173,198,255,0.15)' }}>
-                        Pay as you go
+                        {t('Pay as you go', 'Оплата по факту')}
                       </div>
                     </div>
 
                     <h3 className="text-xl md:text-2xl font-headline font-extrabold mb-3">
-                      Live <span className="gradient-text">Translator</span>
+                      {t('Live', 'Живой')} <span className="gradient-text">{t('Translator', 'Переводчик')}</span>
                     </h3>
                     <p className="text-sm leading-relaxed mb-6" style={{ color: '#a0a8c0' }}>
-                      Merge our number into any phone call — AI translates both sides in real-time.
-                      No apps, no setup. Works with any phone.
+                      {t(
+                        'Merge our number into any phone call — AI translates both sides in real-time. No apps, no setup. Works with any phone.',
+                        'Подключите наш номер к любому звонку — AI переводит обе стороны в реальном времени. Без приложений, без настройки. Работает с любым телефоном.'
+                      )}
                     </p>
 
                     {/* Mini waveform */}
@@ -525,7 +551,14 @@ export default function LandingClient() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 mb-6">
-                      {['Real-time voice translation', '15+ language pairs', 'Live text transcript', 'Telegram alerts', 'Pay-as-you-go pricing', 'Free credit to start'].map(f => (
+                      {[
+                        t('Real-time voice translation', 'Голосовой перевод в реальном времени'),
+                        t('15+ language pairs', '15+ языковых пар'),
+                        t('Live text transcript', 'Текстовая расшифровка онлайн'),
+                        t('Telegram alerts', 'Уведомления в Telegram'),
+                        t('Pay-as-you-go pricing', 'Оплата по использованию'),
+                        t('Free credit to start', 'Бесплатный кредит на старте'),
+                      ].map(f => (
                         <div key={f} className="flex items-start gap-2 text-xs leading-snug">
                           <span className="material-symbols-outlined text-sm mt-0.5 shrink-0" style={{ color: '#adc6ff', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                           <span>{f}</span>
@@ -533,12 +566,12 @@ export default function LandingClient() {
                       ))}
                     </div>
 
-                    <Link href="/translator" className="inline-flex items-center gap-2 text-sm font-bold group/link transition-all" style={{ color: '#adc6ff' }}>
-                      Learn more
+                    <span className="inline-flex items-center gap-2 text-sm font-bold group/link transition-all" style={{ color: '#adc6ff' }}>
+                      {t('Learn more', 'Подробнее')}
                       <span className="material-symbols-outlined text-base group-hover/link:translate-x-1 transition-transform">arrow_forward</span>
-                    </Link>
+                    </span>
                   </div>
-                </div>
+                </Link>
               </AnimatedSection>
             </div>
           </div>
@@ -549,9 +582,11 @@ export default function LandingClient() {
           <div className="max-w-7xl mx-auto">
             <AnimatedSection className="text-center mb-12 md:mb-16">
               <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                Up and running in <span className="gradient-text">minutes</span>
+                {t('Up and running in', 'Запуск за')} <span className="gradient-text">{t('minutes', 'минуты')}</span>
               </h2>
-              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#a0a8c0' }}>No complex setup. Sign up, choose your plan, and start.</p>
+              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#a0a8c0' }}>
+                {t('No complex setup. Sign up, choose your plan, and start.', 'Никаких сложных настроек. Зарегистрируйтесь, выберите план и начните.')}
+              </p>
             </AnimatedSection>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5 relative">
@@ -559,10 +594,30 @@ export default function LandingClient() {
               <div className="absolute top-1/3 left-[12%] right-[12%] h-px hidden md:block" style={{ background: 'linear-gradient(90deg, transparent, rgba(129,140,248,0.2), rgba(129,140,248,0.2), transparent)' }} />
 
               {[
-                { num: '01', icon: 'person_add', title: 'Create account', desc: 'Email and password. Your workspace is ready in seconds.', color: '#adc6ff' },
-                { num: '02', icon: 'tune', title: 'Choose plan', desc: 'Translator, Agents, or both. Start with free credit.', color: '#4ade80' },
-                { num: '03', icon: 'settings', title: 'Configure', desc: 'Set up agents with voice, prompts, and knowledge base.', color: '#d0bcff' },
-                { num: '04', icon: 'rocket_launch', title: 'Go live', desc: 'Your agents answer calls. Your translator joins conversations.', color: '#67e8f9' },
+                {
+                  num: '01', icon: 'person_add',
+                  title: t('Create an Agent', 'Создайте агента'),
+                  desc: t('Define personality, voice, skills, and knowledge base. Your agent is ready in under two minutes.', 'Задайте личность, голос, навыки и базу знаний. Ваш агент готов менее чем за две минуты.'),
+                  color: '#adc6ff',
+                },
+                {
+                  num: '02', icon: 'tune',
+                  title: t('Connect a Number', 'Подключите номер'),
+                  desc: t('Assign your Twilio number or get a new one. Inbound calls are routed automatically.', 'Назначьте свой номер Twilio или получите новый. Входящие звонки маршрутизируются автоматически.'),
+                  color: '#4ade80',
+                },
+                {
+                  num: '03', icon: 'settings',
+                  title: t('Go Live', 'Запуск'),
+                  desc: t('Your agent handles calls 24/7. Monitor in real-time, review transcripts, iterate prompts.', 'Ваш агент обрабатывает звонки 24/7. Мониторинг в реальном времени, просмотр транскрипций, улучшение промптов.'),
+                  color: '#d0bcff',
+                },
+                {
+                  num: '04', icon: 'rocket_launch',
+                  title: t('Scale & Optimize', 'Масштабируйте'),
+                  desc: t('Deploy more agents, connect knowledge bases, integrate via MCP, and analyze call data.', 'Разворачивайте больше агентов, подключайте базы знаний, интегрируйтесь через MCP и анализируйте данные звонков.'),
+                  color: '#67e8f9',
+                },
               ].map((step, i) => (
                 <AnimatedSection key={step.num} delay={i * 120}>
                   <div className="rounded-2xl p-5 md:p-6 relative group bento-card"
@@ -586,19 +641,69 @@ export default function LandingClient() {
           <div className="max-w-7xl mx-auto">
             <AnimatedSection className="text-center mb-12 md:mb-16">
               <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                Everything you need to <span className="gradient-text">scale</span>
+                {t('Everything you need', 'Всё что нужно')} {t('to scale phone operations', 'для масштабирования телефонных операций')}
               </h2>
-              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#a0a8c0' }}>Enterprise-grade features, startup-friendly pricing.</p>
+              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#a0a8c0' }}>
+                {t('Enterprise-grade features, startup-friendly pricing.', 'Возможности уровня enterprise, цены для стартапов.')}
+              </p>
             </AnimatedSection>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
               {[
-                { icon: 'mic', title: 'Premium Voices', desc: 'xAI Grok, OpenAI TTS, ElevenLabs. Choose the perfect voice for your brand and switch with one click.', color: '#adc6ff', accent: 'rgba(173,198,255,0.05)' },
-                { icon: 'psychology', title: 'Top AI Models', desc: 'Claude, GPT-4o, Grok. Use the best LLM for each use case. Bring your own keys or use ours.', color: '#d0bcff', accent: 'rgba(208,188,255,0.05)' },
-                { icon: 'key', title: 'Bring Your Own Keys', desc: 'Connect your own API keys and pay nothing extra. Or use our platform providers from your deposit.', color: '#4ade80', accent: 'rgba(74,222,128,0.05)' },
-                { icon: 'auto_stories', title: 'Knowledge Base', desc: 'Upload docs, FAQs, product info. RAG-powered agents learn your business and give accurate answers.', color: '#67e8f9', accent: 'rgba(103,232,249,0.05)' },
-                { icon: 'record_voice_over', title: 'Recording & Transcription', desc: 'Every call recorded, transcribed, summarized, and analyzed with sentiment and QA scores.', color: '#fbbf24', accent: 'rgba(251,191,36,0.05)' },
-                { icon: 'api', title: 'MCP API', desc: 'Integrate Caller into your workflow. Trigger calls, manage agents, and sync data via our MCP server.', color: '#f87171', accent: 'rgba(248,113,113,0.05)' },
+                {
+                  icon: 'mic',
+                  title: t('Custom Voices', 'Настраиваемые голоса'),
+                  desc: t(
+                    'Choose from xAI Grok, OpenAI, or ElevenLabs. Each agent can have its own unique voice identity.',
+                    'Выбирайте из xAI Grok, OpenAI или ElevenLabs. Каждый агент может иметь свой уникальный голос.'
+                  ),
+                  color: '#adc6ff', accent: 'rgba(173,198,255,0.05)',
+                },
+                {
+                  icon: 'psychology',
+                  title: t('Knowledge Base', 'База знаний'),
+                  desc: t(
+                    'Upload PDFs, docs, and text. Agents use RAG to answer questions with your company\'s actual data.',
+                    'Загружайте PDF, документы и текст. Агенты используют RAG для ответов на основе данных вашей компании.'
+                  ),
+                  color: '#d0bcff', accent: 'rgba(208,188,255,0.05)',
+                },
+                {
+                  icon: 'key',
+                  title: t('Real-time Monitoring', 'Мониторинг в реальном времени'),
+                  desc: t(
+                    'Watch live calls, view transcripts as they happen, and intervene when needed.',
+                    'Наблюдайте за звонками в реальном времени, просматривайте транскрипции и вмешивайтесь при необходимости.'
+                  ),
+                  color: '#4ade80', accent: 'rgba(74,222,128,0.05)',
+                },
+                {
+                  icon: 'auto_stories',
+                  title: t('MCP Integration', 'Интеграция MCP'),
+                  desc: t(
+                    'Connect Caller as a tool for Claude, GPT, or any MCP-compatible AI assistant.',
+                    'Подключите Caller как инструмент для Claude, GPT или любого MCP-совместимого AI-ассистента.'
+                  ),
+                  color: '#67e8f9', accent: 'rgba(103,232,249,0.05)',
+                },
+                {
+                  icon: 'record_voice_over',
+                  title: t('Multi-Provider', 'Мультипровайдер'),
+                  desc: t(
+                    'Bring your own API keys or use ours. Support for Twilio, Deepgram, Anthropic, OpenAI, xAI, ElevenLabs.',
+                    'Используйте свои API-ключи или наши. Поддержка Twilio, Deepgram, Anthropic, OpenAI, xAI, ElevenLabs.'
+                  ),
+                  color: '#fbbf24', accent: 'rgba(251,191,36,0.05)',
+                },
+                {
+                  icon: 'api',
+                  title: t('Live Translation', 'Живой перевод'),
+                  desc: t(
+                    'Merge AI translator into any call. 15+ languages, 6 tones of voice, live transcript shared via link.',
+                    'Подключите AI-переводчика к любому звонку. 15+ языков, 6 тонов голоса, расшифровка онлайн по ссылке.'
+                  ),
+                  color: '#f87171', accent: 'rgba(248,113,113,0.05)',
+                },
               ].map((f, i) => (
                 <AnimatedSection key={f.title} delay={i * 80}>
                   <div className="glass-panel rounded-2xl p-6 bento-card h-full relative overflow-hidden group">
@@ -625,22 +730,24 @@ export default function LandingClient() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-6"
                   style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.15)', color: '#4ade80' }}>
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>swap_horiz</span>
-                  Flexible Providers
+                  {t('Built for your stack', 'Создано для вашего стека')}
                 </div>
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-headline font-extrabold tracking-tight mb-4 leading-tight">
                   Your keys or ours.{' '}
                   <span className="gradient-text-green">You choose.</span>
                 </h2>
                 <p className="text-base leading-relaxed mb-8" style={{ color: '#a0a8c0' }}>
-                  Connect your own Twilio, OpenAI, Anthropic, or xAI API keys and pay nothing extra.
-                  Or use our platform providers — usage costs deducted from your deposit. Mix and match. Switch anytime.
+                  {t(
+                    'Bring your own keys from any provider, or use platform credentials with deposit billing.',
+                    'Используйте свои ключи от любого провайдера или платформенные с депозитной оплатой.'
+                  )}
                 </p>
                 <div className="space-y-3">
                   {[
-                    { icon: 'key', text: 'Your keys = $0 platform fees', color: '#4ade80' },
-                    { icon: 'savings', text: 'Our providers = transparent deposit billing', color: '#adc6ff' },
-                    { icon: 'shuffle', text: 'Mix: your Twilio + our Claude + your xAI TTS', color: '#d0bcff' },
-                    { icon: 'swap_horiz', text: 'Switch between modes in one click', color: '#67e8f9' },
+                    { icon: 'key', text: t('Your Keys (BYOK) = $0 platform fees', 'Свои ключи (BYOK) = $0 комиссий платформы'), color: '#4ade80' },
+                    { icon: 'savings', text: t('Our providers = transparent deposit billing', 'Наши провайдеры = прозрачная депозитная оплата'), color: '#adc6ff' },
+                    { icon: 'shuffle', text: t('Mix: your Twilio + our Claude + your xAI TTS', 'Микс: ваш Twilio + наш Claude + ваш xAI TTS'), color: '#d0bcff' },
+                    { icon: 'swap_horiz', text: t('Switch between modes in one click', 'Переключение между режимами в один клик'), color: '#67e8f9' },
                   ].map(item => (
                     <div key={item.text} className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${item.color}10` }}>
@@ -674,7 +781,7 @@ export default function LandingClient() {
                           style={p.mode === 'own'
                             ? { background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }
                             : { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
-                          {p.mode === 'own' ? 'Own Key' : 'Platform'}
+                          {p.mode === 'own' ? t('Own Key', 'Свой ключ') : t('Platform', 'Платформа')}
                         </div>
                       </div>
                     ))}
@@ -690,18 +797,54 @@ export default function LandingClient() {
           <div className="max-w-3xl mx-auto">
             <AnimatedSection className="text-center mb-12 md:mb-16">
               <h2 className="text-2xl sm:text-4xl font-headline font-extrabold mb-4">
-                Frequently asked <span className="gradient-text">questions</span>
+                {t('Frequently asked', 'Часто задаваемые')} <span className="gradient-text">{t('questions', 'вопросы')}</span>
               </h2>
             </AnimatedSection>
 
             <AnimatedSection delay={100}>
               <FaqAccordion items={[
-                { q: 'Do I need to install anything?', a: 'No. AI Agents work through your Twilio phone numbers. The Live Translator works by merging our number into any standard phone call. No apps needed.' },
-                { q: 'What happens when my deposit runs out?', a: 'Calls using platform providers will pause. If you use your own API keys, everything keeps working. Top up your deposit instantly via Stripe.' },
-                { q: 'Can I switch between my own keys and platform providers?', a: 'Yes. Per-provider toggle in the dashboard. Use your own Twilio but our Claude, for example. Switch anytime with one click.' },
-                { q: 'How many languages does the translator support?', a: 'We support 15+ language pairs with real-time voice translation and live text transcription. Language auto-detection is included.' },
-                { q: 'Is there a free trial?', a: 'Every new account gets free deposit credit. No credit card required to start. Use it for AI agent calls or live translation.' },
-                { q: 'What AI models are available?', a: 'Claude Sonnet by Anthropic, GPT-4o by OpenAI, and Grok by xAI. For voice: xAI Grok TTS (primary), OpenAI TTS, and ElevenLabs. For transcription: Deepgram Nova-2.' },
+                {
+                  q: t('Do I need to install anything?', 'Нужно ли что-то устанавливать?'),
+                  a: t(
+                    'No. AI Agents work through your Twilio phone numbers. The Live Translator works by merging our number into any standard phone call. No apps needed.',
+                    'Нет. AI-агенты работают через ваши номера Twilio. Живой переводчик подключается к любому обычному звонку. Приложения не нужны.'
+                  ),
+                },
+                {
+                  q: t('What happens when my deposit runs out?', 'Что происходит при исчерпании депозита?'),
+                  a: t(
+                    'Calls using platform providers will pause. If you use your own API keys, everything keeps working. Top up your deposit instantly via Stripe.',
+                    'Звонки через платформенных провайдеров приостановятся. Если используете собственные API-ключи — всё продолжает работать. Пополните депозит мгновенно через Stripe.'
+                  ),
+                },
+                {
+                  q: t('Can I switch between my own keys and platform providers?', 'Можно ли переключаться между своими ключами и платформенными провайдерами?'),
+                  a: t(
+                    'Yes. Per-provider toggle in the dashboard. Use your own Twilio but our Claude, for example. Switch anytime with one click.',
+                    'Да. Переключатель для каждого провайдера в панели управления. Используйте свой Twilio, но нашего Claude, например. Переключайтесь в любой момент одним кликом.'
+                  ),
+                },
+                {
+                  q: t('How many languages does the translator support?', 'Сколько языков поддерживает переводчик?'),
+                  a: t(
+                    'We support 15+ language pairs with real-time voice translation and live text transcription. Language auto-detection is included.',
+                    'Мы поддерживаем 15+ языковых пар с голосовым переводом в реальном времени и живой текстовой транскрипцией. Автоопределение языка включено.'
+                  ),
+                },
+                {
+                  q: t('Is there a free trial?', 'Есть ли бесплатный пробный период?'),
+                  a: t(
+                    'Every new account gets free deposit credit. No credit card required to start. Use it for AI agent calls or live translation.',
+                    'Каждый новый аккаунт получает бесплатный кредит на депозите. Для старта банковская карта не нужна. Используйте его для звонков AI-агентов или живого перевода.'
+                  ),
+                },
+                {
+                  q: t('What AI models are available?', 'Какие AI-модели доступны?'),
+                  a: t(
+                    'Claude Sonnet by Anthropic, GPT-4o by OpenAI, and Grok by xAI. For voice: xAI Grok TTS (primary), OpenAI TTS, and ElevenLabs. For transcription: Deepgram Nova-2.',
+                    'Claude Sonnet от Anthropic, GPT-4o от OpenAI и Grok от xAI. Для голоса: xAI Grok TTS (основной), OpenAI TTS и ElevenLabs. Для транскрипции: Deepgram Nova-2.'
+                  ),
+                },
               ]} />
             </AnimatedSection>
           </div>
@@ -719,15 +862,18 @@ export default function LandingClient() {
                 <div className="absolute top-0 left-0 right-0 h-px shimmer-border" />
 
                 <h2 className="text-2xl sm:text-3xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                  Ready to <span className="gradient-text">automate</span> your calls?
+                  {t('Ready to', 'Готовы')} <span className="gradient-text">{t('automate', 'автоматизировать')}</span> {t('your calls?', 'ваши звонки?')}
                 </h2>
                 <p className="text-base mb-8 max-w-lg mx-auto" style={{ color: '#a0a8c0' }}>
-                  Create your account in 30 seconds. Free credit included, no credit card.
+                  {t(
+                    'Create your account in 30 seconds. Free credit included, no credit card.',
+                    'Создайте аккаунт за 30 секунд. Бесплатный кредит, без банковской карты.'
+                  )}
                 </p>
                 <Link href="/login?mode=register"
                   className="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-base font-bold transition-all active:scale-[.97] group cta-glow"
                   style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                  Get Started Free
+                  {t('Get Started Free', 'Начать бесплатно')}
                   <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
                 </Link>
               </div>
@@ -748,31 +894,34 @@ export default function LandingClient() {
                 <span className="font-headline font-extrabold text-lg">Caller</span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
-                AI phone agents and live translation for the globally connected business. One platform, zero complexity.
+                {t(
+                  'AI phone agents and live translation for the globally connected business. One platform, zero complexity.',
+                  'AI-телефонные агенты и живой перевод для глобального бизнеса. Одна платформа, никакой сложности.'
+                )}
               </p>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.12)' }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80' }} />
-                <span className="text-[10px] font-medium" style={{ color: '#4ade80' }}>All systems operational</span>
+                <span className="text-[10px] font-medium" style={{ color: '#4ade80' }}>{t('All systems operational', 'Все системы работают')}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-12">
               {[
-                { title: 'Product', links: [
-                  { label: 'AI Agents', href: '#products' },
-                  { label: 'Live Translator', href: '/translator' },
-                  { label: 'Pricing', href: '/pricing' },
-                  { label: 'Features', href: '#features' },
+                { title: t('Product', 'Продукт'), links: [
+                  { label: t('AI Agents', 'AI Агенты'), href: '#products' },
+                  { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
+                  { label: t('Pricing', 'Цены'), href: '/pricing' },
+                  { label: t('Features', 'Возможности'), href: '#features' },
                 ] },
-                { title: 'Resources', links: [
-                  { label: 'Documentation', href: '/docs' },
+                { title: t('Resources', 'Ресурсы'), links: [
+                  { label: t('Documentation', 'Документация'), href: '/docs' },
                   { label: 'API Reference', href: '/docs?section=api' },
-                  { label: 'Help Center', href: '/help' },
+                  { label: t('Help Center', 'Центр помощи'), href: '/help' },
                 ] },
-                { title: 'Legal', links: [
-                  { label: 'Privacy Policy', href: '/privacy' },
-                  { label: 'Terms of Service', href: '/terms' },
-                  { label: 'Acceptable Use', href: '/acceptable-use' },
+                { title: t('Legal', 'Правовая информация'), links: [
+                  { label: t('Privacy Policy', 'Политика конфиденциальности'), href: '/privacy' },
+                  { label: t('Terms of Service', 'Условия использования'), href: '/terms' },
+                  { label: t('Acceptable Use', 'Допустимое использование'), href: '/acceptable-use' },
                 ] },
               ].map(col => (
                 <div key={col.title}>
@@ -790,12 +939,24 @@ export default function LandingClient() {
           </div>
 
           <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-            <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>&copy; {new Date().getFullYear()} Caller. All rights reserved.</p>
+            <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>&copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}</p>
           </div>
         </div>
       </footer>
 
       <ContactPopup />
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/* ── DEFAULT EXPORT — wraps content in LangProvider ──────────────────── */
+/* ══════════════════════════════════════════════════════════════════════ */
+
+export default function LandingClient() {
+  return (
+    <LangProvider>
+      <LandingContent />
+    </LangProvider>
   );
 }

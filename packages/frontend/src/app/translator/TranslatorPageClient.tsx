@@ -4,6 +4,7 @@ import { useState } from 'react';
 import AnimatedSection from '@/app/_landing/AnimatedSection';
 import FaqAccordion from '@/app/_landing/FaqAccordion';
 import ContactPopup from '@/app/_landing/ContactPopup';
+import { useLang, LangSwitcher, LangProvider } from '@/app/_landing/useLang';
 
 /* ── Styles ─────────────────────────────────────────────────────────────── */
 function TranslatorStyles() {
@@ -64,6 +65,7 @@ function TranslatorStyles() {
 
 /* ── Navbar ──────────────────────────────────────────────────────────────── */
 function Navbar() {
+  const { t } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <nav className="sticky top-0 z-50" style={{ background: 'rgba(10,14,26,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(140,144,159,0.08)' }}>
@@ -79,19 +81,20 @@ function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/#products" className="nav-link">Products</Link>
-            <Link href="/help" className="nav-link">Help Center</Link>
-            <Link href="/docs" className="nav-link">Documentation</Link>
+            <Link href="/#products" className="nav-link">{t('Products', 'Продукты')}</Link>
+            <Link href="/help" className="nav-link">{t('Help Center', 'Центр помощи')}</Link>
+            <Link href="/docs" className="nav-link">{t('Documentation', 'Документация')}</Link>
           </div>
 
-          {/* CTA */}
-          <div className="hidden md:block">
+          {/* CTA + LangSwitcher */}
+          <div className="hidden md:flex items-center gap-3">
+            <LangSwitcher />
             <Link
               href="/auth/signup"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all"
               style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)', boxShadow: '0 2px 16px rgba(34,211,238,0.2)' }}
             >
-              Get Started
+              {t('Get Started', 'Начать')}
             </Link>
           </div>
 
@@ -109,16 +112,19 @@ function Navbar() {
         {/* Mobile menu */}
         {menuOpen && (
           <div className="md:hidden py-4 space-y-3 border-t" style={{ borderColor: 'rgba(140,144,159,0.08)' }}>
-            <Link href="/#products" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>Products</Link>
-            <Link href="/help" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>Help Center</Link>
-            <Link href="/docs" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>Documentation</Link>
-            <Link
-              href="/auth/signup"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white mt-2"
-              style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)' }}
-            >
-              Get Started
-            </Link>
+            <Link href="/#products" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>{t('Products', 'Продукты')}</Link>
+            <Link href="/help" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>{t('Help Center', 'Центр помощи')}</Link>
+            <Link href="/docs" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>{t('Documentation', 'Документация')}</Link>
+            <div className="flex items-center gap-3 mt-2">
+              <LangSwitcher />
+              <Link
+                href="/auth/signup"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)' }}
+              >
+                {t('Get Started', 'Начать')}
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -227,6 +233,7 @@ function HeroVisual() {
 
 /* ── Translation Demo ────────────────────────────────────────────────────── */
 function TranslationDemo() {
+  const { t } = useLang();
   return (
     <div className="w-full max-w-md mx-auto glass-panel rounded-3xl p-4 md:p-6" style={{ boxShadow: '0 20px 80px rgba(0,0,0,0.4)' }}>
       {/* Phone header */}
@@ -235,10 +242,10 @@ function TranslationDemo() {
           <span className="material-symbols-outlined text-white text-base">translate</span>
         </div>
         <div>
-          <div className="text-sm font-semibold text-white">Live Translator</div>
+          <div className="text-sm font-semibold text-white">{t('Live Translator', 'Живой переводчик')}</div>
           <div className="text-xs flex items-center gap-1.5" style={{ color: '#4ade80' }}>
             <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: '#4ade80', boxShadow: '0 0 6px #4ade80' }} />
-            Active · ES ↔ EN
+            {t('Active · ES ↔ EN', 'Активно · ES ↔ EN')}
           </div>
         </div>
         <div className="ml-auto text-xs font-mono" style={{ color: 'rgba(194,198,214,0.4)' }}>02:14</div>
@@ -256,7 +263,7 @@ function TranslationDemo() {
 
         {/* Translation */}
         <div className="bubble-in pl-4" style={{ animationDelay: '0.3s' }}>
-          <div className="text-xs mb-1.5 font-medium" style={{ color: 'rgba(194,198,214,0.4)' }}>Translated · EN</div>
+          <div className="text-xs mb-1.5 font-medium" style={{ color: 'rgba(194,198,214,0.4)' }}>{t('Translated · EN', 'Перевод · EN')}</div>
           <div className="inline-flex items-start gap-2 rounded-2xl px-4 py-3 text-sm max-w-xs" style={{ background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.15)', color: '#e2e8f0' }}>
             <span className="material-symbols-outlined text-sm mt-0.5 shrink-0" style={{ color: '#818cf8' }}>translate</span>
             Hello, I would like to confirm my reservation for tomorrow.
@@ -273,7 +280,7 @@ function TranslationDemo() {
 
         {/* Typing indicator */}
         <div className="bubble-in" style={{ animationDelay: '0.9s' }}>
-          <div className="text-xs mb-1.5 font-medium" style={{ color: 'rgba(194,198,214,0.4)' }}>Translating…</div>
+          <div className="text-xs mb-1.5 font-medium" style={{ color: 'rgba(194,198,214,0.4)' }}>{t('Translating…', 'Перевожу…')}</div>
           <div className="inline-flex items-center gap-1.5 rounded-2xl px-4 py-3" style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.1)' }}>
             <span className="w-2 h-2 rounded-full dot1" style={{ background: '#818cf8' }} />
             <span className="w-2 h-2 rounded-full dot2" style={{ background: '#818cf8' }} />
@@ -287,6 +294,7 @@ function TranslationDemo() {
 
 /* ── Language Pairs Grid ─────────────────────────────────────────────────── */
 function LanguagePairsGrid() {
+  const { t } = useLang();
   const pairs = [
     'EN ↔ ES', 'EN ↔ FR', 'EN ↔ DE', 'EN ↔ ZH', 'EN ↔ JA',
     'EN ↔ KO', 'EN ↔ AR', 'EN ↔ RU', 'EN ↔ PT', 'EN ↔ IT',
@@ -312,86 +320,124 @@ function LanguagePairsGrid() {
         style={{ background: 'linear-gradient(135deg, rgba(34,211,238,0.15), rgba(192,132,252,0.15))', border: '1px solid rgba(34,211,238,0.25)', color: '#22d3ee' }}
       >
         <span className="material-symbols-outlined text-sm">auto_awesome</span>
-        Auto-detect
+        {t('Auto-detect', 'Автоопределение')}
       </div>
     </div>
   );
 }
 
-/* ── Main Page ───────────────────────────────────────────────────────────── */
-export default function TranslatorPageClient() {
+/* ── Main Content ────────────────────────────────────────────────────────── */
+function TranslatorContent() {
+  const { t } = useLang();
+
   const faqItems = [
     {
-      q: 'How does the translator join my call?',
-      a: 'Simply merge our translator number into your active call. It joins within seconds, introduces itself briefly, and begins translating both sides of the conversation in real-time.',
+      q: t('How does the translator join my call?', 'Как переводчик подключается к моему звонку?'),
+      a: t(
+        'Simply merge our translator number into your active call. It joins within seconds, introduces itself briefly, and begins translating both sides of the conversation in real-time.',
+        'Просто добавьте наш номер переводчика к активному звонку. Он подключается за секунды, коротко представляется и начинает переводить обе стороны разговора в режиме реального времени.'
+      ),
     },
     {
-      q: 'What languages are supported?',
-      a: 'We support 15+ language pairs including English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Russian, Portuguese, Italian, and more. Auto-detection is available so you don\'t need to specify the language upfront.',
+      q: t('What languages are supported?', 'Какие языки поддерживаются?'),
+      a: t(
+        "We support 15+ language pairs including English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Russian, Portuguese, Italian, and more. Auto-detection is available so you don't need to specify the language upfront.",
+        'Мы поддерживаем 15+ языковых пар, включая английский, испанский, французский, немецкий, китайский, японский, корейский, арабский, русский, португальский, итальянский и другие. Доступно автоопределение языка — указывать заранее не нужно.'
+      ),
     },
     {
-      q: 'Can I use it on inbound calls too?',
-      a: 'Yes! Whether you\'re making a call or receiving one, you can merge the translator at any point during the conversation. It works seamlessly for both directions.',
+      q: t('Can I use it on inbound calls too?', 'Можно ли использовать при входящих звонках?'),
+      a: t(
+        "Yes! Whether you're making a call or receiving one, you can merge the translator at any point during the conversation. It works seamlessly for both directions.",
+        'Да! Неважно, звоните ли вы или принимаете звонок — вы можете подключить переводчика в любой момент разговора. Работает в обоих направлениях.'
+      ),
     },
     {
-      q: 'Do I need to install any app?',
-      a: 'No apps needed. The translator works with any phone — landline, mobile, or VoIP. Just merge the number into your call and the translator handles everything.',
+      q: t('Do I need to install any app?', 'Нужно ли устанавливать приложение?'),
+      a: t(
+        'No apps needed. The translator works with any phone — landline, mobile, or VoIP. Just merge the number into your call and the translator handles everything.',
+        'Никаких приложений. Переводчик работает с любым телефоном — стационарным, мобильным или VoIP. Просто добавьте номер к звонку — переводчик всё сделает сам.'
+      ),
     },
     {
-      q: 'How does the Telegram integration work?',
-      a: 'Connect your Telegram account in settings. After each translated call, you\'ll receive a call summary and a link to the live transcript directly in Telegram — perfect for keeping records.',
+      q: t('How does the Telegram integration work?', 'Как работает интеграция с Telegram?'),
+      a: t(
+        "Connect your Telegram account in settings. After each translated call, you'll receive a call summary and a link to the live transcript directly in Telegram — perfect for keeping records.",
+        'Подключите аккаунт Telegram в настройках. После каждого переведённого звонка вы получите краткое резюме и ссылку на онлайн-транскрипцию прямо в Telegram — удобно для ведения записей.'
+      ),
     },
     {
-      q: 'What voices are available?',
-      a: 'Choose from premium AI voices by xAI (Grok TTS), OpenAI, and ElevenLabs. Each provider offers multiple voice options with different characteristics to match your preferred tone.',
+      q: t('What voices are available?', 'Какие голоса доступны?'),
+      a: t(
+        'Choose from premium AI voices by xAI (Grok TTS), OpenAI, and ElevenLabs. Each provider offers multiple voice options with different characteristics to match your preferred tone.',
+        'Выбирайте из премиальных AI-голосов от xAI (Grok TTS), OpenAI и ElevenLabs. Каждый провайдер предлагает несколько голосовых вариантов с разными характеристиками под нужный тон.'
+      ),
     },
   ];
 
   const features = [
     {
       icon: 'language',
-      title: '15+ Languages',
-      desc: 'English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Russian, Portuguese, Italian, and more.',
+      title: t('15+ Languages', '15+ языков'),
+      desc: t(
+        'English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Russian, Portuguese, Italian, and more.',
+        'Английский, испанский, французский, немецкий, китайский, японский, корейский, арабский, русский, португальский, итальянский и другие.'
+      ),
       accent: '#22d3ee',
       accentBg: 'rgba(34,211,238,0.08)',
       accentBorder: 'rgba(34,211,238,0.15)',
     },
     {
       icon: 'record_voice_over',
-      title: '6 Tones of Voice',
-      desc: 'Professional, Friendly, Casual, Formal, Medical, Legal — choose the right tone for every situation.',
+      title: t('6 Tones of Voice', '6 тонов голоса'),
+      desc: t(
+        'Professional, Friendly, Casual, Formal, Medical, Legal — choose the right tone for every situation.',
+        'Профессиональный, дружелюбный, неформальный, формальный, медицинский, юридический — выберите нужный тон для каждой ситуации.'
+      ),
       accent: '#818cf8',
       accentBg: 'rgba(129,140,248,0.08)',
       accentBorder: 'rgba(129,140,248,0.15)',
     },
     {
       icon: 'spatial_audio_off',
-      title: 'Premium AI Voices',
-      desc: 'Choose from xAI, OpenAI, and ElevenLabs voice engines for natural-sounding, human-like translation.',
+      title: t('Premium AI Voices', 'Премиальные AI-голоса'),
+      desc: t(
+        'Choose from xAI, OpenAI, and ElevenLabs voice engines for natural-sounding, human-like translation.',
+        'Выбирайте между голосовыми движками xAI, OpenAI и ElevenLabs для естественного, человекоподобного перевода.'
+      ),
       accent: '#c084fc',
       accentBg: 'rgba(192,132,252,0.08)',
       accentBorder: 'rgba(192,132,252,0.15)',
     },
     {
       icon: 'send',
-      title: 'Telegram Integration',
-      desc: 'Get call summaries and live translation links delivered straight to your Telegram after every call.',
+      title: t('Telegram Integration', 'Интеграция с Telegram'),
+      desc: t(
+        'Get call summaries and live translation links delivered straight to your Telegram after every call.',
+        'Получайте краткое резюме звонка и ссылки на онлайн-перевод прямо в Telegram после каждого звонка.'
+      ),
       accent: '#22d3ee',
       accentBg: 'rgba(34,211,238,0.08)',
       accentBorder: 'rgba(34,211,238,0.15)',
     },
     {
       icon: 'subtitles',
-      title: 'Live Transcript',
-      desc: 'Watch the translated conversation unfold in real-time via a shareable web link — visible to anyone.',
+      title: t('Live Transcript', 'Онлайн-транскрипция'),
+      desc: t(
+        'Watch the translated conversation unfold in real-time via a shareable web link — visible to anyone.',
+        'Наблюдайте за переведённым разговором в режиме реального времени через публичную ссылку — доступно для всех.'
+      ),
       accent: '#818cf8',
       accentBg: 'rgba(129,140,248,0.08)',
       accentBorder: 'rgba(129,140,248,0.15)',
     },
     {
       icon: 'phone_enabled',
-      title: 'Any Phone, No Apps',
-      desc: 'Works with any phone number — landline, mobile, or VoIP. No downloads, no special equipment.',
+      title: t('Any Phone, No Apps', 'Любой телефон, без приложений'),
+      desc: t(
+        'Works with any phone number — landline, mobile, or VoIP. No downloads, no special equipment.',
+        'Работает с любым номером телефона — стационарным, мобильным или VoIP. Без загрузок и специального оборудования.'
+      ),
       accent: '#c084fc',
       accentBg: 'rgba(192,132,252,0.08)',
       accentBorder: 'rgba(192,132,252,0.15)',
@@ -402,22 +448,31 @@ export default function TranslatorPageClient() {
     {
       number: '01',
       icon: 'call',
-      title: 'Make or receive a call',
-      desc: 'Call anyone or receive a call as usual on any phone — mobile, landline, or VoIP. Nothing special required.',
+      title: t('Make or receive a call', 'Сделайте или примите звонок'),
+      desc: t(
+        'Call anyone or receive a call as usual on any phone — mobile, landline, or VoIP. Nothing special required.',
+        'Позвоните кому угодно или примите звонок как обычно на любом телефоне — мобильном, стационарном или VoIP. Ничего особенного не нужно.'
+      ),
       accent: '#22d3ee',
     },
     {
       number: '02',
       icon: 'call_merge',
-      title: 'Merge the translator',
-      desc: 'Add our translator number to the call. It joins in seconds, introduces itself, and is ready to translate.',
+      title: t('Merge the translator', 'Подключите переводчика'),
+      desc: t(
+        'Add our translator number to the call. It joins in seconds, introduces itself, and is ready to translate.',
+        'Добавьте наш номер переводчика к звонку. Он подключается за секунды, представляется и готов переводить.'
+      ),
       accent: '#818cf8',
     },
     {
       number: '03',
       icon: 'translate',
-      title: 'Speak freely',
-      desc: 'Talk naturally in your language. The AI translator handles both directions in real-time, so everyone understands.',
+      title: t('Speak freely', 'Говорите свободно'),
+      desc: t(
+        'Talk naturally in your language. The AI translator handles both directions in real-time, so everyone understands.',
+        'Говорите естественно на своём языке. AI-переводчик обрабатывает оба направления в реальном времени — каждый понимает собеседника.'
+      ),
       accent: '#c084fc',
     },
   ];
@@ -454,7 +509,7 @@ export default function TranslatorPageClient() {
             <div className="flex justify-center mb-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold" style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)', color: '#22d3ee' }}>
                 <span className="material-symbols-outlined text-sm">translate</span>
-                Live Translation · 15+ Languages
+                {t('Live Translation · 15+ Languages', 'Живой перевод · 15+ языков')}
               </div>
             </div>
           </AnimatedSection>
@@ -462,16 +517,18 @@ export default function TranslatorPageClient() {
           {/* Headline */}
           <AnimatedSection animation="fade-up" delay={100}>
             <h1 className="font-headline text-center text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.08] tracking-tight mb-6" style={{ color: '#f1f5ff' }}>
-              Merge a Live Translator<br />
-              <span className="gradient-text-translator">into Any Call</span>
+              {t('Merge a Live Translator', 'Подключите живого переводчика')}<br />
+              <span className="gradient-text-translator">{t('into Any Call', 'к любому звонку')}</span>
             </h1>
           </AnimatedSection>
 
           {/* Subtitle */}
           <AnimatedSection animation="fade-up" delay={200}>
             <p className="text-center text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed" style={{ color: 'rgba(194,198,214,0.75)' }}>
-              No apps. No special equipment. Just merge our AI translator into your active call and both sides
-              hear each other in their own language — instantly.
+              {t(
+                'No apps. No special equipment. Just merge our AI translator into your active call and both sides hear each other in their own language — instantly.',
+                'Без приложений. Без специального оборудования. Просто добавьте нашего AI-переводчика к активному звонку — и обе стороны сразу слышат друг друга на родном языке.'
+              )}
             </p>
           </AnimatedSection>
 
@@ -484,7 +541,7 @@ export default function TranslatorPageClient() {
                 style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8, #c084fc)' }}
               >
                 <span className="material-symbols-outlined text-xl">phone_in_talk</span>
-                Start Translating
+                {t('Start Translating', 'Начать переводить')}
               </Link>
               <a
                 href="#how-it-works"
@@ -492,7 +549,7 @@ export default function TranslatorPageClient() {
                 style={{ color: '#22d3ee', border: '1px solid rgba(34,211,238,0.25)' }}
               >
                 <span className="material-symbols-outlined text-xl">play_circle</span>
-                See How It Works
+                {t('See How It Works', 'Как это работает')}
               </a>
             </div>
           </AnimatedSection>
@@ -509,12 +566,12 @@ export default function TranslatorPageClient() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <AnimatedSection animation="fade-up">
             <div className="text-center mb-16">
-              <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: '#22d3ee' }}>Simple by design</p>
+              <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: '#22d3ee' }}>{t('Simple by design', 'Просто по замыслу')}</p>
               <h2 className="font-headline text-3xl md:text-4xl lg:text-5xl font-extrabold" style={{ color: '#f1f5ff' }}>
-                How It Works
+                {t('How It Works', 'Как это работает')}
               </h2>
               <p className="mt-4 text-lg max-w-xl mx-auto" style={{ color: 'rgba(194,198,214,0.65)' }}>
-                Three steps to breaking the language barrier on any phone call.
+                {t('Three steps to breaking the language barrier on any phone call.', 'Три шага, чтобы преодолеть языковой барьер в любом звонке.')}
               </p>
             </div>
           </AnimatedSection>
@@ -554,9 +611,9 @@ export default function TranslatorPageClient() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <AnimatedSection animation="fade-up">
             <div className="text-center mb-16">
-              <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: '#818cf8' }}>Built for real conversations</p>
+              <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: '#818cf8' }}>{t('Built for real conversations', 'Создано для реальных разговоров')}</p>
               <h2 className="font-headline text-3xl md:text-4xl lg:text-5xl font-extrabold" style={{ color: '#f1f5ff' }}>
-                Everything You Need
+                {t('Everything You Need for Seamless Translation', 'Всё для безупречного перевода')}
               </h2>
             </div>
           </AnimatedSection>
@@ -587,20 +644,21 @@ export default function TranslatorPageClient() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <AnimatedSection animation="fade-right">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#22d3ee' }}>Real-time magic</p>
+                <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#22d3ee' }}>{t('Real-time magic', 'Магия в реальном времени')}</p>
                 <h2 className="font-headline text-3xl md:text-4xl lg:text-5xl font-extrabold mb-6" style={{ color: '#f1f5ff' }}>
-                  How Translation{' '}
-                  <span className="gradient-text-translator">Feels</span>
+                  {t('See Translation in Action', 'Перевод в действии')}
                 </h2>
                 <p className="text-lg leading-relaxed mb-8" style={{ color: 'rgba(194,198,214,0.7)' }}>
-                  Each speaker talks in their own language. The AI translator instantly renders the other side in theirs.
-                  No delays, no awkward pauses — just natural conversation.
+                  {t(
+                    'Each speaker talks in their own language. The AI translator instantly renders the other side in theirs. No delays, no awkward pauses — just natural conversation.',
+                    'Каждый говорит на своём языке. AI-переводчик мгновенно передаёт другой стороне её вариант. Без задержек, без неловких пауз — просто естественный разговор.'
+                  )}
                 </p>
                 <div className="space-y-4">
                   {[
-                    { icon: 'bolt', text: 'Sub-second translation latency', color: '#22d3ee' },
-                    { icon: 'hearing', text: 'Natural AI voices, not robotic', color: '#818cf8' },
-                    { icon: 'autorenew', text: 'Bidirectional, both sides translated', color: '#c084fc' },
+                    { icon: 'bolt', text: t('Sub-second translation latency', 'Задержка перевода менее секунды'), color: '#22d3ee' },
+                    { icon: 'hearing', text: t('Natural AI voices, not robotic', 'Естественные AI-голоса, не роботизированные'), color: '#818cf8' },
+                    { icon: 'autorenew', text: t('Bidirectional, both sides translated', 'Двунаправленный перевод для обеих сторон'), color: '#c084fc' },
                   ].map((item) => (
                     <div key={item.text} className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
@@ -626,12 +684,15 @@ export default function TranslatorPageClient() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <AnimatedSection animation="fade-up">
             <div className="text-center mb-12">
-              <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: '#c084fc' }}>Broad coverage</p>
+              <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: '#c084fc' }}>{t('Broad coverage', 'Широкий охват')}</p>
               <h2 className="font-headline text-3xl md:text-4xl font-extrabold mb-4" style={{ color: '#f1f5ff' }}>
-                15+ Language Pairs
+                {t('Supported Language Pairs', 'Поддерживаемые языковые пары')}
               </h2>
               <p className="text-lg max-w-xl mx-auto" style={{ color: 'rgba(194,198,214,0.65)' }}>
-                From common to specialized, we cover the languages your business needs most.
+                {t(
+                  'From common to specialized, we cover the languages your business needs most.',
+                  'От распространённых до специализированных — мы охватываем языки, необходимые вашему бизнесу.'
+                )}
               </p>
             </div>
           </AnimatedSection>
@@ -642,7 +703,10 @@ export default function TranslatorPageClient() {
 
           <AnimatedSection animation="fade-up" delay={200}>
             <p className="text-center text-sm mt-8" style={{ color: 'rgba(194,198,214,0.4)' }}>
-              More language pairs added regularly. Contact us if you need a specific pair.
+              {t(
+                'More language pairs added regularly. Contact us if you need a specific pair.',
+                'Языковые пары регулярно добавляются. Свяжитесь с нами, если нужна конкретная пара.'
+              )}
             </p>
           </AnimatedSection>
         </div>
@@ -655,13 +719,13 @@ export default function TranslatorPageClient() {
             <AnimatedSection animation="fade-right">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                  { tone: 'Professional', icon: 'business_center', desc: 'Polished, precise language for business calls', color: '#22d3ee' },
-                  { tone: 'Friendly', icon: 'sentiment_satisfied', desc: 'Warm and approachable for client relations', color: '#818cf8' },
-                  { tone: 'Casual', icon: 'chat_bubble', desc: 'Relaxed and natural for everyday conversations', color: '#c084fc' },
-                  { tone: 'Formal', icon: 'gavel', desc: 'Proper and structured for official contexts', color: '#22d3ee' },
-                  { tone: 'Medical', icon: 'local_hospital', desc: 'Clinical accuracy for healthcare conversations', color: '#818cf8' },
-                  { tone: 'Legal', icon: 'balance', desc: 'Precise terminology for legal discussions', color: '#c084fc' },
-                ].map((item, i) => (
+                  { tone: t('Professional', 'Профессиональный'), icon: 'business_center', desc: t('Polished, precise language for business calls', 'Отточенный, точный язык для деловых звонков'), color: '#22d3ee' },
+                  { tone: t('Friendly', 'Дружелюбный'), icon: 'sentiment_satisfied', desc: t('Warm and approachable for client relations', 'Тёплый и располагающий для работы с клиентами'), color: '#818cf8' },
+                  { tone: t('Casual', 'Неформальный'), icon: 'chat_bubble', desc: t('Relaxed and natural for everyday conversations', 'Расслабленный и естественный для повседневного общения'), color: '#c084fc' },
+                  { tone: t('Formal', 'Формальный'), icon: 'gavel', desc: t('Proper and structured for official contexts', 'Строгий и структурированный для официальных ситуаций'), color: '#22d3ee' },
+                  { tone: t('Medical', 'Медицинский'), icon: 'local_hospital', desc: t('Clinical accuracy for healthcare conversations', 'Клиническая точность для медицинских разговоров'), color: '#818cf8' },
+                  { tone: t('Legal', 'Юридический'), icon: 'balance', desc: t('Precise terminology for legal discussions', 'Точная терминология для юридических обсуждений'), color: '#c084fc' },
+                ].map((item) => (
                   <div
                     key={item.tone}
                     className="bento-card glass-panel rounded-2xl p-4 flex flex-col items-center text-center gap-2"
@@ -676,17 +740,22 @@ export default function TranslatorPageClient() {
             </AnimatedSection>
 
             <AnimatedSection animation="fade-left" delay={100}>
-              <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#818cf8' }}>Context matters</p>
+              <p className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#818cf8' }}>{t('Context matters', 'Контекст важен')}</p>
               <h2 className="font-headline text-3xl md:text-4xl lg:text-5xl font-extrabold mb-6" style={{ color: '#f1f5ff' }}>
-                Six Tones for Every{' '}
-                <span className="gradient-text-translator">Situation</span>
+                {t('Six Tones for Every', 'Шесть тонов для каждой')}{' '}
+                <span className="gradient-text-translator">{t('Situation', 'ситуации')}</span>
               </h2>
               <p className="text-lg leading-relaxed mb-6" style={{ color: 'rgba(194,198,214,0.7)' }}>
-                Translation isn't just about words — it's about tone. Pick the right voice for every context,
-                from board meetings to hospital consultations.
+                {t(
+                  "Translation isn't just about words — it's about tone. Pick the right voice for every context, from board meetings to hospital consultations.",
+                  'Перевод — это не только слова, но и тон. Выберите подходящий голос для каждого контекста: от совета директоров до медицинских консультаций.'
+                )}
               </p>
               <p className="text-sm" style={{ color: 'rgba(194,198,214,0.45)' }}>
-                Switch tones between calls, or set a default for your workspace.
+                {t(
+                  'Switch tones between calls, or set a default for your workspace.',
+                  'Меняйте тон между звонками или установите тон по умолчанию для вашего рабочего пространства.'
+                )}
               </p>
             </AnimatedSection>
           </div>
@@ -709,19 +778,22 @@ export default function TranslatorPageClient() {
               <div className="relative">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 text-xs font-bold" style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', color: '#22d3ee' }}>
                   <span className="material-symbols-outlined text-sm">payments</span>
-                  Pay As You Go · No Subscription
+                  {t('Pay As You Go · No Subscription', 'Оплата по факту · Без подписки')}
                 </div>
 
                 <h2 className="font-headline text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4" style={{ color: '#f1f5ff' }}>
-                  Only Pay for What You Use
+                  {t('Only Pay for What You Use', 'Платите только за то, что используете')}
                 </h2>
                 <p className="text-lg mb-4 max-w-xl mx-auto" style={{ color: 'rgba(194,198,214,0.7)' }}>
-                  Top up your deposit and use minutes when you need them. No commitments, no wasted fees.
+                  {t(
+                    'Top up your deposit and use minutes when you need them. No commitments, no wasted fees.',
+                    'Пополняйте депозит и используйте минуты по мере необходимости. Никаких обязательств, никаких лишних платежей.'
+                  )}
                 </p>
                 <div className="text-4xl font-headline font-extrabold mb-2 gradient-text-translator">
-                  From $0.15<span className="text-2xl">/min</span>
+                  {t('From', 'От')} $0.15<span className="text-2xl">{t('/min', '/мин')}</span>
                 </div>
-                <p className="text-sm mb-10" style={{ color: 'rgba(194,198,214,0.4)' }}>Pricing varies by language pair and voice engine</p>
+                <p className="text-sm mb-10" style={{ color: 'rgba(194,198,214,0.4)' }}>{t('Pricing varies by language pair and voice engine', 'Цена зависит от языковой пары и голосового движка')}</p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link
@@ -730,14 +802,14 @@ export default function TranslatorPageClient() {
                     style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8, #c084fc)' }}
                   >
                     <span className="material-symbols-outlined text-xl">rocket_launch</span>
-                    Get Started Free
+                    {t('Get Started Free', 'Начать бесплатно')}
                   </Link>
                   <Link
                     href="/pricing"
                     className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base font-semibold glass-panel transition-all"
                     style={{ color: 'rgba(194,198,214,0.8)', border: '1px solid rgba(140,144,159,0.15)' }}
                   >
-                    View full pricing
+                    {t('View Pricing', 'Тарифы')}
                     <span className="material-symbols-outlined text-base">arrow_forward</span>
                   </Link>
                 </div>
@@ -753,10 +825,10 @@ export default function TranslatorPageClient() {
           <AnimatedSection animation="fade-up">
             <div className="text-center mb-12">
               <h2 className="font-headline text-3xl md:text-4xl font-extrabold mb-4" style={{ color: '#f1f5ff' }}>
-                Frequently Asked Questions
+                {t('Frequently Asked Questions', 'Часто задаваемые вопросы')}
               </h2>
               <p className="text-lg" style={{ color: 'rgba(194,198,214,0.55)' }}>
-                Everything you need to know about Live Translator.
+                {t('Everything you need to know about Live Translator.', 'Всё, что нужно знать о живом переводчике.')}
               </p>
             </div>
           </AnimatedSection>
@@ -767,9 +839,9 @@ export default function TranslatorPageClient() {
 
           <AnimatedSection animation="fade-up" delay={200}>
             <p className="text-center text-sm mt-10" style={{ color: 'rgba(194,198,214,0.4)' }}>
-              Still have questions?{' '}
+              {t('Still have questions?', 'Остались вопросы?')}{' '}
               <Link href="/help" className="underline" style={{ color: '#22d3ee' }}>
-                Visit the Help Center
+                {t('Visit the Help Center', 'Посетите центр помощи')}
               </Link>
             </p>
           </AnimatedSection>
@@ -784,11 +856,14 @@ export default function TranslatorPageClient() {
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <AnimatedSection animation="scale-in">
             <h2 className="font-headline text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight" style={{ color: '#f1f5ff' }}>
-              Try Your First{' '}
-              <span className="gradient-text-translator">Translated Call</span>
+              {t('Try Your First', 'Попробуйте ваш первый')}{' '}
+              <span className="gradient-text-translator">{t('Translated Call', 'переведённый звонок')}</span>
             </h2>
             <p className="text-xl mb-10 max-w-xl mx-auto" style={{ color: 'rgba(194,198,214,0.65)' }}>
-              No setup, no subscriptions. Just add minutes and start breaking language barriers on any call.
+              {t(
+                'No setup, no subscriptions. Just add minutes and start breaking language barriers on any call.',
+                'Никакой настройки, никаких подписок. Просто пополните минуты и начните преодолевать языковые барьеры в любом звонке.'
+              )}
             </p>
             <Link
               href="/auth/signup"
@@ -796,7 +871,7 @@ export default function TranslatorPageClient() {
               style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8, #c084fc)' }}
             >
               <span className="material-symbols-outlined text-2xl">phone_in_talk</span>
-              Start Translating Now
+              {t('Start Translating Now', 'Начать переводить сейчас')}
             </Link>
           </AnimatedSection>
         </div>
@@ -815,19 +890,19 @@ export default function TranslatorPageClient() {
                 <span className="font-headline font-bold text-white text-lg">Caller</span>
               </Link>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(194,198,214,0.45)' }}>
-                AI phone agents and live translation for modern businesses.
+                {t('AI phone agents and live translation for modern businesses.', 'AI-телефонные агенты и живой перевод для современного бизнеса.')}
               </p>
             </div>
 
             {/* Product */}
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>Product</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>{t('Product', 'Продукт')}</h4>
               <ul className="space-y-3">
                 {[
-                  { label: 'AI Phone Agents', href: '/#products' },
-                  { label: 'Live Translator', href: '/translator' },
-                  { label: 'Pricing', href: '/pricing' },
-                  { label: 'Dashboard', href: '/dashboard' },
+                  { label: t('AI Phone Agents', 'AI-телефонные агенты'), href: '/#products' },
+                  { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
+                  { label: t('Pricing', 'Тарифы'), href: '/pricing' },
+                  { label: t('Dashboard', 'Панель управления'), href: '/dashboard' },
                 ].map((link) => (
                   <li key={link.href}>
                     <Link href={link.href} className="text-sm transition-colors" style={{ color: 'rgba(194,198,214,0.55)' }}
@@ -842,12 +917,12 @@ export default function TranslatorPageClient() {
 
             {/* Resources */}
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>Resources</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>{t('Resources', 'Ресурсы')}</h4>
               <ul className="space-y-3">
                 {[
-                  { label: 'Documentation', href: '/docs' },
-                  { label: 'Help Center', href: '/help' },
-                  { label: 'API Reference', href: '/docs/api' },
+                  { label: t('Documentation', 'Документация'), href: '/docs' },
+                  { label: t('Help Center', 'Центр помощи'), href: '/help' },
+                  { label: t('API Reference', 'Справочник API'), href: '/docs/api' },
                 ].map((link) => (
                   <li key={link.href}>
                     <Link href={link.href} className="text-sm transition-colors" style={{ color: 'rgba(194,198,214,0.55)' }}
@@ -862,12 +937,12 @@ export default function TranslatorPageClient() {
 
             {/* Legal */}
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>Legal</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>{t('Legal', 'Правовое')}</h4>
               <ul className="space-y-3">
                 {[
-                  { label: 'Privacy Policy', href: '/privacy' },
-                  { label: 'Terms of Service', href: '/terms' },
-                  { label: 'Acceptable Use', href: '/acceptable-use' },
+                  { label: t('Privacy Policy', 'Политика конфиденциальности'), href: '/privacy' },
+                  { label: t('Terms of Service', 'Условия использования'), href: '/terms' },
+                  { label: t('Acceptable Use', 'Допустимое использование'), href: '/acceptable-use' },
                 ].map((link) => (
                   <li key={link.href}>
                     <Link href={link.href} className="text-sm transition-colors" style={{ color: 'rgba(194,198,214,0.55)' }}
@@ -883,10 +958,10 @@ export default function TranslatorPageClient() {
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8" style={{ borderTop: '1px solid rgba(140,144,159,0.07)' }}>
             <p className="text-xs" style={{ color: 'rgba(194,198,214,0.3)' }}>
-              © {new Date().getFullYear()} Caller. All rights reserved.
+              © {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}
             </p>
             <p className="text-xs" style={{ color: 'rgba(194,198,214,0.25)' }}>
-              Built with AI · Powered by xAI, OpenAI, ElevenLabs
+              {t('Built with AI · Powered by xAI, OpenAI, ElevenLabs', 'Создано с AI · Работает на xAI, OpenAI, ElevenLabs')}
             </p>
           </div>
         </div>
@@ -894,5 +969,14 @@ export default function TranslatorPageClient() {
 
       <ContactPopup />
     </div>
+  );
+}
+
+/* ── Page Export ─────────────────────────────────────────────────────────── */
+export default function TranslatorPageClient() {
+  return (
+    <LangProvider>
+      <TranslatorContent />
+    </LangProvider>
   );
 }

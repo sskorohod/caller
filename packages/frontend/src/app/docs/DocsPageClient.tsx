@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AnimatedSection from '@/app/_landing/AnimatedSection';
 import ContactPopup from '@/app/_landing/ContactPopup';
+import { useLang, LangSwitcher, LangProvider } from '@/app/_landing/useLang';
 import { HelpArticle } from '@/app/dashboard/help/_components/HelpArticle';
 import { DOC_SECTIONS, type DocSection, type DocArticle } from './_lib/docs-data';
 
@@ -50,7 +51,16 @@ function DocsStyles() {
 }
 
 /* ── Inner component that uses useSearchParams ───────────────────────── */
+const SECTION_RU: Record<string, string> = {
+  'Getting Started': 'Начало работы',
+  'User Guide': 'Руководство пользователя',
+  'API Reference': 'Справочник API',
+  'Architecture': 'Архитектура',
+};
+
 function DocsPageInner() {
+  const { t } = useLang();
+  const sn = (title: string) => t(title, SECTION_RU[title] ?? title);
   const searchParams = useSearchParams();
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['getting-started']));
@@ -126,7 +136,7 @@ function DocsPageInner() {
         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base" style={{ color: '#606880' }}>search</span>
         <input
           type="text"
-          placeholder="Search docs…"
+          placeholder={t('Search docs…', 'Поиск…')}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full pl-9 pr-3 py-2 text-sm rounded-xl outline-none"
@@ -153,7 +163,7 @@ function DocsPageInner() {
               <span className="material-symbols-outlined text-base flex-shrink-0" style={{ color: sectionColor, fontVariationSettings: "'FILL' 1" }}>
                 {section.icon}
               </span>
-              <span className="text-xs font-semibold font-headline flex-1">{section.title}</span>
+              <span className="text-xs font-semibold font-headline flex-1">{sn(section.title)}</span>
               <span className="material-symbols-outlined text-sm" style={{ color: '#606880', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
                 expand_more
               </span>
@@ -201,24 +211,25 @@ function DocsPageInner() {
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
             <Link href="/help" className="px-3 py-1.5 rounded-lg text-sm transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>
-              Help Center
+              {t('Help Center', 'Центр помощи')}
             </Link>
             <Link href="/docs" className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ color: '#818cf8', background: 'rgba(99,102,241,0.08)' }}>
-              Documentation
+              {t('Documentation', 'Документация')}
             </Link>
             <Link href="/docs?section=api-reference" className="px-3 py-1.5 rounded-lg text-sm transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>
-              API Reference
+              {t('API Reference', 'Справочник API')}
             </Link>
           </nav>
 
           {/* CTA + hamburger */}
           <div className="flex items-center gap-2">
+            <LangSwitcher />
             <Link
               href="/login?mode=register"
               className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold cta-glow"
               style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}
             >
-              Get Started
+              {t('Get Started', 'Начать')}
             </Link>
             <button
               className="md:hidden p-2 rounded-lg"
@@ -233,10 +244,11 @@ function DocsPageInner() {
         {/* Mobile menu */}
         {mobileHamburger && (
           <div className="md:hidden px-4 pb-4 pt-2 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <Link href="/help" className="block px-3 py-2 rounded-lg text-sm" style={{ color: '#a0a8c0' }} onClick={() => setMobileHamburger(false)}>Help Center</Link>
-            <Link href="/docs" className="block px-3 py-2 rounded-lg text-sm font-medium" style={{ color: '#818cf8' }} onClick={() => setMobileHamburger(false)}>Documentation</Link>
-            <Link href="/docs?section=api-reference" className="block px-3 py-2 rounded-lg text-sm" style={{ color: '#a0a8c0' }} onClick={() => setMobileHamburger(false)}>API Reference</Link>
-            <Link href="/login?mode=register" className="block mt-2 px-4 py-2 rounded-lg text-sm font-semibold text-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }} onClick={() => setMobileHamburger(false)}>Get Started</Link>
+            <Link href="/help" className="block px-3 py-2 rounded-lg text-sm" style={{ color: '#a0a8c0' }} onClick={() => setMobileHamburger(false)}>{t('Help Center', 'Центр помощи')}</Link>
+            <Link href="/docs" className="block px-3 py-2 rounded-lg text-sm font-medium" style={{ color: '#818cf8' }} onClick={() => setMobileHamburger(false)}>{t('Documentation', 'Документация')}</Link>
+            <Link href="/docs?section=api-reference" className="block px-3 py-2 rounded-lg text-sm" style={{ color: '#a0a8c0' }} onClick={() => setMobileHamburger(false)}>{t('API Reference', 'Справочник API')}</Link>
+            <LangSwitcher className="mx-3" />
+            <Link href="/login?mode=register" className="block mt-2 px-4 py-2 rounded-lg text-sm font-semibold text-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }} onClick={() => setMobileHamburger(false)}>{t('Get Started', 'Начать')}</Link>
           </div>
         )}
       </header>
@@ -250,13 +262,13 @@ function DocsPageInner() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4"
                   style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: '#818cf8' }}>
                   <span className="material-symbols-outlined text-sm">menu_book</span>
-                  Platform Documentation
+                  {t('Platform Documentation', 'Документация платформы')}
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-headline font-extrabold tracking-tight mb-2">
-                  <span className="gradient-text">Documentation</span>
+                  <span className="gradient-text">{t('Documentation', 'Документация')}</span>
                 </h1>
                 <p className="text-sm max-w-lg" style={{ color: '#a0a8c0' }}>
-                  Everything you need to build with Caller — guides, API reference, and architecture deep dives.
+                  {t('Everything you need to build with Caller — guides, API reference, and architecture deep dives.', 'Всё для работы с Caller — руководства, справочник API и обзор архитектуры.')}
                 </p>
               </div>
 
@@ -265,7 +277,7 @@ function DocsPageInner() {
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base" style={{ color: '#606880' }}>search</span>
                 <input
                   type="text"
-                  placeholder="Search documentation…"
+                  placeholder={t('Search documentation…', 'Поиск по документации…')}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
@@ -300,7 +312,7 @@ function DocsPageInner() {
               <div>
                 {/* Breadcrumb */}
                 <div className="flex items-center gap-2 mb-6 text-xs" style={{ color: '#606880' }}>
-                  <span>{activeArticle.section.title}</span>
+                  <span>{sn(activeArticle.section.title)}</span>
                   <span className="material-symbols-outlined text-sm">chevron_right</span>
                   <span style={{ color: '#a0a8c0' }}>{activeArticle.article.title}</span>
                 </div>
@@ -364,8 +376,8 @@ function DocsPageInner() {
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
                           <span className="material-symbols-outlined text-lg" style={{ color, fontVariationSettings: "'FILL' 1" }}>{section.icon}</span>
                         </div>
-                        <div className="font-headline font-bold text-sm mb-1">{section.title}</div>
-                        <div className="text-xs" style={{ color: '#a0a8c0' }}>{section.articles.length} articles</div>
+                        <div className="font-headline font-bold text-sm mb-1">{sn(section.title)}</div>
+                        <div className="text-xs" style={{ color: '#a0a8c0' }}>{section.articles.length} {t('articles', 'статей')}</div>
                       </button>
                     </AnimatedSection>
                   );
@@ -386,7 +398,7 @@ function DocsPageInner() {
                   {filteredSections.map(section => (
                     <div key={section.id} className="mb-4">
                       <div className="text-xs font-semibold mb-2 px-1" style={{ color: SECTION_COLORS[section.id] ?? '#6366f1' }}>
-                        {section.title}
+                        {sn(section.title)}
                       </div>
                       {section.articles.map(article => (
                         <button
@@ -419,8 +431,8 @@ function DocsPageInner() {
                         <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
                           <span className="material-symbols-outlined text-base" style={{ color, fontVariationSettings: "'FILL' 1" }}>{section.icon}</span>
                         </div>
-                        <div className="font-headline font-bold text-xs mb-0.5">{section.title}</div>
-                        <div className="text-[10px]" style={{ color: '#a0a8c0' }}>{section.articles.length} articles</div>
+                        <div className="font-headline font-bold text-xs mb-0.5">{sn(section.title)}</div>
+                        <div className="text-[10px]" style={{ color: '#a0a8c0' }}>{section.articles.length} {t('articles', 'статей')}</div>
                       </button>
                     );
                   })}
@@ -442,11 +454,11 @@ function DocsPageInner() {
                   onClick={() => setMobileView('sections')}
                 >
                   <span className="material-symbols-outlined text-base">arrow_back</span>
-                  All sections
+                  {t('All sections', 'Все разделы')}
                 </button>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="material-symbols-outlined text-base" style={{ color, fontVariationSettings: "'FILL' 1" }}>{section.icon}</span>
-                  <span className="font-headline font-bold text-base">{section.title}</span>
+                  <span className="font-headline font-bold text-base">{sn(section.title)}</span>
                 </div>
                 <div className="space-y-2">
                   {section.articles.map(article => (
@@ -478,7 +490,7 @@ function DocsPageInner() {
                 }}
               >
                 <span className="material-symbols-outlined text-base">arrow_back</span>
-                {activeArticle.section.title}
+                {sn(activeArticle.section.title)}
               </button>
 
               {/* Article */}
@@ -502,30 +514,30 @@ function DocsPageInner() {
                 <span className="font-headline font-extrabold text-lg">Caller</span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
-                AI phone agents and live translation for the globally connected business.
+                {t('AI phone agents and live translation for the globally connected business.', 'AI-телефонные агенты и живой перевод для глобального бизнеса.')}
               </p>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.12)' }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80' }} />
-                <span className="text-[10px] font-medium" style={{ color: '#4ade80' }}>All systems operational</span>
+                <span className="text-[10px] font-medium" style={{ color: '#4ade80' }}>{t('All systems operational', 'Все системы работают')}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-12">
               {[
-                { title: 'Product', links: [
-                  { label: 'AI Agents', href: '/#products' },
-                  { label: 'Live Translator', href: '/#products' },
-                  { label: 'Pricing', href: '/pricing' },
+                { title: t('Product', 'Продукт'), links: [
+                  { label: t('AI Agents', 'AI Агенты'), href: '/#products' },
+                  { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
+                  { label: t('Pricing', 'Цены'), href: '/pricing' },
                 ] },
-                { title: 'Resources', links: [
-                  { label: 'Documentation', href: '/docs' },
-                  { label: 'API Reference', href: '/docs?section=api-reference' },
-                  { label: 'Help Center', href: '/help' },
+                { title: t('Resources', 'Ресурсы'), links: [
+                  { label: t('Documentation', 'Документация'), href: '/docs' },
+                  { label: t('API Reference', 'Справочник API'), href: '/docs?section=api-reference' },
+                  { label: t('Help Center', 'Центр помощи'), href: '/help' },
                 ] },
-                { title: 'Legal', links: [
-                  { label: 'Privacy Policy', href: '/privacy' },
-                  { label: 'Terms of Service', href: '/terms' },
-                  { label: 'Acceptable Use', href: '/acceptable-use' },
+                { title: t('Legal', 'Правовая информация'), links: [
+                  { label: t('Privacy Policy', 'Политика конфиденциальности'), href: '/privacy' },
+                  { label: t('Terms of Service', 'Условия использования'), href: '/terms' },
+                  { label: t('Acceptable Use', 'Допустимое использование'), href: '/acceptable-use' },
                 ] },
               ].map(col => (
                 <div key={col.title}>
@@ -544,7 +556,7 @@ function DocsPageInner() {
 
           <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
             <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>
-              &copy; {new Date().getFullYear()} Caller. All rights reserved.
+              &copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}
             </p>
           </div>
         </div>
@@ -558,12 +570,14 @@ function DocsPageInner() {
 /* ── Exported client component wrapped in Suspense ───────────────────── */
 export default function DocsPageClient() {
   return (
-    <Suspense fallback={
-      <div style={{ minHeight: '100vh', background: '#0a0e1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="material-symbols-outlined text-4xl" style={{ color: '#606880' }}>hourglass_empty</span>
-      </div>
-    }>
-      <DocsPageInner />
-    </Suspense>
+    <LangProvider>
+      <Suspense fallback={
+        <div style={{ minHeight: '100vh', background: '#0a0e1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span className="material-symbols-outlined text-4xl" style={{ color: '#606880' }}>hourglass_empty</span>
+        </div>
+      }>
+        <DocsPageInner />
+      </Suspense>
+    </LangProvider>
   );
 }

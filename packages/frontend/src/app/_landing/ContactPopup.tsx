@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useLang } from './useLang';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -12,6 +13,7 @@ function newChallenge() {
 }
 
 export default function ContactPopup() {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [challenge, setChallenge] = useState({ a: 0, b: 0 });
 
@@ -54,21 +56,21 @@ export default function ContactPopup() {
     setError('');
 
     if (!name.trim() || !email.trim() || !subject.trim() || !message.trim()) {
-      setError('Please fill in all fields.');
+      setError(t('Please fill in all fields.', 'Пожалуйста, заполните все поля.'));
       return;
     }
     if (message.trim().length < 10) {
-      setError('Message must be at least 10 characters.');
+      setError(t('Message must be at least 10 characters.', 'Сообщение должно быть не менее 10 символов.'));
       return;
     }
 
     const answer = parseInt(captcha, 10);
     if (isNaN(answer)) {
-      setError('Please solve the verification question.');
+      setError(t('Please solve the verification question.', 'Пожалуйста, решите проверочный вопрос.'));
       return;
     }
     if (answer !== challenge.a + challenge.b) {
-      setError('Incorrect answer. Please try again.');
+      setError(t('Incorrect answer. Please try again.', 'Неверный ответ. Попробуйте снова.'));
       setChallenge(newChallenge());
       setCaptcha('');
       return;
@@ -91,7 +93,7 @@ export default function ContactPopup() {
       });
 
       if (res.status === 429) {
-        setError('Too many messages. Please try again in a minute.');
+        setError(t('Too many messages. Please try again in a minute.', 'Слишком много сообщений. Попробуйте через минуту.'));
         return;
       }
       if (res.status === 400) {
@@ -102,7 +104,7 @@ export default function ContactPopup() {
         return;
       }
       if (!res.ok) {
-        setError('Something went wrong. Please try again later.');
+        setError(t('Something went wrong. Please try again later.', 'Что-то пошло не так. Попробуйте позже.'));
         return;
       }
 
@@ -112,7 +114,7 @@ export default function ContactPopup() {
         setSuccess(false);
       }, 3000);
     } catch {
-      setError('Connection error. Please try again.');
+      setError(t('Connection error. Please try again.', 'Ошибка соединения. Попробуйте снова.'));
     } finally {
       setLoading(false);
     }
@@ -207,9 +209,9 @@ export default function ContactPopup() {
           {/* Header */}
           <div className="px-5 pt-5 pb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold" style={{ color: '#dde2f3' }}>Contact Us</h3>
+              <h3 className="text-base font-bold" style={{ color: '#dde2f3' }}>{t('Contact Us', 'Связаться с нами')}</h3>
               <p className="text-xs mt-0.5" style={{ color: 'rgba(194,198,214,0.5)' }}>
-                We&apos;ll get back to you shortly
+                {t("We'll get back to you shortly", 'Мы ответим вам в ближайшее время')}
               </p>
             </div>
             <button
@@ -234,8 +236,8 @@ export default function ContactPopup() {
                 >
                   <span className="material-symbols-outlined text-2xl" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                 </div>
-                <p className="text-sm font-semibold" style={{ color: '#4ade80' }}>Message Sent!</p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(194,198,214,0.5)' }}>We&apos;ll respond as soon as possible.</p>
+                <p className="text-sm font-semibold" style={{ color: '#4ade80' }}>{t('Message Sent!', 'Сообщение отправлено!')}</p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(194,198,214,0.5)' }}>{t("We'll respond as soon as possible.", 'Мы ответим как можно скорее.')}</p>
               </div>
             ) : (
               /* Form */
@@ -253,12 +255,12 @@ export default function ContactPopup() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>Name</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>{t('Name', 'Имя')}</label>
                   <input
                     type="text"
                     className="contact-input"
                     style={inputStyle}
-                    placeholder="Your name"
+                    placeholder={t('Your name', 'Ваше имя')}
                     value={name}
                     onChange={e => setName(e.target.value)}
                     required
@@ -267,12 +269,12 @@ export default function ContactPopup() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>Email</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>{t('Email', 'Эл. почта')}</label>
                   <input
                     type="email"
                     className="contact-input"
                     style={inputStyle}
-                    placeholder="your@email.com"
+                    placeholder={t('your@email.com', 'ваш@email.com')}
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
@@ -281,12 +283,12 @@ export default function ContactPopup() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>Subject</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>{t('Subject', 'Тема')}</label>
                   <input
                     type="text"
                     className="contact-input"
                     style={inputStyle}
-                    placeholder="What's this about?"
+                    placeholder={t("What's this about?", 'О чём ваше сообщение?')}
                     value={subject}
                     onChange={e => setSubject(e.target.value)}
                     required
@@ -295,11 +297,11 @@ export default function ContactPopup() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>Message</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>{t('Message', 'Сообщение')}</label>
                   <textarea
                     className="contact-input"
                     style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
-                    placeholder="Your message (at least 10 characters)"
+                    placeholder={t('Your message (at least 10 characters)', 'Ваше сообщение (минимум 10 символов)')}
                     value={message}
                     onChange={e => setMessage(e.target.value)}
                     required
@@ -310,7 +312,7 @@ export default function ContactPopup() {
                 {/* Math captcha */}
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(194,198,214,0.6)' }}>
-                    Verification: What is {challenge.a} + {challenge.b}?
+                    {t(`Verification: What is ${challenge.a} + ${challenge.b}?`, `Проверка: сколько будет ${challenge.a} + ${challenge.b}?`)}
                   </label>
                   <input
                     type="number"
@@ -344,12 +346,12 @@ export default function ContactPopup() {
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
-                      Sending...
+                      {t('Sending...', 'Отправка...')}
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
                       <span className="material-symbols-outlined text-base">send</span>
-                      Send Message
+                      {t('Send Message', 'Отправить')}
                     </span>
                   )}
                 </button>

@@ -5,6 +5,7 @@ import { HELP_CATEGORIES } from '@/app/dashboard/help/_lib/help-data';
 import { HelpArticle } from '@/app/dashboard/help/_components/HelpArticle';
 import AnimatedSection from '@/app/_landing/AnimatedSection';
 import ContactPopup from '@/app/_landing/ContactPopup';
+import { useLang, LangSwitcher, LangProvider } from '@/app/_landing/useLang';
 
 /* ── Styles ─────────────────────────────────────────────────────────── */
 function HelpStyles() {
@@ -49,61 +50,68 @@ const CAT_COLORS: Record<string, { accent: string; gradient: string }> = {
   'settings':        { accent: '#64748b', gradient: 'linear-gradient(135deg, rgba(100,116,139,0.12), rgba(100,116,139,0.02))' },
 };
 
-const CAT_TITLES: Record<string, string> = {
-  'getting-started': 'Getting Started',
-  'billing':         'Billing & Plans',
-  'providers':       'Provider Setup',
-  'agents':          'AI Agents',
-  'calls':           'Calls',
-  'translator':      'Live Translator',
-  'missions':        'Missions',
-  'integrations':    'Integrations & API',
-  'settings':        'Settings',
+const CAT_TITLES: Record<string, { en: string; ru: string }> = {
+  'getting-started': { en: 'Getting Started', ru: 'Начало работы' },
+  'billing':         { en: 'Billing & Plans', ru: 'Биллинг и тарифы' },
+  'providers':       { en: 'Provider Setup', ru: 'Настройка провайдеров' },
+  'agents':          { en: 'AI Agents', ru: 'AI Агенты' },
+  'calls':           { en: 'Calls', ru: 'Звонки' },
+  'translator':      { en: 'Live Translator', ru: 'Живой переводчик' },
+  'missions':        { en: 'Missions', ru: 'Миссии' },
+  'integrations':    { en: 'Integrations & API', ru: 'Интеграции и API' },
+  'settings':        { en: 'Settings', ru: 'Настройки' },
 };
 
-const ART_TITLES: Record<string, string> = {
-  'help.art.whatIsCaller':           'What is Caller',
-  'help.art.registration':           'Registration & First Steps',
-  'help.art.choosingPlan':           'Choosing a Plan',
-  'help.art.trialPeriod':            'Trial Period',
-  'help.art.howDepositWorks':        'How the Deposit Works',
-  'help.art.ownKeysVsPlatform':      'Own Keys vs Platform Providers',
-  'help.art.managingSubscription':   'Managing Your Subscription',
-  'help.art.setupTwilio':            'Setting Up Twilio',
-  'help.art.setupAnthropic':         'Setting Up Anthropic (Claude)',
-  'help.art.setupOpenai':            'Setting Up OpenAI',
-  'help.art.setupDeepgram':          'Setting Up Deepgram',
-  'help.art.setupElevenlabs':        'Setting Up ElevenLabs',
-  'help.art.setupXai':               'Setting Up xAI (Grok)',
-  'help.art.setupTelegram':          'Setting Up Telegram Notifications',
-  'help.art.creatingAgent':          'Creating an AI Agent',
-  'help.art.agentVoice':             'Agent Voice Settings',
-  'help.art.agentLlm':               'Agent LLM Settings',
-  'help.art.promptPacks':            'Prompt Packs',
-  'help.art.skillPacks':             'Skill Packs',
-  'help.art.knowledgeBase':          'Knowledge Base',
-  'help.art.assignPhoneNumber':      'Assigning a Phone Number',
-  'help.art.outboundCalls':          'Making Outbound Calls',
-  'help.art.inboundCalls':           'Handling Inbound Calls',
-  'help.art.dialer':                 'Using the Dialer',
-  'help.art.recordingTranscription': 'Recording & Transcription',
-  'help.art.howTranslatorWorks':     'How the Live Translator Works',
-  'help.art.translatorSettings':     'Translator Settings',
-  'help.art.whatIsMission':          'What is a Mission',
-  'help.art.creatingMission':        'Creating a Mission',
-  'help.art.apiKeys':                'API Keys & Authentication',
-  'help.art.webhooks':               'Webhooks',
-  'help.art.mcpServer':              'MCP Server Integration',
-  'help.art.oauth':                  'OAuth 2.0',
-  'help.art.connectors':             'Connectors',
-  'help.art.generalSettings':        'General Settings',
-  'help.art.appearanceSettings':     'Appearance Settings',
-  'help.art.complianceSettings':     'Compliance Settings',
-  'help.art.teamSettings':           'Team Settings',
+const ART_TITLES: Record<string, { en: string; ru: string }> = {
+  'help.art.whatIsCaller':           { en: 'What is Caller', ru: 'Что такое Caller' },
+  'help.art.registration':           { en: 'Registration & First Steps', ru: 'Регистрация и первые шаги' },
+  'help.art.choosingPlan':           { en: 'Choosing a Plan', ru: 'Выбор тарифа' },
+  'help.art.trialPeriod':            { en: 'Trial Period', ru: 'Пробный период' },
+  'help.art.howDepositWorks':        { en: 'How the Deposit Works', ru: 'Как работает депозит' },
+  'help.art.ownKeysVsPlatform':      { en: 'Own Keys vs Platform Providers', ru: 'Свои ключи или провайдеры платформы' },
+  'help.art.managingSubscription':   { en: 'Managing Your Subscription', ru: 'Управление подпиской' },
+  'help.art.setupTwilio':            { en: 'Setting Up Twilio', ru: 'Настройка Twilio' },
+  'help.art.setupAnthropic':         { en: 'Setting Up Anthropic (Claude)', ru: 'Настройка Anthropic (Claude)' },
+  'help.art.setupOpenai':            { en: 'Setting Up OpenAI', ru: 'Настройка OpenAI' },
+  'help.art.setupDeepgram':          { en: 'Setting Up Deepgram', ru: 'Настройка Deepgram' },
+  'help.art.setupElevenlabs':        { en: 'Setting Up ElevenLabs', ru: 'Настройка ElevenLabs' },
+  'help.art.setupXai':               { en: 'Setting Up xAI (Grok)', ru: 'Настройка xAI (Grok)' },
+  'help.art.setupTelegram':          { en: 'Setting Up Telegram Notifications', ru: 'Настройка уведомлений Telegram' },
+  'help.art.creatingAgent':          { en: 'Creating an AI Agent', ru: 'Создание AI-агента' },
+  'help.art.agentVoice':             { en: 'Agent Voice Settings', ru: 'Настройки голоса агента' },
+  'help.art.agentLlm':               { en: 'Agent LLM Settings', ru: 'Настройки LLM агента' },
+  'help.art.promptPacks':            { en: 'Prompt Packs', ru: 'Наборы промптов' },
+  'help.art.skillPacks':             { en: 'Skill Packs', ru: 'Наборы навыков' },
+  'help.art.knowledgeBase':          { en: 'Knowledge Base', ru: 'База знаний' },
+  'help.art.assignPhoneNumber':      { en: 'Assigning a Phone Number', ru: 'Назначение номера телефона' },
+  'help.art.outboundCalls':          { en: 'Making Outbound Calls', ru: 'Исходящие звонки' },
+  'help.art.inboundCalls':           { en: 'Handling Inbound Calls', ru: 'Обработка входящих звонков' },
+  'help.art.dialer':                 { en: 'Using the Dialer', ru: 'Использование номеронабирателя' },
+  'help.art.recordingTranscription': { en: 'Recording & Transcription', ru: 'Запись и транскрипция' },
+  'help.art.howTranslatorWorks':     { en: 'How the Live Translator Works', ru: 'Как работает живой переводчик' },
+  'help.art.translatorSettings':     { en: 'Translator Settings', ru: 'Настройки переводчика' },
+  'help.art.whatIsMission':          { en: 'What is a Mission', ru: 'Что такое миссия' },
+  'help.art.creatingMission':        { en: 'Creating a Mission', ru: 'Создание миссии' },
+  'help.art.apiKeys':                { en: 'API Keys & Authentication', ru: 'API-ключи и аутентификация' },
+  'help.art.webhooks':               { en: 'Webhooks', ru: 'Вебхуки' },
+  'help.art.mcpServer':              { en: 'MCP Server Integration', ru: 'Интеграция MCP Server' },
+  'help.art.oauth':                  { en: 'OAuth 2.0', ru: 'OAuth 2.0' },
+  'help.art.connectors':             { en: 'Connectors', ru: 'Коннекторы' },
+  'help.art.generalSettings':        { en: 'General Settings', ru: 'Основные настройки' },
+  'help.art.appearanceSettings':     { en: 'Appearance Settings', ru: 'Настройки внешнего вида' },
+  'help.art.complianceSettings':     { en: 'Compliance Settings', ru: 'Настройки соответствия' },
+  'help.art.teamSettings':           { en: 'Team Settings', ru: 'Настройки команды' },
 };
 
 /* ── Main Component ─────────────────────────────────────────────────── */
 export default function HelpPageClient() {
+  return <LangProvider><HelpPageInner /></LangProvider>;
+}
+
+function HelpPageInner() {
+  const { lang, t } = useLang();
+  const catTitle = (id: string) => { const c = CAT_TITLES[id]; return c ? t(c.en, c.ru) : id; };
+  const artTitle = (key: string) => { const a = ART_TITLES[key]; return a ? t(a.en, a.ru) : key; };
   const [mobileNav, setMobileNav] = useState(false);
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [selectedArticleKey, setSelectedArticleKey] = useState<string | null>(null);
@@ -120,17 +128,19 @@ export default function HelpPageClient() {
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    const results: Array<{ catId: string; catTitle: string; titleKey: string; title: string }> = [];
+    const results: Array<{ catId: string; catTitleStr: string; titleKey: string; title: string }> = [];
     for (const cat of HELP_CATEGORIES) {
       for (const art of cat.articles) {
-        const title = ART_TITLES[art.titleKey] ?? art.titleKey;
+        const a = ART_TITLES[art.titleKey];
+        const title = a ? (lang === 'ru' ? a.ru : a.en) : art.titleKey;
         if (title.toLowerCase().includes(q)) {
-          results.push({ catId: cat.id, catTitle: CAT_TITLES[cat.id] ?? cat.id, titleKey: art.titleKey, title });
+          const c = CAT_TITLES[cat.id];
+          results.push({ catId: cat.id, catTitleStr: c ? (lang === 'ru' ? c.ru : c.en) : cat.id, titleKey: art.titleKey, title });
         }
       }
     }
     return results;
-  }, [searchQuery]);
+  }, [searchQuery, lang]);
 
   function selectArticle(catId: string, titleKey: string) {
     setSelectedCatId(catId);
@@ -156,17 +166,18 @@ export default function HelpPageClient() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-            <span className="font-semibold" style={{ color: '#818cf8' }}>Help Center</span>
-            <Link href="/docs" className="transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>Documentation</Link>
-            <Link href="/docs?section=api" className="transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>API Reference</Link>
+            <span className="font-semibold" style={{ color: '#818cf8' }}>{t('Help Center', 'Центр помощи')}</span>
+            <Link href="/docs" className="transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>{t('Documentation', 'Документация')}</Link>
+            <Link href="/docs?section=api" className="transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>{t('API Reference', 'Справочник API')}</Link>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>Log in</Link>
+            <LangSwitcher />
+            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>{t('Log in', 'Войти')}</Link>
             <Link href="/login?mode=register"
               className="px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cta-glow hidden sm:inline-flex"
               style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-              Get Started
+              {t('Get Started', 'Начать')}
             </Link>
             <button className="md:hidden w-10 h-10 flex items-center justify-center" onClick={() => setMobileNav(!mobileNav)}>
               <span className="material-symbols-outlined">{mobileNav ? 'close' : 'menu'}</span>
@@ -177,14 +188,15 @@ export default function HelpPageClient() {
         {/* Mobile dropdown */}
         {mobileNav && (
           <div className="md:hidden px-4 pb-4 space-y-1" style={{ background: 'rgba(10, 14, 26, 0.98)', backdropFilter: 'blur(24px)' }}>
-            <span className="block py-3 text-sm font-semibold" style={{ color: '#818cf8' }}>Help Center</span>
-            <Link href="/docs" onClick={() => setMobileNav(false)} className="block py-3 text-sm font-medium" style={{ color: '#a0a8c0' }}>Documentation</Link>
-            <Link href="/docs?section=api" onClick={() => setMobileNav(false)} className="block py-3 text-sm font-medium" style={{ color: '#a0a8c0' }}>API Reference</Link>
+            <span className="block py-3 text-sm font-semibold" style={{ color: '#818cf8' }}>{t('Help Center', 'Центр помощи')}</span>
+            <Link href="/docs" onClick={() => setMobileNav(false)} className="block py-3 text-sm font-medium" style={{ color: '#a0a8c0' }}>{t('Documentation', 'Документация')}</Link>
+            <Link href="/docs?section=api" onClick={() => setMobileNav(false)} className="block py-3 text-sm font-medium" style={{ color: '#a0a8c0' }}>{t('API Reference', 'Справочник API')}</Link>
             <div className="pt-3 mt-2 flex flex-col gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <LangSwitcher className="w-fit" />
               <Link href="/login?mode=register" onClick={() => setMobileNav(false)}
                 className="w-full py-3 rounded-xl text-sm font-bold text-center cta-glow"
                 style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                Get Started Free
+                {t('Get Started Free', 'Начать бесплатно')}
               </Link>
             </div>
           </div>
@@ -204,13 +216,13 @@ export default function HelpPageClient() {
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-5"
                 style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.2)', color: '#818cf8' }}>
                 <span className="material-symbols-outlined text-sm">help</span>
-                Help Center
+                {t('Help Center', 'Центр помощи')}
               </div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                <span className="gradient-text">Help Center</span>
+                <span className="gradient-text">{t('Help Center', 'Центр помощи')}</span>
               </h1>
               <p className="text-base sm:text-lg mb-8" style={{ color: '#a0a8c0' }}>
-                Find answers to everything about Caller
+                {t('Find answers to everything about Caller', 'Найдите ответы на все вопросы о Caller')}
               </p>
 
               {/* Search */}
@@ -220,7 +232,7 @@ export default function HelpPageClient() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search articles..."
+                  placeholder={t('Search articles...', 'Поиск статей...')}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="search-input w-full pl-12 pr-4 py-3.5 rounded-xl text-sm"
@@ -252,19 +264,19 @@ export default function HelpPageClient() {
                       <span className="material-symbols-outlined text-sm flex-shrink-0" style={{ color: CAT_COLORS[r.catId]?.accent ?? '#6366f1' }}>article</span>
                       <div>
                         <div className="text-sm font-medium" style={{ color: '#dde2f3' }}>{r.title}</div>
-                        <div className="text-xs" style={{ color: '#64748b' }}>{r.catTitle}</div>
+                        <div className="text-xs" style={{ color: '#64748b' }}>{r.catTitleStr}</div>
                       </div>
                     </button>
                   ))}
                   {searchResults.length === 0 && (
-                    <div className="px-4 py-3 text-sm" style={{ color: '#64748b' }}>No articles found</div>
+                    <div className="px-4 py-3 text-sm" style={{ color: '#64748b' }}>{t('No articles found', 'Статьи не найдены')}</div>
                   )}
                 </div>
               )}
               {searchQuery && searchResults.length === 0 && (
                 <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-full max-w-lg rounded-xl z-20 overflow-hidden text-left"
                   style={{ background: 'rgba(16, 20, 34, 0.98)', border: '0.5px solid rgba(140, 144, 159, 0.18)', boxShadow: '0 16px 48px rgba(0,0,0,0.5)' }}>
-                  <div className="px-4 py-3 text-sm" style={{ color: '#64748b' }}>No articles found for &quot;{searchQuery}&quot;</div>
+                  <div className="px-4 py-3 text-sm" style={{ color: '#64748b' }}>{t(`No articles found for "${searchQuery}"`, `Статьи не найдены для "${searchQuery}"`)}</div>
                 </div>
               )}
             </AnimatedSection>
@@ -307,7 +319,7 @@ export default function HelpPageClient() {
                           <span className="material-symbols-outlined text-lg flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1", color: isActive ? colors.accent : '#64748b' }}>
                             {cat.icon}
                           </span>
-                          <span className="text-sm font-medium flex-1">{CAT_TITLES[cat.id] ?? cat.id}</span>
+                          <span className="text-sm font-medium flex-1">{catTitle(cat.id)}</span>
                           <span className="material-symbols-outlined text-sm" style={{ color: '#64748b' }}>
                             {isActive ? 'expand_less' : 'expand_more'}
                           </span>
@@ -317,7 +329,7 @@ export default function HelpPageClient() {
                         {isActive && (
                           <div className="pl-4 pb-1 space-y-0.5">
                             {cat.articles.map(art => {
-                              const artTitle = ART_TITLES[art.titleKey] ?? art.titleKey;
+                              const artTitleStr = artTitle(art.titleKey);
                               const isSelected = selectedArticleKey === art.titleKey;
                               return (
                                 <button
@@ -329,7 +341,7 @@ export default function HelpPageClient() {
                                     color: isSelected ? colors.accent : '#a0a8c0',
                                   }}>
                                   <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: isSelected ? colors.accent : '#64748b' }} />
-                                  <span className="text-xs font-medium leading-snug">{artTitle}</span>
+                                  <span className="text-xs font-medium leading-snug">{artTitleStr}</span>
                                 </button>
                               );
                             })}
@@ -348,36 +360,36 @@ export default function HelpPageClient() {
                 <AnimatedSection animation="fade-in" key={selectedArticle.titleKey}>
                   {/* Breadcrumb */}
                   <div className="flex items-center gap-2 text-xs mb-6" style={{ color: '#64748b' }}>
-                    <button onClick={() => { setSelectedCatId(null); setSelectedArticleKey(null); }} className="hover:text-white transition-colors">Help Center</button>
+                    <button onClick={() => { setSelectedCatId(null); setSelectedArticleKey(null); }} className="hover:text-white transition-colors">{t('Help Center', 'Центр помощи')}</button>
                     <span className="material-symbols-outlined text-sm">chevron_right</span>
                     <button onClick={() => setSelectedArticleKey(null)} className="hover:text-white transition-colors">
-                      {CAT_TITLES[selectedCat.id] ?? selectedCat.id}
+                      {catTitle(selectedCat.id)}
                     </button>
                     <span className="material-symbols-outlined text-sm">chevron_right</span>
-                    <span style={{ color: '#a0a8c0' }}>{ART_TITLES[selectedArticle.titleKey] ?? selectedArticle.titleKey}</span>
+                    <span style={{ color: '#a0a8c0' }}>{artTitle(selectedArticle.titleKey)}</span>
                   </div>
 
                   <div className="rounded-2xl p-6 sm:p-8 help-article-wrapper"
                     style={{ background: 'rgba(26, 32, 44, 0.55)', backdropFilter: 'blur(24px)', border: '0.5px solid rgba(140, 144, 159, 0.12)' }}>
-                    <HelpArticle content={selectedArticle.content.en} accentColor={accentColor} />
+                    <HelpArticle content={selectedArticle.content[lang] || selectedArticle.content.en} accentColor={accentColor} />
                   </div>
                 </AnimatedSection>
               ) : selectedCat ? (
                 <AnimatedSection animation="fade-in" key={selectedCat.id + '-list'}>
                   <h2 className="text-xl font-headline font-bold mb-5 flex items-center gap-3">
                     <span className="material-symbols-outlined text-2xl" style={{ color: CAT_COLORS[selectedCat.id]?.accent ?? '#6366f1', fontVariationSettings: "'FILL' 1" }}>{selectedCat.icon}</span>
-                    {CAT_TITLES[selectedCat.id] ?? selectedCat.id}
+                    {catTitle(selectedCat.id)}
                   </h2>
                   <div className="space-y-2">
                     {selectedCat.articles.map(art => {
-                      const artTitle = ART_TITLES[art.titleKey] ?? art.titleKey;
+                      const artTitleStr = artTitle(art.titleKey);
                       const colors = CAT_COLORS[selectedCat.id] ?? { accent: '#6366f1', gradient: '' };
                       return (
                         <button key={art.titleKey} onClick={() => setSelectedArticleKey(art.titleKey)}
                           className="article-row w-full flex items-center gap-4 px-5 py-4 rounded-xl text-left"
                           style={{ background: 'rgba(26, 32, 44, 0.55)', backdropFilter: 'blur(24px)', border: '0.5px solid rgba(140, 144, 159, 0.12)' }}>
                           <span className="material-symbols-outlined text-lg flex-shrink-0" style={{ color: colors.accent }}>article</span>
-                          <span className="text-sm font-medium flex-1" style={{ color: '#dde2f3' }}>{artTitle}</span>
+                          <span className="text-sm font-medium flex-1" style={{ color: '#dde2f3' }}>{artTitleStr}</span>
                           <span className="material-symbols-outlined text-sm" style={{ color: '#64748b' }}>chevron_right</span>
                         </button>
                       );
@@ -387,7 +399,7 @@ export default function HelpPageClient() {
               ) : (
                 /* Welcome grid */
                 <AnimatedSection animation="fade-up">
-                  <h2 className="text-xl font-headline font-bold mb-6">Browse by Category</h2>
+                  <h2 className="text-xl font-headline font-bold mb-6">{t('Browse by Category', 'Категории')}</h2>
                   <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                     {HELP_CATEGORIES.map((cat, i) => {
                       const colors = CAT_COLORS[cat.id] ?? { accent: '#6366f1', gradient: 'none' };
@@ -401,8 +413,8 @@ export default function HelpPageClient() {
                               style={{ background: `${colors.accent}15` }}>
                               <span className="material-symbols-outlined text-xl" style={{ color: colors.accent, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
                             </div>
-                            <div className="font-headline font-bold text-sm mb-1" style={{ color: '#dde2f3' }}>{CAT_TITLES[cat.id] ?? cat.id}</div>
-                            <div className="text-xs" style={{ color: '#64748b' }}>{cat.articles.length} article{cat.articles.length !== 1 ? 's' : ''}</div>
+                            <div className="font-headline font-bold text-sm mb-1" style={{ color: '#dde2f3' }}>{catTitle(cat.id)}</div>
+                            <div className="text-xs" style={{ color: '#64748b' }}>{cat.articles.length} {t('articles', 'статей')}</div>
                           </button>
                         </AnimatedSection>
                       );
@@ -430,8 +442,8 @@ export default function HelpPageClient() {
                           style={{ background: `${colors.accent}15` }}>
                           <span className="material-symbols-outlined text-lg" style={{ color: colors.accent, fontVariationSettings: "'FILL' 1" }}>{cat.icon}</span>
                         </div>
-                        <div className="font-headline font-bold text-xs mb-0.5" style={{ color: '#dde2f3' }}>{CAT_TITLES[cat.id] ?? cat.id}</div>
-                        <div className="text-[11px]" style={{ color: '#64748b' }}>{cat.articles.length} articles</div>
+                        <div className="font-headline font-bold text-xs mb-0.5" style={{ color: '#dde2f3' }}>{catTitle(cat.id)}</div>
+                        <div className="text-[11px]" style={{ color: '#64748b' }}>{cat.articles.length} {t('articles', 'статей')}</div>
                       </button>
                     </AnimatedSection>
                   );
@@ -446,15 +458,15 @@ export default function HelpPageClient() {
                   className="flex items-center gap-2 mb-5 text-sm font-medium transition-colors hover:text-white"
                   style={{ color: '#a0a8c0' }}>
                   <span className="material-symbols-outlined text-lg">arrow_back</span>
-                  Back to categories
+                  {t('Back to categories', 'Назад к категориям')}
                 </button>
                 <h2 className="font-headline font-bold text-lg mb-4 flex items-center gap-3">
                   <span className="material-symbols-outlined text-xl" style={{ color: CAT_COLORS[selectedCat.id]?.accent ?? '#6366f1', fontVariationSettings: "'FILL' 1" }}>{selectedCat.icon}</span>
-                  {CAT_TITLES[selectedCat.id] ?? selectedCat.id}
+                  {catTitle(selectedCat.id)}
                 </h2>
                 <div className="space-y-2">
                   {selectedCat.articles.map(art => {
-                    const artTitle = ART_TITLES[art.titleKey] ?? art.titleKey;
+                    const artTitleStr = artTitle(art.titleKey);
                     const colors = CAT_COLORS[selectedCat.id] ?? { accent: '#6366f1' };
                     return (
                       <button key={art.titleKey}
@@ -462,7 +474,7 @@ export default function HelpPageClient() {
                         className="article-row w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-left"
                         style={{ background: 'rgba(26, 32, 44, 0.55)', backdropFilter: 'blur(24px)', border: '0.5px solid rgba(140, 144, 159, 0.12)' }}>
                         <span className="material-symbols-outlined text-lg flex-shrink-0" style={{ color: colors.accent }}>article</span>
-                        <span className="text-sm font-medium flex-1" style={{ color: '#dde2f3' }}>{artTitle}</span>
+                        <span className="text-sm font-medium flex-1" style={{ color: '#dde2f3' }}>{artTitleStr}</span>
                         <span className="material-symbols-outlined text-sm" style={{ color: '#64748b' }}>chevron_right</span>
                       </button>
                     );
@@ -478,23 +490,23 @@ export default function HelpPageClient() {
                   className="flex items-center gap-2 mb-4 text-sm font-medium transition-colors hover:text-white"
                   style={{ color: '#a0a8c0' }}>
                   <span className="material-symbols-outlined text-lg">arrow_back</span>
-                  {CAT_TITLES[selectedCat.id] ?? selectedCat.id}
+                  {catTitle(selectedCat.id)}
                 </button>
 
                 {/* Breadcrumb */}
                 <div className="flex items-center gap-1.5 text-xs mb-5 flex-wrap" style={{ color: '#64748b' }}>
-                  <button onClick={() => setMobileView('categories')} className="hover:text-white transition-colors">Help Center</button>
+                  <button onClick={() => setMobileView('categories')} className="hover:text-white transition-colors">{t('Help Center', 'Центр помощи')}</button>
                   <span className="material-symbols-outlined text-xs">chevron_right</span>
                   <button onClick={() => { setMobileView('articles'); setSelectedArticleKey(null); }} className="hover:text-white transition-colors">
-                    {CAT_TITLES[selectedCat.id] ?? selectedCat.id}
+                    {catTitle(selectedCat.id)}
                   </button>
                   <span className="material-symbols-outlined text-xs">chevron_right</span>
-                  <span style={{ color: '#a0a8c0' }}>{ART_TITLES[selectedArticle.titleKey] ?? selectedArticle.titleKey}</span>
+                  <span style={{ color: '#a0a8c0' }}>{artTitle(selectedArticle.titleKey)}</span>
                 </div>
 
                 <div className="rounded-2xl p-4 sm:p-6 help-article-wrapper"
                   style={{ background: 'rgba(26, 32, 44, 0.55)', backdropFilter: 'blur(24px)', border: '0.5px solid rgba(140, 144, 159, 0.12)' }}>
-                  <HelpArticle content={selectedArticle.content.en} accentColor={accentColor} />
+                  <HelpArticle content={selectedArticle.content[lang] || selectedArticle.content.en} accentColor={accentColor} />
                 </div>
               </div>
             )}
@@ -513,22 +525,22 @@ export default function HelpPageClient() {
                   <span className="material-symbols-outlined text-2xl" style={{ color: '#818cf8' }}>support_agent</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-headline font-extrabold tracking-tight mb-3">
-                  Can&apos;t find what you need?
+                  {t("Can't find what you need?", 'Не нашли ответ?')}
                 </h2>
                 <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: '#a0a8c0' }}>
-                  Sign in to your account and use the in-app Help Center for personalized support, or get started for free.
+                  {t('Sign in to your account and use the in-app Help Center for personalized support, or get started for free.', 'Войдите в аккаунт и используйте встроенный центр помощи для персональной поддержки, или начните бесплатно.')}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <Link href="/login"
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all"
                     style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.1)', color: '#dde2f3' }}>
                     <span className="material-symbols-outlined text-base">login</span>
-                    Log in
+                    {t('Log in', 'Войти')}
                   </Link>
                   <Link href="/login?mode=register"
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all cta-glow"
                     style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                    Get Started Free
+                    {t('Get Started Free', 'Начать бесплатно')}
                     <span className="material-symbols-outlined text-base">arrow_forward</span>
                   </Link>
                 </div>
@@ -550,31 +562,31 @@ export default function HelpPageClient() {
                 <span className="font-headline font-extrabold text-lg">Caller</span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
-                AI phone agents and live translation for the globally connected business. One platform, zero complexity.
+                {t('AI phone agents and live translation for the globally connected business. One platform, zero complexity.', 'AI-телефонные агенты и живой перевод для глобального бизнеса. Одна платформа, никакой сложности.')}
               </p>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.12)' }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80' }} />
-                <span className="text-[10px] font-medium" style={{ color: '#4ade80' }}>All systems operational</span>
+                <span className="text-[10px] font-medium" style={{ color: '#4ade80' }}>{t('All systems operational', 'Все системы работают')}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-12">
               {[
-                { title: 'Product', links: [
-                  { label: 'AI Agents', href: '/#products' },
-                  { label: 'Live Translator', href: '/#products' },
-                  { label: 'Pricing', href: '/pricing' },
-                  { label: 'Features', href: '/#features' },
+                { title: t('Product', 'Продукт'), links: [
+                  { label: t('AI Agents', 'AI Агенты'), href: '/#products' },
+                  { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
+                  { label: t('Pricing', 'Цены'), href: '/pricing' },
+                  { label: t('Features', 'Возможности'), href: '/#features' },
                 ] },
-                { title: 'Resources', links: [
-                  { label: 'Documentation', href: '/docs' },
-                  { label: 'API Reference', href: '/docs?section=api' },
-                  { label: 'Help Center', href: '/help' },
+                { title: t('Resources', 'Ресурсы'), links: [
+                  { label: t('Documentation', 'Документация'), href: '/docs' },
+                  { label: t('API Reference', 'Справочник API'), href: '/docs?section=api' },
+                  { label: t('Help Center', 'Центр помощи'), href: '/help' },
                 ] },
-                { title: 'Legal', links: [
-                  { label: 'Privacy Policy', href: '/privacy' },
-                  { label: 'Terms of Service', href: '/terms' },
-                  { label: 'Acceptable Use', href: '/acceptable-use' },
+                { title: t('Legal', 'Правовая информация'), links: [
+                  { label: t('Privacy Policy', 'Политика конфиденциальности'), href: '/privacy' },
+                  { label: t('Terms of Service', 'Условия использования'), href: '/terms' },
+                  { label: t('Acceptable Use', 'Допустимое использование'), href: '/acceptable-use' },
                 ] },
               ].map(col => (
                 <div key={col.title}>
@@ -592,7 +604,7 @@ export default function HelpPageClient() {
           </div>
 
           <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-            <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>&copy; {new Date().getFullYear()} Caller. All rights reserved.</p>
+            <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>&copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}</p>
           </div>
         </div>
       </footer>
