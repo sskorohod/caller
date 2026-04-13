@@ -92,7 +92,7 @@ function LoginContent() {
           <div className="space-y-3">
             {[
               { icon: 'smart_toy', text: 'AI agents that answer & make calls' },
-              { icon: 'translate', text: 'Live translation in 10+ languages' },
+              { icon: 'translate', text: 'Live translation in 15+ languages' },
               { icon: 'shield', text: 'Your keys or ours — you choose' },
             ].map(f => (
               <div key={f.text} className="flex items-center gap-3">

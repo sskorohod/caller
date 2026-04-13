@@ -922,7 +922,7 @@ function TranslatorContent() {
                 {[
                   { label: t('Documentation', 'Документация'), href: '/docs' },
                   { label: t('Help Center', 'Центр помощи'), href: '/help' },
-                  { label: t('API Reference', 'Справочник API'), href: '/docs/api' },
+                  { label: t('API Reference', 'Справочник API'), href: '/docs?section=api-reference' },
                 ].map((link) => (
                   <li key={link.href}>
                     <Link href={link.href} className="text-sm transition-colors" style={{ color: 'rgba(194,198,214,0.55)' }}
@@ -937,7 +937,7 @@ function TranslatorContent() {
 
             {/* Legal */}
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>{t('Legal', 'Правовое')}</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>{t('Legal', 'Правовая информация')}</h4>
               <ul className="space-y-3">
                 {[
                   { label: t('Privacy Policy', 'Политика конфиденциальности'), href: '/privacy' },

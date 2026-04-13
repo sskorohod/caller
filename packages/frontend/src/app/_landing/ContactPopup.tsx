@@ -98,7 +98,7 @@ export default function ContactPopup() {
       }
       if (res.status === 400) {
         const data = await res.json();
-        setError(data.error || 'Invalid input. Please check your details.');
+        setError(data.error || t('Invalid input. Please check your details.', 'Неверные данные. Проверьте детали.'));
         setChallenge(newChallenge());
         setCaptcha('');
         return;

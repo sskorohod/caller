@@ -120,7 +120,7 @@ const contactRoutes: FastifyPluginAsync = async (app) => {
       .returning();
 
     if (!updated) return reply.status(404).send({ error: 'Message not found' });
-    return updated;
+    return reply.status(200).send({ ok: true, ...updated });
   });
 
   // ── Admin: Delete message ─────────────────────────────────
@@ -133,7 +133,7 @@ const contactRoutes: FastifyPluginAsync = async (app) => {
       .returning({ id: contactMessages.id });
 
     if (!deleted) return reply.status(404).send({ error: 'Message not found' });
-    return { ok: true };
+    return reply.status(200).send({ ok: true });
   });
 };
 
