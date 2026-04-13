@@ -8,85 +8,108 @@ interface PullToRefreshOptions {
   threshold?: number;
 }
 
-/** Find the nearest scrollable ancestor (the element that actually scrolls) */
-function getScrollParent(el: HTMLElement): HTMLElement {
-  let node: HTMLElement | null = el.parentElement;
-  while (node) {
-    const style = getComputedStyle(node);
-    if (/(auto|scroll)/.test(style.overflow + style.overflowY)) return node;
-    node = node.parentElement;
-  }
-  return document.documentElement;
-}
-
+/**
+ * Pull-to-refresh hook.
+ *
+ * Key design: we ONLY add a non-passive touchmove listener when a pull gesture
+ * is actually happening (scroll container at top + finger moving down). This
+ * avoids blocking native scrolling at all other times.
+ */
 export function usePullToRefresh({ onRefresh, threshold = DEFAULT_PULL_THRESHOLD }: PullToRefreshOptions) {
   const ref = useRef<HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
+
+  // Mutable refs to avoid stale closures in event handlers
   const startY = useRef(0);
-  const pulling = useRef(false);
-  const scrollParent = useRef<HTMLElement | null>(null);
+  const isPulling = useRef(false);
+  const refreshingRef = useRef(false);
+  const pullDistRef = useRef(0);
+  const thresholdRef = useRef(threshold);
+  const onRefreshRef = useRef(onRefresh);
 
-  // Resolve scroll parent once on mount
-  useEffect(() => {
-    if (ref.current) {
-      scrollParent.current = getScrollParent(ref.current);
+  useEffect(() => { thresholdRef.current = threshold; }, [threshold]);
+  useEffect(() => { onRefreshRef.current = onRefresh; }, [onRefresh]);
+  useEffect(() => { refreshingRef.current = isRefreshing; }, [isRefreshing]);
+
+  /** Find the nearest scrollable ancestor */
+  const getScrollTop = useCallback(() => {
+    let node: HTMLElement | null = ref.current?.parentElement ?? null;
+    while (node) {
+      const style = getComputedStyle(node);
+      if (/(auto|scroll)/.test(style.overflow + style.overflowY)) {
+        return node.scrollTop;
+      }
+      node = node.parentElement;
     }
+    return window.scrollY;
   }, []);
-
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    const sp = scrollParent.current;
-    if (!sp || isRefreshing) return;
-    // Only allow pull-to-refresh when scroll container is at the very top
-    if (sp.scrollTop > 0) return;
-    startY.current = e.touches[0].clientY;
-    pulling.current = true;
-  }, [isRefreshing]);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!pulling.current) return;
-    const dy = e.touches[0].clientY - startY.current;
-    if (dy > 0) {
-      // Double-check scroll parent is still at top (could have scrolled between start and move)
-      const sp = scrollParent.current;
-      if (sp && sp.scrollTop > 0) {
-        pulling.current = false;
-        setPullDistance(0);
-        return;
-      }
-      e.preventDefault();
-      setPullDistance(Math.min(dy * 0.5, threshold * 1.5));
-    } else {
-      // User is scrolling up (finger moved up) — cancel pull and let native scroll handle it
-      pulling.current = false;
-      setPullDistance(0);
-    }
-  }, [threshold]);
-
-  const handleTouchEnd = useCallback(async () => {
-    if (!pulling.current) return;
-    pulling.current = false;
-    if (pullDistance >= threshold) {
-      setIsRefreshing(true);
-      try { await onRefresh(); } finally {
-        setIsRefreshing(false);
-      }
-    }
-    setPullDistance(0);
-  }, [pullDistance, threshold, onRefresh]);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    // Non-passive move handler — only added dynamically during pull
+    const handlePullMove = (e: TouchEvent) => {
+      const dy = e.touches[0].clientY - startY.current;
+      if (dy > 0 && getScrollTop() <= 0) {
+        e.preventDefault();
+        const dist = Math.min(dy * 0.5, thresholdRef.current * 1.5);
+        pullDistRef.current = dist;
+        setPullDistance(dist);
+      } else {
+        // Finger went up or page scrolled — abort pull, remove handler
+        cancelPull();
+      }
+    };
+
+    const handlePullEnd = () => {
+      const dist = pullDistRef.current;
+      cancelPull();
+      if (dist >= thresholdRef.current) {
+        setIsRefreshing(true);
+        refreshingRef.current = true;
+        onRefreshRef.current().finally(() => {
+          setIsRefreshing(false);
+          refreshingRef.current = false;
+        });
+      }
+    };
+
+    const cancelPull = () => {
+      if (!isPulling.current) return;
+      isPulling.current = false;
+      pullDistRef.current = 0;
+      setPullDistance(0);
+      el.removeEventListener('touchmove', handlePullMove);
+      el.removeEventListener('touchend', handlePullEnd);
+      el.removeEventListener('touchcancel', handlePullEnd);
+    };
+
+    // Passive touchstart — just records start position, never blocks scroll
+    const handleTouchStart = (e: TouchEvent) => {
+      if (refreshingRef.current || isPulling.current) return;
+      // Only if scroll container is at the very top
+      if (getScrollTop() > 0) return;
+      startY.current = e.touches[0].clientY;
+
+      // Defer adding non-passive listeners — they're added now but will only
+      // preventDefault if we confirm it's a pull-down gesture
+      isPulling.current = true;
+      el.addEventListener('touchmove', handlePullMove, { passive: false });
+      el.addEventListener('touchend', handlePullEnd);
+      el.addEventListener('touchcancel', handlePullEnd);
+    };
+
     el.addEventListener('touchstart', handleTouchStart, { passive: true });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('touchend', handleTouchEnd);
     return () => {
       el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
+      // Cleanup in case component unmounts mid-pull
+      el.removeEventListener('touchmove', handlePullMove);
+      el.removeEventListener('touchend', handlePullEnd);
+      el.removeEventListener('touchcancel', handlePullEnd);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, [getScrollTop]);
 
   return { ref, isRefreshing, pullDistance };
 }
