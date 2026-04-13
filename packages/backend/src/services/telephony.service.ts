@@ -33,17 +33,20 @@ async function resolveTwilioWorkspaceId(workspaceId: string): Promise<string> {
     ));
   if (own) return workspaceId;
 
-  // Fallback: find any owner workspace with twilio credentials (platform shared)
-  const [ownerRow] = await db
-    .select({ workspace_id: providerCredentials.workspace_id })
-    .from(providerCredentials)
-    .innerJoin(workspaceMembers, and(
-      eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-      eq(workspaceMembers.role, 'owner'),
-    ))
-    .where(eq(providerCredentials.provider, 'twilio'))
-    .limit(1);
-  if (ownerRow) return ownerRow.workspace_id;
+  // Fallback: platform Twilio (only for translator plan or explicitly shared)
+  const { allowsPlatformFallback } = await import('./provider.service.js');
+  if (await allowsPlatformFallback(workspaceId)) {
+    const [ownerRow] = await db
+      .select({ workspace_id: providerCredentials.workspace_id })
+      .from(providerCredentials)
+      .innerJoin(workspaceMembers, and(
+        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+        eq(workspaceMembers.role, 'owner'),
+      ))
+      .where(eq(providerCredentials.provider, 'twilio'))
+      .limit(1);
+    if (ownerRow) return ownerRow.workspace_id;
+  }
 
   throw new ValidationError('Twilio credentials not configured');
 }

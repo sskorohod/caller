@@ -29,16 +29,19 @@ export function requireMcpAccess() {
 }
 
 /**
- * Require own Twilio credentials for outbound dialer.
- * Translator-plan users can only use the dialer if admin has shared
- * Twilio credentials to their workspace (not via platform fallback).
+ * Require Twilio credentials for outbound dialer.
+ * - translator plan: allowed if admin shared platform Twilio (provider_config.twilio === 'platform') or own creds
+ * - agents / agents_mcp: must have own Twilio credentials (no platform fallback)
  */
 export function requireDialerAccess() {
   return async (request: FastifyRequest, _reply: FastifyReply) => {
-    if (request.auth.plan !== 'translator') return; // non-translator plans have full dialer access
-    // Admin shared platform Twilio via provider_config
-    if ((request.auth.providerConfig as any)?.twilio === 'platform') return;
-    // Own Twilio credentials in workspace
+    const plan = request.auth.plan;
+    const providerConfig = request.auth.providerConfig as any;
+
+    // Translator plan: admin can share platform Twilio
+    if (plan === 'translator' && providerConfig?.twilio === 'platform') return;
+
+    // All plans: check for own Twilio credentials in workspace
     const { db } = await import('../config/db.js');
     const { providerCredentials } = await import('../db/schema.js');
     const { eq, and } = await import('drizzle-orm');
@@ -48,9 +51,13 @@ export function requireDialerAccess() {
         eq(providerCredentials.workspace_id, request.auth.workspaceId),
         eq(providerCredentials.provider, 'twilio'),
       ));
-    if (!own) {
-      throw new ForbiddenError('Outbound dialer requires Twilio credentials. Contact admin to enable.');
-    }
+    if (own) return;
+
+    // No access
+    const msg = plan === 'translator'
+      ? 'Outbound dialer requires Twilio credentials. Contact admin to enable.'
+      : 'Outbound dialer requires your own Twilio credentials. Configure them in Settings → Providers.';
+    throw new ForbiddenError(msg);
   };
 }
 

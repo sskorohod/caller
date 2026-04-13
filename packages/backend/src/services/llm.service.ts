@@ -167,18 +167,21 @@ export async function createLLMProvider(
     );
 
   if (!row) {
-    // Fallback: owner workspace credentials
-    const { workspaceMembers } = await import('../db/schema.js');
-    const [ownerRow] = await db
-      .select({ credential_data: providerCredentials.credential_data })
-      .from(providerCredentials)
-      .innerJoin(workspaceMembers, and(
-        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-        eq(workspaceMembers.role, 'owner'),
-      ))
-      .where(eq(providerCredentials.provider, providerKey))
-      .limit(1);
-    if (ownerRow) row = ownerRow;
+    // Fallback: platform credentials (only for translator plan)
+    const { allowsPlatformFallback } = await import('./provider.service.js');
+    if (await allowsPlatformFallback(workspaceId)) {
+      const { workspaceMembers } = await import('../db/schema.js');
+      const [ownerRow] = await db
+        .select({ credential_data: providerCredentials.credential_data })
+        .from(providerCredentials)
+        .innerJoin(workspaceMembers, and(
+          eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+          eq(workspaceMembers.role, 'owner'),
+        ))
+        .where(eq(providerCredentials.provider, providerKey))
+        .limit(1);
+      if (ownerRow) row = ownerRow;
+    }
   }
 
   if (!row) throw new Error(`${resolvedProvider} LLM credentials not configured`);

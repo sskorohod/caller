@@ -75,3 +75,16 @@ export async function deleteProviderCredential(workspaceId: string, provider: Pr
       eq(providerCredentials.provider, provider),
     ));
 }
+
+/**
+ * Check if a workspace is allowed to use platform (owner) credential fallback.
+ * Only translator-plan workspaces get platform fallback for all providers.
+ * Agents / agents_mcp must use their own credentials.
+ */
+export async function allowsPlatformFallback(workspaceId: string): Promise<boolean> {
+  const { workspaces } = await import('../db/schema.js');
+  const [ws] = await db.select({ plan: workspaces.plan })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  return ws?.plan === 'translator';
+}
