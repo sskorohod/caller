@@ -1,6 +1,7 @@
 'use client';
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { authApi, api } from '@/lib/api';
 
@@ -72,13 +73,13 @@ function LoginContent() {
         <div className="absolute bottom-1/3 right-1/4 w-48 h-48 rounded-full opacity-15"
           style={{ background: 'radial-gradient(circle, #d0bcff 0%, transparent 70%)', filter: 'blur(60px)' }} />
         <div className="relative z-10 max-w-md px-12">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+          <Link href="/" className="flex items-center gap-3 mb-10 group">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105"
               style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)' }}>
               <span className="material-symbols-outlined text-2xl" style={{ color: '#0e131f', fontVariationSettings: "'FILL' 1" }}>call</span>
             </div>
             <span className="text-2xl font-headline font-extrabold tracking-tight">Caller</span>
-          </div>
+          </Link>
           <h2 className="text-3xl font-headline font-extrabold tracking-tight leading-tight mb-4">
             AI Phone Agents
             <br />
@@ -107,13 +108,13 @@ function LoginContent() {
       <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-6 lg:p-12">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+          <Link href="/" className="lg:hidden flex items-center justify-center gap-3 mb-8 group">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
               style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)' }}>
               <span className="material-symbols-outlined text-xl" style={{ color: '#0e131f', fontVariationSettings: "'FILL' 1" }}>call</span>
             </div>
             <span className="text-xl font-headline font-extrabold tracking-tight">Caller</span>
-          </div>
+          </Link>
 
           {/* Magic Link Sent State */}
           {magicLinkSent ? (
