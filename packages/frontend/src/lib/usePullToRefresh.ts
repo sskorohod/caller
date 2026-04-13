@@ -8,16 +8,37 @@ interface PullToRefreshOptions {
   threshold?: number;
 }
 
+/** Find the nearest scrollable ancestor (the element that actually scrolls) */
+function getScrollParent(el: HTMLElement): HTMLElement {
+  let node: HTMLElement | null = el.parentElement;
+  while (node) {
+    const style = getComputedStyle(node);
+    if (/(auto|scroll)/.test(style.overflow + style.overflowY)) return node;
+    node = node.parentElement;
+  }
+  return document.documentElement;
+}
+
 export function usePullToRefresh({ onRefresh, threshold = DEFAULT_PULL_THRESHOLD }: PullToRefreshOptions) {
   const ref = useRef<HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const startY = useRef(0);
   const pulling = useRef(false);
+  const scrollParent = useRef<HTMLElement | null>(null);
+
+  // Resolve scroll parent once on mount
+  useEffect(() => {
+    if (ref.current) {
+      scrollParent.current = getScrollParent(ref.current);
+    }
+  }, []);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    const el = ref.current;
-    if (!el || el.scrollTop > 0 || isRefreshing) return;
+    const sp = scrollParent.current;
+    if (!sp || isRefreshing) return;
+    // Only allow pull-to-refresh when scroll container is at the very top
+    if (sp.scrollTop > 0) return;
     startY.current = e.touches[0].clientY;
     pulling.current = true;
   }, [isRefreshing]);
@@ -26,8 +47,19 @@ export function usePullToRefresh({ onRefresh, threshold = DEFAULT_PULL_THRESHOLD
     if (!pulling.current) return;
     const dy = e.touches[0].clientY - startY.current;
     if (dy > 0) {
+      // Double-check scroll parent is still at top (could have scrolled between start and move)
+      const sp = scrollParent.current;
+      if (sp && sp.scrollTop > 0) {
+        pulling.current = false;
+        setPullDistance(0);
+        return;
+      }
       e.preventDefault();
       setPullDistance(Math.min(dy * 0.5, threshold * 1.5));
+    } else {
+      // User is scrolling up (finger moved up) — cancel pull and let native scroll handle it
+      pulling.current = false;
+      setPullDistance(0);
     }
   }, [threshold]);
 
