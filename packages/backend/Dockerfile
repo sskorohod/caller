@@ -43,4 +43,4 @@ USER nodejs
 
 EXPOSE 3011
 
-CMD ["node", "dist/server.js"]
+CMD ["node", "--max-old-space-size=768", "dist/server.js"]
