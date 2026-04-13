@@ -10,7 +10,10 @@ export function fmtDate(iso: string) {
 }
 
 export function fmtCost(v: number) {
-  return v < 0.01 ? '$0.00' : `$${v.toFixed(2)}`;
+  if (v === 0) return '$0.00';
+  if (v < 0.01) return `$${v.toFixed(4)}`;
+  if (v < 1) return `$${v.toFixed(3)}`;
+  return `$${v.toFixed(2)}`;
 }
 
 export function fmtPhone(phone: string | null | undefined): string {
