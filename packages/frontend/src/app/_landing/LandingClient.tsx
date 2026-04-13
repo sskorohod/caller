@@ -63,9 +63,9 @@ function LandingStyles() {
 function HeroOrbs() {
   return (
     <>
-      <div className="hero-glow" style={{ top: '-10%', left: '15%', width: '600px', height: '600px', background: 'rgba(99,102,241,0.08)' }} />
-      <div className="hero-glow" style={{ top: '10%', right: '10%', width: '500px', height: '500px', background: 'rgba(139,92,246,0.06)' }} />
-      <div className="hero-glow animate-float-slow" style={{ bottom: '0', left: '40%', width: '400px', height: '400px', background: 'rgba(34,211,238,0.04)' }} />
+      <div className="hero-glow max-w-[80vw] sm:max-w-none" style={{ top: '-10%', left: '15%', width: '600px', height: '600px', background: 'rgba(99,102,241,0.08)' }} />
+      <div className="hero-glow max-w-[70vw] sm:max-w-none" style={{ top: '10%', right: '10%', width: '500px', height: '500px', background: 'rgba(139,92,246,0.06)' }} />
+      <div className="hero-glow max-w-[60vw] sm:max-w-none animate-float-slow" style={{ bottom: '0', left: '40%', width: '400px', height: '400px', background: 'rgba(34,211,238,0.04)' }} />
       {/* Grid pattern */}
       <div className="absolute inset-0 opacity-[0.03]" style={{
         backgroundImage: `linear-gradient(rgba(173,198,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(173,198,255,0.3) 1px, transparent 1px)`,
@@ -80,7 +80,7 @@ function HeroOrbs() {
 /* ── Phone illustration for hero ─────────────────────────────────────── */
 function HeroVisual() {
   return (
-    <div className="relative w-full max-w-5xl mx-auto mt-16 md:mt-20">
+    <div className="relative w-full max-w-5xl mx-auto mt-16 md:mt-20 overflow-hidden">
       {/* Orbiting elements */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="animate-orbit">
@@ -271,7 +271,7 @@ function LandingContent() {
   const [mobileNav, setMobileNav] = useState(false);
 
   return (
-    <div className="min-h-screen" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="min-h-screen overflow-x-hidden" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <LandingStyles />
 
       {/* ═══ Navigation ═══════════════════════════════════════════════ */}
