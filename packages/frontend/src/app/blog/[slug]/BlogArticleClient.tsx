@@ -24,11 +24,11 @@ const articleComponents: Record<string, React.ComponentType> = {
 function ArticleCTA() {
   const { t } = useLang();
   return (
-    <div className="my-12 rounded-2xl p-8 text-center" style={{ background: 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(129,140,248,0.08))', border: '1px solid rgba(34,211,238,0.15)' }}>
+    <div className="my-12 rounded-2xl p-8 text-center" style={{ background: 'linear-gradient(135deg, rgba(129,140,248,0.08), rgba(77,142,255,0.08))', border: '1px solid rgba(129,140,248,0.15)' }}>
       <h3 className="font-headline text-2xl font-bold text-white mb-3">
         {t('Try Live Translator', 'Попробуйте Live Translator')}
       </h3>
-      <p className="mb-6" style={{ color: 'rgba(194,198,214,0.7)' }}>
+      <p className="mb-6" style={{ color: '#a0a8c0' }}>
         {t(
           'Merge our number into any phone call — AI translates both sides. $0.15/min. First $2 free.',
           'Добавьте наш номер в любой звонок — AI переведёт обе стороны. $0.15/мин. Первые $2 бесплатно.'
@@ -38,7 +38,7 @@ function ArticleCTA() {
         <Link
           href="/auth/signup"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-base font-semibold text-white"
-          style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)', boxShadow: '0 4px 24px rgba(34,211,238,0.25)' }}
+          style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', boxShadow: '0 4px 24px rgba(129,140,248,0.25)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>translate</span>
           {t('Get Started Free', 'Начать бесплатно')}
@@ -46,15 +46,15 @@ function ArticleCTA() {
         <Link
           href="/translator"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-base font-medium transition-colors"
-          style={{ color: 'rgba(194,198,214,0.7)', border: '1px solid rgba(140,144,159,0.15)' }}
+          style={{ color: '#a0a8c0', border: '1px solid rgba(221,226,243,0.1)' }}
         >
           {t('How It Works', 'Как это работает')}
           <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
         </Link>
       </div>
-      <p className="mt-4 text-xs" style={{ color: 'rgba(194,198,214,0.4)' }}>
+      <p className="mt-4 text-xs" style={{ color: 'rgba(160,168,192,0.6)' }}>
         {t('See ', 'Смотрите ')}
-        <Link href="/pricing" className="underline" style={{ color: '#22d3ee' }}>{t('pricing', 'тарифы')}</Link>
+        <Link href="/pricing" className="underline" style={{ color: '#818cf8' }}>{t('pricing', 'тарифы')}</Link>
         {t(' — pay per minute, no subscriptions.', ' — оплата только за использование, никаких подписок.')}
       </p>
     </div>
@@ -68,7 +68,7 @@ function RelatedArticles({ currentSlug }: { currentSlug: string }) {
   if (related.length === 0) return null;
 
   return (
-    <div className="mt-16 pt-12" style={{ borderTop: '1px solid rgba(140,144,159,0.1)' }}>
+    <div className="mt-16 pt-12" style={{ borderTop: '1px solid rgba(221,226,243,0.06)' }}>
       <h3 className="font-headline text-xl font-bold text-white mb-6">
         {t('Related Articles', 'Читайте также')}
       </h3>
@@ -78,18 +78,18 @@ function RelatedArticles({ currentSlug }: { currentSlug: string }) {
             key={a.slug}
             href={`/blog/${a.slug}`}
             className="block rounded-xl p-5 transition-all hover:scale-[1.02]"
-            style={{ background: 'rgba(26,32,44,0.4)', border: '1px solid rgba(140,144,159,0.08)' }}
+            style={{ background: 'rgba(26,32,44,0.4)', border: '1px solid rgba(221,226,243,0.06)' }}
           >
-            <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mb-2" style={{ background: 'rgba(34,211,238,0.1)', color: '#22d3ee' }}>
+            <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mb-2" style={{ background: 'rgba(129,140,248,0.1)', color: '#818cf8' }}>
               {a.locale === 'ru' ? 'RU' : 'EN'}
             </span>
             <h4 className="text-sm font-semibold text-white mb-1 line-clamp-2">{a.title}</h4>
-            <p className="text-xs line-clamp-2" style={{ color: 'rgba(194,198,214,0.5)' }}>{a.description}</p>
+            <p className="text-xs line-clamp-2" style={{ color: '#a0a8c0' }}>{a.description}</p>
           </Link>
         ))}
       </div>
       <div className="text-center mt-6">
-        <Link href="/blog" className="inline-flex items-center gap-1 text-sm font-medium" style={{ color: '#22d3ee' }}>
+        <Link href="/blog" className="inline-flex items-center gap-1 text-sm font-medium" style={{ color: '#818cf8' }}>
           {t('All articles', 'Все статьи')} <span className="material-symbols-outlined text-sm">arrow_forward</span>
         </Link>
       </div>
@@ -104,45 +104,43 @@ export default function BlogArticleClient({ article, slug }: { article: Article;
   if (!Content) return null;
 
   return (
-    <div className="min-h-screen" style={{ background: '#0a0e1a', color: '#e2e4ed' }}>
+    <div className="min-h-screen" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
         .font-headline { font-family: 'Manrope', sans-serif; }
-        .nav-link { color: rgba(194,198,214,0.7); transition: color 0.2s ease; font-size: 0.875rem; font-weight: 500; }
-        .nav-link:hover { color: #22d3ee; }
 
         .article-content h2 { font-family: 'Manrope', sans-serif; font-size: 1.5rem; font-weight: 700; color: #fff; margin-top: 2.5rem; margin-bottom: 1rem; }
         .article-content h3 { font-family: 'Manrope', sans-serif; font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 2rem; margin-bottom: 0.75rem; }
-        .article-content p { line-height: 1.8; margin-bottom: 1.25rem; color: rgba(194,198,214,0.8); }
-        .article-content ul, .article-content ol { margin-bottom: 1.25rem; padding-left: 1.5rem; color: rgba(194,198,214,0.8); }
+        .article-content p { line-height: 1.8; margin-bottom: 1.25rem; color: rgba(221,226,243,0.8); }
+        .article-content ul, .article-content ol { margin-bottom: 1.25rem; padding-left: 1.5rem; color: rgba(221,226,243,0.8); }
         .article-content li { margin-bottom: 0.5rem; line-height: 1.7; }
         .article-content strong { color: #fff; font-weight: 600; }
-        .article-content a { color: #22d3ee; text-decoration: underline; text-underline-offset: 2px; }
-        .article-content a:hover { color: #67e8f9; }
-        .article-content blockquote { border-left: 3px solid #818cf8; padding-left: 1rem; margin: 1.5rem 0; color: rgba(194,198,214,0.6); font-style: italic; }
+        .article-content a { color: #818cf8; text-decoration: underline; text-underline-offset: 2px; }
+        .article-content a:hover { color: #a5b4fc; }
+        .article-content blockquote { border-left: 3px solid #818cf8; padding-left: 1rem; margin: 1.5rem 0; color: rgba(221,226,243,0.6); font-style: italic; }
 
         .article-content table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.875rem; }
-        .article-content th { text-align: left; padding: 0.75rem; font-weight: 600; color: #fff; border-bottom: 1px solid rgba(140,144,159,0.2); background: rgba(26,32,44,0.4); }
-        .article-content td { padding: 0.75rem; border-bottom: 1px solid rgba(140,144,159,0.08); color: rgba(194,198,214,0.8); }
+        .article-content th { text-align: left; padding: 0.75rem; font-weight: 600; color: #fff; border-bottom: 1px solid rgba(221,226,243,0.12); background: rgba(26,32,44,0.4); }
+        .article-content td { padding: 0.75rem; border-bottom: 1px solid rgba(221,226,243,0.06); color: rgba(221,226,243,0.8); }
         .article-content tr:hover td { background: rgba(26,32,44,0.3); }
       `}</style>
 
       <BlogNavbar activeBlog />
 
       {/* Article header */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
-        <Link href="/blog" className="inline-flex items-center gap-1 text-sm mb-8 hover:underline" style={{ color: 'rgba(194,198,214,0.5)' }}>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
+        <Link href="/blog" className="inline-flex items-center gap-1 text-sm mb-8 hover:underline" style={{ color: '#a0a8c0' }}>
           <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span>
           {t('Back to Blog', 'Назад к блогу')}
         </Link>
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: 'rgba(34,211,238,0.1)', color: '#22d3ee' }}>
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: 'rgba(129,140,248,0.1)', color: '#818cf8' }}>
             {article.locale === 'ru' ? 'RU' : 'EN'}
           </span>
-          <span className="text-sm" style={{ color: 'rgba(194,198,214,0.5)' }}>
+          <span className="text-sm" style={{ color: '#a0a8c0' }}>
             {new Date(article.publishedAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </span>
-          <span className="text-sm" style={{ color: 'rgba(194,198,214,0.4)' }}>
+          <span className="text-sm" style={{ color: 'rgba(160,168,192,0.6)' }}>
             · {lang === 'ru' ? article.readTimeRu : article.readTime} {t('read', 'чтения')}
           </span>
         </div>
@@ -161,9 +159,9 @@ export default function BlogArticleClient({ article, slug }: { article: Article;
       </div>
 
       {/* Footer */}
-      <footer style={{ borderTop: '1px solid rgba(140,144,159,0.08)' }}>
+      <footer style={{ borderTop: '1px solid rgba(221,226,243,0.06)' }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
-          <p className="text-xs" style={{ color: 'rgba(194,198,214,0.3)' }}>
+          <p className="text-xs" style={{ color: 'rgba(160,168,192,0.4)' }}>
             &copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}
           </p>
         </div>
