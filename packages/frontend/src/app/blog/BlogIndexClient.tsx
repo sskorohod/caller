@@ -48,14 +48,14 @@ export default function BlogIndexClient() {
                     {new Date(article.publishedAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </span>
                   <span className="text-xs" style={{ color: 'rgba(194,198,214,0.4)' }}>
-                    · {article.readTime} {t('read', 'чтения')}
+                    · {lang === 'ru' ? article.readTimeRu : article.readTime} {t('read', 'чтения')}
                   </span>
                 </div>
                 <h2 className="font-headline text-xl sm:text-2xl font-bold text-white mb-2 leading-tight">
-                  {article.title}
+                  {lang === 'ru' ? article.titleRu : article.title}
                 </h2>
                 <p className="text-sm leading-relaxed" style={{ color: 'rgba(194,198,214,0.6)' }}>
-                  {article.description}
+                  {lang === 'ru' ? article.descriptionRu : article.description}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-4">
                   {article.keywords.slice(0, 3).map((kw) => (

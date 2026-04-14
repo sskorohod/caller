@@ -143,11 +143,11 @@ export default function BlogArticleClient({ article, slug }: { article: Article;
             {new Date(article.publishedAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </span>
           <span className="text-sm" style={{ color: 'rgba(194,198,214,0.4)' }}>
-            · {article.readTime} {t('read', 'чтения')}
+            · {lang === 'ru' ? article.readTimeRu : article.readTime} {t('read', 'чтения')}
           </span>
         </div>
         <h1 className="font-headline text-3xl sm:text-4xl font-bold text-white leading-tight">
-          {article.title}
+          {lang === 'ru' ? article.titleRu : article.title}
         </h1>
       </div>
 
