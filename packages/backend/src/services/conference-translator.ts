@@ -8,7 +8,7 @@ import { getIo } from '../realtime/io.js';
 import * as callService from './call.service.js';
 import { queuePostCallProcessing } from '../workers/post-call.worker.js';
 import { calculateTelephonyCost } from '../config/pricing.js';
-import { sendTranslatorSessionStart, sendTranslatorSessionEnd } from './telegram.service.js';
+import { sendTranslatorSessionStart, sendTranslatorSessionEnd, sendAdminTranslatorStart, sendAdminTranslatorEnd } from './telegram.service.js';
 import { decrypt } from '../lib/crypto.js';
 import { providerCredentials } from '../db/schema.js';
 import { env } from '../config/env.js';
@@ -693,41 +693,100 @@ ${this.personalContext}` : ''}`;
       turns: this.transcript.length,
     }, 'Conference translator finalized');
 
-    this.sendTelegramNotification('end', durationSecs, costTotal).catch(() => {});
+    // providerCost = raw cost, costTotal passed to notification is client-facing (with markup)
+    const { getMarkup } = await import('./billing.service.js');
+    const markup = await getMarkup();
+    const clientCost = costTotal * markup;
+    this.sendTelegramNotification('end', durationSecs, clientCost, costTotal).catch(() => {});
   }
 
-  private async sendTelegramNotification(type: 'start' | 'end', durationSecs?: number, costTotal?: number): Promise<void> {
-    const [telegramCreds] = await db.select().from(providerCredentials)
-      .where(and(eq(providerCredentials.workspace_id, this.workspaceId), eq(providerCredentials.provider, 'telegram')));
-    if (!telegramCreds) return;
-
-    const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
-    if (!creds.bot_token || !creds.chat_id) return;
-
-    // Get workspace name for notification
+  private async sendTelegramNotification(
+    type: 'start' | 'end',
+    durationSecs?: number,
+    costTotal?: number,
+    providerCost?: number,
+  ): Promise<void> {
+    // Get workspace name, balance, and caller phone
     const [ws] = await db.select({ name: workspacesSchema.name, balance_usd: workspacesSchema.balance_usd })
       .from(workspacesSchema).where(eq(workspacesSchema.id, this.workspaceId)).limit(1);
+    const [call] = await db.select({ from_number: callsTable.from_number })
+      .from(callsTable).where(eq(callsTable.id, this.callId)).limit(1);
+    const subscriberName = ws?.name || 'User';
+    const callerPhone = call?.from_number || '';
 
-    if (type === 'start') {
-      let liveUrl: string | undefined;
+    // 1. Notify the user (their own Telegram)
+    const [telegramCreds] = await db.select({ credential_data: providerCredentials.credential_data })
+      .from(providerCredentials)
+      .where(and(eq(providerCredentials.workspace_id, this.workspaceId), eq(providerCredentials.provider, 'telegram')));
+
+    if (telegramCreds) {
       try {
-        const shareToken = await callService.createShareToken(this.callId);
-        liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
-      } catch { /* ignore */ }
-
-      await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, {
-        subscriberName: ws?.name || 'User',
-        liveUrl,
-      });
-    } else {
-      const balanceUsd = parseFloat(ws?.balance_usd as string) || 0;
-      await sendTranslatorSessionEnd(creds.bot_token, creds.chat_id, {
-        subscriberName: ws?.name || 'User',
-        durationSecs: durationSecs ?? 0,
-        costUsd: costTotal ?? 0,
-        balanceUsd,
-      });
+        const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+        if (creds.bot_token && creds.chat_id) {
+          if (type === 'start') {
+            let liveUrl: string | undefined;
+            try {
+              const shareToken = await callService.createShareToken(this.callId);
+              liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
+            } catch { /* ignore */ }
+            await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, { subscriberName, liveUrl });
+          } else {
+            const balanceUsd = parseFloat(ws?.balance_usd as string) || 0;
+            await sendTranslatorSessionEnd(creds.bot_token, creds.chat_id, {
+              subscriberName,
+              durationSecs: durationSecs ?? 0,
+              costUsd: costTotal ?? 0,
+              balanceUsd,
+            });
+          }
+        }
+      } catch { /* non-critical */ }
     }
+
+    // 2. Notify admin (platform owner's Telegram)
+    try {
+      const { workspaceMembers } = await import('../db/schema.js');
+      const [adminTg] = await db
+        .select({ credential_data: providerCredentials.credential_data })
+        .from(providerCredentials)
+        .innerJoin(workspaceMembers, and(
+          eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+          eq(workspaceMembers.role, 'owner'),
+        ))
+        .where(eq(providerCredentials.provider, 'telegram'))
+        .limit(1);
+
+      if (adminTg) {
+        const adminCreds = JSON.parse(decrypt(adminTg.credential_data)) as { bot_token: string; chat_id: string };
+        if (adminCreds.bot_token && adminCreds.chat_id) {
+          if (type === 'start') {
+            let liveUrl: string | undefined;
+            try {
+              const shareToken = await callService.createShareToken(this.callId);
+              liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
+            } catch { /* ignore */ }
+            await sendAdminTranslatorStart(adminCreds.bot_token, adminCreds.chat_id, {
+              subscriberName,
+              callerPhone,
+              liveUrl,
+            });
+          } else {
+            const balanceUsd = parseFloat(ws?.balance_usd as string) || 0;
+            const pCost = providerCost ?? 0;
+            const cCost = costTotal ?? 0;
+            await sendAdminTranslatorEnd(adminCreds.bot_token, adminCreds.chat_id, {
+              subscriberName,
+              callerPhone,
+              durationSecs: durationSecs ?? 0,
+              providerCostUsd: pCost,
+              clientCostUsd: cCost,
+              profitUsd: cCost - pCost,
+              balanceAfterUsd: balanceUsd,
+            });
+          }
+        }
+      }
+    } catch { /* non-critical */ }
   }
 
   stop(): void {

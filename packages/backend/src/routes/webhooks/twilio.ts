@@ -145,28 +145,54 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         conversationOwner: 'internal',
       });
 
-      // Send Telegram notification (fire-and-forget)
+      // Send Telegram notifications (fire-and-forget)
       (async () => {
         try {
-          const { providerCredentials } = await import('../../db/schema.js');
+          const { providerCredentials, workspaceMembers } = await import('../../db/schema.js');
           const { decrypt } = await import('../../lib/crypto.js');
-          const { sendTranslatorSessionStart } = await import('../../services/telegram.service.js');
-
-          const [telegramCreds] = await db.select().from(providerCredentials)
-            .where(and(eq(providerCredentials.workspace_id, callerWorkspace.id), eq(providerCredentials.provider, 'telegram')));
-          if (!telegramCreds) return;
-
-          let creds: { bot_token: string; chat_id: string };
-          try { creds = JSON.parse(decrypt(telegramCreds.credential_data)); } catch { return; }
-          if (!creds.bot_token || !creds.chat_id) return;
+          const { sendTranslatorSessionStart, sendAdminTranslatorStart } = await import('../../services/telegram.service.js');
 
           const shareToken = await callService.createShareToken(translatorCall.id);
           const liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
 
-          await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, {
-            subscriberName: callerWorkspace.name,
-            liveUrl,
-          });
+          // Notify the user
+          const [telegramCreds] = await db.select({ credential_data: providerCredentials.credential_data }).from(providerCredentials)
+            .where(and(eq(providerCredentials.workspace_id, callerWorkspace.id), eq(providerCredentials.provider, 'telegram')));
+          if (telegramCreds) {
+            try {
+              const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
+              if (creds.bot_token && creds.chat_id) {
+                await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, {
+                  subscriberName: callerWorkspace.name,
+                  liveUrl,
+                });
+              }
+            } catch { /* non-critical */ }
+          }
+
+          // Notify admin (platform owner)
+          const [adminTg] = await db
+            .select({ credential_data: providerCredentials.credential_data })
+            .from(providerCredentials)
+            .innerJoin(workspaceMembers, and(
+              eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
+              eq(workspaceMembers.role, 'owner'),
+            ))
+            .where(eq(providerCredentials.provider, 'telegram'))
+            .limit(1);
+          if (adminTg) {
+            try {
+              const adminCreds = JSON.parse(decrypt(adminTg.credential_data)) as { bot_token: string; chat_id: string };
+              if (adminCreds.bot_token && adminCreds.chat_id) {
+                await sendAdminTranslatorStart(adminCreds.bot_token, adminCreds.chat_id, {
+                  subscriberName: callerWorkspace.name,
+                  callerPhone: callerNumber,
+                  liveUrl,
+                });
+              }
+            } catch { /* non-critical */ }
+          }
+
           app.log.info({ callId: translatorCall.id, liveUrl }, 'Telegram notification sent');
         } catch (err) {
           app.log.error({ err }, 'Failed to send Telegram notification');

@@ -219,3 +219,55 @@ export async function sendTranslatorSessionEnd(
   }
   return sendTelegramMessage(botToken, chatId, lines.join('\n'));
 }
+
+// ─── Admin notifications (sent to platform owner for every session) ─────────
+
+export async function sendAdminTranslatorStart(
+  botToken: string,
+  chatId: string,
+  data: { subscriberName: string; callerPhone: string; liveUrl?: string },
+): Promise<boolean> {
+  const lines = [
+    '\u{1F7E2} <b>Translator Session Started</b>',
+    `User: ${escapeHtml(data.subscriberName)}`,
+    `Phone: ${escapeHtml(data.callerPhone)}`,
+  ];
+  if (data.liveUrl) {
+    lines.push(`\u{1F517} <a href="${escapeHtml(data.liveUrl)}">Live</a>`);
+  }
+  return sendTelegramMessage(botToken, chatId, lines.join('\n'));
+}
+
+export async function sendAdminTranslatorEnd(
+  botToken: string,
+  chatId: string,
+  data: {
+    subscriberName: string;
+    callerPhone: string;
+    durationSecs: number;
+    providerCostUsd: number;
+    clientCostUsd: number;
+    profitUsd: number;
+    balanceAfterUsd: number;
+  },
+): Promise<boolean> {
+  const mins = Math.floor(data.durationSecs / 60);
+  const secs = data.durationSecs % 60;
+  const lines = [
+    '\u{1F3C1} <b>Translator Session Ended</b>',
+    '',
+    `User: ${escapeHtml(data.subscriberName)}`,
+    `Phone: ${escapeHtml(data.callerPhone)}`,
+    `Duration: ${mins}m ${secs}s`,
+    '',
+    `Provider cost: $${data.providerCostUsd.toFixed(4)}`,
+    `Charged: $${data.clientCostUsd.toFixed(4)}`,
+    `Profit: $${data.profitUsd.toFixed(4)}`,
+    `User balance: $${data.balanceAfterUsd.toFixed(2)}`,
+  ];
+  if (data.balanceAfterUsd < 5) {
+    lines.push('');
+    lines.push('\u26A0\uFE0F Low balance');
+  }
+  return sendTelegramMessage(botToken, chatId, lines.join('\n'));
+}
