@@ -6,7 +6,6 @@ import { db } from '../config/db.js';
 import { translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
 import { getIo } from '../realtime/io.js';
 import * as callService from './call.service.js';
-import { queuePostCallProcessing } from '../workers/post-call.worker.js';
 import { calculateTelephonyCost } from '../config/pricing.js';
 import { sendTranslatorSessionStart, sendTranslatorSessionEnd, sendAdminTranslatorStart, sendAdminTranslatorEnd } from './telegram.service.js';
 import { decrypt } from '../lib/crypto.js';
@@ -596,78 +595,21 @@ ${this.personalContext}` : ''}`;
       }
     }
 
-    // Deduct USD from workspace deposit
-    try {
-      const { deductUsageCost } = await import('./billing.service.js');
-      const [ws] = await db.select({ provider_config: workspacesSchema.provider_config })
-        .from(workspacesSchema)
-        .where(eq(workspacesSchema.id, this.workspaceId))
-        .limit(1);
-      await deductUsageCost({
+    // Finalize via centralized session finalizer
+    const aiSession = await callService.getAiSession(this.callId);
+    if (aiSession) {
+      const { finalizeSession } = await import('./session-finalizer.service.js');
+      await finalizeSession({
+        callId: this.callId,
         workspaceId: this.workspaceId,
-        providerCosts: {
-          stt: costVoiceAgent, // Grok Voice Agent covers STT+LLM+TTS
-          llm: 0,
-          tts: 0,
-          telephony: costTelephony,
-          sttProvider: 'xai',
-        },
-        providerConfig: (ws?.provider_config as any) || {},
-        referenceType: 'translator_session',
-        referenceId: this.sessionId || this.callId,
-      });
-    } catch (err) {
-      log.error({ err, callId: this.callId }, 'Failed to deduct workspace deposit');
-    }
-
-    // Update call status
-    try {
-      await callService.updateCallStatus(this.callId, 'completed', {
-        duration_seconds: durationSecs,
-      } as any);
-
-      const aiSession = await callService.getAiSession(this.callId);
-      if (aiSession) {
-        await callService.updateAiSession(aiSession.id, {
-          transcript: this.transcript as any,
-          total_turns: this.transcript.length,
-          cost_stt: String(costVoiceAgent),
-          cost_telephony: String(costTelephony),
-          cost_total: String(costTotal),
-        } as any);
-      }
-
-      if (this.transcript.length > 0 && aiSession) {
-        queuePostCallProcessing({
-          callId: this.callId,
-          workspaceId: this.workspaceId,
-          sessionId: aiSession.id,
-        });
-      }
-    } catch (err) {
-      log.error({ err, callId: this.callId }, 'Failed to finalize call status');
-    }
-
-    // Notify frontend — both call room and workspace room
-    const io = getIo();
-    if (io) {
-      io.to(`call:${this.callId}`).emit('call:status', {
-        call_id: this.callId,
-        status: 'completed',
-      });
-      io.to(`workspace:${this.workspaceId}`).emit('call:status', {
-        call_id: this.callId,
-        status: 'completed',
+        sessionId: aiSession.id,
+        transcript: this.transcript,
+        costs: { stt: costVoiceAgent, llm: 0, tts: 0, telephony: costTelephony, sttProvider: 'xai' },
+        durationSecs,
       });
     }
 
-    log.info({
-      callId: this.callId,
-      durationSecs,
-      minutesUsed,
-      costTotal,
-      turns: this.transcript.length,
-    }, 'Conference translator finalized');
+    log.info({ callId: this.callId, durationSecs, minutesUsed, costTotal, turns: this.transcript.length }, 'Conference translator finalized');
 
     // providerCost = raw cost, costTotal passed to notification is client-facing (with markup)
     const { getMarkup } = await import('./billing.service.js');

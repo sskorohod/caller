@@ -111,87 +111,34 @@ const manualSafetyTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 async function finalizeVTSession(callId: string): Promise<void> {
   const vt = activeVoiceTranslateSessions.get(callId);
-  if (!vt || vt.saved) return; // already saved or session gone
-  vt.saved = true; // prevent double-save
+  if (!vt || vt.saved) return;
+  vt.saved = true;
 
-  // Clear safety timer
   if (vt.safetyTimer) { clearTimeout(vt.safetyTimer); vt.safetyTimer = undefined; }
-
-  // Close Grok Voice Agent + callee STT
   try { vt.grokWs?.close(); } catch { /* ignore */ }
   try { if (vt.calleeStt) vt.calleeStt.close(); } catch { /* ignore */ }
 
-  // Save transcript + costs + queue post-call
-  const sessionId = vt.sessionId;
-  if (sessionId) {
+  if (vt.sessionId) {
     try {
-      const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
-      if (callRow) {
-        const durationSecs = callRow.connected_at
-          ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
-          : 0;
-        const durationMins = durationSecs / 60;
-        // Grok Voice Agent: $0.05/min + Twilio telephony for both legs
-        const costGrok = durationMins * 0.05;
-        const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2;
-        const costTotal = costGrok + costTelephony;
+      const [callRow] = await db.select({ connected_at: callsTable.connected_at }).from(callsTable).where(eq(callsTable.id, callId));
+      const durationSecs = callRow?.connected_at
+        ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000) : 0;
+      const durationMins = durationSecs / 60;
+      const costGrok = durationMins * 0.05;
+      const costTelephony = calculateTelephonyCost('twilio', durationMins) * 2;
 
-        await callService.updateAiSession(sessionId, {
-          transcript: vt.transcript as any,
-          total_turns: vt.transcript.length,
-          cost_stt: String(costGrok),
-          cost_telephony: String(costTelephony),
-          cost_total: String(costTotal),
-        } as any);
-
-        // Deduct VT usage cost from workspace balance
-        try {
-          const { deductUsageCost } = await import('../../services/billing.service.js');
-          const { workspaces: wsTable, calls: callsTable } = await import('../../db/schema.js');
-          const [callRow] = await db.select({ workspace_id: callsTable.workspace_id })
-            .from(callsTable).where(eq(callsTable.id, callId)).limit(1);
-          const wsId = callRow?.workspace_id;
-          if (!wsId) throw new Error('Call not found');
-          const [ws] = await db.select({ provider_config: wsTable.provider_config })
-            .from(wsTable).where(eq(wsTable.id, wsId)).limit(1);
-          await deductUsageCost({
-            workspaceId: wsId,
-            providerCosts: {
-              stt: costGrok,
-              llm: 0,
-              tts: 0,
-              telephony: costTelephony,
-              sttProvider: 'xai',
-            },
-            providerConfig: (ws?.provider_config as any) || {},
-            referenceType: 'call_session' as any,
-            referenceId: sessionId,
-          });
-        } catch (err) {
-          logger.error({ err, callId }, 'Failed to deduct VT usage cost');
-        }
-
-        await callService.updateCallStatus(callId, 'completed', {
-          duration_seconds: durationSecs,
-        } as any);
-
-        if (vt.transcript.length > 0) {
-          queuePostCallProcessing({ callId, workspaceId: vt.workspaceId, sessionId });
-        }
-        logger.info({ callId, turns: vt.transcript.length, costTotal }, 'VT session finalized (Grok)');
-      }
+      const { finalizeSession } = await import('../../services/session-finalizer.service.js');
+      await finalizeSession({
+        callId, workspaceId: vt.workspaceId, sessionId: vt.sessionId,
+        transcript: vt.transcript,
+        costs: { stt: costGrok, llm: 0, tts: 0, telephony: costTelephony, sttProvider: 'xai' },
+        durationSecs,
+      });
     } catch (err) {
       logger.error({ err, callId }, 'Failed to finalize VT session');
     }
   }
 
-  // Notify frontend
-  const io = getIo();
-  if (io) {
-    io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });
-  }
-
-  // Hang up callee
   if (vt.calleeCallSid) {
     telephonyService.hangupCall(vt.workspaceId, vt.calleeCallSid).catch((err: unknown) => {
       logger.warn({ err, callId }, 'Failed to hangup callee');
@@ -207,68 +154,29 @@ async function finalizeManualSession(callId: string): Promise<void> {
   if (!ms || ms.saved) return;
   ms.saved = true;
 
-  // Clear safety timer
   const timer = manualSafetyTimers.get(callId);
   if (timer) { clearTimeout(timer); manualSafetyTimers.delete(callId); }
-
-  // Close STT
   try { ms.calleeStt.close(); } catch { /* ignore */ }
   try { ms.operatorStt.close(); } catch { /* ignore */ }
 
-  // Save transcript + costs
   if (ms.sessionId) {
     try {
-      const [callRow] = await db.select().from(callsTable).where(eq(callsTable.id, callId));
-      if (callRow) {
-        const durationSecs = callRow.connected_at
-          ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000)
-          : 0;
-        const durationMins = durationSecs / 60;
-        const meta = callRow.metadata as any;
-        const sttProv = meta?.stt_provider ?? 'deepgram';
-        const costStt = calculateSTTCost(sttProv, durationMins) * 2;
-        const costTelephony = calculateTelephonyCost('twilio', durationMins);
-        const costTotal = costStt + costTelephony;
+      const [callRow] = await db.select({ connected_at: callsTable.connected_at, metadata: callsTable.metadata })
+        .from(callsTable).where(eq(callsTable.id, callId));
+      const durationSecs = callRow?.connected_at
+        ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000) : 0;
+      const durationMins = durationSecs / 60;
+      const sttProv = (callRow?.metadata as any)?.stt_provider ?? 'deepgram';
+      const costStt = calculateSTTCost(sttProv, durationMins) * 2;
+      const costTelephony = calculateTelephonyCost('twilio', durationMins);
 
-        await callService.updateAiSession(ms.sessionId, {
-          transcript: ms.transcript as any,
-          total_turns: ms.transcript.length,
-          cost_stt: String(costStt),
-          cost_telephony: String(costTelephony),
-          cost_total: String(costTotal),
-        } as any);
-
-        await callService.updateCallStatus(callId, 'completed', {
-          duration_seconds: durationSecs,
-        } as any);
-
-        // Deduct manual session cost from workspace balance
-        try {
-          const { deductUsageCost } = await import('../../services/billing.service.js');
-          const [ws] = await db.select({ provider_config: workspacesTable.provider_config })
-            .from(workspacesTable).where(eq(workspacesTable.id, callRow.workspace_id)).limit(1);
-          await deductUsageCost({
-            workspaceId: callRow.workspace_id,
-            providerCosts: {
-              stt: costStt,
-              llm: 0,
-              tts: 0,
-              telephony: costTelephony,
-              sttProvider: sttProv,
-            },
-            providerConfig: (ws?.provider_config as any) || {},
-            referenceType: 'call_session' as any,
-            referenceId: ms.sessionId,
-          });
-        } catch (err) {
-          logger.error({ err, callId }, 'Failed to deduct manual session cost');
-        }
-
-        if (ms.transcript.length > 0) {
-          queuePostCallProcessing({ callId, workspaceId: ms.workspaceId, sessionId: ms.sessionId });
-        }
-        logger.info({ callId, turns: ms.transcript.length, costTotal }, 'Manual session finalized');
-      }
+      const { finalizeSession } = await import('../../services/session-finalizer.service.js');
+      await finalizeSession({
+        callId, workspaceId: ms.workspaceId, sessionId: ms.sessionId,
+        transcript: ms.transcript,
+        costs: { stt: costStt, llm: 0, tts: 0, telephony: costTelephony, sttProvider: sttProv },
+        durationSecs,
+      });
     } catch (err) {
       logger.error({ err, callId }, 'Failed to finalize manual session');
     }
