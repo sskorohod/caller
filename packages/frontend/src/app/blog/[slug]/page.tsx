@@ -69,14 +69,67 @@ function ArticleCTA({ locale }: { locale: 'en' | 'ru' }) {
           ? 'Добавьте наш номер в любой звонок — AI переведёт обе стороны. $0.15/мин. Первые $2 бесплатно.'
           : 'Merge our number into any phone call — AI translates both sides. $0.15/min. First $2 free.'}
       </p>
-      <Link
-        href="/auth/signup"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-base font-semibold text-white"
-        style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)', boxShadow: '0 4px 24px rgba(34,211,238,0.25)' }}
-      >
-        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>translate</span>
-        {isRu ? 'Начать бесплатно' : 'Get Started Free'}
-      </Link>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <Link
+          href="/auth/signup"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-base font-semibold text-white"
+          style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)', boxShadow: '0 4px 24px rgba(34,211,238,0.25)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>translate</span>
+          {isRu ? 'Начать бесплатно' : 'Get Started Free'}
+        </Link>
+        <Link
+          href="/translator"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-base font-medium transition-colors"
+          style={{ color: 'rgba(194,198,214,0.7)', border: '1px solid rgba(140,144,159,0.15)' }}
+        >
+          {isRu ? 'Как это работает' : 'How It Works'}
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
+        </Link>
+      </div>
+      <p className="mt-4 text-xs" style={{ color: 'rgba(194,198,214,0.4)' }}>
+        {isRu ? (
+          <>Смотрите <Link href="/pricing" className="underline" style={{ color: '#22d3ee' }}>тарифы</Link> — оплата только за использование, никаких подписок.</>
+        ) : (
+          <>See <Link href="/pricing" className="underline" style={{ color: '#22d3ee' }}>pricing</Link> — pay per minute, no subscriptions.</>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/* ── Related Articles Component ───────────────────────────────────────── */
+function RelatedArticles({ currentSlug, locale }: { currentSlug: string; locale: 'en' | 'ru' }) {
+  const isRu = locale === 'ru';
+  const related = articles.filter((a) => a.slug !== currentSlug).slice(0, 3);
+  if (related.length === 0) return null;
+
+  return (
+    <div className="mt-16 pt-12" style={{ borderTop: '1px solid rgba(140,144,159,0.1)' }}>
+      <h3 className="font-headline text-xl font-bold text-white mb-6">
+        {isRu ? 'Читайте также' : 'Related Articles'}
+      </h3>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {related.map((a) => (
+          <Link
+            key={a.slug}
+            href={`/blog/${a.slug}`}
+            className="block rounded-xl p-5 transition-all hover:scale-[1.02]"
+            style={{ background: 'rgba(26,32,44,0.4)', border: '1px solid rgba(140,144,159,0.08)' }}
+          >
+            <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mb-2" style={{ background: 'rgba(34,211,238,0.1)', color: '#22d3ee' }}>
+              {a.locale === 'ru' ? 'RU' : 'EN'}
+            </span>
+            <h4 className="text-sm font-semibold text-white mb-1 line-clamp-2">{a.title}</h4>
+            <p className="text-xs line-clamp-2" style={{ color: 'rgba(194,198,214,0.5)' }}>{a.description}</p>
+          </Link>
+        ))}
+      </div>
+      <div className="text-center mt-6">
+        <Link href="/blog" className="inline-flex items-center gap-1 text-sm font-medium" style={{ color: '#22d3ee' }}>
+          {isRu ? 'Все статьи' : 'All articles'} <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </Link>
+      </div>
     </div>
   );
 }
@@ -183,6 +236,7 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
           <Content />
         </div>
         <ArticleCTA locale={article.locale} />
+        <RelatedArticles currentSlug={slug} locale={article.locale} />
       </div>
 
       {/* Footer */}

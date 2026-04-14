@@ -84,6 +84,7 @@ function Navbar() {
             <Link href="/#products" className="nav-link">{t('Products', 'Продукты')}</Link>
             <Link href="/help" className="nav-link">{t('Help Center', 'Центр помощи')}</Link>
             <Link href="/docs" className="nav-link">{t('Documentation', 'Документация')}</Link>
+            <Link href="/blog" className="nav-link">{t('Blog', 'Блог')}</Link>
           </div>
 
           {/* CTA + LangSwitcher */}
@@ -115,6 +116,7 @@ function Navbar() {
             <Link href="/#products" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>{t('Products', 'Продукты')}</Link>
             <Link href="/help" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>{t('Help Center', 'Центр помощи')}</Link>
             <Link href="/docs" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>{t('Documentation', 'Документация')}</Link>
+            <Link href="/blog" className="block nav-link py-2" onClick={() => setMenuOpen(false)}>{t('Blog', 'Блог')}</Link>
             <div className="flex items-center gap-3 mt-2">
               <LangSwitcher />
               <Link
@@ -848,6 +850,80 @@ function TranslatorContent() {
         </div>
       </section>
 
+      {/* ── Featured Articles ─────────────────────────────────────────────── */}
+      <section className="py-20 md:py-28 relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <AnimatedSection animation="fade-up">
+            <div className="text-center mb-14">
+              <span className="inline-block text-xs font-semibold uppercase tracking-widest mb-3 px-4 py-1.5 rounded-full" style={{ color: '#22d3ee', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.15)' }}>
+                {t('Guides & Resources', 'Гайды и ресурсы')}
+              </span>
+              <h2 className="font-headline text-3xl md:text-4xl font-extrabold" style={{ color: '#f1f5ff' }}>
+                {t('Learn More About Phone Translation', 'Узнайте больше о телефонном переводе')}
+              </h2>
+            </div>
+          </AnimatedSection>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                slug: 'real-time-phone-translation',
+                icon: 'cell_tower',
+                color: '#22d3ee',
+                title: t('Real-Time Phone Translation: How It Works', 'Перевод звонков в реальном времени: как это работает'),
+                desc: t('Compare app-based, carrier-based, and merge-based approaches to phone translation in 2026.', 'Сравнение подходов к переводу звонков: приложения, оператор или merge-метод.'),
+                readTime: t('6 min read', '6 мин чтения'),
+              },
+              {
+                slug: 'languageline-alternative',
+                icon: 'compare_arrows',
+                color: '#818cf8',
+                title: t('LanguageLine Alternative: $0.15/min AI Translation', 'Альтернатива LanguageLine: AI-перевод за $0.15/мин'),
+                desc: t('How Live Translator compares to LanguageLine, Boostlingo, T-Mobile, and other services.', 'Как Live Translator сравнивается с LanguageLine, Boostlingo, T-Mobile и другими.'),
+                readTime: t('6 min read', '6 мин чтения'),
+              },
+              {
+                slug: 'call-insurance-no-english',
+                icon: 'health_and_safety',
+                color: '#c084fc',
+                title: t('How to Call Insurance Without English', 'Как позвонить в страховую без английского'),
+                desc: t('Step-by-step guide for calling US insurance companies when English isn\'t your first language.', 'Пошаговый гайд по звонку в страховую компанию для тех, кто плохо говорит по-английски.'),
+                readTime: t('7 min read', '7 мин чтения'),
+              },
+            ].map((article, i) => (
+              <AnimatedSection key={article.slug} animation="fade-up" delay={i * 100}>
+                <Link href={`/blog/${article.slug}`} className="block glass-panel bento-card rounded-2xl p-6 h-full group">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: `${article.color}12`, border: `1px solid ${article.color}25` }}>
+                    <span className="material-symbols-outlined text-xl" style={{ color: article.color }}>{article.icon}</span>
+                  </div>
+                  <h3 className="font-headline font-bold text-base mb-2 group-hover:text-white transition-colors" style={{ color: '#dde2f3' }}>
+                    {article.title}
+                  </h3>
+                  <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.55)' }}>
+                    {article.desc}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(194,198,214,0.35)' }}>
+                    <span className="material-symbols-outlined text-sm">schedule</span>
+                    {article.readTime}
+                    <span className="ml-auto flex items-center gap-1 font-medium transition-colors group-hover:text-cyan-400" style={{ color: '#22d3ee' }}>
+                      {t('Read', 'Читать')} <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </span>
+                  </div>
+                </Link>
+              </AnimatedSection>
+            ))}
+          </div>
+
+          <AnimatedSection animation="fade-up" delay={400}>
+            <div className="text-center mt-10">
+              <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:text-white" style={{ color: '#22d3ee' }}>
+                {t('View all articles', 'Все статьи')} <span className="material-symbols-outlined text-base">arrow_forward</span>
+              </Link>
+            </div>
+          </AnimatedSection>
+        </div>
+      </section>
+
       {/* ── Final CTA ────────────────────────────────────────────────────── */}
       <section className="py-20 md:py-28 relative overflow-hidden">
         <div className="hero-glow" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '800px', height: '400px', background: 'rgba(34,211,238,0.05)' }} />
@@ -923,6 +999,7 @@ function TranslatorContent() {
                   { label: t('Documentation', 'Документация'), href: '/docs' },
                   { label: t('Help Center', 'Центр помощи'), href: '/help' },
                   { label: t('API Reference', 'Справочник API'), href: '/docs?section=api-reference' },
+                  { label: t('Blog', 'Блог'), href: '/blog' },
                 ].map((link) => (
                   <li key={link.href}>
                     <Link href={link.href} className="text-sm transition-colors" style={{ color: 'rgba(194,198,214,0.55)' }}

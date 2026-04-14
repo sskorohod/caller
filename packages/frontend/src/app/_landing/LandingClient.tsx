@@ -291,6 +291,7 @@ function LandingContent() {
               { label: t('Translator', 'Переводчик'), href: '/translator' },
               { label: t('Features', 'Возможности'), href: '#features' },
               { label: t('Pricing', 'Цены'), href: '/pricing' },
+              { label: t('Blog', 'Блог'), href: '/blog' },
               { label: 'FAQ', href: '#faq' },
             ].map(l => (
               <a key={l.label} href={l.href} className="transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>
@@ -321,6 +322,7 @@ function LandingContent() {
               { label: t('Translator', 'Переводчик'), href: '/translator' },
               { label: t('Features', 'Возможности'), href: '#features' },
               { label: t('Pricing', 'Цены'), href: '/pricing' },
+              { label: t('Blog', 'Блог'), href: '/blog' },
               { label: 'FAQ', href: '#faq' },
             ].map(item => (
               <a key={item.label} href={item.href}
@@ -921,6 +923,7 @@ function LandingContent() {
                   { label: t('Documentation', 'Документация'), href: '/docs' },
                   { label: 'API Reference', href: '/docs?section=api' },
                   { label: t('Help Center', 'Центр помощи'), href: '/help' },
+                  { label: t('Blog', 'Блог'), href: '/blog' },
                 ] },
                 { title: t('Legal', 'Правовая информация'), links: [
                   { label: t('Privacy Policy', 'Политика конфиденциальности'), href: '/privacy' },

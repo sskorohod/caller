@@ -97,6 +97,33 @@ export default function BlogIndexPage() {
         </div>
       </div>
 
+      {/* CTA banner */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="rounded-2xl p-8 text-center" style={{ background: 'linear-gradient(135deg, rgba(34,211,238,0.06), rgba(129,140,248,0.06))', border: '1px solid rgba(34,211,238,0.12)' }}>
+          <h3 className="font-headline text-xl font-bold text-white mb-2">Ready to try Live Translator?</h3>
+          <p className="text-sm mb-5" style={{ color: 'rgba(194,198,214,0.6)' }}>
+            Merge our AI translator into any phone call. $0.15/min. No app needed.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link
+              href="/translator"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+              style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)', boxShadow: '0 4px 24px rgba(34,211,238,0.2)' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>translate</span>
+              Learn More
+            </Link>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium"
+              style={{ color: 'rgba(194,198,214,0.7)', border: '1px solid rgba(140,144,159,0.15)' }}
+            >
+              See Pricing
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Footer */}
       <footer style={{ borderTop: '1px solid rgba(140,144,159,0.08)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
