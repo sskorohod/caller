@@ -428,6 +428,146 @@ export async function handleInvoiceEvent(event: any): Promise<void> {
 }
 
 // ============================================================
+// PLAN DOWNGRADE & REACTIVATION
+// ============================================================
+
+/**
+ * Downgrade subscription to a lower plan (e.g. agents_mcp → agents).
+ * Updates Stripe subscription in-place with proration.
+ */
+export async function downgradeSubscription(workspaceId: string, targetPlan: WorkspacePlan): Promise<void> {
+  const key = await getStripeKey(workspaceId);
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+  if (!ws?.stripe_subscription_id) throw new Error('No active subscription to downgrade');
+
+  const targetPriceId = targetPlan === 'agents'
+    ? process.env.STRIPE_AGENTS_PRICE_ID
+    : process.env.STRIPE_AGENTS_MCP_PRICE_ID;
+  if (!targetPriceId) throw new Error(`No Stripe price configured for plan ${targetPlan}`);
+
+  // Fetch current subscription to get item ID
+  const sub = await stripeRequest(`/subscriptions/${ws.stripe_subscription_id}`, 'GET', undefined, key);
+  const itemId = sub.items?.data?.[0]?.id;
+  if (!itemId) throw new Error('Cannot find subscription item');
+
+  // Update subscription with new price + proration
+  await stripeRequest(`/subscriptions/${ws.stripe_subscription_id}`, 'POST', {
+    'items[0][id]': itemId,
+    'items[0][price]': targetPriceId,
+    proration_behavior: 'create_prorations',
+    // Remove cancel_at_period_end if it was set
+    cancel_at_period_end: 'false',
+  }, key);
+
+  // Update DB immediately (webhook will also confirm)
+  await db.update(workspaces).set({
+    plan: targetPlan,
+    subscription_status: 'active',
+    updated_at: new Date(),
+  }).where(eq(workspaces.id, workspaceId));
+
+  log.info({ workspaceId, targetPlan }, 'Subscription downgraded');
+}
+
+/**
+ * Reactivate a subscription that was scheduled for cancellation.
+ */
+export async function reactivateSubscription(workspaceId: string): Promise<void> {
+  const key = await getStripeKey(workspaceId);
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+  if (!ws?.stripe_subscription_id) throw new Error('No subscription to reactivate');
+
+  await stripeRequest(`/subscriptions/${ws.stripe_subscription_id}`, 'POST', {
+    cancel_at_period_end: 'false',
+  }, key);
+
+  await db.update(workspaces).set({
+    subscription_status: 'active',
+    updated_at: new Date(),
+  }).where(eq(workspaces.id, workspaceId));
+
+  log.info({ workspaceId }, 'Subscription reactivated');
+}
+
+/**
+ * Get a preview of what a downgrade would look like (proration + resource warnings).
+ */
+export async function getDowngradePreview(workspaceId: string, targetPlan: WorkspacePlan): Promise<{
+  current_plan: string;
+  target_plan: string;
+  proration_credit_usd: number;
+  new_monthly_usd: number;
+  resource_warnings: {
+    agents: { current: number; new_limit: number; over: boolean };
+    connections: { current: number; new_limit: number; over: boolean };
+  };
+}> {
+  const { PLANS } = await import('../config/plans.js');
+  const { getResourceCounts } = await import('./resource-limits.service.js');
+
+  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+  const currentPlan = (ws?.plan || 'translator') as WorkspacePlan;
+  const targetConfig = PLANS[targetPlan];
+
+  // Get resource counts
+  const counts = await getResourceCounts(workspaceId);
+  const agentLimit = targetConfig.features.maxAgentProfiles;
+  const connLimit = targetConfig.features.maxTelephonyConnections;
+
+  // Try to get proration preview from Stripe
+  let prorationCredit = 0;
+  if (ws?.stripe_subscription_id && targetPlan !== 'translator') {
+    try {
+      const key = await getStripeKey(workspaceId);
+      const sub = await stripeRequest(`/subscriptions/${ws.stripe_subscription_id}`, 'GET', undefined, key);
+      const itemId = sub.items?.data?.[0]?.id;
+      const targetPriceId = targetPlan === 'agents'
+        ? process.env.STRIPE_AGENTS_PRICE_ID
+        : process.env.STRIPE_AGENTS_MCP_PRICE_ID;
+
+      if (itemId && targetPriceId) {
+        // Use Stripe upcoming invoice to preview proration
+        const preview = await stripeRequest('/invoices/upcoming', 'GET', undefined, key);
+        // Estimate: difference between current and new plan for remaining days
+        const currentPrice = sub.items?.data?.[0]?.price?.unit_amount ?? 0;
+        const periodEnd = sub.current_period_end ?? 0;
+        const now = Math.floor(Date.now() / 1000);
+        const totalPeriod = (periodEnd - (sub.current_period_start ?? now)) || 1;
+        const remaining = Math.max(0, periodEnd - now);
+        const fraction = remaining / totalPeriod;
+        prorationCredit = Math.round((currentPrice / 100) * fraction * 100) / 100;
+      }
+    } catch (err) {
+      log.warn({ err, workspaceId }, 'Could not get proration preview');
+    }
+  }
+
+  // Get the monthly price for target plan
+  const newMonthly = targetPlan === 'translator' ? 0
+    : targetPlan === 'agents' ? 49
+    : 99;
+
+  return {
+    current_plan: currentPlan,
+    target_plan: targetPlan,
+    proration_credit_usd: prorationCredit,
+    new_monthly_usd: newMonthly,
+    resource_warnings: {
+      agents: {
+        current: counts.agentCount,
+        new_limit: agentLimit,
+        over: agentLimit !== -1 && counts.agentCount > agentLimit,
+      },
+      connections: {
+        current: counts.connectionCount,
+        new_limit: connLimit,
+        over: connLimit !== -1 && counts.connectionCount > connLimit,
+      },
+    },
+  };
+}
+
+// ============================================================
 // CUSTOMER PORTAL
 // ============================================================
 

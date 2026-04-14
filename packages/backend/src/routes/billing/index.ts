@@ -5,9 +5,12 @@ import { db } from '../../config/db.js';
 import { workspaces, depositTransactions } from '../../db/schema.js';
 import { authenticateUser, authenticateAny, requireRole } from '../../middleware/auth.js';
 import { creditDeposit } from '../../services/billing.service.js';
-import { createDepositCheckout, createSubscription, cancelSubscription, createPortalSession } from '../../services/stripe.service.js';
+import { createDepositCheckout, createSubscription, cancelSubscription, createPortalSession, downgradeSubscription, reactivateSubscription, getDowngradePreview } from '../../services/stripe.service.js';
+import { getResourceCounts } from '../../services/resource-limits.service.js';
 import { getPlanConfig, PLANS } from '../../config/plans.js';
 import type { WorkspacePlan } from '../../models/types.js';
+
+const PLAN_ORDER: Record<string, number> = { translator: 0, agents: 1, agents_mcp: 2 };
 
 const billingRoutes: FastifyPluginAsync = async (app) => {
   // ─── GET /balance ─── supports both JWT and API key (MCP)
@@ -207,6 +210,101 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     }).where(eq(workspaces.id, request.auth.workspaceId));
 
     return updated;
+  });
+
+  // ─── POST /downgrade ───────────────────────────────────────────────
+  app.post('/downgrade', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request, reply) => {
+    const body = z.object({
+      plan: z.enum(['translator', 'agents']),
+    }).parse(request.body);
+
+    const [ws] = await db.select({
+      plan: workspaces.plan,
+      subscription_status: workspaces.subscription_status,
+      stripe_subscription_id: workspaces.stripe_subscription_id,
+    }).from(workspaces).where(eq(workspaces.id, request.auth.workspaceId));
+
+    const currentOrder = PLAN_ORDER[ws?.plan || 'translator'] ?? 0;
+    const targetOrder = PLAN_ORDER[body.plan] ?? 0;
+
+    if (targetOrder >= currentOrder) {
+      return reply.status(400).send({ error: 'Target plan must be lower than current plan' });
+    }
+
+    if (body.plan === 'translator') {
+      // Downgrade to translator = cancel subscription
+      if (ws?.subscription_status === 'trialing' && !ws.stripe_subscription_id) {
+        // Trial — immediate downgrade
+        await db.update(workspaces).set({
+          plan: 'translator',
+          subscription_status: 'none',
+          subscription_current_period_end: null,
+          updated_at: new Date(),
+        }).where(eq(workspaces.id, request.auth.workspaceId));
+      } else if (ws?.stripe_subscription_id) {
+        // Paid — cancel at period end
+        await cancelSubscription(request.auth.workspaceId);
+      } else {
+        // Already on translator or no subscription
+        await db.update(workspaces).set({
+          plan: 'translator',
+          subscription_status: 'none',
+          updated_at: new Date(),
+        }).where(eq(workspaces.id, request.auth.workspaceId));
+      }
+    } else {
+      // Downgrade from agents_mcp → agents
+      if (ws?.subscription_status === 'trialing' && !ws.stripe_subscription_id) {
+        // Trial — just change plan in DB
+        await db.update(workspaces).set({
+          plan: body.plan,
+          updated_at: new Date(),
+        }).where(eq(workspaces.id, request.auth.workspaceId));
+      } else {
+        await downgradeSubscription(request.auth.workspaceId, body.plan);
+      }
+    }
+
+    return reply.status(200).send({ success: true, plan: body.plan });
+  });
+
+  // ─── POST /reactivate ─────────────────────────────────────────────
+  app.post('/reactivate', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request, reply) => {
+    const [ws] = await db.select({
+      subscription_status: workspaces.subscription_status,
+      stripe_subscription_id: workspaces.stripe_subscription_id,
+    }).from(workspaces).where(eq(workspaces.id, request.auth.workspaceId));
+
+    if (ws?.subscription_status !== 'canceled' || !ws.stripe_subscription_id) {
+      return reply.status(400).send({ error: 'No canceled subscription to reactivate' });
+    }
+
+    await reactivateSubscription(request.auth.workspaceId);
+    return reply.status(200).send({ success: true });
+  });
+
+  // ─── GET /resource-usage ──────────────────────────────────────────
+  app.get('/resource-usage', { preHandler: [authenticateAny] }, async (request) => {
+    const counts = await getResourceCounts(request.auth.workspaceId);
+    return {
+      agent_count: counts.agentCount,
+      connection_count: counts.connectionCount,
+    };
+  });
+
+  // ─── GET /downgrade-preview ───────────────────────────────────────
+  app.get('/downgrade-preview', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request) => {
+    const query = z.object({
+      target_plan: z.enum(['translator', 'agents']),
+    }).parse(request.query);
+
+    return getDowngradePreview(request.auth.workspaceId, query.target_plan);
   });
 
   // ─── POST /portal-session ──────────────────────────────────────────

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import twilio from 'twilio';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { requireResourceLimit } from '../../middleware/plan-gate.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as providerService from '../../services/provider.service.js';
 
@@ -36,7 +37,7 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/telephony/connections — save selected number
   app.post('/connections', {
-    preHandler: [requireRole('owner', 'admin')],
+    preHandler: [requireRole('owner', 'admin'), requireResourceLimit('connection')],
   }, async (request, reply) => {
     const body = z.object({
       phone_number: z.string(),

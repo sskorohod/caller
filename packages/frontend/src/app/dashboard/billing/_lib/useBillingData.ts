@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
-import type { BillingInfo, Transaction, PlanInfo } from './types';
+import type { BillingInfo, Transaction, PlanInfo, DowngradePreview } from './types';
 
 export function useBillingData() {
   const [info, setInfo] = useState<BillingInfo | null>(null);
@@ -46,6 +46,20 @@ export function useBillingData() {
     setCancelConfirm(false);
     load();
   }, [load]);
+
+  const downgrade = useCallback(async (planId: string) => {
+    await api.post('/billing/downgrade', { plan: planId });
+    load();
+  }, [load]);
+
+  const reactivate = useCallback(async () => {
+    await api.post('/billing/reactivate', {});
+    load();
+  }, [load]);
+
+  const fetchDowngradePreview = useCallback(async (targetPlan: string): Promise<DowngradePreview> => {
+    return api.get<DowngradePreview>(`/billing/downgrade-preview?target_plan=${targetPlan}`);
+  }, []);
 
   // Derived: monthly spend (sum of negative transactions in current month)
   const monthlySpend = useMemo(() => {
@@ -123,6 +137,9 @@ export function useBillingData() {
     topUp,
     subscribe,
     cancelSubscription,
+    downgrade,
+    reactivate,
+    fetchDowngradePreview,
     reload: load,
     monthlySpend,
     monthlyTxCount,

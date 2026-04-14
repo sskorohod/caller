@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { useT, useI18n } from '@/lib/i18n';
 import { useBillingData } from './_lib/useBillingData';
 
@@ -12,6 +13,7 @@ import { DepositSection } from './_components/DepositSection';
 import { PlanComparisonGrid } from './_components/PlanComparisonGrid';
 import { SubscriptionManager } from './_components/SubscriptionManager';
 import { TransactionHistory } from './_components/TransactionHistory';
+import { DowngradeConfirmModal } from './_components/DowngradeConfirmModal';
 
 export default function BillingPage() {
   const t = useT();
@@ -26,6 +28,9 @@ export default function BillingPage() {
     topUp,
     subscribe,
     cancelSubscription,
+    downgrade,
+    reactivate,
+    fetchDowngradePreview,
     monthlySpend,
     monthlyTxCount,
     ownKeyCount,
@@ -34,7 +39,21 @@ export default function BillingPage() {
     planPrices,
   } = useBillingData();
 
+  const [downgradeTarget, setDowngradeTarget] = useState<string | null>(null);
+  const [downgradeLoading, setDowngradeLoading] = useState(false);
+
   if (loading || !info) return <BillingSkeleton />;
+
+  const handleDowngradeConfirm = async () => {
+    if (!downgradeTarget) return;
+    setDowngradeLoading(true);
+    try {
+      await downgrade(downgradeTarget);
+      setDowngradeTarget(null);
+    } finally {
+      setDowngradeLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-3 md:space-y-4">
@@ -115,6 +134,7 @@ export default function BillingPage() {
       <PlanComparisonGrid
         currentPlan={info.plan}
         onSubscribe={subscribe}
+        onDowngrade={(planId) => setDowngradeTarget(planId)}
         planPrices={planPrices}
         t={t}
       />
@@ -125,11 +145,24 @@ export default function BillingPage() {
         cancelConfirm={cancelConfirm}
         setCancelConfirm={setCancelConfirm}
         onCancel={cancelSubscription}
+        onReactivate={reactivate}
         t={t}
       />
 
       {/* Transaction history */}
       <TransactionHistory transactions={transactions} t={t} />
+
+      {/* Downgrade confirmation modal */}
+      <DowngradeConfirmModal
+        open={!!downgradeTarget}
+        targetPlan={downgradeTarget || ''}
+        currentPlan={info.plan}
+        fetchPreview={fetchDowngradePreview}
+        onConfirm={handleDowngradeConfirm}
+        onClose={() => setDowngradeTarget(null)}
+        loading={downgradeLoading}
+        t={t}
+      />
     </div>
   );
 }

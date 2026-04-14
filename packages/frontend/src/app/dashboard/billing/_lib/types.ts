@@ -31,3 +31,19 @@ export interface PlanInfo {
 }
 
 export type TransactionFilter = 'all' | 'topup' | 'usage' | 'refund' | 'gift' | 'signup_bonus' | 'promo';
+
+export interface DowngradePreview {
+  current_plan: string;
+  target_plan: string;
+  proration_credit_usd: number;
+  new_monthly_usd: number;
+  resource_warnings: {
+    agents: { current: number; new_limit: number; over: boolean };
+    connections: { current: number; new_limit: number; over: boolean };
+  };
+}
+
+export interface ResourceUsage {
+  agent_count: number;
+  connection_count: number;
+}

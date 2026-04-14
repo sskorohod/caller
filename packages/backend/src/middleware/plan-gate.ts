@@ -2,6 +2,8 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ForbiddenError } from '../lib/errors.js';
 import { hasFeature, type PlanFeatures } from '../config/plans.js';
 import { hasSufficientBalance } from '../services/billing.service.js';
+import { checkResourceLimit } from '../services/resource-limits.service.js';
+import type { WorkspacePlan } from '../models/types.js';
 
 /**
  * Require workspace plan to include a specific feature.
@@ -58,6 +60,26 @@ export function requireDialerAccess() {
       ? 'Outbound dialer requires Twilio credentials. Contact admin to enable.'
       : 'Outbound dialer requires your own Twilio credentials. Configure them in Settings → Providers.';
     throw new ForbiddenError(msg);
+  };
+}
+
+/**
+ * Require workspace to be under the resource limit for a given resource type.
+ * Usage: { preHandler: [authenticateUser, requireResourceLimit('agent')] }
+ */
+export function requireResourceLimit(resource: 'agent' | 'connection') {
+  return async (request: FastifyRequest, _reply: FastifyReply) => {
+    const result = await checkResourceLimit(
+      request.auth.workspaceId,
+      request.auth.plan as WorkspacePlan,
+      resource,
+    );
+    if (!result.allowed) {
+      const label = resource === 'agent' ? 'agent profiles' : 'phone connections';
+      throw new ForbiddenError(
+        `Plan limit reached: ${result.current}/${result.limit} ${label}. Upgrade your plan to add more.`
+      );
+    }
   };
 }
 

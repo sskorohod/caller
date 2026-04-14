@@ -4,13 +4,14 @@ import { PLAN_FEATURES, PLAN_ACCENTS } from '../_lib/constants';
 interface PlanComparisonGridProps {
   currentPlan: string;
   onSubscribe: (planId: string) => void;
+  onDowngrade: (planId: string) => void;
   planPrices: Record<string, number>;
   t: (k: string) => string;
 }
 
 const PLANS = ['translator', 'agents', 'agents_mcp'] as const;
 
-export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: PlanComparisonGridProps) {
+export function PlanComparisonGrid({ currentPlan, onSubscribe, onDowngrade, planPrices, t }: PlanComparisonGridProps) {
   return (
     <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] p-4 md:p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
       <h3 className="text-sm font-semibold text-[var(--th-text)] mb-4">{t('billing.comparePlans')}</h3>
@@ -22,6 +23,7 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
           const features = PLAN_FEATURES[planId];
           const accent = PLAN_ACCENTS[planId];
           const canUpgrade = !isCurrent && PLANS.indexOf(planId) > PLANS.indexOf(currentPlan as typeof PLANS[number]);
+          const canDowngrade = !isCurrent && PLANS.indexOf(planId) < PLANS.indexOf(currentPlan as typeof PLANS[number]);
 
           return (
             <div
@@ -91,6 +93,13 @@ export function PlanComparisonGrid({ currentPlan, onSubscribe, planPrices, t }: 
                   style={{ background: `linear-gradient(to right, ${accent}, ${accent}dd)` }}
                 >
                   {t('billing.upgrade')}
+                </button>
+              ) : canDowngrade ? (
+                <button
+                  onClick={() => onDowngrade(planId)}
+                  className="w-full py-2.5 text-sm font-medium rounded-xl border border-[var(--th-warning-border)] text-[var(--th-warning-text)] bg-[var(--th-warning-bg)] hover:opacity-80 transition-opacity"
+                >
+                  {planId === 'translator' ? t('billing.cancelAndDowngrade') : t('billing.downgrade')}
                 </button>
               ) : (
                 <div className="w-full py-2.5 text-center text-[12px] text-[var(--th-text-muted)]">

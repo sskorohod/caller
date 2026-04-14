@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authenticateUser, authenticateAny, requireRole } from '../../middleware/auth.js';
+import { requireResourceLimit } from '../../middleware/plan-gate.js';
 import * as agentService from '../../services/agent.service.js';
 import * as auditService from '../../services/audit.service.js';
 import * as uploadService from '../../services/upload.service.js';
@@ -69,7 +70,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/agents
   app.post('/', {
-    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+    preHandler: [authenticateUser, requireRole('owner', 'admin'), requireResourceLimit('agent')],
   }, async (request, reply) => {
     const body = createAgentSchema.parse(request.body);
     const profile = await agentService.createAgentProfile(request.auth.workspaceId, body as any);
