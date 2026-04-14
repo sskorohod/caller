@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api
+Disallow: /auth
+Disallow: /login
+Disallow: /onboarding
+Disallow: /oauth
+
+Sitemap: https://caller.n8nskorx.top/sitemap.xml
