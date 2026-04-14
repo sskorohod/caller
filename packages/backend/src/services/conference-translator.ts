@@ -32,20 +32,9 @@ interface ConferenceTranslatorOptions {
   streamSid: string;        // Twilio stream SID
 }
 
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French',
-};
+import { LANG_NAMES, TONE_INSTRUCTIONS } from '../config/languages.js';
 
 const DEFAULT_GREETING = `A live interpreter has joined this call. I will translate between your languages. Please speak naturally, then pause briefly after finishing your thought so I can translate. Let's begin.`;
-
-const TONE_INSTRUCTIONS: Record<string, string> = {
-  neutral: 'Translate naturally, preserving the original tone and meaning.',
-  business: 'Use a professional, formal business tone. Remove filler words (um, uh, er, hmm). Use clear, precise language appropriate for business meetings and appointments.',
-  friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
-  medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
-  legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
-  intelligent: 'Before translating, mentally clean up the speaker\'s words: remove ALL filler words (um, uh, er, hmm, М, Э, ну, типа, как бы), remove false starts and repetitions. Then translate the cleaned-up version into the OTHER language. The output MUST be in a DIFFERENT language than the input — NEVER output in the same language as was spoken.',
-};
 
 /**
  * Conference Translator — uses xAI Grok Voice Agent API for speech-to-speech
@@ -106,23 +95,10 @@ export class ConferenceTranslator extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    // Get xAI API key — own workspace first, fallback to platform
-    let [row] = await db.select({ credential_data: providerCredentials.credential_data })
-      .from(providerCredentials)
-      .where(and(
-        eq(providerCredentials.workspace_id, this.workspaceId),
-        eq(providerCredentials.provider, 'xai'),
-      ));
-    if (!row) {
-      [row] = await db.select({ credential_data: providerCredentials.credential_data })
-        .from(providerCredentials)
-        .where(eq(providerCredentials.provider, 'xai'))
-        .limit(1);
-    }
-    if (!row) throw new Error('xAI credentials not configured — required for conference translator');
-    const creds = JSON.parse(decrypt(row.credential_data)) as { api_key: string };
-    const apiKey = creds.api_key;
-    this.xaiApiKey = apiKey;
+    // Get xAI API key — global fallback (translator works for all plans)
+    const { resolveCredentialsWithGlobalFallback } = await import('./credential-resolver.service.js');
+    const creds = await resolveCredentialsWithGlobalFallback<{ api_key: string }>(this.workspaceId, 'xai');
+    this.xaiApiKey = creds.api_key;
 
     // Create translator session record
     const [session] = await db

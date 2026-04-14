@@ -208,37 +208,8 @@ export async function createTTSProvider(
   voiceId?: string,
   language?: string,
 ): Promise<TTSProvider> {
-  let [row] = await db
-    .select({ credential_data: providerCredentials.credential_data })
-    .from(providerCredentials)
-    .where(
-      and(
-        eq(providerCredentials.workspace_id, workspaceId),
-        eq(providerCredentials.provider, provider),
-      ),
-    );
-
-  if (!row) {
-    // Fallback: platform credentials (only for translator plan)
-    const { allowsPlatformFallback } = await import('./provider.service.js');
-    if (await allowsPlatformFallback(workspaceId)) {
-      const { workspaceMembers } = await import('../db/schema.js');
-      const [ownerRow] = await db
-        .select({ credential_data: providerCredentials.credential_data })
-        .from(providerCredentials)
-        .innerJoin(workspaceMembers, and(
-          eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-          eq(workspaceMembers.role, 'owner'),
-        ))
-        .where(eq(providerCredentials.provider, provider))
-        .limit(1);
-      if (ownerRow) row = ownerRow;
-    }
-  }
-
-  if (!row) throw new Error(`${provider} TTS credentials not configured`);
-
-  const creds = JSON.parse(decrypt(row.credential_data));
+  const { resolveCredentials } = await import('./credential-resolver.service.js');
+  const creds = await resolveCredentials(workspaceId, provider);
 
   if (provider === 'elevenlabs') {
     return new ElevenLabsTTS(creds.api_key, voiceId ?? 'EXAVITQu4vr4xnSDxMaL');

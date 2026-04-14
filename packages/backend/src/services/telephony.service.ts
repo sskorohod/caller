@@ -18,53 +18,14 @@ interface TwilioCredentials {
   twiml_app_sid?: string;
 }
 
-/**
- * Resolve which workspace holds Twilio credentials for the given workspace.
- * If the workspace has its own twilio creds, returns the same ID.
- * If provider_config.twilio === 'platform', finds the owner workspace with twilio creds.
- */
 async function resolveTwilioWorkspaceId(workspaceId: string): Promise<string> {
-  // Check own credentials
-  const [own] = await db.select({ id: providerCredentials.id })
-    .from(providerCredentials)
-    .where(and(
-      eq(providerCredentials.workspace_id, workspaceId),
-      eq(providerCredentials.provider, 'twilio'),
-    ));
-  if (own) return workspaceId;
-
-  // Fallback: platform Twilio (only for translator plan or explicitly shared)
-  const { allowsPlatformFallback } = await import('./provider.service.js');
-  if (await allowsPlatformFallback(workspaceId)) {
-    const [ownerRow] = await db
-      .select({ workspace_id: providerCredentials.workspace_id })
-      .from(providerCredentials)
-      .innerJoin(workspaceMembers, and(
-        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-        eq(workspaceMembers.role, 'owner'),
-      ))
-      .where(eq(providerCredentials.provider, 'twilio'))
-      .limit(1);
-    if (ownerRow) return ownerRow.workspace_id;
-  }
-
-  throw new ValidationError('Twilio credentials not configured');
+  const { resolveCredentialWorkspaceId } = await import('./credential-resolver.service.js');
+  return resolveCredentialWorkspaceId(workspaceId, 'twilio');
 }
 
 export async function getTwilioCreds(workspaceId: string): Promise<TwilioCredentials> {
-  const resolvedId = await resolveTwilioWorkspaceId(workspaceId);
-  const [row] = await db
-    .select({ credential_data: providerCredentials.credential_data })
-    .from(providerCredentials)
-    .where(
-      and(
-        eq(providerCredentials.workspace_id, resolvedId),
-        eq(providerCredentials.provider, 'twilio'),
-      ),
-    );
-
-  if (!row) throw new ValidationError('Twilio credentials not configured');
-  return JSON.parse(decrypt(row.credential_data));
+  const { resolveCredentials } = await import('./credential-resolver.service.js');
+  return resolveCredentials<TwilioCredentials>(workspaceId, 'twilio');
 }
 
 async function saveTwilioCreds(workspaceId: string, creds: TwilioCredentials): Promise<void> {

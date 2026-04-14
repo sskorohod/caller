@@ -600,9 +600,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               if (!xaiRow) throw new Error('xAI credentials not configured');
               const xaiApiKey = JSON.parse(decrypt(xaiRow.credential_data)).api_key;
 
-              const LANG_NAMES: Record<string, string> = { en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French' };
-              const opLangName = LANG_NAMES[operatorLang] || operatorLang;
-              const clLangName = LANG_NAMES[calleeLang] || calleeLang;
+              const { getLangName } = await import('../../config/languages.js');
+              const opLangName = getLangName(operatorLang);
+              const clLangName = getLangName(calleeLang);
 
               // Connect Grok Voice Agent
               const { WebSocket: WsClient } = await import('ws');

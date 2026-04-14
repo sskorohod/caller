@@ -44,16 +44,8 @@ export function requireDialerAccess() {
     if (plan === 'translator' && providerConfig?.twilio === 'platform') return;
 
     // All plans: check for own Twilio credentials in workspace
-    const { db } = await import('../config/db.js');
-    const { providerCredentials } = await import('../db/schema.js');
-    const { eq, and } = await import('drizzle-orm');
-    const [own] = await db.select({ id: providerCredentials.id })
-      .from(providerCredentials)
-      .where(and(
-        eq(providerCredentials.workspace_id, request.auth.workspaceId),
-        eq(providerCredentials.provider, 'twilio'),
-      ));
-    if (own) return;
+    const { hasOwnCredentials } = await import('../services/credential-resolver.service.js');
+    if (await hasOwnCredentials(request.auth.workspaceId, 'twilio')) return;
 
     // No access
     const msg = plan === 'translator'

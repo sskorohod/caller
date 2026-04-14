@@ -214,38 +214,8 @@ export class OpenAISTT extends EventEmitter {
 export type STTProvider = DeepgramSTT | OpenAISTT;
 
 export async function createSTTProvider(workspaceId: string, provider: 'deepgram' | 'openai'): Promise<STTProvider> {
-  // Try own credentials first, then fallback to platform (owner workspace) credentials
-  let [row] = await db
-    .select({ credential_data: providerCredentials.credential_data })
-    .from(providerCredentials)
-    .where(
-      and(
-        eq(providerCredentials.workspace_id, workspaceId),
-        eq(providerCredentials.provider, provider),
-      ),
-    );
-
-  if (!row) {
-    // Fallback: platform credentials (only for translator plan)
-    const { allowsPlatformFallback } = await import('./provider.service.js');
-    if (await allowsPlatformFallback(workspaceId)) {
-      const { workspaceMembers } = await import('../db/schema.js');
-      const [ownerRow] = await db
-        .select({ credential_data: providerCredentials.credential_data })
-        .from(providerCredentials)
-        .innerJoin(workspaceMembers, and(
-          eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-          eq(workspaceMembers.role, 'owner'),
-        ))
-        .where(eq(providerCredentials.provider, provider))
-        .limit(1);
-      if (ownerRow) row = ownerRow;
-    }
-  }
-
-  if (!row) throw new Error(`${provider} credentials not configured`);
-
-  const creds = JSON.parse(decrypt(row.credential_data));
+  const { resolveCredentials } = await import('./credential-resolver.service.js');
+  const creds = await resolveCredentials(workspaceId, provider);
 
   if (provider === 'deepgram') {
     return new DeepgramSTT(creds.api_key);

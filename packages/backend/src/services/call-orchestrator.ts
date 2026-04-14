@@ -9,11 +9,9 @@ import * as callService from './call.service.js';
 
 const logger = pino({ name: 'call-orchestrator' });
 
+import { FILLER_PHRASES } from '../config/languages.js';
+
 const FILLER_TIMEOUT_MS = 1500;
-const FILLER_PHRASES: Record<string, string[]> = {
-  en: ['One moment...', 'Let me check...', 'Just a second...'],
-  ru: ['Одну секунду...', 'Сейчас проверю...', 'Минуточку...'],
-};
 
 export interface CallOrchestratorConfig {
   call: Call;

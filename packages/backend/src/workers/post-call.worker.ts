@@ -66,8 +66,8 @@ export function startPostCallWorker(): Worker {
           .from(workspaces)
           .where(eq(workspaces.id, workspaceId));
         const primaryLang = ws?.languages?.[0] || 'en';
-        const langMap: Record<string, string> = { en: 'English', ru: 'Russian', es: 'Spanish', de: 'German', fr: 'French' };
-        const summaryLang = langMap[primaryLang] || 'English';
+        const { getLangName } = await import('../config/languages.js');
+        const summaryLang = getLangName(primaryLang);
 
         // Generate summary + action items in one call
         const messages: LLMMessage[] = [
