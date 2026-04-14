@@ -478,7 +478,7 @@ function TranslatorContent() {
   ];
 
   return (
-    <div style={{ background: '#0a0e1a', minHeight: '100vh', color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}>
+    <div className="overflow-x-hidden" style={{ background: '#0a0e1a', minHeight: '100dvh', color: '#e2e8f0', fontFamily: 'Inter, sans-serif' }}>
       <TranslatorStyles />
 
       {/* Material Symbols font */}
@@ -492,9 +492,9 @@ function TranslatorContent() {
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden pt-24 pb-20 md:pt-32 md:pb-28">
         {/* Background glows */}
-        <div className="hero-glow" style={{ top: '-10%', left: '10%', width: '700px', height: '700px', background: 'rgba(34,211,238,0.05)' }} />
-        <div className="hero-glow" style={{ top: '5%', right: '5%', width: '600px', height: '600px', background: 'rgba(192,132,252,0.05)' }} />
-        <div className="hero-glow" style={{ bottom: '-10%', left: '40%', width: '500px', height: '500px', background: 'rgba(129,140,248,0.06)' }} />
+        <div className="hero-glow max-w-[80vw] sm:max-w-none" style={{ top: '-10%', left: '10%', width: '700px', height: '700px', background: 'rgba(34,211,238,0.05)' }} />
+        <div className="hero-glow max-w-[70vw] sm:max-w-none" style={{ top: '5%', right: '5%', width: '600px', height: '600px', background: 'rgba(192,132,252,0.05)' }} />
+        <div className="hero-glow max-w-[60vw] sm:max-w-none" style={{ bottom: '-10%', left: '40%', width: '500px', height: '500px', background: 'rgba(129,140,248,0.06)' }} />
         {/* Grid overlay */}
         <div className="absolute inset-0 opacity-[0.025]" style={{
           backgroundImage: `linear-gradient(rgba(34,211,238,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.4) 1px, transparent 1px)`,
