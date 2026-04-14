@@ -29,21 +29,7 @@ interface TranslationEntry {
   timestamp: string;
 }
 
-const LANGUAGES = [
-  { value: 'en', label: 'English' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'es', label: 'Español' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
-];
-
-const VOICES = [
-  { value: 'ara', label: 'Ara', gender: 'Female' },
-  { value: 'eve', label: 'Eve', gender: 'Female' },
-  { value: 'rex', label: 'Rex', gender: 'Male' },
-  { value: 'sal', label: 'Sal', gender: 'Male' },
-  { value: 'leo', label: 'Leo', gender: 'Male' },
-];
+import { LANGUAGES, TTS_VOICES as VOICES } from '@/lib/constants';
 
 const TONES = [
   { value: 'neutral', label: 'Neutral', desc: 'Natural translation, preserves original tone.' },

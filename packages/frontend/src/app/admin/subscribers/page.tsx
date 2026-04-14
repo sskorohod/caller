@@ -22,18 +22,7 @@ interface Subscriber {
   created_at: string;
 }
 
-const LANGUAGES = [
-  { value: 'ru', label: 'Russian' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'de', label: 'German' },
-  { value: 'fr', label: 'French' },
-  { value: 'zh', label: 'Chinese' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'ko', label: 'Korean' },
-  { value: 'ar', label: 'Arabic' },
-  { value: 'pt', label: 'Portuguese' },
-];
+import { LANGUAGES } from '@/lib/constants';
 
 const DEFAULT_FORM = {
   phone_number: '',

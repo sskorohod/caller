@@ -32,32 +32,7 @@ interface Transaction {
   created_at: string;
 }
 
-const LANGUAGES = [
-  { value: 'en', label: 'English' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'es', label: 'Español' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
-];
-
-const VOICES = [
-  { value: 'ara', label: 'Ara', gender: 'Female' },
-  { value: 'eve', label: 'Eve', gender: 'Female' },
-  { value: 'rex', label: 'Rex', gender: 'Male' },
-  { value: 'sal', label: 'Sal', gender: 'Male' },
-  { value: 'leo', label: 'Leo', gender: 'Male' },
-];
-
-const MODES = [
-  { value: 'voice', label: 'Voice' },
-  { value: 'text', label: 'Text' },
-  { value: 'both', label: 'Both' },
-];
-
-const WHO_HEARS = [
-  { value: 'subscriber', label: 'Subscriber only' },
-  { value: 'both', label: 'Both parties' },
-];
+import { LANGUAGES, TTS_VOICES as VOICES, TRANSLATION_MODES as MODES, WHO_HEARS_OPTIONS as WHO_HEARS } from '@/lib/constants';
 
 const TONES = [
   { value: 'neutral', label: 'Neutral' },
