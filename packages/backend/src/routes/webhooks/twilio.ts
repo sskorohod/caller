@@ -153,7 +153,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           const { sendTranslatorSessionStart } = await import('../../services/telegram.service.js');
 
           const [telegramCreds] = await db.select().from(providerCredentials)
-            .where(and(eq(providerCredentials.workspace_id, workspace.id), eq(providerCredentials.provider, 'telegram')));
+            .where(and(eq(providerCredentials.workspace_id, callerWorkspace.id), eq(providerCredentials.provider, 'telegram')));
           if (!telegramCreds) return;
 
           let creds: { bot_token: string; chat_id: string };
