@@ -372,8 +372,10 @@ Respond in JSON format:
  */
 export async function queuePostCallProcessing(data: PostCallJobData): Promise<void> {
   await postCallQueue.add('process', data, {
-    delay: 2000, // 2s delay to ensure session data is flushed
+    delay: 2000,
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: { age: 3600 },      // keep completed jobs for 1h
+    removeOnFail: { age: 7 * 24 * 3600 }, // keep failed jobs for 7 days (DLQ inspection)
   });
 }

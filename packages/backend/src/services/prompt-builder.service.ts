@@ -21,7 +21,7 @@ export function buildSystemPrompt(
 
   // Identity block
   if (call?.direction === 'outbound') {
-    const ctx = call.context as any;
+    const ctx = call.context as import('../models/types.js').CallContext;
     const targetName = ctx?.target_name || ctx?.name || ctx?.contact_name;
     const clientName = ctx?.client_name;
 
@@ -66,7 +66,7 @@ export function buildSystemPrompt(
 
     // Conversation discipline for outbound calls
     if (call.direction === 'outbound') {
-      const ctx = call.context as any;
+      const ctx = call.context as import('../models/types.js').CallContext;
       const clientForGreeting = ctx?.client_name || '';
       const targetForGreeting = ctx?.target_name || ctx?.name || ctx?.contact_name || '';
       missionParts.push(`HOW TO CONDUCT THIS CALL:

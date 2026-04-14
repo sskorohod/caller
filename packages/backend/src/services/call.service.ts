@@ -83,6 +83,29 @@ export async function deleteCall(workspaceId: string, callId: string): Promise<v
   });
 }
 
+export async function bulkDeleteCalls(workspaceId: string, callIds: string[]): Promise<number> {
+  if (callIds.length === 0) return 0;
+  let deleted = 0;
+  await db.transaction(async (tx) => {
+    // Get mission IDs for all calls
+    const missionRows = await tx.select({ id: missions.id })
+      .from(missions).where(inArray(missions.call_id, callIds));
+    if (missionRows.length > 0) {
+      const missionIds = missionRows.map(m => m.id);
+      await tx.delete(missionMessages).where(inArray(missionMessages.mission_id, missionIds));
+      await tx.delete(missions).where(inArray(missions.id, missionIds));
+    }
+    await tx.delete(callEvents).where(inArray(callEvents.call_id, callIds));
+    await tx.delete(aiCallSessions).where(inArray(aiCallSessions.call_id, callIds));
+    await tx.delete(callShareTokens).where(inArray(callShareTokens.call_id, callIds));
+    const result = await tx.delete(calls).where(
+      and(inArray(calls.id, callIds), eq(calls.workspace_id, workspaceId)),
+    ).returning({ id: calls.id });
+    deleted = result.length;
+  });
+  return deleted;
+}
+
 export async function updateCallStatus(
   callId: string,
   status: CallStatus,

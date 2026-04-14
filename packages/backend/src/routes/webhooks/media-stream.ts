@@ -166,7 +166,7 @@ async function finalizeManualSession(callId: string): Promise<void> {
       const durationSecs = callRow?.connected_at
         ? Math.floor((Date.now() - new Date(callRow.connected_at).getTime()) / 1000) : 0;
       const durationMins = durationSecs / 60;
-      const sttProv = (callRow?.metadata as any)?.stt_provider ?? 'deepgram';
+      const sttProv = (callRow?.metadata as import('../../models/types.js').CallMetadata)?.stt_provider ?? 'deepgram';
       const costStt = calculateSTTCost(sttProv, durationMins) * 2;
       const costTelephony = calculateTelephonyCost('twilio', durationMins);
 
@@ -435,7 +435,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           await callService.updateCallStatus(callId, 'in_progress');
 
           // --- Conference Translator call ---
-          const callMeta = call.metadata as any;
+          const callMeta = call.metadata as import('../../models/types.js').CallMetadata;
           if (callMeta?.call_type === 'translator') {
             const callerWsId = callMeta.caller_workspace_id;
             logger.info({ callId, callerWsId }, 'Translator call — starting conference translator');
@@ -483,10 +483,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           }
 
           // --- Dialer call: Voice Translate via Grok Voice Agent ---
-          if (call.conversation_owner_requested === 'manual' && !!(call.metadata as any)?.voice_translate) {
+          if (call.conversation_owner_requested === 'manual' && !!(call.metadata as import('../../models/types.js').CallMetadata)?.voice_translate) {
             logger.info({ callId }, 'Dialer call — Grok Voice Agent mode');
             try {
-              const meta = call.metadata as any;
+              const meta = call.metadata as import('../../models/types.js').CallMetadata;
               const operatorLang = meta.stt_language ?? 'ru';
               const calleeLang = meta.translate_to_language ?? 'en';
               const ttsVoiceId = meta.tts_voice_id ?? 'ara';
@@ -695,9 +695,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           if (call.conversation_owner_requested === 'manual') {
             logger.info({ callId }, 'Manual call — starting dual STT for transcription');
             try {
-              const rawLang = (call.metadata as any)?.stt_language ?? 'en';
+              const rawLang = (call.metadata as import('../../models/types.js').CallMetadata)?.stt_language ?? 'en';
               const sttLanguage = rawLang === 'auto' ? undefined : rawLang;
-              const sttProviderName = ((call.metadata as any)?.stt_provider ?? 'deepgram') as 'deepgram' | 'openai';
+              const sttProviderName = ((call.metadata as import('../../models/types.js').CallMetadata)?.stt_provider ?? 'deepgram') as 'deepgram' | 'openai';
               logger.info({ callId, sttProviderName, sttLanguage }, 'Using STT provider');
 
               const calleeStt = await createSTTProvider(call.workspace_id, sttProviderName);
@@ -1227,7 +1227,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     ]);
 
     // Use language from call context (mission) if available, otherwise agent profile
-    const callLanguage = (call.context as any)?.language || agentProfile.language;
+    const callLanguage = (call.context as import('../../models/types.js').CallContext)?.language || agentProfile.language;
 
     const orchestrator = new CallOrchestrator({
       call: call as any,

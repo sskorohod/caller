@@ -366,6 +366,59 @@ export interface QaEvaluation {
   evaluated_by: string;
 }
 
+// ============================================================
+// JSONB field types (for typed access to unstructured DB columns)
+// ============================================================
+
+/** calls.metadata — varies by call type */
+export interface CallMetadata {
+  call_type?: 'translator' | 'agent' | 'manual';
+  caller_workspace_id?: string;
+  greeting_text?: string;
+  stt_language?: string;
+  stt_provider?: 'deepgram' | 'openai';
+  voice_translate?: boolean;
+  voice_translate_mode?: 'sequential' | 'translated';
+  tts_provider?: string;
+  tts_voice_id?: string;
+  translate_to_language?: string;
+  [key: string]: unknown;
+}
+
+/** calls.context — mission/call context */
+export interface CallContext {
+  target_name?: string;
+  name?: string;
+  contact_name?: string;
+  client_name?: string;
+  language?: string;
+  tone?: 'friendly' | 'formal' | 'neutral';
+  [key: string]: unknown;
+}
+
+/** workspaces.translator_defaults */
+export interface TranslatorDefaults {
+  my_language?: string;
+  target_language?: string;
+  translation_mode?: 'bidirectional' | 'unidirectional';
+  who_hears?: 'subscriber' | 'both';
+  greeting_text?: string;
+  tts_provider?: string;
+  tts_voice_id?: string;
+  tone?: string;
+  personal_context?: string;
+}
+
+/** ai_call_sessions.transcript entry */
+export interface TranscriptEntry {
+  speaker: string;
+  text: string;
+  lang?: string;
+  translated?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
 export type MissionStatus = 'draft' | 'ready' | 'scheduled' | 'calling' | 'in_progress' | 'on_hold' | 'completed' | 'failed' | 'cancelled';
 export type FallbackAction = 'connect_operator' | 'retry_later' | 'voicemail' | 'report' | 'wait_instructions';
 export type MissionMessageSender = 'user' | 'ai' | 'system';

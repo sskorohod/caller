@@ -85,7 +85,7 @@ export async function finalizeSession(params: FinalizeSessionParams): Promise<vo
         llmProvider: costs.llmProvider,
         ttsProvider: costs.ttsProvider,
       },
-      providerConfig: (ws?.provider_config as any) || {},
+      providerConfig: (ws?.provider_config as import('../models/types.js').ProviderConfig) || {},
       referenceType: 'call_session',
       referenceId: sessionId,
     });
