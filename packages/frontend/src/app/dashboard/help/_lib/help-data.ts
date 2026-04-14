@@ -87,10 +87,18 @@ Caller is a platform for creating AI phone agents and live call translation.
 
 ## Первые шаги после регистрации
 
-1. **Настройте провайдеров** — перейдите в Settings → Provider Credentials и подключите нужные сервисы (Twilio, OpenAI и т.д.)
+### Для плана Translator
+Переводчик работает из коробки — все провайдеры (Twilio, xAI, Deepgram) предоставляются платформой. Вам нужно только:
+1. **Пополните депозит** — в разделе Billing
+2. **Настройте языки** — в разделе Translator выберите пару языков
+3. **Звоните** — позвоните на номер переводчика
+
+### Для планов Agents / Agents + MCP
+1. **Настройте провайдеров** — перейдите в Settings → Provider Credentials и подключите **свои** ключи (Twilio, Anthropic, OpenAI и т.д.)
 2. **Создайте агента** — перейдите в Agents → New Agent
 3. **Подключите номер** — в Settings → Provider Credentials добавьте Twilio, затем активируйте номер
-4. **Пополните депозит** — если используете провайдеров платформы, пополните баланс в разделе Billing`,
+
+> **Важно:** На планах Agents и Agents + MCP вы используете собственные API-ключи для всех провайдеров. Переводчик — единственная функция, работающая на платформенных ключах для всех планов.`,
           en: `# Registration and first steps
 
 ## Creating an account
@@ -112,10 +120,18 @@ For Agents and Agents + MCP plans, the trial activates without entering card det
 
 ## First steps after registration
 
-1. **Set up providers** — go to Settings → Provider Credentials and connect the services you need (Twilio, OpenAI, etc.)
+### For the Translator plan
+The translator works out of the box — all providers (Twilio, xAI, Deepgram) are supplied by the platform. You only need to:
+1. **Top up deposit** — in the Billing section
+2. **Configure languages** — in the Translator section choose your language pair
+3. **Call** — dial the translator number
+
+### For Agents / Agents + MCP plans
+1. **Set up providers** — go to Settings → Provider Credentials and connect **your own** keys (Twilio, Anthropic, OpenAI, etc.)
 2. **Create an agent** — go to Agents → New Agent
 3. **Connect a phone number** — in Settings → Provider Credentials add Twilio, then activate a number
-4. **Top up deposit** — if using platform providers, add funds in the Billing section`,
+
+> **Important:** On Agents and Agents + MCP plans, you use your own API keys for all providers. The translator is the only feature that works on platform keys for all plans.`,
         },
       },
       {
@@ -133,19 +149,21 @@ For Agents and Agents + MCP plans, the trial activates without entering card det
 - Текстовый перевод в реальном времени
 - Telegram-уведомления
 - Кредит при регистрации
+- **Все провайдеры предоставляются платформой** — работает из коробки
+- Диалер (исходящие звонки) доступен только если администратор расшарил Twilio
 
 Оплата: pay-as-you-go из депозита за использование провайдеров платформы.
 
 ### Agents
 Подходит для бизнесов, которым нужны AI-телефонные агенты. Включает:
-- Всё из плана Translator
+- Живой переводчик (на платформенных ключах)
 - До 10 AI-агентов
 - До 5 телефонных номеров
 - Входящие и исходящие звонки
 - Запись и транскрипция
 - База знаний, промпты, скиллы
 - Миссии и рабочие процессы
-- Возможность использовать свои API-ключи
+- **Требуются собственные API-ключи** для всех провайдеров (кроме переводчика)
 
 ### Agents + MCP
 Подходит для разработчиков и компаний с потребностью в API. Включает:
@@ -170,19 +188,21 @@ Suitable if you only need live call translation. You get:
 - Real-time text translation
 - Telegram notifications
 - Credit on signup
+- **All providers supplied by the platform** — works out of the box
+- Dialer (outbound calls) available only if admin shares Twilio access
 
 Payment: pay-as-you-go from deposit for platform provider usage.
 
 ### Agents
 Suitable for businesses that need AI phone agents. Includes:
-- Everything in Translator plan
+- Live translator (on platform keys)
 - Up to 10 AI agents
 - Up to 5 phone numbers
 - Inbound & outbound calls
 - Recording & transcription
 - Knowledge base, prompts, skills
 - Missions & workflows
-- Ability to use your own API keys
+- **Own API keys required** for all providers (except translator)
 
 ### Agents + MCP
 Suitable for developers and companies needing API access. Includes:
@@ -359,70 +379,64 @@ In the Billing section you can view all transaction history:
         content: {
           ru: `# Свои ключи vs Платформа
 
-## Два режима использования провайдеров
+## Зависит от вашего плана
 
-Для каждого провайдера (Twilio, Anthropic, OpenAI, Deepgram, ElevenLabs, xAI) вы можете выбрать один из двух режимов:
+### План Translator
+На плане Translator **все провайдеры предоставляются платформой** автоматически. Вам не нужно подключать свои ключи — всё работает из коробки. Стоимость использования списывается из вашего депозита.
+
+### Планы Agents / Agents + MCP
+На этих планах вам **необходимо подключить собственные API-ключи** для всех провайдеров (Twilio, Anthropic, OpenAI, Deepgram, ElevenLabs, xAI). Единственное исключение — **живой переводчик**, который работает на ключах платформы для всех планов.
+
+## Два режима использования провайдеров (Agents / Agents + MCP)
 
 ### Свои ключи (Own)
 - Вы подключаете **собственные API-ключи** провайдера
 - Плата за этот провайдер **не взимается** со стороны Caller
 - Вы платите провайдеру напрямую по его тарифам
-- Полный контроль над расходами
 
 ### Платформа (Platform)
-- Используются **ключи платформы Caller**
-- Стоимость использования **списывается из вашего депозита**
-- Не нужно регистрироваться у провайдера
-- Удобно для быстрого старта
+- Используется только для **живого переводчика** — на всех планах
+- Стоимость переводчика **списывается из вашего депозита**
 
-## Как переключать режим
+## Как подключить ключи
 
 1. Перейдите в **Settings → Provider Credentials**
-2. Для каждого провайдера есть переключатель Own / Platform
-3. Если выбираете Own — введите свои ключи
-4. Если выбираете Platform — просто убедитесь, что на балансе есть средства
+2. Для каждого провайдера введите свои ключи
+3. Нажмите **Save**
 
-## Комбинирование
+## Диалер на плане Translator
 
-Вы можете комбинировать режимы. Например:
-- **Twilio**: свои ключи (Own) — вы управляете номерами и платите Twilio напрямую
-- **Anthropic**: платформа (Platform) — используете Claude через Caller, стоимость из депозита
-- **ElevenLabs**: свои ключи (Own) — подключили свой аккаунт
-
-Переключать можно в любой момент.`,
+По умолчанию на плане Translator диалер (исходящие звонки из браузера) недоступен. Чтобы он заработал, администратор платформы должен расшарить Twilio-доступ для вашего рабочего пространства.`,
           en: `# Own keys vs Platform
 
-## Two provider usage modes
+## Depends on your plan
 
-For each provider (Twilio, Anthropic, OpenAI, Deepgram, ElevenLabs, xAI) you can choose one of two modes:
+### Translator plan
+On the Translator plan, **all providers are supplied by the platform** automatically. You don't need to connect your own keys — everything works out of the box. Usage costs are deducted from your deposit.
+
+### Agents / Agents + MCP plans
+On these plans, you **must connect your own API keys** for all providers (Twilio, Anthropic, OpenAI, Deepgram, ElevenLabs, xAI). The only exception is the **live translator**, which runs on platform keys for all plans.
+
+## Two provider usage modes (Agents / Agents + MCP)
 
 ### Own Keys
 - You connect your **own API keys** for the provider
 - **No charges** from Caller for this provider
 - You pay the provider directly at their rates
-- Full control over costs
 
 ### Platform
-- **Caller's platform keys** are used
-- Usage costs are **deducted from your deposit**
-- No need to register with the provider
-- Convenient for quick start
+- Used only for the **live translator** — on all plans
+- Translator costs are **deducted from your deposit**
 
-## How to switch modes
+## How to connect keys
 
 1. Go to **Settings → Provider Credentials**
-2. Each provider has an Own / Platform toggle
-3. If choosing Own — enter your keys
-4. If choosing Platform — just make sure you have funds in your balance
+2. For each provider, enter your keys
+3. Click **Save**
 
-## Mixing modes
+## Dialer on the Translator plan
 
-You can mix modes. For example:
-- **Twilio**: own keys — you manage numbers and pay Twilio directly
-- **Anthropic**: platform — use Claude through Caller, cost from deposit
-- **ElevenLabs**: own keys — connected your own account
-
-You can switch at any time.`,
+By default, the dialer (outbound calls from the browser) is not available on the Translator plan. For it to work, the platform admin must share Twilio access to your workspace.`,
         },
       },
       {
@@ -520,12 +534,14 @@ Click **Manage in Stripe** to access the Stripe portal where you can:
 
 Twilio — провайдер телефонии. Нужен для совершения и приёма звонков.
 
-## Зачем нужен Twilio
+> **Для плана Translator:** Twilio предоставляется платформой автоматически. Вам не нужно настраивать свой Twilio — переводчик работает из коробки. Диалер (исходящие звонки) доступен только если администратор расшарил Twilio для вашего рабочего пространства.
+
+## Зачем нужен Twilio (для планов Agents / Agents + MCP)
 
 - Совершение исходящих звонков AI-агентами
 - Приём входящих звонков
 - Работа диалера
-- Живой переводчик (телефонная часть)
+- Собственные телефонные номера
 
 ## Как получить ключи
 
@@ -562,12 +578,14 @@ Twilio — провайдер телефонии. Нужен для соверш
 
 Twilio is a telephony provider. Required for making and receiving calls.
 
-## Why you need Twilio
+> **For the Translator plan:** Twilio is provided by the platform automatically. You don't need to set up your own Twilio — the translator works out of the box. The dialer (outbound calls) is only available if the admin shares Twilio access to your workspace.
+
+## Why you need Twilio (for Agents / Agents + MCP plans)
 
 - Making outbound calls with AI agents
 - Receiving inbound calls
 - Dialer functionality
-- Live translator (telephony part)
+- Your own phone numbers
 
 ## How to get keys
 
@@ -634,15 +652,15 @@ Anthropic — провайдер LLM (языковой модели). Испол
 
 ## Нужен ли мне ключ Anthropic?
 
-- **Если используете платформу** — нет, Caller предоставит свой ключ. Стоимость использования списывается из депозита.
-- **Если хотите экономить** — да, подключите свой ключ. Вы будете платить Anthropic по их тарифам, а Caller не будет взимать плату за LLM.
+- **План Translator** — нет, платформа предоставит ключ автоматически. Стоимость списывается из депозита.
+- **Планы Agents / Agents + MCP** — да, необходимо подключить собственный ключ Anthropic для работы AI-агентов.
 
 ## Доступные модели
 
 При использовании Anthropic в Caller доступны:
-- **Claude Sonnet 4.5** — основная модель, баланс скорости и качества
-- **Claude Opus 4.5** — самая мощная модель для сложных задач
-- **Claude Haiku 3.5** — быстрая и экономичная модель`,
+- **Claude Sonnet 4.6** — основная модель, баланс скорости и качества
+- **Claude Opus 4.6** — самая мощная модель для сложных задач
+- **Claude Haiku 4.5** — быстрая и экономичная модель`,
           en: `# Setting up Anthropic
 
 Anthropic is an LLM (language model) provider. Used for generating AI agent responses.
@@ -671,15 +689,15 @@ Anthropic is an LLM (language model) provider. Used for generating AI agent resp
 
 ## Do I need an Anthropic key?
 
-- **If using the platform** — no, Caller will provide its own key. Usage costs are deducted from your deposit.
-- **If you want to save** — yes, connect your own key. You'll pay Anthropic at their rates, and Caller won't charge for LLM.
+- **Translator plan** — no, the platform provides the key automatically. Costs are deducted from your deposit.
+- **Agents / Agents + MCP plans** — yes, you must connect your own Anthropic key for AI agents to work.
 
 ## Available models
 
 When using Anthropic in Caller:
-- **Claude Sonnet 4.5** — main model, balance of speed and quality
-- **Claude Opus 4.5** — most powerful model for complex tasks
-- **Claude Haiku 3.5** — fast and economical model`,
+- **Claude Sonnet 4.6** — main model, balance of speed and quality
+- **Claude Opus 4.6** — most powerful model for complex tasks
+- **Claude Haiku 4.5** — fast and economical model`,
         },
       },
       {
@@ -795,7 +813,8 @@ Deepgram — основной провайдер STT (распознавания
 
 ## Нужен ли мне ключ Deepgram?
 
-Deepgram — это **основной STT-провайдер** в Caller. Если вы используете режим «Платформа», Caller предоставит свой ключ (стоимость из депозита). Подключение своего ключа позволит экономить на распознавании речи.`,
+- **План Translator** — нет, платформа предоставит ключ автоматически.
+- **Планы Agents / Agents + MCP** — да, необходимо подключить собственный ключ Deepgram для распознавания речи AI-агентами.`,
           en: `# Setting up Deepgram
 
 Deepgram is the primary STT (speech recognition) provider. The Nova-2 model provides high accuracy and low latency.
@@ -823,7 +842,8 @@ Deepgram is the primary STT (speech recognition) provider. The Nova-2 model prov
 
 ## Do I need a Deepgram key?
 
-Deepgram is the **primary STT provider** in Caller. If using "Platform" mode, Caller will provide its own key (cost from deposit). Connecting your own key lets you save on speech recognition.`,
+- **Translator plan** — no, the platform provides the key automatically.
+- **Agents / Agents + MCP plans** — yes, you must connect your own Deepgram key for AI agent speech recognition.`,
         },
       },
       {
@@ -1766,7 +1786,15 @@ Caller remembers previous calls from each number. On repeat calls, the agent has
 ## Требования
 
 - Настроенное исходящее телефонное подключение (Twilio)
-- Достаточный баланс (если используете провайдеров платформы)`,
+- Достаточный баланс (если используете провайдеров платформы)
+
+## Доступность по планам
+
+| План | Диалер |
+|------|--------|
+| **Translator** | Только если администратор расшарил Twilio |
+| **Agents** | Требуются собственные Twilio-ключи |
+| **Agents + MCP** | Требуются собственные Twilio-ключи |`,
           en: `# Dialer
 
 The dialer is a tool for manually dialing numbers from the browser.
@@ -1791,7 +1819,15 @@ When Voice Translate is enabled:
 ## Requirements
 
 - Configured outbound telephony connection (Twilio)
-- Sufficient balance (if using platform providers)`,
+- Sufficient balance (if using platform providers)
+
+## Availability by plan
+
+| Plan | Dialer |
+|------|--------|
+| **Translator** | Only if admin shares Twilio access |
+| **Agents** | Requires own Twilio keys |
+| **Agents + MCP** | Requires own Twilio keys |`,
         },
       },
       {
@@ -1897,10 +1933,10 @@ After a call ends, AI automatically generates:
 
 1. Вы звоните на выделенный номер переводчика
 2. Система подключается к вашему звонку как конференция (merge)
-3. Речь собеседника распознаётся (Deepgram STT)
-4. Текст переводится через AI (LLM)
-5. Перевод озвучивается синтезатором речи (ElevenLabs TTS)
-6. Вы слышите перевод в реальном времени
+3. AI-переводчик (xAI Grok Voice Agent) распознаёт речь, переводит и озвучивает перевод — всё в одном потоке с минимальной задержкой
+4. Вы слышите перевод в реальном времени
+
+> **Важно:** Переводчик работает из коробки на всех планах. Все провайдеры (Twilio, xAI) предоставляются платформой. Стоимость использования списывается из вашего депозита.
 
 ## Поддерживаемые языки
 
@@ -1929,10 +1965,10 @@ The live translator is a service that connects to your phone call and translates
 
 1. You call the designated translator number
 2. The system connects to your call as a conference (merge)
-3. The counterpart's speech is recognized (Deepgram STT)
-4. Text is translated via AI (LLM)
-5. Translation is voiced by speech synthesizer (ElevenLabs TTS)
-6. You hear the translation in real time
+3. The AI translator (xAI Grok Voice Agent) recognizes speech, translates, and voices the translation — all in a single stream with minimal latency
+4. You hear the translation in real time
+
+> **Important:** The translator works out of the box on all plans. All providers (Twilio, xAI) are supplied by the platform. Usage costs are deducted from your deposit.
 
 ## Supported languages
 
