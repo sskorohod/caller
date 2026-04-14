@@ -81,3 +81,47 @@ export const DEFAULT_PLATFORM_MARKUP = 3.0;
 export function calculateClientCost(providerCost: number, markup: number = DEFAULT_PLATFORM_MARKUP): number {
   return providerCost * markup;
 }
+
+// ─── Dynamic Pricing from DB ──────────────────────────────────────────────
+
+import { eq } from 'drizzle-orm';
+
+let cachedPricing: Record<string, unknown> | null = null;
+let cachedAt = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Load pricing overrides from platform_settings.
+ * Falls back to hardcoded values above if no DB entry exists.
+ * Cached for 5 minutes to avoid DB queries on every call.
+ */
+export async function loadPricingOverrides(): Promise<void> {
+  if (cachedPricing && Date.now() - cachedAt < CACHE_TTL_MS) return;
+  try {
+    const { db } = await import('./db.js');
+    const { platformSettings } = await import('../db/schema.js');
+    const [row] = await db.select({ value: platformSettings.value })
+      .from(platformSettings)
+      .where(eq(platformSettings.key, 'pricing'));
+    if (row?.value && typeof row.value === 'object') {
+      const overrides = row.value as Record<string, Record<string, number>>;
+      // Apply overrides
+      if (overrides.stt) Object.assign(STT_PRICING, overrides.stt);
+      if (overrides.tts) Object.assign(TTS_PRICING, overrides.tts);
+      if (overrides.telephony) Object.assign(TELEPHONY_PRICING, overrides.telephony);
+      if (overrides.llm) {
+        for (const [model, prices] of Object.entries(overrides.llm)) {
+          LLM_PRICING[model] = prices as any;
+        }
+      }
+    }
+    cachedPricing = row?.value as Record<string, unknown> ?? {};
+    cachedAt = Date.now();
+  } catch { /* fallback to hardcoded */ }
+}
+
+/** Force refresh pricing cache (after admin updates) */
+export function invalidatePricingCache(): void {
+  cachedPricing = null;
+  cachedAt = 0;
+}

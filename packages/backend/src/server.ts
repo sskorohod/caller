@@ -176,6 +176,9 @@ try {
   app.log.info('Socket.IO server initialized');
   app.log.info(`Server running at http://${env.HOST}:${env.PORT}`);
 
+  // Load pricing overrides from DB (cached, falls back to hardcoded)
+  import('./config/pricing.js').then(m => m.loadPricingOverrides()).catch(() => {});
+
   // Auto-setup Telegram bot webhook + commands
   (async () => {
     try {

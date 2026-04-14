@@ -261,6 +261,11 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     }
     await auditLog(request.auth.userId, 'settings_changed', 'settings', 'platform',
       { keys: Object.keys(body) }, request.ip);
+    // Invalidate pricing cache if pricing was updated
+    if ('pricing' in body) {
+      const { invalidatePricingCache } = await import('../../config/pricing.js');
+      invalidatePricingCache();
+    }
     return { ok: true };
   });
 
