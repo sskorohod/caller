@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BlogLangWrapper } from '@/app/blog/_components/BlogLangWrapper';
 
 export const metadata: Metadata = {
   title: {
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function BlogLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <BlogLangWrapper>{children}</BlogLangWrapper>;
 }
