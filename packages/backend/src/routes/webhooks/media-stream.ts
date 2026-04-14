@@ -18,6 +18,7 @@ import { sendBootstrapWebhook, ExternalAgentSession } from '../../services/exter
 import { getProviderCredential } from '../../services/provider.service.js';
 import * as knowledgeService from '../../services/knowledge.service.js';
 import { env } from '../../config/env.js';
+import { registerSession, unregisterSession } from '../../services/active-sessions.service.js';
 import { queuePostCallProcessing } from '../../workers/post-call.worker.js';
 import { calculateLLMCost, calculateTTSCost, calculateSTTCost, calculateTelephonyCost } from '../../config/pricing.js';
 import type { DeepgramSTT } from '../../services/stt.service.js';
@@ -146,6 +147,7 @@ async function finalizeVTSession(callId: string): Promise<void> {
   }
 
   activeVoiceTranslateSessions.delete(callId);
+  unregisterSession(callId).catch(() => {});
   pttFlushCallbacks.delete(callId);
 }
 
@@ -183,6 +185,7 @@ async function finalizeManualSession(callId: string): Promise<void> {
   }
 
   activeManualSessions.delete(callId);
+  unregisterSession(callId).catch(() => {});
 }
 export function registerPttFlush(callId: string, cb: () => void | Promise<void>) { pttFlushCallbacks.set(callId, cb); }
 export function flushPttAudio(callId: string): void | Promise<void> { return pttFlushCallbacks.get(callId)?.(); }
@@ -467,6 +470,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               await translator.start();
               (socket as any).__conferenceTranslator = translator;
               activeConferenceTranslators.set(callId, translator);
+              registerSession(callId, { callId, workspaceId: callerWsId || call.workspace_id, type: 'conference', startedAt: new Date().toISOString() }).catch(() => {});
 
               // Notify workspace that translator call started (for live sidebar)
               const io = getIo();
@@ -661,6 +665,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               } as any);
 
               // Store session
+              registerSession(callId, { callId, workspaceId: call.workspace_id, type: 'voice_translate', startedAt: new Date().toISOString() }).catch(() => {});
               activeVoiceTranslateSessions.set(callId, {
                 operatorSocket: socket as any,
                 operatorStreamSid: streamSid!,
@@ -821,6 +826,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               };
 
               activeManualSessions.set(callId, manualSession);
+              registerSession(callId, { callId, workspaceId: call.workspace_id, type: 'manual', startedAt: new Date().toISOString() }).catch(() => {});
 
               // Initiate callee call via Twilio REST API
               const calleeStreamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}-callee`;
@@ -977,7 +983,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         if (msg.event === 'stop') {
           // Conference translator
           const ct = (socket as any).__conferenceTranslator;
-          if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); }
+          if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); unregisterSession(callId).catch(() => {}); }
           finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on stop'));
           finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on stop'));
           if (orchestrator) orchestrator.stop('stream_stopped');
@@ -992,7 +998,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       logger.info({ callId, code, reason: reason?.toString() }, 'Twilio MediaStream WebSocket closed');
       // Finalize all session types (idempotent — safe to call even if already finalized in stop)
       const ct = (socket as any).__conferenceTranslator;
-      if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); }
+      if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); unregisterSession(callId).catch(() => {}); }
       finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on close'));
       finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on close'));
       if (orchestrator) orchestrator.stop('ws_closed');
@@ -1260,6 +1266,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   ): void {
     // Store orchestrator for live monitoring access
     activeOrchestrators.set(callId, orchestrator);
+    registerSession(callId, { callId, workspaceId: call.workspace_id, type: 'orchestrator', startedAt: new Date().toISOString(), fromNumber: call.from_number, toNumber: call.to_number }).catch(() => {});
 
     // Forward transcript events to Socket.IO for live monitoring + callEvents for Telegram
     orchestrator.on('transcript', (entry: { speaker: string; text: string; timestamp: string; isFinal: boolean }) => {
@@ -1294,6 +1301,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     orchestrator.on('stopped', async (result: any) => {
       activeOrchestrators.delete(callId);
+      unregisterSession(callId).catch(() => {});
       callEvents.emit(`call_ended:${callId}`);
       logger.info({ callId, reason: result.reason }, 'Orchestrator stopped');
       const session = await callService.getAiSession(callId);
