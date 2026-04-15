@@ -1,113 +1,121 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
 import Link from 'next/link';
 import { useIsMobile } from '@/lib/useBreakpoint';
-
-interface DashboardData {
-  kpi: {
-    total_revenue: number;
-    minutes_used: number;
-    total_sessions: number;
-    margin: number;
-    estimated_cost: number;
-  };
-  revenue_by_day: Array<{ date: string; revenue: string; minutes: string; sessions: string }>;
-  recent_sessions: Array<{ id: string; duration_seconds: number; minutes_used: string; cost_usd: string; status: string; created_at: string }>;
-}
+import { useAdminQuery, api } from './_lib/admin-api';
+import { fmtCurrency, fmtDuration, fmtDateTime } from './_lib/format';
+import type { DashboardData } from './_lib/types';
+import AdminPageHeader from './_components/AdminPageHeader';
+import AdminKpiCard from './_components/AdminKpiCard';
+import AdminChart from './_components/AdminChart';
+import AdminTable from './_components/AdminTable';
+import AdminLoadingState from './_components/AdminLoadingState';
+import AdminErrorState from './_components/AdminErrorState';
 
 export default function AdminDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
+  const { data, loading, error, refetch } = useAdminQuery<DashboardData>(
+    () => api.get<DashboardData>('/admin/dashboard'),
+    [],
+  );
 
-  useEffect(() => {
-    api.get<DashboardData>('/admin/dashboard').then(setData).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div className="p-4 md:p-8 text-center opacity-50">Loading dashboard...</div>;
-  if (!data) return <div className="p-4 md:p-8 text-center opacity-50">Failed to load</div>;
+  if (loading) return <AdminLoadingState />;
+  if (error || !data) return <AdminErrorState error={error || 'Failed to load dashboard'} onRetry={refetch} />;
 
   const kpiCards = [
-    { label: 'Total Revenue', value: `$${(data.kpi.total_revenue ?? 0).toFixed(2)}`, icon: 'payments', color: 'var(--th-primary-text)' },
-    { label: 'Minutes Used', value: (data.kpi.minutes_used ?? 0).toFixed(0), icon: 'schedule', color: 'var(--th-accent-purple)' },
+    { label: 'Total Revenue', value: fmtCurrency(data.kpi.total_revenue ?? 0), icon: 'payments', color: 'var(--th-primary-text)' },
+    { label: 'Minutes Used', value: (data.kpi.minutes_used ?? 0).toFixed(0), icon: 'schedule', color: 'var(--th-success-text)' },
     { label: 'Margin', value: `${data.kpi.margin ?? 0}%`, icon: 'trending_up', color: (data.kpi.margin ?? 0) > 70 ? 'var(--th-success-text)' : 'var(--th-warning-text)' },
-    { label: 'Sessions', value: (data.kpi.total_sessions ?? 0).toString(), icon: 'call', color: 'var(--th-primary-light)' },
+    { label: 'Sessions', value: (data.kpi.total_sessions ?? 0).toString(), icon: 'call', color: 'var(--th-info-text)' },
+  ];
+
+  const chartData = data.revenue_by_day.map((d) => ({
+    label: d.date,
+    value: parseFloat(d.revenue),
+  }));
+
+  const sessionColumns = [
+    { key: 'date', label: 'Date', render: (r: Record<string, unknown>) => <span className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{fmtDateTime(r.created_at as string)}</span> },
+    { key: 'duration', label: 'Duration', render: (r: Record<string, unknown>) => <span className="font-mono text-xs">{fmtDuration(r.duration_seconds as number)}</span> },
+    { key: 'cost', label: 'Cost', render: (r: Record<string, unknown>) => <span className="font-mono text-xs" style={{ color: 'var(--th-success-text)' }}>{fmtCurrency(parseFloat(r.cost_usd as string), 3)}</span> },
   ];
 
   return (
-    <div className="p-4 md:p-6 space-y-6 md:space-y-8">
-      <div>
-        <h1 className="text-lg md:text-2xl font-headline font-bold">Dashboard</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Last 30 days overview</p>
-      </div>
+    <div className="py-4 md:py-6 space-y-5 md:space-y-6">
+      <AdminPageHeader
+        title="Dashboard"
+        subtitle="Last 30 days overview"
+        icon="dashboard"
+      />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {kpiCards.map((card) => (
-          <div key={card.label} className="glass-panel rounded-2xl p-4 md:p-5 relative overflow-hidden">
-            <div className="absolute top-3 right-3">
-              <span className="material-symbols-outlined text-lg md:text-xl" style={{ color: card.color, opacity: 0.5 }}>{card.icon}</span>
-            </div>
-            <div className="text-[10px] md:text-xs font-medium uppercase tracking-wider mb-1 md:mb-2" style={{ color: 'var(--th-text-secondary)' }}>{card.label}</div>
-            <div className="text-xl md:text-2xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
-          </div>
+          <AdminKpiCard key={card.label} {...card} />
         ))}
       </div>
 
       {/* Revenue Chart */}
-      {data.revenue_by_day.length > 0 && (
-        <div className="glass-panel rounded-2xl p-4 md:p-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--th-text-secondary)' }}>Revenue by Day</h3>
-          <div className="flex items-end gap-1 h-32">
-            {data.revenue_by_day.map((day, i) => {
-              const maxRev = Math.max(...data.revenue_by_day.map(d => parseFloat(d.revenue)), 0.01);
-              const height = (parseFloat(day.revenue) / maxRev) * 100;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${day.date}: $${parseFloat(day.revenue).toFixed(2)}`}>
-                  <div className="w-full rounded-t" style={{ height: `${Math.max(height, 2)}%`, background: 'var(--th-bar-primary)', minHeight: '2px' }} />
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-between mt-2 text-[10px]" style={{ color: 'var(--th-text-secondary)' }}>
-            <span>{data.revenue_by_day[0]?.date}</span>
-            <span>{data.revenue_by_day[data.revenue_by_day.length - 1]?.date}</span>
-          </div>
+      {chartData.length > 0 && (
+        <div
+          className="rounded-xl p-4 md:p-5"
+          style={{
+            background: 'var(--th-card)',
+            border: '1px solid var(--th-card-border-subtle)',
+            boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+          }}
+        >
+          <h3
+            className="text-[10px] font-medium uppercase tracking-wider mb-4"
+            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+          >
+            Revenue by Day
+          </h3>
+          <AdminChart
+            data={chartData}
+            formatValue={(v) => fmtCurrency(v)}
+            height={isMobile ? 120 : 160}
+          />
         </div>
       )}
 
       {/* Recent Sessions */}
-      <div className="glass-panel rounded-2xl p-4 md:p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Recent Sessions</h3>
-          <Link href="/admin/sessions" className="text-xs min-h-[44px] flex items-center" style={{ color: 'var(--th-primary-light)' }}>View all</Link>
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <h3
+            className="text-[10px] font-medium uppercase tracking-wider"
+            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+          >
+            Recent Sessions
+          </h3>
+          <Link
+            href="/admin/sessions"
+            className="text-xs font-medium min-h-[44px] flex items-center"
+            style={{ color: 'var(--th-primary-text)' }}
+          >
+            View all
+          </Link>
         </div>
-        {isMobile ? (
-          <div className="space-y-2">
-            {data.recent_sessions.slice(0, 10).map((sess) => (
-              <div key={sess.id} className="rounded-xl p-3" style={{ background: 'var(--th-surface)' }}>
-                <div className="flex justify-between items-center">
-                  <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
-                  <span className="font-mono text-xs font-bold" style={{ color: 'var(--th-success-text)' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
-                </div>
-                <div className="text-[10px] mt-1" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sess.created_at).toLocaleString()}</div>
+        <AdminTable
+          columns={sessionColumns}
+          data={data.recent_sessions as unknown as Record<string, unknown>[]}
+          keyField="id"
+          pageSize={5}
+          emptyText="No sessions yet"
+          emptyIcon="call"
+          mobileRender={(sess) => (
+            <div>
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-xs">{fmtDuration(sess.duration_seconds as number)}</span>
+                <span className="font-mono text-xs font-medium" style={{ color: 'var(--th-success-text)' }}>
+                  {fmtCurrency(parseFloat(sess.cost_usd as string), 3)}
+                </span>
               </div>
-            ))}
-            {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {data.recent_sessions.slice(0, 10).map((sess) => (
-              <div key={sess.id} className="flex justify-between items-center text-sm py-1.5 border-b" style={{ borderColor: 'var(--th-border)' }}>
-                <span className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sess.created_at).toLocaleString()}</span>
-                <span className="font-mono text-xs">{Math.floor(sess.duration_seconds / 60)}m {sess.duration_seconds % 60}s</span>
-                <span className="font-mono text-xs" style={{ color: 'var(--th-success-text)' }}>${parseFloat(sess.cost_usd).toFixed(3)}</span>
+              <div className="text-[10px] mt-1" style={{ color: 'var(--th-text-secondary)' }}>
+                {fmtDateTime(sess.created_at as string)}
               </div>
-            ))}
-            {data.recent_sessions.length === 0 && <p className="text-sm opacity-50">No sessions yet</p>}
-          </div>
-        )}
+            </div>
+          )}
+        />
       </div>
     </div>
   );

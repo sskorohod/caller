@@ -1,44 +1,23 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { useIsMobile } from '@/lib/useBreakpoint';
-
-interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  plan: string;
-  balance_usd: number;
-  subscription_status: string;
-  subscription_current_period_end: string | null;
-  provider_config: Record<string, string>;
-  created_at: string;
-}
-
-interface Transaction {
-  id: string;
-  type: string;
-  amount_usd: number;
-  balance_after: number;
-  description: string;
-  created_at: string;
-}
-
-const planBadge: Record<string, { bg: string; color: string }> = {
-  translator: { bg: 'rgba(173,198,255,0.1)', color: 'var(--th-primary-light)' },
-  agents: { bg: 'rgba(74,222,128,0.1)', color: 'var(--th-success-text)' },
-  agents_mcp: { bg: 'rgba(208,188,255,0.1)', color: 'var(--th-accent-purple)' },
-};
+import { useState } from 'react';
+import { useAdminQuery, api } from '../_lib/admin-api';
+import { fmtCurrency, fmtDateTime } from '../_lib/format';
+import { PLAN_BADGES, PLANS, SUBSCRIPTION_STATUS_STYLES } from '../_lib/constants';
+import type { Workspace, Transaction } from '../_lib/types';
+import AdminPageHeader from '../_components/AdminPageHeader';
+import AdminBadge from '../_components/AdminBadge';
+import AdminModal from '../_components/AdminModal';
+import AdminFormField from '../_components/AdminFormField';
+import { adminInputClass, adminSelectClass } from '../_components/AdminFormField';
+import AdminSplitView from '../_components/AdminSplitView';
+import AdminLoadingState from '../_components/AdminLoadingState';
+import AdminErrorState from '../_components/AdminErrorState';
 
 export default function AdminWorkspaces() {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [selected, setSelected] = useState<Workspace | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
-
-  const isMobile = useIsMobile();
 
   // Balance modal
   const [balanceModal, setBalanceModal] = useState(false);
@@ -46,302 +25,461 @@ export default function AdminWorkspaces() {
   const [balanceType, setBalanceType] = useState<'topup' | 'gift' | 'refund'>('topup');
   const [balanceComment, setBalanceComment] = useState('');
 
-  const load = () => {
-    const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (planFilter) params.set('plan', planFilter);
-    api.get<Workspace[]>(`/admin/workspaces?${params}`).then(setWorkspaces).finally(() => setLoading(false));
-  };
+  // Delete confirmation modal
+  const [deleteModal, setDeleteModal] = useState(false);
 
-  useEffect(() => { load(); }, [search, planFilter]);
+  const { data: workspaces, loading, error, refetch } = useAdminQuery<Workspace[]>(
+    () => {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (planFilter) params.set('plan', planFilter);
+      return api.get<Workspace[]>(`/admin/workspaces?${params}`);
+    },
+    [search, planFilter],
+  );
 
   const selectWorkspace = async (ws: Workspace) => {
     setSelected(ws);
-    const data = await api.get<{ workspace: Workspace; transactions: Transaction[] }>(`/admin/workspaces/${ws.id}`);
-    setSelected(data.workspace);
-    setTransactions(data.transactions);
+    try {
+      const data = await api.get<{ workspace: Workspace; transactions: Transaction[] }>(`/admin/workspaces/${ws.id}`);
+      setSelected(data.workspace);
+      setTransactions(data.transactions);
+    } catch {
+      // Keep selected workspace with basic info
+    }
   };
 
   const adjustBalance = async () => {
     if (!selected || !balanceAmount) return;
-    await api.post(`/admin/workspaces/${selected.id}/balance`, {
-      amount_usd: parseFloat(balanceAmount),
-      type: balanceType,
-      comment: balanceComment || undefined,
-    });
-    setBalanceModal(false);
-    setBalanceAmount('');
-    setBalanceComment('');
-    selectWorkspace(selected);
-    load();
+    try {
+      await api.post(`/admin/workspaces/${selected.id}/balance`, {
+        amount_usd: parseFloat(balanceAmount),
+        type: balanceType,
+        comment: balanceComment || undefined,
+      });
+      setBalanceModal(false);
+      setBalanceAmount('');
+      setBalanceComment('');
+      selectWorkspace(selected);
+      refetch();
+    } catch (err) {
+      alert((err as Error).message);
+    }
   };
 
   const changePlan = async (id: string, plan: string) => {
-    await api.patch(`/admin/workspaces/${id}/plan`, { plan });
-    load();
-    if (selected?.id === id) selectWorkspace({ ...selected, plan });
+    try {
+      await api.patch(`/admin/workspaces/${id}/plan`, { plan });
+      refetch();
+      if (selected?.id === id) selectWorkspace({ ...selected, plan });
+    } catch (err) {
+      alert((err as Error).message);
+    }
   };
 
-  if (loading) return <div className="p-4 md:p-8 text-center opacity-50">Loading...</div>;
+  const deleteWorkspace = async () => {
+    if (!selected) return;
+    try {
+      await api.delete(`/admin/workspaces/${selected.id}`);
+      setSelected(null);
+      setDeleteModal(false);
+      refetch();
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  };
 
-  return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-lg md:text-2xl font-headline font-bold">Workspaces</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Manage workspace plans and deposits</p>
-      </div>
+  const toggleTwilio = async () => {
+    if (!selected) return;
+    const current = selected.provider_config?.twilio || 'own';
+    const next = current === 'platform' ? 'own' : 'platform';
+    try {
+      await api.patch(`/admin/workspaces/${selected.id}/provider-config`, { twilio: next });
+      const { twilio: _, ...restConfig } = selected.provider_config || {};
+      const newConfig = next === 'platform' ? { ...restConfig, twilio: next } : restConfig;
+      const updated = { ...selected, provider_config: newConfig };
+      setSelected(updated);
+      refetch();
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  };
 
+  if (loading) return <AdminLoadingState />;
+  if (error) return <AdminErrorState error={error} onRetry={refetch} />;
+
+  const list = workspaces ?? [];
+
+  const listContent = (
+    <div className="space-y-3">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
-          value={search} onChange={e => setSearch(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name..."
-          className="px-3 py-2.5 rounded-lg text-sm bg-white/5 border border-white/10 flex-1 outline-none focus:border-blue-500/50"
+          className={`${adminInputClass} flex-1`}
         />
-        <select value={planFilter} onChange={e => setPlanFilter(e.target.value)}
-          className="px-3 py-2.5 rounded-lg text-sm bg-white/5 border border-white/10 outline-none">
+        <select
+          value={planFilter}
+          onChange={(e) => setPlanFilter(e.target.value)}
+          className={adminSelectClass}
+          style={{ maxWidth: '160px' }}
+        >
           <option value="">All Plans</option>
-          <option value="translator">Translator</option>
-          <option value="agents">Agents</option>
-          <option value="agents_mcp">Agents + MCP</option>
+          {PLANS.map((p) => (
+            <option key={p} value={p}>{PLAN_BADGES[p]?.label || p}</option>
+          ))}
         </select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Workspace List */}
-        <div className="lg:col-span-2">
-          {isMobile ? (
-            <div className="space-y-2">
-              {workspaces.map(ws => {
-                const badge = planBadge[ws.plan] || planBadge.translator;
-                return (
-                  <div key={ws.id}
-                    onClick={() => selectWorkspace(ws)}
-                    className="glass-panel rounded-xl p-4 cursor-pointer active:scale-[0.98] transition"
-                    style={{ background: selected?.id === ws.id ? 'rgba(173,198,255,0.08)' : undefined }}>
-                    <div className="flex justify-between items-start">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate">{ws.name}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ background: badge.bg, color: badge.color }}>{ws.plan}</span>
-                          {ws.subscription_status === 'active' ? <span className="text-[10px]" style={{ color: 'var(--th-success-text)' }}>Active</span> :
-                           ws.subscription_status === 'canceled' ? <span className="text-[10px]" style={{ color: 'var(--th-warning-text)' }}>Canceled</span> :
-                           ws.subscription_status === 'past_due' ? <span className="text-[10px]" style={{ color: '#f87171' }}>Past Due</span> : null}
-                        </div>
-                      </div>
-                      <span className="font-mono text-sm font-bold" style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
-                        ${ws.balance_usd.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-              {workspaces.length === 0 && <div className="text-center py-8 opacity-50 text-sm">No workspaces found</div>}
-            </div>
-          ) : (
-            <div className="glass-panel rounded-2xl p-0 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b" style={{ borderColor: 'var(--th-border)' }}>
-                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Name</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Plan</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Balance</th>
-                    <th className="px-4 py-3 font-medium" style={{ color: 'var(--th-text-secondary)' }}>Subscription</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {workspaces.map(ws => {
-                    const badge = planBadge[ws.plan] || planBadge.translator;
-                    return (
-                      <tr key={ws.id}
-                        onClick={() => selectWorkspace(ws)}
-                        className="border-b cursor-pointer hover:bg-white/5 transition"
-                        style={{ borderColor: 'var(--th-border)', background: selected?.id === ws.id ? 'rgba(173,198,255,0.05)' : undefined }}>
-                        <td className="px-4 py-3 font-medium">{ws.name}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: badge.bg, color: badge.color }}>
-                            {ws.plan}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs" style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
-                          ${ws.balance_usd.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--th-text-secondary)' }}>
-                          {ws.subscription_status === 'active' ? <span style={{ color: 'var(--th-success-text)' }}>Active</span> :
-                           ws.subscription_status === 'canceled' ? <span style={{ color: 'var(--th-warning-text)' }}>Canceled</span> :
-                           ws.subscription_status === 'past_due' ? <span style={{ color: '#f87171' }}>Past Due</span> :
-                           <span>None</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {workspaces.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center opacity-50">No workspaces found</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Workspace Detail */}
-        <div className="glass-panel rounded-2xl p-5 space-y-5">
-          {selected ? (
-            <>
-              <div>
-                <h3 className="font-headline font-bold text-lg">{selected.name}</h3>
-                <p className="text-xs mt-1" style={{ color: 'var(--th-text-secondary)' }}>{selected.slug} &middot; {selected.id.slice(0, 8)}</p>
-              </div>
-
-              {/* Balance */}
-              <div className="glass-panel rounded-xl p-4">
-                <div className="text-xs uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--th-text-secondary)' }}>Balance</div>
-                <div className="text-3xl font-headline font-bold" style={{ color: selected.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}>
-                  ${selected.balance_usd.toFixed(2)}
-                </div>
-                <button onClick={() => setBalanceModal(true)}
-                  className="mt-3 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 transition">
-                  Adjust Balance
-                </button>
-              </div>
-
-              {/* Plan */}
-              <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Plan</div>
-                <div className="flex flex-wrap gap-2">
-                  {['translator', 'agents', 'agents_mcp'].map(p => (
-                    <button key={p} onClick={() => changePlan(selected.id, p)}
-                      className="px-3 py-2 min-h-[44px] rounded-lg text-xs font-medium transition"
-                      style={selected.plan === p
-                        ? { background: planBadge[p].bg, color: planBadge[p].color, border: `1px solid ${planBadge[p].color}40` }
-                        : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
-                      }>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Share Twilio */}
-              <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Twilio Access</div>
+      {/* List */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{
+          background: 'var(--th-card)',
+          border: '1px solid var(--th-card-border-subtle)',
+          boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+        }}
+      >
+        {list.length === 0 ? (
+          <div className="text-center py-12" style={{ color: 'var(--th-text-muted)' }}>
+            <span className="material-symbols-outlined text-3xl mb-2 block">apartment</span>
+            <p className="text-sm">No workspaces found</p>
+          </div>
+        ) : (
+          <div className="divide-y" style={{ borderColor: 'var(--th-table-divider)' }}>
+            {list.map((ws) => {
+              const badge = PLAN_BADGES[ws.plan] || PLAN_BADGES.translator;
+              const subStatus = SUBSCRIPTION_STATUS_STYLES[ws.subscription_status];
+              return (
                 <button
-                  onClick={async () => {
-                    const current = selected.provider_config?.twilio || 'own';
-                    const next = current === 'platform' ? 'own' : 'platform';
-                    await api.patch(`/admin/workspaces/${selected.id}/provider-config`, { twilio: next });
-                    const { twilio: _, ...restConfig } = selected.provider_config || {};
-                    const newConfig = next === 'platform' ? { ...restConfig, twilio: next } : restConfig;
-                    const updated = { ...selected, provider_config: newConfig };
-                    setSelected(updated);
-                    load();
+                  key={ws.id}
+                  onClick={() => selectWorkspace(ws)}
+                  className="w-full text-left px-4 py-3 transition-all flex items-center justify-between gap-3"
+                  style={{
+                    background: selected?.id === ws.id ? 'var(--th-primary-bg)' : undefined,
                   }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition w-full"
-                  style={
-                    (selected.provider_config?.twilio === 'platform')
-                      ? { background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: 'var(--th-success-text)' }
-                      : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }
-                  }
+                  onMouseEnter={(e) => { if (selected?.id !== ws.id) e.currentTarget.style.background = 'var(--th-table-row-hover)'; }}
+                  onMouseLeave={(e) => { if (selected?.id !== ws.id) e.currentTarget.style.background = ''; }}
                 >
-                  <span className="text-base">{selected.provider_config?.twilio === 'platform' ? '✓' : '○'}</span>
-                  Share platform Twilio
-                </button>
-                {selected.provider_config?.twilio === 'platform' && (
-                  <p className="text-[10px] mt-1.5" style={{ color: 'var(--th-text-secondary)' }}>
-                    This workspace uses your Twilio account. Costs are deducted from their balance.
-                  </p>
-                )}
-              </div>
-
-              {/* Provider Config */}
-              {Object.keys(selected.provider_config || {}).filter(k => k !== 'twilio').length > 0 && (
-                <div>
-                  <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Other Providers</div>
-                  <div className="space-y-1">
-                    {Object.entries(selected.provider_config).filter(([k]) => k !== 'twilio').map(([k, v]) => (
-                      <div key={k} className="flex justify-between text-xs">
-                        <span>{k}</span>
-                        <span className="font-mono" style={{ color: v === 'own' ? 'var(--th-primary-light)' : 'var(--th-success-text)' }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Delete Workspace */}
-              <button
-                onClick={async () => {
-                  if (!confirm(`Delete workspace "${selected.name}"? This will remove all data including calls, sessions, and billing history. This cannot be undone.`)) return;
-                  await api.delete(`/admin/workspaces/${selected.id}`);
-                  setSelected(null);
-                  load();
-                }}
-                className="w-full px-3 py-2 rounded-lg text-xs font-medium transition hover:bg-red-500/20"
-                style={{ border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
-                Delete Workspace
-              </button>
-
-              {/* Recent Transactions */}
-              <div>
-                <div className="text-xs uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--th-text-secondary)' }}>Recent Transactions</div>
-                <div className="space-y-1 max-h-60 overflow-y-auto">
-                  {transactions.map(t => (
-                    <div key={t.id} className="flex justify-between items-center text-xs py-1 border-b" style={{ borderColor: 'var(--th-border)' }}>
-                      <div>
-                        <span className="font-medium">{t.type}</span>
-                        <span className="ml-2" style={{ color: 'var(--th-text-secondary)' }}>{t.description}</span>
-                      </div>
-                      <span className="font-mono" style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : '#f87171' }}>
-                        {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
-                      </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">{ws.name}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <AdminBadge bg={badge.bg} color={badge.color}>{badge.label}</AdminBadge>
+                      {subStatus && (
+                        <span className="text-[10px] font-medium" style={{ color: subStatus.color }}>
+                          {subStatus.label}
+                        </span>
+                      )}
                     </div>
-                  ))}
-                  {transactions.length === 0 && <p className="text-xs opacity-50">No transactions yet</p>}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center opacity-50 py-12">
-              <span className="material-symbols-outlined text-3xl mb-2 block">apartment</span>
-              Select a workspace
-            </div>
-          )}
+                  </div>
+                  <span
+                    className="font-mono text-sm font-medium shrink-0"
+                    style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}
+                  >
+                    {fmtCurrency(ws.balance_usd)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const detailContent = selected ? (
+    <div
+      className="rounded-xl p-5 space-y-5"
+      style={{
+        background: 'var(--th-card)',
+        border: '1px solid var(--th-card-border-subtle)',
+        boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+      }}
+    >
+      {/* Header */}
+      <div>
+        <h3 className="font-headline text-lg">{selected.name}</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--th-text-secondary)' }}>
+          {selected.slug} &middot; {selected.id.slice(0, 8)}
+        </p>
+      </div>
+
+      {/* Balance */}
+      <div
+        className="rounded-xl p-4"
+        style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}
+      >
+        <div
+          className="text-[10px] uppercase tracking-wider font-medium mb-1"
+          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+        >
+          Balance
+        </div>
+        <div
+          className="text-3xl font-headline"
+          style={{ color: selected.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)', lineHeight: 1.1 }}
+        >
+          {fmtCurrency(selected.balance_usd)}
+        </div>
+        <button
+          onClick={() => setBalanceModal(true)}
+          className="mt-3 btn-primary px-4 py-1.5 text-xs font-medium"
+        >
+          Adjust Balance
+        </button>
+      </div>
+
+      {/* Plan */}
+      <div>
+        <div
+          className="text-[10px] uppercase tracking-wider font-medium mb-2"
+          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+        >
+          Plan
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {PLANS.map((p) => {
+            const badge = PLAN_BADGES[p];
+            const isActive = selected.plan === p;
+            return (
+              <button
+                key={p}
+                onClick={() => changePlan(selected.id, p)}
+                className="px-3 py-2 min-h-[44px] rounded-lg text-xs font-medium transition"
+                style={
+                  isActive
+                    ? { background: badge.bg, color: badge.color, boxShadow: `${badge.color} 0px 0px 0px 1px` }
+                    : { background: 'var(--th-surface)', border: '1px solid var(--th-border)' }
+                }
+              >
+                {badge.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Balance Adjustment Modal */}
-      {balanceModal && selected && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setBalanceModal(false)}>
-          <div className="glass-panel rounded-t-2xl md:rounded-2xl p-6 w-full md:w-96 space-y-4" onClick={e => e.stopPropagation()}>
-            <h3 className="font-headline font-bold">Adjust Balance</h3>
-            <p className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{selected.name} — Current: ${selected.balance_usd.toFixed(2)}</p>
+      {/* Twilio Access */}
+      <div>
+        <div
+          className="text-[10px] uppercase tracking-wider font-medium mb-2"
+          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+        >
+          Twilio Access
+        </div>
+        <button
+          onClick={toggleTwilio}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition w-full"
+          style={
+            selected.provider_config?.twilio === 'platform'
+              ? { background: 'var(--th-success-bg)', border: '1px solid var(--th-success-border)', color: 'var(--th-success-text)' }
+              : { background: 'var(--th-surface)', border: '1px solid var(--th-border)' }
+          }
+        >
+          <span className="text-base">
+            {selected.provider_config?.twilio === 'platform' ? '✓' : '○'}
+          </span>
+          Share platform Twilio
+        </button>
+        {selected.provider_config?.twilio === 'platform' && (
+          <p className="text-[10px] mt-1.5" style={{ color: 'var(--th-text-secondary)' }}>
+            This workspace uses your Twilio account. Costs are deducted from their balance.
+          </p>
+        )}
+      </div>
 
-            <div>
-              <label className="text-xs font-medium block mb-1">Type</label>
-              <select value={balanceType} onChange={e => setBalanceType(e.target.value as any)}
-                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10">
-                <option value="topup">Top Up</option>
-                <option value="gift">Gift</option>
-                <option value="refund">Refund</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium block mb-1">Amount (USD)</label>
-              <input type="number" step="0.01" value={balanceAmount} onChange={e => setBalanceAmount(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none"
-                placeholder="10.00" />
-            </div>
-            <div>
-              <label className="text-xs font-medium block mb-1">Comment</label>
-              <input value={balanceComment} onChange={e => setBalanceComment(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 outline-none"
-                placeholder="Optional" />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setBalanceModal(false)} className="px-4 py-2 rounded-lg text-sm bg-white/5 hover:bg-white/10 transition">Cancel</button>
-              <button onClick={adjustBalance} className="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 font-medium transition">Apply</button>
-            </div>
+      {/* Other Providers */}
+      {Object.keys(selected.provider_config || {}).filter((k) => k !== 'twilio').length > 0 && (
+        <div>
+          <div
+            className="text-[10px] uppercase tracking-wider font-medium mb-2"
+            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+          >
+            Other Providers
+          </div>
+          <div className="space-y-1">
+            {Object.entries(selected.provider_config)
+              .filter(([k]) => k !== 'twilio')
+              .map(([k, v]) => (
+                <div key={k} className="flex justify-between text-xs">
+                  <span>{k}</span>
+                  <span className="font-mono" style={{ color: v === 'own' ? 'var(--th-primary-text)' : 'var(--th-success-text)' }}>
+                    {v}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       )}
+
+      {/* Delete */}
+      <button
+        onClick={() => setDeleteModal(true)}
+        className="w-full px-3 py-2 rounded-lg text-xs font-medium transition"
+        style={{
+          background: 'var(--th-error-bg)',
+          border: '1px solid var(--th-error-border)',
+          color: 'var(--th-error-text)',
+        }}
+      >
+        Delete Workspace
+      </button>
+
+      {/* Recent Transactions */}
+      <div>
+        <div
+          className="text-[10px] uppercase tracking-wider font-medium mb-2"
+          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+        >
+          Recent Transactions
+        </div>
+        <div className="space-y-1 max-h-60 overflow-y-auto scrollbar-none">
+          {transactions.map((t) => (
+            <div
+              key={t.id}
+              className="flex justify-between items-center text-xs py-1.5"
+              style={{ borderBottom: '1px solid var(--th-border)' }}
+            >
+              <div className="min-w-0 flex-1">
+                <span className="font-medium">{t.type}</span>
+                <span className="ml-2" style={{ color: 'var(--th-text-secondary)' }}>
+                  {t.description}
+                </span>
+              </div>
+              <span
+                className="font-mono shrink-0 ml-2"
+                style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : 'var(--th-error-text)' }}
+              >
+                {t.amount_usd >= 0 ? '+' : ''}
+                {t.amount_usd.toFixed(4)}
+              </span>
+            </div>
+          ))}
+          {transactions.length === 0 && (
+            <p className="text-xs" style={{ color: 'var(--th-text-muted)' }}>No transactions yet</p>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div
+      className="rounded-xl p-8 text-center min-h-[50vh] flex items-center justify-center"
+      style={{ background: 'var(--th-card)', border: '1px solid var(--th-card-border-subtle)' }}
+    >
+      <div>
+        <span className="material-symbols-outlined text-4xl mb-2 block" style={{ color: 'var(--th-text-muted)' }}>apartment</span>
+        <p className="text-sm" style={{ color: 'var(--th-text-muted)' }}>Select a workspace</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="py-4 md:py-6 space-y-4">
+      <AdminPageHeader
+        title="Workspaces"
+        subtitle="Manage workspace plans and deposits"
+        icon="apartment"
+      />
+
+      <AdminSplitView
+        list={listContent}
+        detail={detailContent}
+        hasSelection={!!selected}
+        onBack={() => setSelected(null)}
+        listSpan={7}
+        detailSpan={5}
+      />
+
+      {/* Balance Adjustment Modal */}
+      <AdminModal
+        open={balanceModal && !!selected}
+        onClose={() => setBalanceModal(false)}
+        title="Adjust Balance"
+        actions={
+          <>
+            <button
+              onClick={() => setBalanceModal(false)}
+              className="btn-secondary px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={adjustBalance}
+              className="btn-primary px-4 py-2 text-sm font-medium"
+            >
+              Apply
+            </button>
+          </>
+        }
+      >
+        {selected && (
+          <p className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>
+            {selected.name} — Current: {fmtCurrency(selected.balance_usd)}
+          </p>
+        )}
+        <AdminFormField label="Type">
+          <select
+            value={balanceType}
+            onChange={(e) => setBalanceType(e.target.value as 'topup' | 'gift' | 'refund')}
+            className={adminSelectClass}
+          >
+            <option value="topup">Top Up</option>
+            <option value="gift">Gift</option>
+            <option value="refund">Refund</option>
+          </select>
+        </AdminFormField>
+        <AdminFormField label="Amount (USD)">
+          <input
+            type="number"
+            step="0.01"
+            value={balanceAmount}
+            onChange={(e) => setBalanceAmount(e.target.value)}
+            className={adminInputClass}
+            placeholder="10.00"
+          />
+        </AdminFormField>
+        <AdminFormField label="Comment">
+          <input
+            value={balanceComment}
+            onChange={(e) => setBalanceComment(e.target.value)}
+            className={adminInputClass}
+            placeholder="Optional"
+          />
+        </AdminFormField>
+      </AdminModal>
+
+      {/* Delete Confirmation Modal */}
+      <AdminModal
+        open={deleteModal && !!selected}
+        onClose={() => setDeleteModal(false)}
+        title="Delete Workspace"
+        actions={
+          <>
+            <button
+              onClick={() => setDeleteModal(false)}
+              className="btn-secondary px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={deleteWorkspace}
+              className="px-4 py-2 text-sm font-medium rounded-lg"
+              style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+            >
+              Delete
+            </button>
+          </>
+        }
+      >
+        {selected && (
+          <p className="text-sm" style={{ lineHeight: 1.6 }}>
+            Delete workspace <strong>&ldquo;{selected.name}&rdquo;</strong>? This will remove all data
+            including calls, sessions, and billing history. This cannot be undone.
+          </p>
+        )}
+      </AdminModal>
     </div>
   );
 }

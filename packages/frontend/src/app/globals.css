@@ -206,6 +206,231 @@
   --th-accent-purple-text: #c4b5fd;
 }
 
+/* ─── Admin Panel — Anthropic / Claude Design System ─────────────────── */
+[data-admin] {
+  /* Page */
+  --th-page: #f5f4ed;
+  --th-page-alt: #f0eee6;
+  /* Cards / surfaces */
+  --th-card: #faf9f5;
+  --th-card-hover: #f5f4ed;
+  --th-surface: #e8e6dc;
+  --th-surface-hover: #d1cfc5;
+  /* Sidebar */
+  --th-sidebar: #141413;
+  --th-sidebar-border: #30302e;
+  --th-sidebar-hover: #30302e;
+  --th-sidebar-text: #b0aea5;
+  --th-sidebar-label: #87867f;
+  /* Text — warm neutrals */
+  --th-text: #141413;
+  --th-text-secondary: #5e5d59;
+  --th-text-muted: #87867f;
+  --th-text-dark: #3d3d3a;
+  /* Borders — warm cream */
+  --th-border: #f0eee6;
+  --th-border-light: #f5f4ed;
+  /* Topbar */
+  --th-topbar: #faf9f5;
+  /* Input */
+  --th-input: #ffffff;
+  --th-input-border: #e8e6dc;
+  /* Primary accent — Terracotta */
+  --th-primary: #c96442;
+  --th-primary-hover: #b5593a;
+  --th-primary-bg: rgba(201,100,66,0.08);
+  --th-primary-bg-hover: rgba(201,100,66,0.14);
+  --th-primary-text: #c96442;
+  --th-primary-light: #d97757;
+  --th-primary-muted: rgba(201,100,66,0.20);
+  --th-primary-subtle: #c96442;
+  /* Status — warm-toned */
+  --th-success-bg: #ecfdf5;
+  --th-success-bg-strong: #dcfce7;
+  --th-success-text: #059669;
+  --th-success-icon: #10b981;
+  --th-success-dark: #16a34a;
+  --th-success-border: #bbf7d0;
+  --th-error-bg: rgba(181,51,51,0.08);
+  --th-error-text: #b53333;
+  --th-error-icon: #b53333;
+  --th-error-border: rgba(181,51,51,0.20);
+  --th-warning-bg: #fffbeb;
+  --th-warning-text: #92400e;
+  --th-warning-icon: #f59e0b;
+  --th-warning-border: #fde68a;
+  --th-info-bg: #eff6ff;
+  --th-info-text: #2563eb;
+  --th-info-border: #bfdbfe;
+  /* Skeleton */
+  --th-skeleton: #f0eee6;
+  /* Table */
+  --th-table-header: #f5f4ed;
+  --th-table-row-hover: #f0eee6;
+  --th-table-divider: #f0eee6;
+  /* Code */
+  --th-code-bg: #f0eee6;
+  --th-code-text: #5e5d59;
+  /* Modal */
+  --th-overlay: rgba(20,20,19,0.4);
+  --th-modal: #faf9f5;
+  /* Scrollbar */
+  --th-scrollbar: #d1cfc5;
+  /* Shadow — ring-based */
+  --th-shadow: rgba(0,0,0,0.05);
+  --th-shadow-primary: rgba(201,100,66,0.25);
+  /* Badge */
+  --th-badge-purple-bg: rgba(201,100,66,0.08);
+  --th-badge-blue-bg: #eff6ff;
+  /* Card depth — whisper shadows */
+  --th-card-glow: rgba(0,0,0,0.02);
+  --th-card-border-subtle: #f0eee6;
+  --th-glass: rgba(250,249,245,0.85);
+  --th-glass-border: #f0eee6;
+  /* Ring shadow system */
+  --th-ring: #d1cfc5;
+  --th-ring-deep: #c2c0b6;
+  /* Bar chart — terracotta */
+  --th-bar-primary: #c96442;
+  --th-bar-muted: rgba(201,100,66,0.20);
+  /* Accent */
+  --th-accent-purple: #c96442;
+  --th-accent-purple-bg: rgba(201,100,66,0.08);
+  --th-accent-purple-text: #c96442;
+}
+
+[data-admin][data-theme="dark"] {
+  /* Page */
+  --th-page: #141413;
+  --th-page-alt: #1c1c1a;
+  /* Cards / surfaces */
+  --th-card: #1c1c1a;
+  --th-card-hover: #24241f;
+  --th-surface: #24241f;
+  --th-surface-hover: #30302e;
+  /* Sidebar */
+  --th-sidebar: #0e0e0d;
+  --th-sidebar-border: #1c1c1a;
+  --th-sidebar-hover: #24241f;
+  --th-sidebar-text: #b0aea5;
+  --th-sidebar-label: #87867f;
+  /* Text */
+  --th-text: #e8e6dc;
+  --th-text-secondary: #b0aea5;
+  --th-text-muted: #87867f;
+  --th-text-dark: #d1cfc5;
+  /* Borders */
+  --th-border: #30302e;
+  --th-border-light: #24241f;
+  /* Topbar */
+  --th-topbar: #1c1c1a;
+  /* Input */
+  --th-input: #24241f;
+  --th-input-border: #30302e;
+  /* Primary — Coral on dark */
+  --th-primary: #d97757;
+  --th-primary-hover: #e08868;
+  --th-primary-bg: rgba(217,119,87,0.10);
+  --th-primary-bg-hover: rgba(217,119,87,0.18);
+  --th-primary-text: #d97757;
+  --th-primary-light: #e08868;
+  --th-primary-muted: rgba(217,119,87,0.20);
+  --th-primary-subtle: #d97757;
+  /* Status — muted */
+  --th-success-bg: rgba(34,197,94,0.08);
+  --th-success-bg-strong: rgba(34,197,94,0.14);
+  --th-success-text: #4ade80;
+  --th-success-icon: #22c55e;
+  --th-success-dark: #4ade80;
+  --th-success-border: rgba(34,197,94,0.20);
+  --th-error-bg: rgba(181,51,51,0.10);
+  --th-error-text: #f87171;
+  --th-error-icon: #ef4444;
+  --th-error-border: rgba(181,51,51,0.20);
+  --th-warning-bg: rgba(234,179,8,0.08);
+  --th-warning-text: #facc15;
+  --th-warning-icon: #eab308;
+  --th-warning-border: rgba(234,179,8,0.20);
+  --th-info-bg: rgba(59,130,246,0.08);
+  --th-info-text: #60a5fa;
+  --th-info-border: rgba(59,130,246,0.20);
+  /* Skeleton */
+  --th-skeleton: #24241f;
+  /* Table */
+  --th-table-header: #1c1c1a;
+  --th-table-row-hover: #24241f;
+  --th-table-divider: #30302e;
+  /* Code */
+  --th-code-bg: #24241f;
+  --th-code-text: #b0aea5;
+  /* Modal */
+  --th-overlay: rgba(0,0,0,0.55);
+  --th-modal: #1c1c1a;
+  /* Scrollbar */
+  --th-scrollbar: #30302e;
+  /* Shadow */
+  --th-shadow: rgba(0,0,0,0.3);
+  --th-shadow-primary: rgba(217,119,87,0.25);
+  /* Badge */
+  --th-badge-purple-bg: rgba(217,119,87,0.10);
+  --th-badge-blue-bg: rgba(59,130,246,0.10);
+  /* Card depth */
+  --th-card-glow: rgba(217,119,87,0.03);
+  --th-card-border-subtle: rgba(255,255,255,0.04);
+  --th-glass: rgba(28,28,26,0.85);
+  --th-glass-border: rgba(255,255,255,0.06);
+  /* Ring shadow */
+  --th-ring: #30302e;
+  --th-ring-deep: #3d3d3a;
+  /* Bar chart */
+  --th-bar-primary: #d97757;
+  --th-bar-muted: rgba(217,119,87,0.25);
+  /* Accent */
+  --th-accent-purple: #d97757;
+  --th-accent-purple-bg: rgba(217,119,87,0.10);
+  --th-accent-purple-text: #d97757;
+}
+
+/* ─── Admin typography ───────────────────────────────────────────────── */
+[data-admin] .font-headline {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+}
+[data-admin] .glass-panel {
+  background: var(--th-card);
+  border: 1px solid var(--th-card-border-subtle);
+  box-shadow: 0px 0px 0px 1px var(--th-ring), rgba(0,0,0,0.05) 0px 4px 24px;
+}
+[data-admin] .btn-primary {
+  background: var(--th-primary);
+  color: #faf9f5;
+  box-shadow: var(--th-primary) 0px 0px 0px 0px, var(--th-primary) 0px 0px 0px 1px;
+  border-radius: 8px;
+}
+[data-admin] .btn-primary:hover {
+  background: var(--th-primary-hover);
+  box-shadow: var(--th-shadow-primary) 0px 4px 16px;
+}
+[data-admin] .btn-secondary {
+  background: var(--th-surface);
+  color: #4d4c48;
+  border: none;
+  box-shadow: var(--th-surface) 0px 0px 0px 0px, var(--th-ring) 0px 0px 0px 1px;
+  border-radius: 8px;
+}
+[data-admin] .btn-secondary:hover {
+  background: var(--th-surface-hover);
+}
+[data-admin] .input-base {
+  border: 1px solid var(--th-input-border);
+  background: var(--th-input);
+  border-radius: 12px;
+}
+[data-admin] .input-base:focus {
+  border-color: #3898ec;
+  box-shadow: 0 0 0 3px rgba(56,152,236,0.15);
+}
+
 /* ─── Mobile Design Tokens ────────────────────────────────────────────── */
 :root {
   --th-touch-target: 44px;

@@ -1,224 +1,319 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { useIsMobile } from '@/lib/useBreakpoint';
+import { useState, useMemo } from 'react';
+import { useAdminQuery, api } from '../_lib/admin-api';
+import { fmtCurrency, fmtPercent, fmtDateTime, fmtDate } from '../_lib/format';
+import { PLAN_BADGES, FINANCE_TYPE_COLORS } from '../_lib/constants';
+import type { FinanceOverview, FinanceRevenueDay, FinanceTransaction } from '../_lib/types';
+import AdminPageHeader from '../_components/AdminPageHeader';
+import AdminKpiCard from '../_components/AdminKpiCard';
+import AdminChart from '../_components/AdminChart';
+import AdminTable from '../_components/AdminTable';
+import AdminBadge from '../_components/AdminBadge';
+import AdminFilterBar from '../_components/AdminFilterBar';
+import AdminLoadingState from '../_components/AdminLoadingState';
+import AdminErrorState from '../_components/AdminErrorState';
 
-interface FinanceOverview {
-  kpi: {
-    total_deposit_balance: number;
-    deposits_30d: number;
-    usage_revenue_30d: number;
-    real_provider_cost_30d: number;
-    margin_percent: number;
-    active_subscriptions: number;
-    total_sessions_30d: number;
-  };
-  plan_counts: Array<{ plan: string; count: number }>;
+interface FinanceData {
+  overview: FinanceOverview;
+  chart: FinanceRevenueDay[];
+  transactions: FinanceTransaction[];
 }
 
-interface RevenueDay {
-  date: string;
-  deposits: string;
-  usage_revenue: string;
-}
+const TX_FILTER_OPTIONS = [
+  { value: '', label: 'All Types' },
+  { value: 'topup', label: 'Top Up' },
+  { value: 'usage', label: 'Usage' },
+  { value: 'refund', label: 'Refund' },
+  { value: 'gift', label: 'Gift' },
+  { value: 'signup_bonus', label: 'Signup Bonus' },
+];
 
-interface Transaction {
-  id: string;
-  workspace_id: string;
-  workspace_name: string;
-  type: string;
-  amount_usd: number;
-  balance_after: number;
-  description: string;
-  created_at: string;
-}
-
-const typeColors: Record<string, string> = {
-  topup: 'var(--th-success-text)',
-  usage: '#f87171',
-  refund: 'var(--th-warning-text)',
-  gift: 'var(--th-primary-light)',
-  signup_bonus: 'var(--th-accent-purple)',
-  promo: '#67e8f9',
+const TX_TYPE_VARIANTS: Record<string, 'success' | 'primary' | 'warning' | 'info' | 'neutral' | 'error'> = {
+  topup: 'success',
+  usage: 'primary',
+  refund: 'warning',
+  gift: 'info',
+  signup_bonus: 'info',
+  subscription: 'neutral',
+  promo: 'info',
 };
 
 export default function AdminFinance() {
-  const [overview, setOverview] = useState<FinanceOverview | null>(null);
-  const [chart, setChart] = useState<RevenueDay[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txFilter, setTxFilter] = useState('');
-  const [loading, setLoading] = useState(true);
-  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    Promise.all([
-      api.get<FinanceOverview>('/admin/finance/overview'),
-      api.get<RevenueDay[]>('/admin/finance/revenue-chart'),
-      api.get<Transaction[]>('/admin/finance/transactions?limit=30'),
-    ]).then(([o, c, t]) => {
-      setOverview(o);
-      setChart(c);
-      setTransactions(t);
-    }).finally(() => setLoading(false));
-  }, []);
+  // Initial parallel fetch
+  const { data, loading, error, refetch } = useAdminQuery<FinanceData>(
+    async () => {
+      const [overview, chart, transactions] = await Promise.all([
+        api.get<FinanceOverview>('/admin/finance/overview'),
+        api.get<FinanceRevenueDay[]>('/admin/finance/revenue-chart'),
+        api.get<FinanceTransaction[]>('/admin/finance/transactions?limit=30'),
+      ]);
+      return { overview, chart, transactions };
+    },
+  );
 
-  useEffect(() => {
-    const params = new URLSearchParams({ limit: '30' });
-    if (txFilter) params.set('type', txFilter);
-    api.get<Transaction[]>(`/admin/finance/transactions?${params}`).then(setTransactions);
-  }, [txFilter]);
+  // Filtered transactions fetch
+  const { data: filteredTx } = useAdminQuery<FinanceTransaction[]>(
+    () => {
+      if (!txFilter) return Promise.resolve(data?.transactions ?? []);
+      const params = new URLSearchParams({ limit: '30', type: txFilter });
+      return api.get<FinanceTransaction[]>(`/admin/finance/transactions?${params}`);
+    },
+    [txFilter, data?.transactions],
+  );
 
-  if (loading || !overview) return <div className="p-4 md:p-8 text-center opacity-50">Loading...</div>;
+  // Chart data for AdminChart
+  const chartData = useMemo(() => {
+    if (!data?.chart) return [];
+    return data.chart.map((day) => ({
+      label: fmtDate(day.date),
+      value: parseFloat(day.usage_revenue) || 0,
+    }));
+  }, [data?.chart]);
 
-  const kpiCards = [
-    { label: 'Usage Revenue (30d)', value: `$${overview.kpi.usage_revenue_30d.toFixed(2)}`, color: 'var(--th-success-text)', icon: 'payments' },
-    { label: 'Provider Cost (30d)', value: `$${overview.kpi.real_provider_cost_30d.toFixed(2)}`, color: '#f87171', icon: 'receipt_long' },
-    { label: 'Margin', value: `${overview.kpi.margin_percent}%`, color: overview.kpi.margin_percent > 60 ? 'var(--th-success-text)' : 'var(--th-warning-text)', icon: 'trending_up' },
-    { label: 'Deposits (30d)', value: `$${overview.kpi.deposits_30d.toFixed(2)}`, color: 'var(--th-primary-light)', icon: 'account_balance' },
-    { label: 'Total On Deposit', value: `$${overview.kpi.total_deposit_balance.toFixed(2)}`, color: 'var(--th-accent-purple)', icon: 'savings' },
-    { label: 'Active Subs', value: String(overview.kpi.active_subscriptions), color: '#67e8f9', icon: 'loyalty' },
+  if (loading) return <AdminLoadingState rows={6} />;
+  if (error) return <AdminErrorState error={error} onRetry={refetch} />;
+  if (!data) return null;
+
+  const { overview } = data;
+  const { kpi } = overview;
+  const transactions = filteredTx ?? data.transactions;
+
+  const txColumns = [
+    {
+      key: 'workspace',
+      label: 'Workspace',
+      render: (row: FinanceTransaction) => (
+        <span className="text-xs font-medium">
+          {row.workspace_name || row.workspace_id?.slice(0, 8)}
+        </span>
+      ),
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      render: (row: FinanceTransaction) => (
+        <AdminBadge variant={TX_TYPE_VARIANTS[row.type] ?? 'neutral'}>
+          {row.type}
+        </AdminBadge>
+      ),
+    },
+    {
+      key: 'amount',
+      label: 'Amount',
+      render: (row: FinanceTransaction) => (
+        <span
+          className="text-xs font-mono"
+          style={{ color: row.amount_usd >= 0 ? 'var(--th-success-text)' : 'var(--th-error-text)' }}
+        >
+          {row.amount_usd >= 0 ? '+' : ''}{fmtCurrency(row.amount_usd, 4)}
+        </span>
+      ),
+    },
+    {
+      key: 'balance',
+      label: 'Balance After',
+      render: (row: FinanceTransaction) => (
+        <span className="text-xs font-mono" style={{ color: 'var(--th-text-secondary)' }}>
+          {fmtCurrency(row.balance_after)}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      render: (row: FinanceTransaction) => (
+        <span className="text-xs truncate max-w-[200px] block" style={{ color: 'var(--th-text-secondary)' }}>
+          {row.description}
+        </span>
+      ),
+      hideOnMobile: true,
+    },
+    {
+      key: 'date',
+      label: 'Date',
+      render: (row: FinanceTransaction) => (
+        <span className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>
+          {fmtDateTime(row.created_at)}
+        </span>
+      ),
+    },
   ];
 
-  const maxRev = Math.max(...chart.map(d => parseFloat(d.usage_revenue) || 0.01), 0.01);
+  const txMobileRender = (row: FinanceTransaction) => (
+    <div>
+      <div className="flex justify-between items-start">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium truncate">
+            {row.workspace_name || row.workspace_id?.slice(0, 8)}
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <AdminBadge variant={TX_TYPE_VARIANTS[row.type] ?? 'neutral'}>
+              {row.type}
+            </AdminBadge>
+            <span className="text-[10px]" style={{ color: 'var(--th-text-muted)' }}>
+              {fmtDate(row.created_at)}
+            </span>
+          </div>
+        </div>
+        <span
+          className="font-mono text-sm font-semibold ml-2 shrink-0"
+          style={{ color: row.amount_usd >= 0 ? 'var(--th-success-text)' : 'var(--th-error-text)' }}
+        >
+          {row.amount_usd >= 0 ? '+' : ''}{fmtCurrency(row.amount_usd, 4)}
+        </span>
+      </div>
+      {row.description && (
+        <div className="text-[10px] mt-1.5 truncate" style={{ color: 'var(--th-text-secondary)' }}>
+          {row.description}
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className="p-4 md:p-6 space-y-6 md:space-y-8">
-      <div>
-        <h1 className="text-lg md:text-2xl font-headline font-bold">Finance</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Revenue, costs, and margin overview</p>
-      </div>
+    <div className="p-4 md:p-6 space-y-5 md:space-y-6">
+      <AdminPageHeader
+        title="Finance"
+        subtitle="Revenue, costs, and margin overview"
+        icon="payments"
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-        {kpiCards.map(card => (
-          <div key={card.label} className="glass-panel rounded-2xl p-3 md:p-4 relative overflow-hidden">
-            <div className="absolute top-2 right-2 md:top-3 md:right-3">
-              <span className="material-symbols-outlined text-base md:text-lg" style={{ color: card.color, opacity: 0.4 }}>{card.icon}</span>
-            </div>
-            <div className="text-[9px] md:text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--th-text-secondary)' }}>{card.label}</div>
-            <div className="text-lg md:text-xl font-headline font-bold" style={{ color: card.color }}>{card.value}</div>
-          </div>
-        ))}
+        <AdminKpiCard
+          label="Usage Revenue (30d)"
+          value={fmtCurrency(kpi.usage_revenue_30d)}
+          icon="payments"
+          color="var(--th-success-text)"
+        />
+        <AdminKpiCard
+          label="Provider Cost (30d)"
+          value={fmtCurrency(kpi.real_provider_cost_30d)}
+          icon="receipt_long"
+          color="var(--th-error-text)"
+        />
+        <AdminKpiCard
+          label="Margin"
+          value={fmtPercent(kpi.margin_percent)}
+          icon="trending_up"
+          color={kpi.margin_percent > 60 ? 'var(--th-success-text)' : 'var(--th-warning-text)'}
+        />
+        <AdminKpiCard
+          label="Deposits (30d)"
+          value={fmtCurrency(kpi.deposits_30d)}
+          icon="account_balance"
+          color="var(--th-primary-text)"
+        />
+        <AdminKpiCard
+          label="Total On Deposit"
+          value={fmtCurrency(kpi.total_deposit_balance)}
+          icon="savings"
+          color="var(--th-info-text)"
+        />
+        <AdminKpiCard
+          label="Active Subs"
+          value={String(kpi.active_subscriptions)}
+          icon="loyalty"
+          color="var(--th-text-secondary)"
+        />
       </div>
 
       {/* Plan Distribution */}
-      <div className="glass-panel rounded-2xl p-4 md:p-5">
-        <h3 className="text-sm font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--th-text-secondary)' }}>Plan Distribution</h3>
+      <div
+        className="rounded-xl p-4 md:p-5"
+        style={{
+          background: 'var(--th-card)',
+          border: '1px solid var(--th-card-border-subtle)',
+          boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+        }}
+      >
+        <h3
+          className="text-[10px] font-semibold uppercase tracking-wider mb-3"
+          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+        >
+          Plan Distribution
+        </h3>
         <div className="flex flex-wrap gap-4 md:gap-6">
-          {overview.plan_counts.map(p => (
-            <div key={p.plan} className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{
-                background: p.plan === 'translator' ? 'var(--th-primary-light)' : p.plan === 'agents' ? 'var(--th-success-text)' : 'var(--th-accent-purple)'
-              }} />
-              <span className="text-sm font-medium">{p.plan}</span>
-              <span className="text-sm font-mono" style={{ color: 'var(--th-text-secondary)' }}>{p.count}</span>
-            </div>
-          ))}
+          {overview.plan_counts.map((p) => {
+            const badge = PLAN_BADGES[p.plan];
+            return (
+              <div key={p.plan} className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ background: badge?.color ?? 'var(--th-text-muted)' }}
+                />
+                <span className="text-sm font-medium" style={{ color: 'var(--th-text)' }}>
+                  {badge?.label ?? p.plan}
+                </span>
+                <span className="text-sm font-mono" style={{ color: 'var(--th-text-secondary)' }}>
+                  {p.count}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Revenue Chart */}
-      {chart.length > 0 && (
-        <div className="glass-panel rounded-2xl p-4 md:p-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--th-text-secondary)' }}>Revenue by Day (30d)</h3>
-          <div className="flex items-end gap-1 h-32">
-            {chart.map((day, i) => {
-              const rev = parseFloat(day.usage_revenue) || 0;
-              const dep = parseFloat(day.deposits) || 0;
-              const height = (rev / maxRev) * 100;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-0.5"
-                  title={`${day.date}\nRevenue: $${rev.toFixed(2)}\nDeposits: $${dep.toFixed(2)}`}>
-                  <div className="w-full rounded-t transition-all" style={{
-                    height: `${Math.max(height, 2)}%`,
-                    background: 'linear-gradient(to top, var(--th-success-text), #67e8f9)',
-                    minHeight: '2px',
-                  }} />
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-between mt-2 text-[10px]" style={{ color: 'var(--th-text-secondary)' }}>
-            <span>{chart[0]?.date}</span>
-            <span>{chart[chart.length - 1]?.date}</span>
-          </div>
+      {chartData.length > 0 && (
+        <div
+          className="rounded-xl p-4 md:p-6"
+          style={{
+            background: 'var(--th-card)',
+            border: '1px solid var(--th-card-border-subtle)',
+            boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+          }}
+        >
+          <h3
+            className="text-[10px] font-semibold uppercase tracking-wider mb-4"
+            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+          >
+            Revenue by Day (30d)
+          </h3>
+          <AdminChart
+            data={chartData}
+            height={140}
+            formatValue={(v) => fmtCurrency(v)}
+            color="var(--th-primary)"
+          />
         </div>
       )}
 
       {/* Transactions */}
-      <div className="glass-panel rounded-2xl p-4 md:p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Recent Transactions</h3>
-          <select value={txFilter} onChange={e => setTxFilter(e.target.value)}
-            className="px-2 py-1.5 rounded text-xs bg-white/5 border border-white/10 min-h-[44px]">
-            <option value="">All Types</option>
-            <option value="topup">Top Up</option>
-            <option value="usage">Usage</option>
-            <option value="refund">Refund</option>
-            <option value="gift">Gift</option>
-            <option value="signup_bonus">Signup Bonus</option>
-          </select>
+      <div
+        className="rounded-xl p-4 md:p-6"
+        style={{
+          background: 'var(--th-card)',
+          border: '1px solid var(--th-card-border-subtle)',
+          boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+        }}
+      >
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+          <h3
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+          >
+            Recent Transactions
+          </h3>
+          <AdminFilterBar
+            options={TX_FILTER_OPTIONS}
+            value={txFilter}
+            onChange={setTxFilter}
+          />
         </div>
-        {isMobile ? (
-          <div className="space-y-2">
-            {transactions.map(t => (
-              <div key={t.id} className="rounded-xl p-3" style={{ background: 'var(--th-surface)', borderBottom: '1px solid var(--th-border)' }}>
-                <div className="flex justify-between items-start">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium truncate">{t.workspace_name || t.workspace_id?.slice(0, 8)}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
-                        background: `${typeColors[t.type] || '#6b7280'}15`,
-                        color: typeColors[t.type] || '#6b7280',
-                      }}>{t.type}</span>
-                      <span className="text-[10px]" style={{ color: 'var(--th-text-secondary)' }}>{new Date(t.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  <span className="font-mono text-sm font-bold ml-2" style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : '#f87171' }}>
-                    {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
-                  </span>
-                </div>
-                {t.description && <div className="text-[10px] mt-1 truncate" style={{ color: 'var(--th-text-secondary)' }}>{t.description}</div>}
-              </div>
-            ))}
-            {transactions.length === 0 && <div className="py-4 text-center opacity-50 text-sm">No transactions</div>}
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left" style={{ color: 'var(--th-text-secondary)' }}>
-                <th className="pb-2 font-medium">Workspace</th>
-                <th className="pb-2 font-medium">Type</th>
-                <th className="pb-2 font-medium">Amount</th>
-                <th className="pb-2 font-medium">Balance After</th>
-                <th className="pb-2 font-medium">Description</th>
-                <th className="pb-2 font-medium">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map(t => (
-                <tr key={t.id} className="border-t" style={{ borderColor: 'var(--th-border)' }}>
-                  <td className="py-2 text-xs">{t.workspace_name || t.workspace_id?.slice(0, 8)}</td>
-                  <td className="py-2">
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
-                      background: `${typeColors[t.type] || '#6b7280'}15`,
-                      color: typeColors[t.type] || '#6b7280',
-                    }}>
-                      {t.type}
-                    </span>
-                  </td>
-                  <td className="py-2 font-mono text-xs" style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : '#f87171' }}>
-                    {t.amount_usd >= 0 ? '+' : ''}{t.amount_usd.toFixed(4)}
-                  </td>
-                  <td className="py-2 font-mono text-xs" style={{ color: 'var(--th-text-secondary)' }}>${t.balance_after.toFixed(2)}</td>
-                  <td className="py-2 text-xs" style={{ color: 'var(--th-text-secondary)' }}>{t.description}</td>
-                  <td className="py-2 text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(t.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
-              {transactions.length === 0 && <tr><td colSpan={6} className="py-4 text-center opacity-50">No transactions</td></tr>}
-            </tbody>
-          </table>
-        )}
+
+        <AdminTable<FinanceTransaction & Record<string, unknown>>
+          columns={txColumns as Array<{ key: string; label: string; render: (row: FinanceTransaction & Record<string, unknown>) => React.ReactNode; className?: string; hideOnMobile?: boolean }>}
+          data={transactions as Array<FinanceTransaction & Record<string, unknown>>}
+          keyField="id"
+          pageSize={10}
+          emptyIcon="receipt_long"
+          emptyText="No transactions"
+          mobileRender={(row) => txMobileRender(row as unknown as FinanceTransaction)}
+        />
       </div>
     </div>
   );

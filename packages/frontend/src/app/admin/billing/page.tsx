@@ -1,18 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-
-interface BillingSettings {
-  billing_markup?: string;
-  billing_low_balance_threshold?: string;
-  billing_signup_bonus_usd?: string;
-  billing_agents_monthly_price?: string;
-  billing_agents_mcp_monthly_price?: string;
-}
+import { useState } from 'react';
+import { useAdminQuery, api } from '../_lib/admin-api';
+import type { BillingSettings } from '../_lib/types';
+import AdminPageHeader from '../_components/AdminPageHeader';
+import AdminFormField, { adminInputClass } from '../_components/AdminFormField';
+import AdminLoadingState from '../_components/AdminLoadingState';
 
 export default function AdminBillingConfig() {
-  const [settings, setSettings] = useState<BillingSettings>({});
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -23,18 +17,25 @@ export default function AdminBillingConfig() {
   const [agentsPrice, setAgentsPrice] = useState('49.00');
   const [agentsMcpPrice, setAgentsMcpPrice] = useState('99.00');
 
-  useEffect(() => {
-    api.get<BillingSettings>('/admin/billing-settings').then(data => {
-      setSettings(data);
+  const { loading } = useAdminQuery<BillingSettings>(
+    async () => {
+      const data = await api.get<BillingSettings>('/admin/billing-settings');
       if (data.billing_markup) setMarkup(data.billing_markup);
       if (data.billing_low_balance_threshold) setThreshold(data.billing_low_balance_threshold);
       if (data.billing_signup_bonus_usd) setBonus(data.billing_signup_bonus_usd);
       if (data.billing_agents_monthly_price) setAgentsPrice(data.billing_agents_monthly_price);
       if (data.billing_agents_mcp_monthly_price) setAgentsMcpPrice(data.billing_agents_mcp_monthly_price);
-    }).finally(() => setLoading(false));
-  }, []);
+      return data;
+    },
+    [],
+  );
 
   const save = async () => {
+    const markupNum = parseFloat(markup);
+    if (isNaN(markupNum) || markupNum < 1) {
+      alert('Markup multiplier must be at least 1');
+      return;
+    }
     setSaving(true);
     setSaved(false);
     try {
@@ -52,17 +53,18 @@ export default function AdminBillingConfig() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center opacity-50">Loading...</div>;
+  if (loading) return <AdminLoadingState rows={4} />;
 
-  const exampleCost = 0.05; // example provider cost per minute
+  const exampleCost = 0.05;
   const clientCost = exampleCost * parseFloat(markup || '3');
 
   return (
     <div className="px-3 py-4 md:p-6 space-y-6 md:space-y-8">
-      <div>
-        <h1 className="text-xl md:text-2xl font-headline font-bold">Billing Configuration</h1>
-        <p className="text-xs md:text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>Platform pricing, markup, and thresholds</p>
-      </div>
+      <AdminPageHeader
+        title="Billing Configuration"
+        subtitle="Platform pricing, markup, and thresholds"
+        icon="receipt_long"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Markup */}
@@ -75,11 +77,16 @@ export default function AdminBillingConfig() {
             Client pays: provider cost x markup. Default x3 means if a call costs us $0.05, client pays $0.15.
           </p>
 
-          <div>
-            <label className="text-xs font-medium block mb-1">Markup Multiplier</label>
-            <input type="number" step="0.1" min="1" value={markup} onChange={e => setMarkup(e.target.value)}
-              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
-          </div>
+          <AdminFormField label="Markup Multiplier">
+            <input
+              type="number"
+              step="0.1"
+              min="1"
+              value={markup}
+              onChange={e => setMarkup(e.target.value)}
+              className={adminInputClass}
+            />
+          </AdminFormField>
 
           <div className="glass-panel rounded-xl p-3" style={{ borderLeft: '3px solid var(--th-success-text)' }}>
             <div className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>Example: $0.05 provider cost</div>
@@ -100,16 +107,28 @@ export default function AdminBillingConfig() {
             <h3 className="font-headline font-bold">Subscription Prices</h3>
           </div>
 
-          <div>
-            <label className="text-xs font-medium block mb-1">Agents Plan ($/month)</label>
-            <input type="number" step="1" min="0" value={agentsPrice} onChange={e => setAgentsPrice(e.target.value)}
-              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
-          </div>
-          <div>
-            <label className="text-xs font-medium block mb-1">Agents + MCP Plan ($/month)</label>
-            <input type="number" step="1" min="0" value={agentsMcpPrice} onChange={e => setAgentsMcpPrice(e.target.value)}
-              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
-          </div>
+          <AdminFormField label="Agents Plan ($/month)">
+            <input
+              type="number"
+              step="1"
+              min="0"
+              value={agentsPrice}
+              onChange={e => setAgentsPrice(e.target.value)}
+              className={adminInputClass}
+            />
+          </AdminFormField>
+
+          <AdminFormField label="Agents + MCP Plan ($/month)">
+            <input
+              type="number"
+              step="1"
+              min="0"
+              value={agentsMcpPrice}
+              onChange={e => setAgentsMcpPrice(e.target.value)}
+              className={adminInputClass}
+            />
+          </AdminFormField>
+
           <div className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>
             Translator plan has no subscription fee (deposit-only).
           </div>
@@ -122,12 +141,16 @@ export default function AdminBillingConfig() {
             <h3 className="font-headline font-bold">Alerts & Thresholds</h3>
           </div>
 
-          <div>
-            <label className="text-xs font-medium block mb-1">Low Balance Alert Threshold ($)</label>
-            <input type="number" step="0.5" min="0" value={threshold} onChange={e => setThreshold(e.target.value)}
-              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
-            <p className="text-xs mt-1" style={{ color: 'var(--th-text-secondary)' }}>Alert workspace owners when balance drops below this amount.</p>
-          </div>
+          <AdminFormField label="Low Balance Alert Threshold ($)" hint="Alert workspace owners when balance drops below this amount.">
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={threshold}
+              onChange={e => setThreshold(e.target.value)}
+              className={adminInputClass}
+            />
+          </AdminFormField>
         </div>
 
         {/* Signup Bonus */}
@@ -137,19 +160,26 @@ export default function AdminBillingConfig() {
             <h3 className="font-headline font-bold">Signup Bonus</h3>
           </div>
 
-          <div>
-            <label className="text-xs font-medium block mb-1">Translator Signup Bonus ($)</label>
-            <input type="number" step="0.5" min="0" value={bonus} onChange={e => setBonus(e.target.value)}
-              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-lg text-sm bg-white/5 border border-white/10 outline-none focus:border-blue-500/50" />
-            <p className="text-xs mt-1" style={{ color: 'var(--th-text-secondary)' }}>Free deposit credited to new Translator plan signups.</p>
-          </div>
+          <AdminFormField label="Translator Signup Bonus ($)" hint="Free deposit credited to new Translator plan signups.">
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={bonus}
+              onChange={e => setBonus(e.target.value)}
+              className={adminInputClass}
+            />
+          </AdminFormField>
         </div>
       </div>
 
       {/* Save */}
       <div className="flex items-center gap-3">
-        <button onClick={save} disabled={saving}
-          className="px-6 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="btn-primary px-6 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-bold disabled:opacity-50 transition"
+        >
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
         {saved && (

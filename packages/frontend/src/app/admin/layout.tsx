@@ -32,15 +32,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => { setShowMore(false); }, [pathname]);
 
+  // Propagate data-theme to admin wrapper
+  const [theme, setTheme] = useState<string>('');
+  useEffect(() => {
+    const root = document.documentElement;
+    setTheme(root.getAttribute('data-theme') || '');
+    const observer = new MutationObserver(() => {
+      setTheme(root.getAttribute('data-theme') || '');
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
   if (denied) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--th-page)', color: 'var(--th-text)' }}>
+      <div data-admin data-theme={theme || undefined} className="min-h-screen flex items-center justify-center" style={{ background: 'var(--th-page)', color: 'var(--th-text)' }}>
         <div className="text-center space-y-4">
-          <div className="text-4xl">🔒</div>
-          <h1 className="text-xl font-bold">Access Denied</h1>
-          <p className="text-sm" style={{ color: 'var(--th-text-secondary)' }}>Admin panel is restricted to the project owner.</p>
-          <button onClick={() => router.push('/dashboard')} className="px-6 py-2 rounded-lg text-sm font-medium"
-            style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}>
+          <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--th-text-muted)' }}>lock</span>
+          <h1 className="text-xl font-headline">Access Denied</h1>
+          <p className="text-sm" style={{ color: 'var(--th-text-secondary)', lineHeight: 1.6 }}>Admin panel is restricted to the project owner.</p>
+          <button onClick={() => router.push('/dashboard')} className="btn-secondary px-6 py-2 text-sm font-medium">
             Back to Dashboard
           </button>
         </div>
@@ -53,33 +64,81 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isActive = (href: string) => href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--th-page)', color: 'var(--th-text)', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div
+      data-admin
+      data-theme={theme || undefined}
+      className="min-h-screen flex"
+      style={{
+        background: 'var(--th-page)',
+        color: 'var(--th-text)',
+        fontFamily: "system-ui, -apple-system, 'Inter', 'Segoe UI', sans-serif",
+        lineHeight: 1.6,
+      }}
+    >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-        .font-headline { font-family: 'Manrope', sans-serif; }
-        .glass-panel { background: var(--th-card); backdrop-filter: blur(20px); border: 0.5px solid var(--th-border); }
-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        [data-admin] .font-headline {
+          font-family: Georgia, 'Times New Roman', serif;
+          font-weight: 500;
+        }
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
       `}</style>
 
-      {/* Desktop Sidebar — hidden on mobile */}
-      <aside className="hidden md:flex w-64 shrink-0 border-r flex-col h-screen sticky top-0" style={{ background: 'var(--th-sidebar)', borderColor: 'var(--th-sidebar-border)' }}>
-        <div className="h-16 flex items-center px-5 border-b" style={{ borderColor: 'var(--th-sidebar-border)' }}>
-          <Link href="/admin" className="flex items-center gap-2 font-headline font-bold text-lg tracking-tight">
-            <span className="material-symbols-outlined" style={{ color: 'var(--th-primary)', fontVariationSettings: "'FILL' 1" }}>translate</span>
-            <span>Admin</span>
+      {/* Desktop Sidebar */}
+      <aside
+        className="hidden md:flex w-60 shrink-0 flex-col h-screen sticky top-0"
+        style={{
+          background: 'var(--th-sidebar)',
+          borderRight: '1px solid var(--th-sidebar-border)',
+        }}
+      >
+        <div className="h-14 flex items-center px-5" style={{ borderBottom: '1px solid var(--th-sidebar-border)' }}>
+          <Link href="/admin" className="flex items-center gap-2.5">
+            <span
+              className="material-symbols-outlined text-lg"
+              style={{ color: 'var(--th-primary)', fontVariationSettings: "'FILL' 1" }}
+            >
+              shield_person
+            </span>
+            <span className="font-headline text-base" style={{ color: '#faf9f5' }}>Admin</span>
           </Link>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
+        <nav className="flex-1 overflow-y-auto py-3 px-2.5 scrollbar-none">
           {navSections.map((section) => (
-            <div key={section.label} className="mb-5">
-              <div className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--th-sidebar-label)' }}>{section.label}</div>
+            <div key={section.label} className="mb-4">
+              <div
+                className="px-3 mb-1.5 text-[10px] font-medium uppercase tracking-widest"
+                style={{ color: 'var(--th-sidebar-label)', letterSpacing: '0.5px' }}
+              >
+                {section.label}
+              </div>
               {section.items.map((item) => (
-                <Link key={item.href} href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all mb-0.5 ${isActive(item.href) ? '' : 'hover:bg-[var(--th-sidebar-hover)]'}`}
-                  style={isActive(item.href) ? { background: 'var(--th-primary-bg)', color: 'var(--th-primary)' } : { color: 'var(--th-sidebar-text)' }}>
-                  <span className="material-symbols-outlined text-lg">{item.icon}</span>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all mb-0.5"
+                  style={
+                    isActive(item.href)
+                      ? {
+                          background: 'var(--th-primary-bg)',
+                          color: 'var(--th-primary)',
+                          boxShadow: `var(--th-primary-bg) 0px 0px 0px 0px, var(--th-primary) 0px 0px 0px 1px inset`,
+                        }
+                      : { color: 'var(--th-sidebar-text)' }
+                  }
+                  onMouseEnter={(e) => {
+                    if (!isActive(item.href))
+                      e.currentTarget.style.background = 'var(--th-sidebar-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive(item.href))
+                      e.currentTarget.style.background = '';
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
                   {item.label}
                 </Link>
               ))}
@@ -87,8 +146,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
 
-        <div className="p-4 border-t" style={{ borderColor: 'var(--th-sidebar-border)' }}>
-          <Link href="/dashboard" className="flex items-center gap-2 text-xs opacity-50 hover:opacity-100 transition">
+        <div className="p-3" style={{ borderTop: '1px solid var(--th-sidebar-border)' }}>
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-all"
+            style={{ color: 'var(--th-sidebar-label)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--th-sidebar-text)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--th-sidebar-label)'; }}
+          >
             <span className="material-symbols-outlined text-sm">arrow_back</span>
             Back to Dashboard
           </Link>
@@ -98,19 +163,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content */}
       <div className="flex-1 min-h-screen overflow-x-hidden flex flex-col">
         {/* Mobile top bar */}
-        <div className="md:hidden h-12 px-4 flex items-center justify-between shrink-0" style={{ borderBottom: '1px solid var(--th-border)' }}>
-          <Link href="/admin" className="flex items-center gap-2 font-bold text-sm">
-            <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-primary)' }}>translate</span>
-            Admin
+        <div
+          className="md:hidden h-12 px-4 flex items-center justify-between shrink-0"
+          style={{
+            background: 'var(--th-topbar)',
+            borderBottom: '1px solid var(--th-border)',
+          }}
+        >
+          <Link href="/admin" className="flex items-center gap-2">
+            <span
+              className="material-symbols-outlined text-base"
+              style={{ color: 'var(--th-primary)', fontVariationSettings: "'FILL' 1" }}
+            >
+              shield_person
+            </span>
+            <span className="font-headline text-sm">Admin</span>
           </Link>
-          <Link href="/dashboard" className="text-xs opacity-60 hover:opacity-100 transition flex items-center gap-1">
+          <Link
+            href="/dashboard"
+            className="text-xs flex items-center gap-1 min-h-[44px]"
+            style={{ color: 'var(--th-text-muted)' }}
+          >
             <span className="material-symbols-outlined text-sm">arrow_back</span>
             Dashboard
           </Link>
         </div>
 
         <main className="flex-1 safe-bottom md:pb-0" key={pathname}>
-          <div className="max-w-7xl mx-auto px-4 md:px-0 animate-page-enter">
+          <div className="max-w-6xl mx-auto px-4 md:px-6 animate-page-enter">
             {children}
           </div>
         </main>
@@ -125,7 +205,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           paddingBottom: 'var(--th-safe-area-bottom)',
         }}
       >
-        <div className="flex items-center justify-around h-16">
+        <div className="flex items-center justify-around h-14">
           {adminBottomTabs.map((tab) => (
             <Link
               key={tab.href}
@@ -141,6 +221,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={() => setShowMore(!showMore)}
             className="flex flex-col items-center justify-center gap-0.5 touch-target transition-colors"
             style={{ color: showMore ? 'var(--th-primary)' : 'var(--th-text-muted)' }}
+            aria-label="More navigation options"
           >
             <span className="material-symbols-outlined text-xl">more_horiz</span>
             <span className="text-[10px] font-medium">More</span>
@@ -154,7 +235,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex flex-col gap-4">
             {adminMoreSections.map((section) => (
               <div key={section.label}>
-                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2 px-1" style={{ color: 'var(--th-text-muted)' }}>
+                <div
+                  className="text-[10px] uppercase tracking-widest font-medium mb-2 px-1"
+                  style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+                >
                   {section.label}
                 </div>
                 <div className="flex flex-col gap-0.5">

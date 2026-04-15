@@ -1,7 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { api } from '@/lib/api';
+import { useAdminQuery, api } from '../_lib/admin-api';
+import type { StripeStatus } from '../_lib/types';
+import AdminPageHeader from '../_components/AdminPageHeader';
+import AdminModal from '../_components/AdminModal';
+import AdminFormField, { adminInputClass } from '../_components/AdminFormField';
+import AdminBadge from '../_components/AdminBadge';
+import AdminLoadingState from '../_components/AdminLoadingState';
 
 const PROVIDER_CONFIG: Record<string, { label: string; icon: string; fields: { key: string; label: string; type?: string }[] }> = {
   stripe: { label: 'Stripe', icon: 'payments', fields: [{ key: 'secret_key', label: 'Secret Key' }, { key: 'webhook_secret', label: 'Webhook Secret' }] },
@@ -13,14 +19,6 @@ const PROVIDER_CONFIG: Record<string, { label: string; icon: string; fields: { k
   telegram: { label: 'Telegram', icon: 'send', fields: [{ key: 'bot_token', label: 'Bot Token' }, { key: 'chat_id', label: 'Chat ID' }] },
 };
 
-interface StripeStatus {
-  connected: boolean;
-  stripe_user_id?: string;
-  business_name?: string;
-  email?: string;
-  livemode?: boolean;
-}
-
 export default function ProvidersPage() {
   const searchParams = useSearchParams();
   const [providers, setProviders] = useState<Record<string, { connected: boolean; masked_key?: string }>>({});
@@ -29,33 +27,58 @@ export default function ProvidersPage() {
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ name: string; ok: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeSuccess, setStripeSuccess] = useState(false);
 
-  const load = () => api.get<{ providers: typeof providers }>('/admin/providers').then(r => setProviders(r.providers)).catch(() => {});
+  const load = async () => {
+    try {
+      const r = await api.get<{ providers: typeof providers }>('/admin/providers');
+      setProviders(r.providers);
+    } catch (err) {
+      console.error('Failed to load providers:', err);
+    }
+  };
 
-  const loadStripeStatus = () => api.get<StripeStatus>('/admin/stripe/status').then(setStripeStatus).catch(() => setStripeStatus({ connected: false }));
+  const loadStripeStatus = async () => {
+    try {
+      const status = await api.get<StripeStatus>('/admin/stripe/status');
+      setStripeStatus(status);
+    } catch (err) {
+      console.error('Failed to load Stripe status:', err);
+      setStripeStatus({ connected: false });
+    }
+  };
+
+  const { loading } = useAdminQuery(
+    async () => {
+      await Promise.all([load(), loadStripeStatus()]);
+      return true;
+    },
+    [],
+  );
 
   useEffect(() => {
-    load();
-    loadStripeStatus();
     if (searchParams.get('stripe') === 'connected') {
       setStripeSuccess(true);
       setTimeout(() => setStripeSuccess(false), 5000);
     }
-  }, []);
+  }, [searchParams]);
 
   const handleSave = async () => {
     if (!editing) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await api.put(`/admin/providers/${editing}`, form);
       setEditing(null);
       setForm({});
       await load();
       if (editing === 'stripe') await loadStripeStatus();
-    } catch (err) { alert((err as Error).message); }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
+    }
     setSaving(false);
   };
 
@@ -64,7 +87,9 @@ export default function ProvidersPage() {
     try {
       const r = await api.post<{ ok: boolean; message: string }>(`/admin/providers/${name}/test`, {});
       setTestResult({ name, ...r });
-    } catch { setTestResult({ name, ok: false, message: 'Test failed' }); }
+    } catch (err) {
+      setTestResult({ name, ok: false, message: err instanceof Error ? err.message : 'Test failed' });
+    }
     setTesting(null);
   };
 
@@ -74,7 +99,7 @@ export default function ProvidersPage() {
       const r = await api.get<{ url: string }>('/admin/stripe/connect');
       window.location.href = r.url;
     } catch (err) {
-      alert((err as Error).message);
+      alert(err instanceof Error ? err.message : 'Failed to connect Stripe');
       setStripeLoading(false);
     }
   };
@@ -86,9 +111,13 @@ export default function ProvidersPage() {
       await api.delete('/admin/stripe/connect');
       setStripeStatus({ connected: false });
       await load();
-    } catch (err) { alert((err as Error).message); }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to disconnect Stripe');
+    }
     setStripeLoading(false);
   };
+
+  if (loading) return <AdminLoadingState rows={5} />;
 
   const renderStripeCard = () => {
     const cfg = PROVIDER_CONFIG.stripe;
@@ -99,8 +128,11 @@ export default function ProvidersPage() {
       <div key="stripe" className="glass-panel rounded-2xl p-4 md:p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(173, 198, 255, 0.1)' }}>
-              <span className="material-symbols-outlined" style={{ color: 'var(--th-primary-light)' }}>{cfg.icon}</span>
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: 'var(--th-primary-bg)' }}
+            >
+              <span className="material-symbols-outlined" style={{ color: 'var(--th-primary-text)' }}>{cfg.icon}</span>
             </div>
             <div>
               <div className="font-bold text-sm">{cfg.label}</div>
@@ -117,15 +149,13 @@ export default function ProvidersPage() {
           </div>
           <div className="flex items-center gap-2">
             {isOAuth && stripeStatus.livemode !== undefined && (
-              <span className={`px-2 py-0.5 rounded text-xs font-bold ${stripeStatus.livemode ? 'text-green-400' : 'text-yellow-400'}`}
-                style={{ background: stripeStatus.livemode ? 'rgba(74, 222, 128, 0.1)' : 'rgba(250, 204, 21, 0.1)' }}>
+              <AdminBadge variant={stripeStatus.livemode ? 'success' : 'warning'}>
                 {stripeStatus.livemode ? 'Live' : 'Test'}
-              </span>
+              </AdminBadge>
             )}
-            <span className={`px-2 py-0.5 rounded text-xs font-bold ${(isOAuth || p?.connected) ? 'text-green-400' : 'text-gray-500'}`}
-              style={(isOAuth || p?.connected) ? { background: 'rgba(74, 222, 128, 0.1)' } : { background: 'rgba(107, 114, 128, 0.1)' }}>
+            <AdminBadge variant={(isOAuth || p?.connected) ? 'success' : 'neutral'}>
               {isOAuth ? 'OAuth Connected' : p?.connected ? 'Connected' : 'Not Connected'}
-            </span>
+            </AdminBadge>
           </div>
         </div>
 
@@ -134,43 +164,58 @@ export default function ProvidersPage() {
         )}
 
         {stripeSuccess && (
-          <div className="text-xs mb-3 p-2 rounded text-green-400" style={{ background: 'rgba(74, 222, 128, 0.1)' }}>
+          <div className="text-xs mb-3 p-2 rounded" style={{ background: 'var(--th-success-bg)', color: 'var(--th-success-text)' }}>
             Stripe account connected successfully!
           </div>
         )}
 
         {testResult?.name === 'stripe' && (
-          <div className={`text-xs mb-3 p-2 rounded ${testResult.ok ? 'text-green-400' : 'text-red-400'}`}
-            style={{ background: testResult.ok ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)' }}>
+          <div
+            className="text-xs mb-3 p-2 rounded"
+            style={{
+              background: testResult.ok ? 'var(--th-success-bg)' : 'var(--th-error-bg)',
+              color: testResult.ok ? 'var(--th-success-text)' : 'var(--th-error-text)',
+            }}
+          >
             {testResult.message}
           </div>
         )}
 
         <div className="flex flex-wrap gap-2">
           {isOAuth ? (
-            <button onClick={handleStripeDisconnect} disabled={stripeLoading}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400"
-              style={{ background: 'rgba(248, 113, 113, 0.1)' }}>
+            <button
+              onClick={handleStripeDisconnect}
+              disabled={stripeLoading}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+            >
               {stripeLoading ? 'Disconnecting...' : 'Disconnect'}
             </button>
           ) : (
             <>
-              <button onClick={handleStripeConnect} disabled={stripeLoading}
-                className="px-4 py-1.5 rounded-lg text-xs font-bold"
-                style={{ background: '#635bff', color: '#fff' }}>
+              <button
+                onClick={handleStripeConnect}
+                disabled={stripeLoading}
+                className="btn-primary px-4 py-1.5 rounded-lg text-xs font-bold"
+              >
                 {stripeLoading ? 'Redirecting...' : 'Connect with Stripe'}
               </button>
-              <button onClick={() => { setEditing('stripe'); setForm({}); }}
+              <button
+                onClick={() => { setEditing('stripe'); setForm({}); setSaveError(null); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                style={{ background: '#2f3542', color: 'var(--th-text-secondary)' }}>
+                style={{ background: 'var(--th-surface)', color: 'var(--th-text-secondary)' }}
+              >
                 Enter keys manually
               </button>
             </>
           )}
           {(isOAuth || p?.connected) && (
-            <button onClick={() => handleTest('stripe')} disabled={testing === 'stripe'}
+            <button
+              onClick={() => handleTest('stripe')}
+              disabled={testing === 'stripe'}
               className="px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>
+              style={{ background: 'var(--th-primary-bg)', color: 'var(--th-primary-text)' }}
+            >
               {testing === 'stripe' ? 'Testing...' : 'Test'}
             </button>
           )}
@@ -181,8 +226,11 @@ export default function ProvidersPage() {
 
   return (
     <div className="px-3 py-4 md:p-6 space-y-4 md:space-y-6">
-      <h1 className="text-xl md:text-2xl font-headline font-bold">Providers</h1>
-      <p className="text-xs md:text-sm" style={{ color: 'var(--th-text-secondary)' }}>Manage API keys and connections for all services</p>
+      <AdminPageHeader
+        title="Providers"
+        subtitle="Manage API keys and connections for all services"
+        icon="hub"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {renderStripeCard()}
@@ -192,29 +240,49 @@ export default function ProvidersPage() {
             <div key={name} className="glass-panel rounded-2xl p-4 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(173, 198, 255, 0.1)' }}>
-                    <span className="material-symbols-outlined" style={{ color: 'var(--th-primary-light)' }}>{cfg.icon}</span>
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: 'var(--th-primary-bg)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ color: 'var(--th-primary-text)' }}>{cfg.icon}</span>
                   </div>
                   <div>
                     <div className="font-bold text-sm">{cfg.label}</div>
                     {p?.masked_key && <div className="text-xs font-mono" style={{ color: 'var(--th-text-secondary)' }}>{p.masked_key}</div>}
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-xs font-bold ${p?.connected ? 'text-green-400' : 'text-gray-500'}`}
-                  style={p?.connected ? { background: 'rgba(74, 222, 128, 0.1)' } : { background: 'rgba(107, 114, 128, 0.1)' }}>
+                <AdminBadge variant={p?.connected ? 'success' : 'neutral'}>
                   {p?.connected ? 'Connected' : 'Not Connected'}
-                </span>
+                </AdminBadge>
               </div>
+
               {testResult?.name === name && (
-                <div className={`text-xs mb-3 p-2 rounded ${testResult.ok ? 'text-green-400' : 'text-red-400'}`}
-                  style={{ background: testResult.ok ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)' }}>
+                <div
+                  className="text-xs mb-3 p-2 rounded"
+                  style={{
+                    background: testResult.ok ? 'var(--th-success-bg)' : 'var(--th-error-bg)',
+                    color: testResult.ok ? 'var(--th-success-text)' : 'var(--th-error-text)',
+                  }}
+                >
                   {testResult.message}
                 </div>
               )}
+
               <div className="flex gap-2">
-                <button onClick={() => { setEditing(name); setForm({}); }} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: '#2f3542' }}>Update Keys</button>
+                <button
+                  onClick={() => { setEditing(name); setForm({}); setSaveError(null); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ background: 'var(--th-surface)' }}
+                >
+                  Update Keys
+                </button>
                 {p?.connected && (
-                  <button onClick={() => handleTest(name)} disabled={testing === name} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>
+                  <button
+                    onClick={() => handleTest(name)}
+                    disabled={testing === name}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: 'var(--th-primary-bg)', color: 'var(--th-primary-text)' }}
+                  >
                     {testing === name ? 'Testing...' : 'Test'}
                   </button>
                 )}
@@ -224,28 +292,47 @@ export default function ProvidersPage() {
         })}
       </div>
 
-      {editing && (
-        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50 p-0 md:p-4" onClick={() => setEditing(null)}>
-          <div className="glass-panel rounded-t-2xl md:rounded-2xl p-5 md:p-6 w-full md:max-w-md" style={{ background: '#1a202c' }} onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-4">Update {PROVIDER_CONFIG[editing]?.label}</h2>
-            <div className="space-y-3">
-              {PROVIDER_CONFIG[editing]?.fields.map(f => (
-                <div key={f.key}>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--th-text-secondary)' }}>{f.label}</label>
-                  <input value={form[f.key] ?? ''} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ background: '#2f3542', color: 'var(--th-text)', border: 'none', outline: 'none' }} />
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setEditing(null)} className="px-4 py-2 min-h-[44px] md:min-h-0 text-sm" style={{ color: 'var(--th-text-secondary)' }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm font-bold" style={{ background: 'var(--th-primary-light)', color: '#002e6a' }}>
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+      <AdminModal
+        open={!!editing}
+        onClose={() => { setEditing(null); setSaveError(null); }}
+        title={`Update ${editing ? PROVIDER_CONFIG[editing]?.label : ''}`}
+        actions={
+          <>
+            <button
+              onClick={() => { setEditing(null); setSaveError(null); }}
+              className="px-4 py-2 min-h-[44px] md:min-h-0 text-sm"
+              style={{ color: 'var(--th-text-secondary)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn-primary px-4 py-2 min-h-[44px] md:min-h-0 rounded-xl text-sm font-bold"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </>
+        }
+      >
+        {editing && PROVIDER_CONFIG[editing]?.fields.map(f => (
+          <AdminFormField key={f.key} label={f.label}>
+            <input
+              value={form[f.key] ?? ''}
+              onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+              className={adminInputClass}
+            />
+          </AdminFormField>
+        ))}
+        {saveError && (
+          <div
+            className="text-xs p-2 rounded"
+            style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+          >
+            {saveError}
           </div>
-        </div>
-      )}
+        )}
+      </AdminModal>
     </div>
   );
 }

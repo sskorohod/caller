@@ -1,7 +1,18 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { useState, useCallback } from 'react';
 import { useIsMobile } from '@/lib/useBreakpoint';
+import { useAdminQuery, api } from '../_lib/admin-api';
+import { fmtDateTime } from '../_lib/format';
+import { SUBSCRIPTION_STATUS_STYLES } from '../_lib/constants';
+import AdminPageHeader from '../_components/AdminPageHeader';
+import AdminBadge from '../_components/AdminBadge';
+import AdminModal from '../_components/AdminModal';
+import AdminFormField from '../_components/AdminFormField';
+import { adminInputClass, adminSelectClass } from '../_components/AdminFormField';
+import AdminLoadingState from '../_components/AdminLoadingState';
+import AdminErrorState from '../_components/AdminErrorState';
+
+import { LANGUAGES } from '@/lib/constants';
 
 interface Subscriber {
   id: string;
@@ -22,8 +33,6 @@ interface Subscriber {
   created_at: string;
 }
 
-import { LANGUAGES } from '@/lib/constants';
-
 const DEFAULT_FORM = {
   phone_number: '',
   name: '',
@@ -40,11 +49,9 @@ const DEFAULT_FORM = {
   enabled: true,
 };
 
-
 export default function AdminSubscribersPage() {
   const isMobile = useIsMobile();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'blocked' | 'disabled'>('all');
   const [showForm, setShowForm] = useState(false);
@@ -53,16 +60,16 @@ export default function AdminSubscribersPage() {
   const [saving, setSaving] = useState(false);
   const [showBalance, setShowBalance] = useState<string | null>(null);
   const [balanceForm, setBalanceForm] = useState({ amount: 0, comment: '', type: 'topup' as 'topup' | 'gift' });
+  const [confirmAction, setConfirmAction] = useState<{ type: 'block' | 'delete'; sub: Subscriber } | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
+  const { loading, error, refetch } = useAdminQuery<{ subscribers: Subscriber[] }>(
+    async () => {
       const res = await api.get<{ subscribers: Subscriber[] }>('/admin/subscribers');
       setSubscribers(res.subscribers);
-    } catch { /* ignore */ }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+      return res;
+    },
+    [],
+  );
 
   const filtered = subscribers.filter(s => {
     const matchSearch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.phone_number.includes(search);
@@ -88,7 +95,7 @@ export default function AdminSubscribersPage() {
       setShowForm(false);
       setEditingId(null);
       setForm(DEFAULT_FORM);
-      await loadData();
+      refetch();
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     }
@@ -118,23 +125,23 @@ export default function AdminSubscribersPage() {
   const handleBlock = async (sub: Subscriber) => {
     const status = sub.status || (sub.enabled ? 'active' : 'disabled');
     const action = status === 'blocked' ? 'unblock' : 'block';
-    if (!confirm(`${action === 'block' ? 'Block' : 'Unblock'} ${sub.name}?`)) return;
     try {
       await api.post(`/admin/subscribers/${sub.id}/block`, { action });
-      await loadData();
+      refetch();
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     }
+    setConfirmAction(null);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this subscriber permanently?')) return;
     try {
       await api.delete(`/translator/subscribers/${id}`);
-      await loadData();
+      refetch();
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     }
+    setConfirmAction(null);
   };
 
   const handleAddBalance = async () => {
@@ -143,7 +150,7 @@ export default function AdminSubscribersPage() {
       await api.post(`/admin/subscribers/${showBalance}/balance`, balanceForm);
       setShowBalance(null);
       setBalanceForm({ amount: 0, comment: '', type: 'topup' });
-      await loadData();
+      refetch();
     } catch (err) {
       alert('Error: ' + (err as Error).message);
     }
@@ -151,53 +158,50 @@ export default function AdminSubscribersPage() {
 
   const getStatusBadge = (sub: Subscriber) => {
     const status = sub.status || (sub.enabled ? 'active' : 'disabled');
-    const colors: Record<string, { bg: string; text: string }> = {
-      active: { bg: 'rgba(74, 222, 128, 0.1)', text: 'var(--th-success-text)' },
-      blocked: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171' },
-      disabled: { bg: 'rgba(156, 163, 175, 0.1)', text: '#9ca3af' },
+    const styleMap: Record<string, 'success' | 'error' | 'neutral'> = {
+      active: 'success',
+      blocked: 'error',
+      disabled: 'neutral',
     };
-    const c = colors[status] || colors.disabled;
-    return (
-      <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: c.bg, color: c.text }}>
-        {status}
-      </span>
-    );
+    return <AdminBadge variant={styleMap[status] || 'neutral'}>{status}</AdminBadge>;
   };
 
-  if (loading) return <div className="p-8 text-center opacity-50">Loading subscribers...</div>;
+  if (loading) return <AdminLoadingState />;
+  if (error) return <AdminErrorState error={error} onRetry={refetch} />;
 
   return (
-    <div className="px-3 py-4 md:p-6 space-y-4 md:space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-headline font-bold">Subscribers</h1>
-          <p className="text-xs md:text-sm mt-1" style={{ color: 'var(--th-text-secondary)' }}>{subscribers.length} total subscribers</p>
-        </div>
-        <button
-          onClick={() => { setForm(DEFAULT_FORM); setEditingId(null); setShowForm(true); }}
-          className="btn-primary px-4 py-2.5 px-3 md:px-4 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold flex items-center gap-1 md:gap-2 transition hover:opacity-90 whitespace-nowrap"
-        >
-          <span className="material-symbols-outlined text-lg">add</span>
-          <span className="hidden md:inline">New Subscriber</span>
-          <span className="md:hidden">Add</span>
-        </button>
-      </div>
+    <div className="py-4 md:py-6 space-y-4">
+      <AdminPageHeader
+        title="Subscribers"
+        subtitle={`${subscribers.length} total subscribers`}
+        icon="people"
+        action={
+          <button
+            onClick={() => { setForm(DEFAULT_FORM); setEditingId(null); setShowForm(true); }}
+            className="btn-primary px-3 md:px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-lg">add</span>
+            <span className="hidden md:inline">New Subscriber</span>
+            <span className="md:hidden">Add</span>
+          </button>
+        }
+      />
 
       {/* Search & Filter */}
       <div className="flex flex-col md:flex-row gap-2 md:gap-3">
         <div className="relative flex-1 md:max-w-sm">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'var(--th-text-secondary)' }}>search</span>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'var(--th-text-muted)' }}>search</span>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or phone..."
-            className="input-base w-full pl-10 pr-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
+            className={`${adminInputClass} w-full pl-10 pr-4`}
           />
         </div>
         <select
           value={filter}
           onChange={e => setFilter(e.target.value as typeof filter)}
-          className="input-base px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm"
+          className={adminSelectClass}
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -210,259 +214,296 @@ export default function AdminSubscribersPage() {
       {isMobile ? (
         <div className="space-y-2">
           {filtered.map(sub => (
-            <div key={sub.id} className="glass-panel rounded-xl p-3 space-y-2">
+            <div
+              key={sub.id}
+              className="rounded-xl p-3 space-y-2"
+              style={{ background: 'var(--th-card)', border: '1px solid var(--th-card-border-subtle)' }}
+            >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm truncate">{sub.name}</span>
                 {getStatusBadge(sub)}
               </div>
               <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--th-text-secondary)' }}>
                 <span className="font-mono">{sub.phone_number}</span>
-                <span className="px-1.5 py-0.5 rounded-lg" style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>{sub.mode}</span>
+                <AdminBadge variant="info">{sub.mode}</AdminBadge>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div>
-                  <span style={{ color: 'var(--th-primary-light)' }}>{sub.my_language}</span>
-                  <span className="mx-1 opacity-30">&harr;</span>
-                  <span style={{ color: 'var(--th-accent-purple)' }}>{sub.target_language}</span>
+                  <span style={{ color: 'var(--th-primary-text)' }}>{sub.my_language}</span>
+                  <span className="mx-1" style={{ color: 'var(--th-text-muted)' }}>&harr;</span>
+                  <span style={{ color: 'var(--th-info-text)' }}>{sub.target_language}</span>
                 </div>
-                <span className={`font-mono font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: 'var(--th-success-text)' } : {}}>
+                <span
+                  className="font-mono font-medium"
+                  style={{ color: parseFloat(sub.balance_minutes) < 5 ? 'var(--th-error-text)' : 'var(--th-success-text)' }}
+                >
                   {parseFloat(sub.balance_minutes).toFixed(1)} min
                 </span>
               </div>
               <div className="flex items-center gap-1 pt-1" style={{ borderTop: '1px solid var(--th-border)' }}>
-                <button onClick={() => handleEdit(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Edit" title="Edit">
-                  <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-primary-light)' }}>edit</span>
-                </button>
-                <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Add Minutes" title="Add Minutes">
-                  <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-accent-purple)' }}>add_card</span>
-                </button>
-                <button onClick={() => handleBlock(sub)} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label={sub.status === 'blocked' ? 'Unblock' : 'Block'} title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
-                  <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? 'var(--th-success-text)' : 'var(--th-warning-text)' }}>
-                    {sub.status === 'blocked' ? 'lock_open' : 'block'}
-                  </span>
-                </button>
-                <button onClick={() => handleDelete(sub.id)} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Delete" title="Delete">
-                  <span className="material-symbols-outlined text-base" style={{ color: '#f87171' }}>delete</span>
-                </button>
-                <span className="ml-auto text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sub.created_at).toLocaleDateString()}</span>
+                <ActionButton icon="edit" color="var(--th-primary-text)" label="Edit" onClick={() => handleEdit(sub)} />
+                <ActionButton icon="add_card" color="var(--th-info-text)" label="Add Minutes" onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} />
+                <ActionButton
+                  icon={sub.status === 'blocked' ? 'lock_open' : 'block'}
+                  color={sub.status === 'blocked' ? 'var(--th-success-text)' : 'var(--th-warning-text)'}
+                  label={sub.status === 'blocked' ? 'Unblock' : 'Block'}
+                  onClick={() => setConfirmAction({ type: 'block', sub })}
+                />
+                <ActionButton icon="delete" color="var(--th-error-text)" label="Delete" onClick={() => setConfirmAction({ type: 'delete', sub })} />
+                <span className="ml-auto text-xs" style={{ color: 'var(--th-text-muted)' }}>{fmtDateTime(sub.created_at)}</span>
               </div>
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="text-center py-12 opacity-40 text-sm">No subscribers found</div>
+            <div className="text-center py-12" style={{ color: 'var(--th-text-muted)' }}>
+              <span className="material-symbols-outlined text-3xl mb-2 block">people</span>
+              <p className="text-sm">No subscribers found</p>
+            </div>
           )}
         </div>
       ) : (
-        <div className="glass-panel rounded-2xl overflow-hidden">
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{
+            background: 'var(--th-card)',
+            border: '1px solid var(--th-card-border-subtle)',
+            boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+          }}
+        >
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left" style={{ borderBottom: '1px solid var(--th-border)' }}>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Name</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Phone</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Languages</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Mode</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Balance</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Status</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Created</th>
-                <th className="px-5 py-3.5 font-medium text-xs uppercase tracking-wider" style={{ color: 'var(--th-text-secondary)' }}>Actions</th>
+              <tr style={{ borderBottom: '1px solid var(--th-border)' }}>
+                {['Name', 'Phone', 'Languages', 'Mode', 'Balance', 'Status', 'Created', 'Actions'].map(h => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 font-medium text-[10px] uppercase tracking-wider text-left"
+                    style={{ color: 'var(--th-text-muted)' }}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(sub => (
-                <tr key={sub.id} className="hover:bg-white/[0.02] transition" style={{ borderBottom: '1px solid var(--th-border)' }}>
-                  <td className="px-5 py-3.5 font-medium">{sub.name}</td>
-                  <td className="px-5 py-3.5 font-mono text-xs" style={{ color: 'var(--th-text-secondary)' }}>{sub.phone_number}</td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-xs" style={{ color: 'var(--th-primary-light)' }}>{sub.my_language}</span>
-                    <span className="mx-1 opacity-30">&harr;</span>
-                    <span className="text-xs" style={{ color: 'var(--th-accent-purple)' }}>{sub.target_language}</span>
+                <tr
+                  key={sub.id}
+                  className="transition-colors"
+                  style={{ borderBottom: '1px solid var(--th-border)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--th-surface)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = ''; }}
+                >
+                  <td className="px-4 py-3 font-medium">{sub.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--th-text-secondary)' }}>{sub.phone_number}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs" style={{ color: 'var(--th-primary-text)' }}>{sub.my_language}</span>
+                    <span className="mx-1" style={{ color: 'var(--th-text-muted)' }}>&harr;</span>
+                    <span className="text-xs" style={{ color: 'var(--th-info-text)' }}>{sub.target_language}</span>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className="px-2 py-0.5 rounded-lg text-xs" style={{ background: 'rgba(173, 198, 255, 0.1)', color: 'var(--th-primary-light)' }}>{sub.mode}</span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`font-mono text-xs font-medium ${parseFloat(sub.balance_minutes) < 5 ? 'text-red-400' : ''}`} style={parseFloat(sub.balance_minutes) >= 5 ? { color: 'var(--th-success-text)' } : {}}>
+                  <td className="px-4 py-3"><AdminBadge variant="info">{sub.mode}</AdminBadge></td>
+                  <td className="px-4 py-3">
+                    <span
+                      className="font-mono text-xs font-medium"
+                      style={{ color: parseFloat(sub.balance_minutes) < 5 ? 'var(--th-error-text)' : 'var(--th-success-text)' }}
+                    >
                       {parseFloat(sub.balance_minutes).toFixed(1)} min
                     </span>
                   </td>
-                  <td className="px-5 py-3.5">{getStatusBadge(sub)}</td>
-                  <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--th-text-secondary)' }}>{new Date(sub.created_at).toLocaleDateString()}</td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-4 py-3">{getStatusBadge(sub)}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--th-text-muted)' }}>{fmtDateTime(sub.created_at)}</td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <button onClick={() => handleEdit(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label="Edit" title="Edit">
-                        <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-primary-light)' }}>edit</span>
-                      </button>
-                      <button onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label="Add Minutes" title="Add Minutes">
-                        <span className="material-symbols-outlined text-base" style={{ color: 'var(--th-accent-purple)' }}>add_card</span>
-                      </button>
-                      <button onClick={() => handleBlock(sub)} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label={sub.status === 'blocked' ? 'Unblock' : 'Block'} title={sub.status === 'blocked' ? 'Unblock' : 'Block'}>
-                        <span className="material-symbols-outlined text-base" style={{ color: sub.status === 'blocked' ? 'var(--th-success-text)' : 'var(--th-warning-text)' }}>
-                          {sub.status === 'blocked' ? 'lock_open' : 'block'}
-                        </span>
-                      </button>
-                      <button onClick={() => handleDelete(sub.id)} className="p-1.5 rounded-lg hover:bg-white/5 transition" aria-label="Delete" title="Delete">
-                        <span className="material-symbols-outlined text-base" style={{ color: '#f87171' }}>delete</span>
-                      </button>
+                      <ActionButton icon="edit" color="var(--th-primary-text)" label="Edit" onClick={() => handleEdit(sub)} small />
+                      <ActionButton icon="add_card" color="var(--th-info-text)" label="Add Minutes" onClick={() => { setShowBalance(sub.id); setBalanceForm({ amount: 0, comment: '', type: 'topup' }); }} small />
+                      <ActionButton
+                        icon={sub.status === 'blocked' ? 'lock_open' : 'block'}
+                        color={sub.status === 'blocked' ? 'var(--th-success-text)' : 'var(--th-warning-text)'}
+                        label={sub.status === 'blocked' ? 'Unblock' : 'Block'}
+                        onClick={() => setConfirmAction({ type: 'block', sub })}
+                        small
+                      />
+                      <ActionButton icon="delete" color="var(--th-error-text)" label="Delete" onClick={() => setConfirmAction({ type: 'delete', sub })} small />
                     </div>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="px-5 py-12 text-center opacity-40">No subscribers found</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center" style={{ color: 'var(--th-text-muted)' }}>No subscribers found</td></tr>
               )}
             </tbody>
           </table>
         </div>
       )}
 
+      {/* Confirmation Modal */}
+      <AdminModal
+        open={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        title={confirmAction?.type === 'delete' ? 'Delete Subscriber' : confirmAction?.sub.status === 'blocked' ? 'Unblock Subscriber' : 'Block Subscriber'}
+        actions={
+          <>
+            <button onClick={() => setConfirmAction(null)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--th-text-muted)' }}>
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                if (!confirmAction) return;
+                if (confirmAction.type === 'delete') handleDelete(confirmAction.sub.id);
+                else handleBlock(confirmAction.sub);
+              }}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+            >
+              {confirmAction?.type === 'delete' ? 'Delete' : confirmAction?.sub.status === 'blocked' ? 'Unblock' : 'Block'}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm" style={{ color: 'var(--th-text-secondary)' }}>
+          {confirmAction?.type === 'delete'
+            ? `Delete subscriber "${confirmAction.sub.name}" permanently?`
+            : confirmAction?.sub.status === 'blocked'
+              ? `Unblock subscriber "${confirmAction?.sub.name}"?`
+              : `Block subscriber "${confirmAction?.sub.name}"?`
+          }
+        </p>
+      </AdminModal>
+
       {/* Add Balance Modal */}
-      {showBalance && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-          <div className="glass-panel rounded-t-2xl md:rounded-2xl w-full md:max-w-md p-5 md:p-6">
-            <h2 className="text-lg font-headline font-bold mb-4">Add Minutes</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Amount (minutes)</label>
-                <input type="number" value={balanceForm.amount} onChange={e => setBalanceForm(f => ({ ...f, amount: Number(e.target.value) }))}
-                  className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Type</label>
-                <select value={balanceForm.type} onChange={e => setBalanceForm(f => ({ ...f, type: e.target.value as 'topup' | 'gift' }))}
-                  className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
-                  <option value="topup">Top-up (paid)</option>
-                  <option value="gift">Gift (free)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Comment</label>
-                <input value={balanceForm.comment} onChange={e => setBalanceForm(f => ({ ...f, comment: e.target.value }))}
-                  placeholder="Optional note..." className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowBalance(null)} className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: 'var(--th-text-secondary)' }}>Cancel</button>
-              <button onClick={handleAddBalance} disabled={!balanceForm.amount}
-                className="btn-primary px-4 py-2.5 px-5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90">
-                Add Minutes
-              </button>
-            </div>
-          </div>
+      <AdminModal
+        open={!!showBalance}
+        onClose={() => setShowBalance(null)}
+        title="Add Minutes"
+        actions={
+          <>
+            <button onClick={() => setShowBalance(null)} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--th-text-muted)' }}>Cancel</button>
+            <button onClick={handleAddBalance} disabled={!balanceForm.amount}
+              className="btn-primary px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+              Add Minutes
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <AdminFormField label="Amount (minutes)">
+            <input type="number" value={balanceForm.amount} onChange={e => setBalanceForm(f => ({ ...f, amount: Number(e.target.value) }))}
+              className={adminInputClass} />
+          </AdminFormField>
+          <AdminFormField label="Type">
+            <select value={balanceForm.type} onChange={e => setBalanceForm(f => ({ ...f, type: e.target.value as 'topup' | 'gift' }))}
+              className={adminSelectClass}>
+              <option value="topup">Top-up (paid)</option>
+              <option value="gift">Gift (free)</option>
+            </select>
+          </AdminFormField>
+          <AdminFormField label="Comment">
+            <input value={balanceForm.comment} onChange={e => setBalanceForm(f => ({ ...f, comment: e.target.value }))}
+              placeholder="Optional note..." className={adminInputClass} />
+          </AdminFormField>
         </div>
-      )}
+      </AdminModal>
 
       {/* Create/Edit Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-          <div className="glass-panel rounded-t-2xl md:rounded-2xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-5 md:p-6">
-            <h2 className="text-lg font-headline font-bold mb-5">
-              {editingId ? 'Edit Subscriber' : 'New Subscriber'}
-            </h2>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Name *</label>
-                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="input-base w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Phone *</label>
-                  <input value={form.phone_number} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))}
-                    placeholder="+1..." className="input-base w-full px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Email</label>
-                <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>My Language</label>
-                  <select value={form.my_language} onChange={e => setForm(f => ({ ...f, my_language: e.target.value }))}
-                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
-                    {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Target Language</label>
-                  <select value={form.target_language} onChange={e => setForm(f => ({ ...f, target_language: e.target.value }))}
-                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
-                    {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Translation Mode</label>
-                  <select value={form.mode} onChange={e => setForm(f => ({ ...f, mode: e.target.value as typeof DEFAULT_FORM.mode }))}
-                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
-                    <option value="voice">Voice</option>
-                    <option value="text">Text only</option>
-                    <option value="both">Voice + Text</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Who Hears Translation</label>
-                  <select value={form.who_hears} onChange={e => setForm(f => ({ ...f, who_hears: e.target.value as typeof DEFAULT_FORM.who_hears }))}
-                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
-                    <option value="subscriber">Only subscriber</option>
-                    <option value="both">Both parties</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Greeting Text</label>
-                <textarea value={form.greeting_text} onChange={e => setForm(f => ({ ...f, greeting_text: e.target.value }))}
-                  rows={2} className="input-base w-full px-4 py-2.5 rounded-xl text-sm resize-none" />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>TTS Provider</label>
-                  <select value={form.tts_provider} onChange={e => setForm(f => ({ ...f, tts_provider: e.target.value }))}
-                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm">
-                    <option value="elevenlabs">ElevenLabs</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="xai">xAI Grok</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Balance (minutes)</label>
-                  <input type="number" value={form.balance_minutes} onChange={e => setForm(f => ({ ...f, balance_minutes: Number(e.target.value) }))}
-                    className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--th-text-secondary)' }}>Telegram Chat ID</label>
-                <input value={form.telegram_chat_id} onChange={e => setForm(f => ({ ...f, telegram_chat_id: e.target.value }))}
-                  placeholder="Optional" className="input-base w-full px-4 py-2.5 rounded-xl text-sm" />
-              </div>
-
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={form.enabled} onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
-                  className="rounded" />
-                <span className="text-sm" style={{ color: 'var(--th-text-secondary)' }}>Enabled</span>
-              </label>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => { setShowForm(false); setEditingId(null); }}
-                className="px-4 py-2.5 min-h-[44px] md:min-h-0 rounded-xl text-sm" style={{ color: 'var(--th-text-secondary)' }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving || !form.name || !form.phone_number}
-                className="btn-primary px-4 py-2.5 px-5 min-h-[44px] md:min-h-0 rounded-xl text-sm font-semibold disabled:opacity-50 transition hover:opacity-90">
-                {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
-              </button>
-            </div>
+      <AdminModal
+        open={showForm}
+        onClose={() => { setShowForm(false); setEditingId(null); }}
+        title={editingId ? 'Edit Subscriber' : 'New Subscriber'}
+        actions={
+          <>
+            <button onClick={() => { setShowForm(false); setEditingId(null); }}
+              className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--th-text-muted)' }}>Cancel</button>
+            <button onClick={handleSave} disabled={saving || !form.name || !form.phone_number}
+              className="btn-primary px-5 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+              {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AdminFormField label="Name *">
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={adminInputClass} />
+            </AdminFormField>
+            <AdminFormField label="Phone *">
+              <input value={form.phone_number} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))}
+                placeholder="+1..." className={adminInputClass} />
+            </AdminFormField>
           </div>
+          <AdminFormField label="Email">
+            <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={adminInputClass} />
+          </AdminFormField>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AdminFormField label="My Language">
+              <select value={form.my_language} onChange={e => setForm(f => ({ ...f, my_language: e.target.value }))} className={adminSelectClass}>
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </AdminFormField>
+            <AdminFormField label="Target Language">
+              <select value={form.target_language} onChange={e => setForm(f => ({ ...f, target_language: e.target.value }))} className={adminSelectClass}>
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </AdminFormField>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AdminFormField label="Translation Mode">
+              <select value={form.mode} onChange={e => setForm(f => ({ ...f, mode: e.target.value as typeof DEFAULT_FORM.mode }))} className={adminSelectClass}>
+                <option value="voice">Voice</option>
+                <option value="text">Text only</option>
+                <option value="both">Voice + Text</option>
+              </select>
+            </AdminFormField>
+            <AdminFormField label="Who Hears Translation">
+              <select value={form.who_hears} onChange={e => setForm(f => ({ ...f, who_hears: e.target.value as typeof DEFAULT_FORM.who_hears }))} className={adminSelectClass}>
+                <option value="subscriber">Only subscriber</option>
+                <option value="both">Both parties</option>
+              </select>
+            </AdminFormField>
+          </div>
+          <AdminFormField label="Greeting Text">
+            <textarea value={form.greeting_text} onChange={e => setForm(f => ({ ...f, greeting_text: e.target.value }))}
+              rows={2} className={`${adminInputClass} resize-none`} />
+          </AdminFormField>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AdminFormField label="TTS Provider">
+              <select value={form.tts_provider} onChange={e => setForm(f => ({ ...f, tts_provider: e.target.value }))} className={adminSelectClass}>
+                <option value="elevenlabs">ElevenLabs</option>
+                <option value="openai">OpenAI</option>
+                <option value="xai">xAI Grok</option>
+              </select>
+            </AdminFormField>
+            <AdminFormField label="Balance (minutes)">
+              <input type="number" value={form.balance_minutes} onChange={e => setForm(f => ({ ...f, balance_minutes: Number(e.target.value) }))}
+                className={adminInputClass} />
+            </AdminFormField>
+          </div>
+          <AdminFormField label="Telegram Chat ID">
+            <input value={form.telegram_chat_id} onChange={e => setForm(f => ({ ...f, telegram_chat_id: e.target.value }))}
+              placeholder="Optional" className={adminInputClass} />
+          </AdminFormField>
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={form.enabled} onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))} className="rounded" />
+            <span className="text-sm" style={{ color: 'var(--th-text-secondary)' }}>Enabled</span>
+          </label>
         </div>
-      )}
+      </AdminModal>
     </div>
+  );
+}
+
+function ActionButton({ icon, color, label, onClick, small }: {
+  icon: string; color: string; label: string; onClick: () => void; small?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`${small ? 'p-1.5' : 'p-2'} rounded-lg transition-colors`}
+      style={{ color }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--th-surface)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = ''; }}
+      aria-label={label}
+      title={label}
+    >
+      <span className="material-symbols-outlined text-base">{icon}</span>
+    </button>
   );
 }
