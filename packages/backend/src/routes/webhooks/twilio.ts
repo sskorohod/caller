@@ -432,6 +432,12 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         status: ourStatus,
         duration_seconds: duration && /^\d+$/.test(duration) ? parseInt(duration, 10) : null,
       }).catch((err: unknown) => { app.log.warn({ err, callId: call.id }, 'Webhook delivery failed for call.completed'); });
+
+      // Recording webhook safety net: Twilio occasionally drops /recording callbacks.
+      // Wait 30s (for Twilio to finalize the recording), then poll and persist if missing.
+      setTimeout(() => {
+        (app as any).__pollTwilioRecordings(callSid, call.workspace_id).catch(() => { /* logged inside */ });
+      }, 30_000);
     } else if (ourStatus === 'failed') {
       deliverWebhookEvent(call.workspace_id, 'call.failed', {
         call_id: call.id,
@@ -443,6 +449,129 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
 
     reply.status(200).send('OK');
   });
+
+  /**
+   * Fetch a Twilio recording, upload to MinIO, and persist the URL on the AI session.
+   * Idempotent: skips if the session already has recording_url set.
+   * Used by both the webhook handler and the fallback poller.
+   */
+  async function persistRecording(params: {
+    callSid: string;
+    recordingSid: string;
+    recordingUrl: string; // no .mp3 suffix
+    recordingDuration?: string;
+  }): Promise<boolean> {
+    const [call] = await db.select({ id: calls.id, workspace_id: calls.workspace_id })
+      .from(calls)
+      .where(eq(calls.twilio_call_sid, params.callSid));
+    if (!call) {
+      app.log.warn({ callSid: params.callSid, recordingSid: params.recordingSid }, 'persistRecording — no call found for CallSid');
+      return false;
+    }
+
+    const [session] = await db.select({ id: aiCallSessions.id, recording_url: aiCallSessions.recording_url })
+      .from(aiCallSessions)
+      .where(eq(aiCallSessions.call_id, call.id));
+    if (!session) {
+      app.log.warn({ callId: call.id, callSid: params.callSid }, 'persistRecording — no AI session found for call');
+      return false;
+    }
+    if (session.recording_url) {
+      // Already saved by an earlier webhook delivery — don't re-upload.
+      return true;
+    }
+
+    const durationSeconds = params.recordingDuration ? parseInt(params.recordingDuration, 10) : null;
+    let recordingUrl = `${params.recordingUrl}.mp3`;
+
+    try {
+      const { storeRecording, isMinioConfigured } = await import('../../services/recording-storage.service.js');
+      if (isMinioConfigured()) {
+        const { getTwilioCreds } = await import('../../services/telephony.service.js');
+        let twilioAccountSid: string | undefined;
+        let twilioAuthToken: string | undefined;
+        try {
+          const creds = await getTwilioCreds(call.workspace_id);
+          twilioAccountSid = creds.account_sid;
+          twilioAuthToken = creds.auth_token;
+        } catch { /* proceed without auth */ }
+
+        const minioKey = await storeRecording({
+          twilioRecordingUrl: params.recordingUrl,
+          callSid: params.callSid,
+          recordingSid: params.recordingSid,
+          workspaceId: call.workspace_id,
+          twilioAccountSid,
+          twilioAuthToken,
+        });
+        if (minioKey) recordingUrl = `minio://${minioKey}`;
+      }
+    } catch (err) {
+      app.log.warn({ err, callSid: params.callSid }, 'MinIO storage failed, falling back to Twilio URL');
+    }
+
+    await db.update(aiCallSessions)
+      .set({ recording_url: recordingUrl, recording_duration_seconds: durationSeconds })
+      .where(eq(aiCallSessions.id, session.id));
+
+    await callService.addCallEvent({
+      callId: call.id,
+      workspaceId: call.workspace_id,
+      eventType: 'recording_completed',
+      eventData: {
+        recording_sid: params.recordingSid,
+        recording_url: params.recordingUrl,
+        duration: params.recordingDuration,
+      },
+    });
+
+    app.log.info({ callId: call.id, sessionId: session.id, recordingUrl }, 'Recording URL saved to AI session');
+    return true;
+  }
+
+  /**
+   * Fallback poller — used when Twilio's /recording webhook isn't delivered.
+   * Waits a short delay, then fetches recordings for the call via Twilio REST API
+   * and persists any that haven't been saved yet.
+   */
+  async function pollTwilioRecordings(callSid: string, workspaceId: string): Promise<void> {
+    try {
+      const [call] = await db.select({ id: calls.id })
+        .from(calls)
+        .where(eq(calls.twilio_call_sid, callSid));
+      if (!call) return;
+
+      const [session] = await db.select({ recording_url: aiCallSessions.recording_url })
+        .from(aiCallSessions)
+        .where(eq(aiCallSessions.call_id, call.id));
+      if (session?.recording_url) return; // webhook already delivered
+
+      const { getTwilioClient } = await import('../../services/telephony.service.js');
+      const client = await getTwilioClient(workspaceId);
+      const recordings = await client.calls(callSid).recordings.list({ limit: 5 });
+      const completed = recordings.filter(r => r.status === 'completed');
+      if (completed.length === 0) {
+        app.log.info({ callSid }, 'Fallback: no completed recordings found in Twilio');
+        return;
+      }
+
+      app.log.info({ callSid, count: completed.length }, 'Fallback: persisting Twilio recordings (webhook missed)');
+      for (const rec of completed) {
+        const url = `https://api.twilio.com/2010-04-01/Accounts/${rec.accountSid}/Recordings/${rec.sid}`;
+        await persistRecording({
+          callSid,
+          recordingSid: rec.sid,
+          recordingUrl: url,
+          recordingDuration: rec.duration ?? undefined,
+        });
+      }
+    } catch (err) {
+      app.log.error({ err, callSid }, 'Fallback recording poll failed');
+    }
+  }
+
+  // Expose for status webhook below
+  (app as any).__pollTwilioRecordings = pollTwilioRecordings;
 
   // POST /webhooks/twilio/recording — Twilio sends recording URL when ready
   app.post('/recording', async (request, reply) => {
@@ -461,77 +590,11 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    // Find call by Twilio SID
-    const [call] = await db.select({ id: calls.id, workspace_id: calls.workspace_id })
-      .from(calls)
-      .where(eq(calls.twilio_call_sid, body.CallSid));
-
-    if (!call) {
-      app.log.warn({ callSid: body.CallSid, recordingSid: body.RecordingSid }, 'Recording webhook — no call found for CallSid');
-      reply.status(200).send('OK');
-      return;
-    }
-
-    // Find AI session for this call and save recording URL
-    const [session] = await db.select({ id: aiCallSessions.id })
-      .from(aiCallSessions)
-      .where(eq(aiCallSessions.call_id, call.id));
-
-    if (session) {
-      const durationSeconds = body.RecordingDuration ? parseInt(body.RecordingDuration, 10) : null;
-
-      // Try to store in MinIO, fall back to Twilio URL
-      let recordingUrl = `${body.RecordingUrl}.mp3`;
-      try {
-        const { storeRecording, isMinioConfigured } = await import('../../services/recording-storage.service.js');
-        if (isMinioConfigured()) {
-          // Get Twilio credentials for authenticated download
-          const { getTwilioCreds } = await import('../../services/telephony.service.js');
-          let twilioAccountSid: string | undefined;
-          let twilioAuthToken: string | undefined;
-          try {
-            const creds = await getTwilioCreds(call.workspace_id);
-            twilioAccountSid = creds.account_sid;
-            twilioAuthToken = creds.auth_token;
-          } catch { /* proceed without auth */ }
-
-          const minioKey = await storeRecording({
-            twilioRecordingUrl: body.RecordingUrl,
-            callSid: body.CallSid,
-            recordingSid: body.RecordingSid,
-            workspaceId: call.workspace_id,
-            twilioAccountSid,
-            twilioAuthToken,
-          });
-          if (minioKey) {
-            recordingUrl = `minio://${minioKey}`; // Store as minio:// scheme
-          }
-        }
-      } catch (err) {
-        app.log.warn({ err, callSid: body.CallSid }, 'MinIO storage failed, falling back to Twilio URL');
-      }
-
-      await db.update(aiCallSessions)
-        .set({
-          recording_url: recordingUrl,
-          recording_duration_seconds: durationSeconds,
-        })
-        .where(eq(aiCallSessions.id, session.id));
-
-      app.log.info({ callId: call.id, sessionId: session.id, recordingUrl }, 'Recording URL saved to AI session');
-    } else {
-      app.log.warn({ callId: call.id, callSid: body.CallSid }, 'Recording webhook — no AI session found for call');
-    }
-
-    await callService.addCallEvent({
-      callId: call.id,
-      workspaceId: call.workspace_id,
-      eventType: 'recording_completed',
-      eventData: {
-        recording_sid: body.RecordingSid,
-        recording_url: body.RecordingUrl,
-        duration: body.RecordingDuration,
-      },
+    await persistRecording({
+      callSid: body.CallSid,
+      recordingSid: body.RecordingSid,
+      recordingUrl: body.RecordingUrl,
+      recordingDuration: body.RecordingDuration,
     });
 
     reply.status(200).send('OK');

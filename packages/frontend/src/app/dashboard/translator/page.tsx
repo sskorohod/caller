@@ -62,7 +62,9 @@ export default function TranslatorPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api.get<TranslatorDefaults>('/translator/defaults').then(setDefaults).catch(() => {});
+    api.get<TranslatorDefaults>('/translator/defaults').then(d => {
+      setDefaults({ my_language: 'ru', target_language: 'en', ...d });
+    }).catch(() => {});
   }, []);
 
   const saveDefaults = async () => {

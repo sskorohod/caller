@@ -40,7 +40,7 @@ async function saveTwilioCreds(workspaceId: string, creds: TwilioCredentials): P
     );
 }
 
-async function getTwilioClient(workspaceId: string): Promise<twilio.Twilio> {
+export async function getTwilioClient(workspaceId: string): Promise<twilio.Twilio> {
   const creds = await getTwilioCreds(workspaceId);
   return twilio(creds.account_sid, creds.auth_token);
 }
@@ -182,6 +182,9 @@ export async function startCallRecording(workspaceId: string, callSid: string): 
   await client.calls(callSid).recordings.create({
     recordingStatusCallback: `https://${env.API_DOMAIN}/webhooks/twilio/recording`,
     recordingStatusCallbackMethod: 'POST',
+    // Explicitly request the 'completed' callback — defaults vary by SDK/API version,
+    // and silent callback drops are the reason we also have the status-based poll fallback.
+    recordingStatusCallbackEvent: ['completed'],
   });
   logger.info({ workspaceId, callSid }, 'Started call recording via REST API');
 }

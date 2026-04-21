@@ -92,7 +92,17 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
       .from(workspaces)
       .where(eq(workspaces.id, request.auth.workspaceId));
     const current = (ws?.translator_defaults as Record<string, unknown>) || {};
-    const updated = { ...current, ...body };
+    const merged = { ...current, ...body } as Record<string, unknown>;
+
+    // Always persist a language pair so the live translator never ends up with
+    // my_language === target_language (which makes Grok just echo the input).
+    if (!merged.my_language) merged.my_language = 'ru';
+    if (!merged.target_language) merged.target_language = 'en';
+    if (merged.my_language === merged.target_language) {
+      merged.target_language = merged.my_language === 'en' ? 'ru' : 'en';
+    }
+
+    const updated = merged;
 
     await db.update(workspaces)
       .set({ translator_defaults: updated, updated_at: new Date() })

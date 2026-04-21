@@ -450,13 +450,24 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 .from(wsTable).where(eq(wsTable.id, callerWsId || call.workspace_id));
               const wsDefs = (callerWs?.translator_defaults as Record<string, string>) || {};
 
+              // Guard against unconfigured or identical languages — would make Grok
+              // "translate" from/to the same language and just echo the input.
+              let myLanguage = wsDefs.my_language || 'ru';
+              let targetLanguage = wsDefs.target_language || 'en';
+              if (myLanguage === targetLanguage) {
+                const fallback = myLanguage === 'en' ? 'ru' : 'en';
+                logger.warn({ callId, myLanguage, targetLanguage, fallback },
+                  'Translator languages identical — using fallback pair');
+                targetLanguage = fallback;
+              }
+
               const { ConferenceTranslator } = await import('../../services/conference-translator.js');
               const translator = new ConferenceTranslator({
                 callId,
                 workspaceId: callerWsId || call.workspace_id,
                 subscriberId: callerWsId || call.workspace_id,
-                myLanguage: wsDefs.my_language || 'en',
-                targetLanguage: wsDefs.target_language || 'en',
+                myLanguage,
+                targetLanguage,
                 mode: wsDefs.translation_mode === 'unidirectional' ? 'text' : 'voice',
                 whoHears: (wsDefs.who_hears as any) || 'both',
                 ttsProvider: 'xai',
