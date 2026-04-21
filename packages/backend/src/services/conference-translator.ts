@@ -230,8 +230,21 @@ ${this.personalContext}` : ''}`;
     });
 
     this.grokWs.on('open', () => {
-      this.reconnectAttempts = 0; // reset backoff on successful connection
+      this.reconnectAttempts = 0;
       log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket connected');
+
+      // On reconnect: reset any stale state from the previous session.
+      // Without this, a mid-stream Grok drop leaves playbackState='playing' which
+      // blocks all incoming audio via sendAudio() until the 6s protection expires.
+      if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
+      this.speechStartedAt = null;
+      if (this.playbackState === 'playing') this.endPlayback('cancelled');
+      this.resetTurnStreamingState();
+      this.currentInputTranscript = '';
+      this.currentOutputTranscript = '';
+      this.currentResponseAudio = [];
+      this.retranslationPending = false;
+
       this.grokWs!.send(JSON.stringify({
         type: 'session.update',
         session: {
