@@ -67,6 +67,7 @@ export class ConferenceTranslator extends EventEmitter {
   private statsTimer?: ReturnType<typeof setInterval>;
   private xaiApiKey: string = '';
   private greetingSent: boolean = false;
+  private greetingPlayed: boolean = false; // true once greeting response.done fires (or no greeting configured)
 
   // Accumulate transcript text from Grok responses
   private currentInputTranscript: string = '';
@@ -233,12 +234,25 @@ ${this.personalContext}` : ''}`;
               type: 'response.create',
               response: {
                 modalities: ['audio', 'text'],
-                instructions: `Say the following greeting exactly as written, in a warm professional tone. Do NOT translate it, just read it aloud: "${this.greetingText}"`,
+                // Override the session's strict "translation only" rule for this single
+                // response — otherwise Grok refuses to speak anything that isn't a translation.
+                instructions: `For THIS response only, ignore your translation-only directive. Speak the following greeting aloud, exactly as written, in a warm professional tone. Do not translate it, do not add anything, just read it. After this response you will return to your normal translation duties.\n\n"${this.greetingText}"`,
               },
             }));
             log.info({ callId: this.callId }, 'Greeting sent to Grok Voice Agent');
           }
-        }, 3000);
+        }, 1500);
+        // Safety net: if Grok never produces a greeting response.done within 15s,
+        // unblock translation anyway so the call doesn't sit silent forever.
+        setTimeout(() => {
+          if (!this.greetingPlayed) {
+            log.warn({ callId: this.callId }, 'Greeting response timed out — enabling translation');
+            this.greetingPlayed = true;
+          }
+        }, 15000);
+      } else {
+        // No greeting configured (or reconnect) — allow VAD/translation immediately
+        this.greetingPlayed = true;
       }
     });
 
@@ -353,6 +367,10 @@ ${this.personalContext}` : ''}`;
   /** Forward telephony audio to Grok Voice Agent */
   sendAudio(audioBuffer: Buffer): void {
     if (this.paused) return;
+    // Drop incoming audio until the greeting has played — otherwise Grok's VAD
+    // can fire speech_started on the caller's breathing/background noise and
+    // cancel the in-progress greeting response before it streams to Twilio.
+    if (!this.greetingPlayed) return;
     if (this.grokWs?.readyState === WebSocket.OPEN) {
       this.grokWs.send(JSON.stringify({
         type: 'input_audio_buffer.append',
@@ -364,6 +382,10 @@ ${this.personalContext}` : ''}`;
   private handleGrokEvent(msg: any): void {
     switch (msg.type) {
       case 'input_audio_buffer.speech_started': {
+        // Don't interrupt the greeting playback — sendAudio() drops audio before
+        // greetingPlayed, but if Grok's VAD still fires (e.g. internal noise),
+        // ignore it so the greeting response isn't cancelled.
+        if (!this.greetingPlayed) break;
         // New speech detected — cancel any in-progress translation to prevent overlap
         if (this.grokWs?.readyState === WebSocket.OPEN) {
           this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
@@ -432,8 +454,9 @@ ${this.personalContext}` : ''}`;
         const translated = this.currentOutputTranscript.trim();
 
         // Greeting or system response (no input) — inject audio directly
-        if (!original && this.currentResponseAudio.length > 0) {
-          if (this.twilioSocket.readyState === 1) {
+        if (!original) {
+          const audioBytes = this.currentResponseAudio.reduce((s, b) => s + b.length, 0);
+          if (this.currentResponseAudio.length > 0 && this.twilioSocket.readyState === 1) {
             const chunkSize = 640;
             for (const buf of this.currentResponseAudio) {
               for (let i = 0; i < buf.length; i += chunkSize) {
@@ -444,6 +467,11 @@ ${this.personalContext}` : ''}`;
                 }));
               }
             }
+          }
+          if (!this.greetingPlayed) {
+            log.info({ callId: this.callId, audioBytes, transcript: this.currentOutputTranscript.slice(0, 80) },
+              'Greeting playback complete — enabling translation');
+            this.greetingPlayed = true;
           }
           this.currentInputTranscript = '';
           this.currentOutputTranscript = '';
