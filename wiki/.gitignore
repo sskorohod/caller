@@ -1,0 +1,11 @@
+# Large source files — track selectively
+raw/assets/*.pdf
+raw/assets/*.png
+raw/assets/*.jpg
+raw/assets/*.jpeg
+raw/assets/*.gif
+raw/assets/*.mp4
+raw/assets/*.mp3
+
+# Keep the directory
+!raw/assets/.gitkeep

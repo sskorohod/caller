@@ -59,7 +59,7 @@ export class ConferenceTranslator extends EventEmitter {
   private personalContext: string;
   private greetingText: string;
 
-  private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
+  private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string; untranslated?: boolean }> = [];
   private sessionId: string | null = null;
   private startTime: number = Date.now();
   private saved: boolean = false;
@@ -234,7 +234,7 @@ ${this.personalContext}` : ''}`;
           turn_detection: {
             type: 'server_vad',
             threshold: 0.7,
-            silence_duration_ms: 1000,
+            silence_duration_ms: 1400,
             prefix_padding_ms: 400,
           },
           input_audio_transcription: { model: 'grok-3-mini' },
@@ -748,6 +748,44 @@ ${this.personalContext}` : ''}`;
               text: original,
               timestamp: new Date().toISOString(),
               isFinal: true,
+            });
+          }
+        } else if (original && !translated) {
+          // Grok produced no translation — classify (filler-only, hallucination skip, echo-retry-failed)
+          // and preserve the utterance in transcript so the UI can surface it as "⚠ not translated".
+          log.warn({
+            callId: this.callId,
+            original: original.slice(0, 200),
+            wasStreamed,
+            retranslationWas: this.retranslationPending,
+          }, 'Translation dropped: empty output from Grok');
+
+          const cyrillicRatio = (original.match(/[Ѐ-ӿ]/g) || []).length / Math.max(original.length, 1);
+          const isMyLang = cyrillicRatio > 0.3 ? this.myLang === 'ru' : this.myLang !== 'ru';
+          const speaker = isMyLang ? 'subscriber' : 'other';
+          const detectedLang = isMyLang ? this.myLang : this.targetLang;
+
+          this.transcript.push({
+            speaker,
+            text: original,
+            lang: detectedLang,
+            translated: '',
+            untranslated: true,
+            timestamp: new Date().toISOString(),
+          });
+
+          if (wasStreamed) this.finalizePlayback();
+
+          const io = getIo();
+          if (io) {
+            io.to(`call:${this.callId}:translate`).emit('call:translation', {
+              call_id: this.callId,
+              speaker,
+              original,
+              translated: '',
+              untranslated: true,
+              detected_language: detectedLang,
+              timestamp: new Date().toISOString(),
             });
           }
         } else if (wasStreamed) {
