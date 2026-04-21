@@ -991,6 +991,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           }
         }
 
+        if (msg.event === 'mark' && msg.mark?.name) {
+          const ct = (socket as any).__conferenceTranslator;
+          if (ct && typeof ct.onMark === 'function') {
+            ct.onMark(msg.mark.name);
+          }
+        }
+
         if (msg.event === 'stop') {
           // Conference translator
           const ct = (socket as any).__conferenceTranslator;

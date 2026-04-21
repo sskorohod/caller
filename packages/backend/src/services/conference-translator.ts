@@ -77,6 +77,26 @@ export class ConferenceTranslator extends EventEmitter {
   private reconnectAttempts: number = 0;
   private intentionalReconnect: boolean = false; // true when reconnecting for settings change
 
+  // Streaming TTS state — once approved, response.output_audio.delta is forwarded
+  // to Twilio immediately instead of waiting for response.done.
+  private streamingApproved: boolean = false;
+  private streamedAlready: boolean = false;
+  private currentInputDirectionKnown: boolean = false;
+  private currentIsMyLang: boolean = false;
+
+  // Playback protection — while a translation is being played to the caller,
+  // ignore VAD speech_started events and drop incoming audio (up to MAX_UNINTERRUPTIBLE_PLAYBACK_MS).
+  private playbackState: 'idle' | 'playing' = 'idle';
+  private playbackStartedAt: number | null = null;
+  private playbackBytesSent: number = 0;
+  private chunksSinceMark: number = 0;
+  private markCounter: number = 0;
+  private markAcknowledged: number = 0;
+  private playbackSafetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private static readonly MAX_UNINTERRUPTIBLE_PLAYBACK_MS = 6000;
+  private static readonly MARK_CHUNK_INTERVAL = 25; // ~200ms of mulaw 8kHz audio
+
   constructor(options: ConferenceTranslatorOptions) {
     super();
     this.callId = options.callId;
@@ -214,7 +234,7 @@ ${this.personalContext}` : ''}`;
           turn_detection: {
             type: 'server_vad',
             threshold: 0.7,
-            silence_duration_ms: 1500,
+            silence_duration_ms: 1000,
             prefix_padding_ms: 400,
           },
           input_audio_transcription: { model: 'grok-3-mini' },
@@ -329,6 +349,8 @@ ${this.personalContext}` : ''}`;
     if (this.grokWs?.readyState === WebSocket.OPEN) {
       this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
     }
+    this.endPlayback('cancelled');
+    this.resetTurnStreamingState();
     log.info({ callId: this.callId }, 'Translator paused');
   }
 
@@ -371,12 +393,141 @@ ${this.personalContext}` : ''}`;
     // can fire speech_started on the caller's breathing/background noise and
     // cancel the in-progress greeting response before it streams to Twilio.
     if (!this.greetingPlayed) return;
+    // Drop audio while a translation is being played back — protects in-progress
+    // TTS from being cancelled by the other party's voice (or by TTS echo).
+    if (this.isPlaybackProtected()) return;
     if (this.grokWs?.readyState === WebSocket.OPEN) {
       this.grokWs.send(JSON.stringify({
         type: 'input_audio_buffer.append',
         audio: audioBuffer.toString('base64'),
       }));
     }
+  }
+
+  /** Twilio mark event acknowledgement — drives playback completion tracking. */
+  onMark(name: string): void {
+    if (!name?.startsWith('tts-')) return;
+    this.markAcknowledged++;
+    if (this.playbackState === 'playing' && this.markAcknowledged >= this.markCounter) {
+      this.endPlayback('marks');
+    }
+  }
+
+  private isPlaybackProtected(): boolean {
+    return this.playbackState === 'playing'
+      && this.playbackStartedAt !== null
+      && Date.now() - this.playbackStartedAt < ConferenceTranslator.MAX_UNINTERRUPTIBLE_PLAYBACK_MS;
+  }
+
+  private startPlayback(): void {
+    if (this.playbackState === 'playing') return;
+    this.playbackState = 'playing';
+    this.playbackStartedAt = Date.now();
+    this.playbackBytesSent = 0;
+    this.chunksSinceMark = 0;
+    this.markCounter = 0;
+    this.markAcknowledged = 0;
+    if (this.playbackSafetyTimer) {
+      clearTimeout(this.playbackSafetyTimer);
+      this.playbackSafetyTimer = null;
+    }
+  }
+
+  private endPlayback(reason: 'marks' | 'safety' | 'cancelled'): void {
+    if (this.playbackState === 'idle') return;
+    log.debug({ callId: this.callId, reason, bytes: this.playbackBytesSent }, 'Playback ended');
+    this.playbackState = 'idle';
+    this.playbackStartedAt = null;
+    if (this.playbackSafetyTimer) {
+      clearTimeout(this.playbackSafetyTimer);
+      this.playbackSafetyTimer = null;
+    }
+  }
+
+  /** Send a single 640-byte chunk + emit mark every MARK_CHUNK_INTERVAL chunks. */
+  private sendChunkToTwilio(chunk: Buffer): void {
+    if (this.twilioSocket.readyState !== 1) return;
+    this.twilioSocket.send(JSON.stringify({
+      event: 'media',
+      streamSid: this.streamSid,
+      media: { payload: chunk.toString('base64') },
+    }));
+    this.playbackBytesSent += chunk.length;
+    this.chunksSinceMark++;
+    if (this.chunksSinceMark >= ConferenceTranslator.MARK_CHUNK_INTERVAL) {
+      this.sendMark();
+      this.chunksSinceMark = 0;
+    }
+  }
+
+  private sendMark(): void {
+    if (this.twilioSocket.readyState !== 1) return;
+    this.markCounter++;
+    this.twilioSocket.send(JSON.stringify({
+      event: 'mark',
+      streamSid: this.streamSid,
+      mark: { name: `tts-${this.markCounter}` },
+    }));
+  }
+
+  /** Chunk a buffer into 640-byte mulaw frames and send to Twilio. */
+  private sendBufferToTwilio(buf: Buffer): void {
+    const chunkSize = 640;
+    for (let i = 0; i < buf.length; i += chunkSize) {
+      this.sendChunkToTwilio(buf.subarray(i, i + chunkSize));
+    }
+  }
+
+  /** Send final mark and arm safety timer based on estimated playback duration. */
+  private finalizePlayback(): void {
+    if (this.playbackBytesSent === 0) {
+      this.endPlayback('cancelled');
+      return;
+    }
+    this.sendMark(); // final mark
+    const estimatedMs = (this.playbackBytesSent / 8000) * 1000 + 800;
+    if (this.playbackSafetyTimer) clearTimeout(this.playbackSafetyTimer);
+    this.playbackSafetyTimer = setTimeout(() => {
+      log.debug({ callId: this.callId, estimatedMs }, 'Playback safety timer fired');
+      this.endPlayback('safety');
+    }, estimatedMs);
+  }
+
+  /** Reset per-turn streaming state (called on speech_started and after response.done). */
+  private resetTurnStreamingState(): void {
+    this.streamingApproved = false;
+    this.streamedAlready = false;
+    this.currentInputDirectionKnown = false;
+  }
+
+  /** Try to enable streaming once we know direction + script is safe. */
+  private tryApproveStreaming(): void {
+    if (this.streamingApproved || this.streamedAlready) return;
+    if (!this.currentInputDirectionKnown) return;
+    if (this.currentOutputTranscript.length < 6) return;
+    if (!this.currentInputTranscript) return; // greeting/system response — not streamed
+
+    const isOneWay = this.mode === 'text' || this.mode === 'unidirectional';
+    if (isOneWay && !this.currentIsMyLang) return; // other party's audio shouldn't play
+
+    if (this.languagesUseDifferentScripts()) {
+      const inputScript = this.detectScript(this.currentInputTranscript);
+      const outputScript = this.detectScript(this.currentOutputTranscript);
+      if (inputScript && outputScript && inputScript === outputScript) {
+        // Likely same-language echo — keep buffering, response.done will re-translate.
+        return;
+      }
+    }
+
+    // Approved — flush buffered audio and start streaming.
+    this.streamingApproved = true;
+    this.streamedAlready = true;
+    this.startPlayback();
+    for (const buf of this.currentResponseAudio) {
+      this.sendBufferToTwilio(buf);
+    }
+    this.currentResponseAudio = [];
+    log.debug({ callId: this.callId }, 'Streaming TTS approved');
   }
 
   private handleGrokEvent(msg: any): void {
@@ -386,6 +537,13 @@ ${this.personalContext}` : ''}`;
         // greetingPlayed, but if Grok's VAD still fires (e.g. internal noise),
         // ignore it so the greeting response isn't cancelled.
         if (!this.greetingPlayed) break;
+        // Don't interrupt an in-progress translation playback — let the previous
+        // sentence finish so the caller hears a complete thought. After 6 s the
+        // protection lifts and normal cancel-on-speech behavior resumes.
+        if (this.isPlaybackProtected()) {
+          log.debug({ callId: this.callId }, 'speech_started ignored — playback protection active');
+          break;
+        }
         // New speech detected — cancel any in-progress translation to prevent overlap
         if (this.grokWs?.readyState === WebSocket.OPEN) {
           this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
@@ -397,6 +555,8 @@ ${this.personalContext}` : ''}`;
             streamSid: this.streamSid,
           }));
         }
+        this.endPlayback('cancelled');
+        this.resetTurnStreamingState();
         this.currentInputTranscript = '';
         this.currentOutputTranscript = '';
         this.currentResponseAudio = [];
@@ -411,9 +571,16 @@ ${this.personalContext}` : ''}`;
       }
 
       case 'response.output_audio.delta':
-        // Buffer all audio — inject in response.done after language verification
         if (msg.delta) {
-          this.currentResponseAudio.push(Buffer.from(msg.delta, 'base64'));
+          const buf = Buffer.from(msg.delta, 'base64');
+          if (this.streamingApproved) {
+            // Stream directly to Twilio for low-latency playback
+            this.sendBufferToTwilio(buf);
+          } else {
+            // Buffer until we know direction + script (or until response.done for greeting)
+            this.currentResponseAudio.push(buf);
+            this.tryApproveStreaming();
+          }
         }
         break;
 
@@ -422,6 +589,7 @@ ${this.personalContext}` : ''}`;
         // Accumulate output transcript + emit interim translation
         if (msg.delta) {
           this.currentOutputTranscript += msg.delta;
+          this.tryApproveStreaming();
           const io3 = getIo();
           if (io3) {
             io3.to(`call:${this.callId}:translate`).volatile.emit('call:translation:interim', {
@@ -438,6 +606,12 @@ ${this.personalContext}` : ''}`;
         // Input speech transcribed — show original text on UI
         if (msg.transcript) {
           this.currentInputTranscript = msg.transcript.trim();
+          // Determine direction now (mirrors logic in response.done's transcript push).
+          const cyrillicRatio = (this.currentInputTranscript.match(/[\u0400-\u04FF]/g) || []).length
+            / Math.max(this.currentInputTranscript.length, 1);
+          this.currentIsMyLang = cyrillicRatio > 0.3 ? this.myLang === 'ru' : this.myLang !== 'ru';
+          this.currentInputDirectionKnown = true;
+          this.tryApproveStreaming();
           const io2 = getIo();
           if (io2) {
             io2.to(`call:${this.callId}`).volatile.emit('call:transcript', {
@@ -452,8 +626,9 @@ ${this.personalContext}` : ''}`;
         // Translation turn complete — save transcript and emit to UI
         const original = this.currentInputTranscript;
         const translated = this.currentOutputTranscript.trim();
+        const wasStreamed = this.streamedAlready;
 
-        // Greeting or system response (no input) — inject audio directly
+        // Greeting or system response (no input) — inject audio directly (never streamed)
         if (!original) {
           const audioBytes = this.currentResponseAudio.reduce((s, b) => s + b.length, 0);
           if (this.currentResponseAudio.length > 0 && this.twilioSocket.readyState === 1) {
@@ -473,6 +648,7 @@ ${this.personalContext}` : ''}`;
               'Greeting playback complete — enabling translation');
             this.greetingPlayed = true;
           }
+          this.resetTurnStreamingState();
           this.currentInputTranscript = '';
           this.currentOutputTranscript = '';
           this.currentResponseAudio = [];
@@ -480,41 +656,44 @@ ${this.personalContext}` : ''}`;
         }
 
         if (original && translated) {
-          // Same-language echo detection — if output matches input script, re-translate
-          // Only works when languages use different scripts (e.g. Cyrillic vs Latin)
-          const inputScript = this.detectScript(original);
-          const outputScript = this.detectScript(translated);
+          // Same-language echo detection — if output matches input script, re-translate.
+          // Only meaningful when streaming wasn't approved (streaming itself rejects same-script outputs).
+          if (!wasStreamed) {
+            const inputScript = this.detectScript(original);
+            const outputScript = this.detectScript(translated);
 
-          if (this.languagesUseDifferentScripts() && inputScript && outputScript && inputScript === outputScript && !this.retranslationPending) {
-            this.retranslationPending = true;
-            const targetLangForRetry = inputScript === 'cyrillic'
-              ? (LANG_NAMES[this.targetLang] || this.targetLang)
-              : (LANG_NAMES[this.myLang] || this.myLang);
+            if (this.languagesUseDifferentScripts() && inputScript && outputScript && inputScript === outputScript && !this.retranslationPending) {
+              this.retranslationPending = true;
+              const targetLangForRetry = inputScript === 'cyrillic'
+                ? (LANG_NAMES[this.targetLang] || this.targetLang)
+                : (LANG_NAMES[this.myLang] || this.myLang);
 
-            log.warn({
-              callId: this.callId, inputScript, outputScript,
-              original: original.slice(0, 80), translated: translated.slice(0, 80),
-            }, 'Same-language echo detected — requesting re-translation');
+              log.warn({
+                callId: this.callId, inputScript, outputScript,
+                original: original.slice(0, 80), translated: translated.slice(0, 80),
+              }, 'Same-language echo detected — requesting re-translation');
 
-            // Clear stale echo audio from Twilio buffer
-            if (this.twilioSocket.readyState === 1) {
-              this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid }));
+              // Clear stale echo audio from Twilio buffer
+              if (this.twilioSocket.readyState === 1) {
+                this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid }));
+              }
+
+              // Request explicit re-translation
+              if (this.grokWs?.readyState === WebSocket.OPEN) {
+                this.grokWs.send(JSON.stringify({
+                  type: 'response.create',
+                  response: {
+                    modalities: ['audio', 'text'],
+                    instructions: `Translate the following to ${targetLangForRetry}. Output ONLY the ${targetLangForRetry} translation, nothing else: "${original}"`,
+                  },
+                }));
+              }
+
+              this.resetTurnStreamingState();
+              this.currentOutputTranscript = '';
+              this.currentResponseAudio = [];
+              break;
             }
-
-            // Request explicit re-translation
-            if (this.grokWs?.readyState === WebSocket.OPEN) {
-              this.grokWs.send(JSON.stringify({
-                type: 'response.create',
-                response: {
-                  modalities: ['audio', 'text'],
-                  instructions: `Translate the following to ${targetLangForRetry}. Output ONLY the ${targetLangForRetry} translation, nothing else: "${original}"`,
-                },
-              }));
-            }
-
-            this.currentOutputTranscript = '';
-            this.currentResponseAudio = [];
-            break;
           }
 
           this.retranslationPending = false;
@@ -533,21 +712,21 @@ ${this.personalContext}` : ''}`;
             timestamp: new Date().toISOString(),
           });
 
-          // Inject buffered audio (language-verified at this point)
-          const isOneWay = this.mode === 'text' || this.mode === 'unidirectional';
-          const shouldInjectAudio = isOneWay
-            ? (isMyLang && this.currentResponseAudio.length > 0) // One-way: only when subscriber spoke
-            : (this.currentResponseAudio.length > 0);             // Bidirectional: always
-          if (shouldInjectAudio && this.twilioSocket.readyState === 1) {
-            const chunkSize = 640;
-            for (const buf of this.currentResponseAudio) {
-              for (let i = 0; i < buf.length; i += chunkSize) {
-                this.twilioSocket.send(JSON.stringify({
-                  event: 'media',
-                  streamSid: this.streamSid,
-                  media: { payload: buf.subarray(i, i + chunkSize).toString('base64') },
-                }));
+          if (wasStreamed) {
+            // Audio already played out — finalize playback tracking with a final mark + safety timer.
+            this.finalizePlayback();
+          } else {
+            // Inject buffered audio (language-verified at this point)
+            const isOneWay = this.mode === 'text' || this.mode === 'unidirectional';
+            const shouldInjectAudio = isOneWay
+              ? (isMyLang && this.currentResponseAudio.length > 0) // One-way: only when subscriber spoke
+              : (this.currentResponseAudio.length > 0);             // Bidirectional: always
+            if (shouldInjectAudio && this.twilioSocket.readyState === 1) {
+              this.startPlayback();
+              for (const buf of this.currentResponseAudio) {
+                this.sendBufferToTwilio(buf);
               }
+              this.finalizePlayback();
             }
           }
 
@@ -571,8 +750,12 @@ ${this.personalContext}` : ''}`;
               isFinal: true,
             });
           }
+        } else if (wasStreamed) {
+          // Streamed audio without final translated text (rare) — finalize playback anyway.
+          this.finalizePlayback();
         }
 
+        this.resetTurnStreamingState();
         this.currentInputTranscript = '';
         this.currentOutputTranscript = '';
         this.currentResponseAudio = [];
@@ -593,6 +776,10 @@ ${this.personalContext}` : ''}`;
     if (this.safetyTimer) {
       clearTimeout(this.safetyTimer);
       this.safetyTimer = undefined;
+    }
+    if (this.playbackSafetyTimer) {
+      clearTimeout(this.playbackSafetyTimer);
+      this.playbackSafetyTimer = null;
     }
 
     // Close Grok WebSocket + stats timer
