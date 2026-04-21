@@ -94,8 +94,14 @@ export class ConferenceTranslator extends EventEmitter {
   private markAcknowledged: number = 0;
   private playbackSafetyTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Deferred barge-in — only interrupt the translation if speech is sustained for ≥4 seconds.
+  // Short utterances (acknowledgements, fillers) must not cut off the translator mid-sentence.
+  private speechStartedAt: number | null = null;
+  private bargeInTimer: ReturnType<typeof setTimeout> | null = null;
+
   private static readonly MAX_UNINTERRUPTIBLE_PLAYBACK_MS = 6000;
   private static readonly MARK_CHUNK_INTERVAL = 25; // ~200ms of mulaw 8kHz audio
+  private static readonly BARGE_IN_THRESHOLD_MS = 4000; // 4 seconds of continuous speech to interrupt
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -346,6 +352,8 @@ ${this.personalContext}` : ''}`;
   /** Pause translation — audio is dropped, no translations produced */
   pause(): void {
     this.paused = true;
+    if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
+    this.speechStartedAt = null;
     if (this.grokWs?.readyState === WebSocket.OPEN) {
       this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
     }
@@ -493,6 +501,24 @@ ${this.personalContext}` : ''}`;
     }, estimatedMs);
   }
 
+  /** Cancel in-progress translation and clear Twilio buffer — called only after ≥4s of sustained speech. */
+  private performBargeIn(): void {
+    log.info({ callId: this.callId }, 'Barge-in: ≥4s sustained speech — interrupting translation');
+    this.speechStartedAt = null;
+    if (this.grokWs?.readyState === WebSocket.OPEN) {
+      this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
+    }
+    if (this.twilioSocket.readyState === 1) {
+      this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid }));
+    }
+    this.endPlayback('cancelled');
+    this.resetTurnStreamingState();
+    this.currentInputTranscript = '';
+    this.currentOutputTranscript = '';
+    this.currentResponseAudio = [];
+    this.retranslationPending = false;
+  }
+
   /** Reset per-turn streaming state (called on speech_started and after response.done). */
   private resetTurnStreamingState(): void {
     this.streamingApproved = false;
@@ -544,29 +570,34 @@ ${this.personalContext}` : ''}`;
           log.debug({ callId: this.callId }, 'speech_started ignored — playback protection active');
           break;
         }
-        // New speech detected — cancel any in-progress translation to prevent overlap
-        if (this.grokWs?.readyState === WebSocket.OPEN) {
-          this.grokWs.send(JSON.stringify({ type: 'response.cancel' }));
-        }
-        // Clear Twilio's audio playback buffer to stop stale translation audio
-        if (this.twilioSocket.readyState === 1) {
-          this.twilioSocket.send(JSON.stringify({
-            event: 'clear',
-            streamSid: this.streamSid,
-          }));
-        }
-        this.endPlayback('cancelled');
-        this.resetTurnStreamingState();
-        this.currentInputTranscript = '';
-        this.currentOutputTranscript = '';
-        this.currentResponseAudio = [];
-        this.retranslationPending = false;
+        // Deferred barge-in: start a 4-second timer. Only interrupt the translation
+        // if speech is sustained for ≥4 seconds. Short utterances (acknowledgements,
+        // fillers, brief replies) must not cut off the translator mid-sentence.
+        this.speechStartedAt = Date.now();
+        if (this.bargeInTimer) clearTimeout(this.bargeInTimer);
+        this.bargeInTimer = setTimeout(() => {
+          this.bargeInTimer = null;
+          this.performBargeIn();
+        }, ConferenceTranslator.BARGE_IN_THRESHOLD_MS);
         const io0 = getIo();
         if (io0) {
           io0.to(`call:${this.callId}`).volatile.emit('call:transcript', {
             call_id: this.callId, speaker: 'conference', text: '', timestamp: new Date().toISOString(), isFinal: false,
           });
         }
+        break;
+      }
+
+      case 'input_audio_buffer.speech_stopped': {
+        // Speech ended — if it lasted less than BARGE_IN_THRESHOLD_MS, cancel the timer
+        // and let the translator finish saying the current translation.
+        if (this.bargeInTimer) {
+          clearTimeout(this.bargeInTimer);
+          this.bargeInTimer = null;
+          const durationMs = this.speechStartedAt ? Date.now() - this.speechStartedAt : 0;
+          log.debug({ callId: this.callId, durationMs }, 'Short speech — barge-in cancelled, translation continues');
+        }
+        this.speechStartedAt = null;
         break;
       }
 
@@ -810,6 +841,9 @@ ${this.personalContext}` : ''}`;
   async finalize(): Promise<void> {
     if (this.saved) return;
     this.saved = true;
+
+    if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
+    this.speechStartedAt = null;
 
     if (this.safetyTimer) {
       clearTimeout(this.safetyTimer);
