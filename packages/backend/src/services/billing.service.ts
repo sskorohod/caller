@@ -66,29 +66,32 @@ function resolveProviderKey(service: string): ProviderName | null {
  * Deduct usage cost from workspace deposit.
  * Only charges for providers set to "platform" in providerConfig.
  * Applies markup (default x3).
+ *
+ * Creates a separate deposit_transaction per cost type (stt/llm/tts/telephony)
+ * so the dashboard query can split costs by ILIKE pattern matching.
  */
 export async function deductUsageCost(params: DeductUsageCostParams): Promise<DeductResult> {
-  const { workspaceId, providerCosts, providerConfig, referenceType, referenceId, description } = params;
+  const { workspaceId, providerCosts, providerConfig, referenceType, referenceId } = params;
   const markup = await getMarkup();
 
-  // Sum cost only for platform providers
-  let providerCostTotal = 0;
   const sttKey = resolveProviderKey(providerCosts.sttProvider || 'deepgram');
   const llmKey = resolveProviderKey(providerCosts.llmProvider || 'anthropic');
   const ttsKey = resolveProviderKey(providerCosts.ttsProvider || 'elevenlabs');
 
-  if (!sttKey || providerConfig[sttKey] !== 'own') providerCostTotal += providerCosts.stt;
-  if (!llmKey || providerConfig[llmKey] !== 'own') providerCostTotal += providerCosts.llm;
-  if (!ttsKey || providerConfig[ttsKey] !== 'own') providerCostTotal += providerCosts.tts;
-  if (providerConfig.twilio !== 'own') providerCostTotal += providerCosts.telephony;
+  // Calculate per-type provider cost (zero when workspace uses own key)
+  const sttCost      = (!sttKey || providerConfig[sttKey] !== 'own') ? providerCosts.stt       : 0;
+  const llmCost      = (!llmKey || providerConfig[llmKey] !== 'own') ? providerCosts.llm       : 0;
+  const ttsCost      = (!ttsKey || providerConfig[ttsKey] !== 'own') ? providerCosts.tts       : 0;
+  const telephonyCost = (providerConfig.twilio !== 'own')             ? providerCosts.telephony : 0;
 
+  const providerCostTotal = sttCost + llmCost + ttsCost + telephonyCost;
   if (providerCostTotal === 0) {
     return { success: true, newBalance: -1, providerCostTotal: 0, clientCostTotal: 0 };
   }
 
   const clientCostTotal = calculateClientCost(providerCostTotal, markup);
 
-  // Atomic deduction — balance may go slightly negative for in-progress calls
+  // Atomic balance deduction (single UPDATE for consistency)
   const result = await db.update(workspaces)
     .set({
       balance_usd: sql`balance_usd - ${clientCostTotal.toFixed(4)}::numeric`,
@@ -99,16 +102,22 @@ export async function deductUsageCost(params: DeductUsageCostParams): Promise<De
 
   const newBalance = result.length ? parseFloat(result[0].balance_usd as string) : 0;
 
-  // Record transaction
-  await db.insert(depositTransactions).values({
-    workspace_id: workspaceId,
-    type: 'usage',
-    amount_usd: (-clientCostTotal).toFixed(4),
-    balance_after: newBalance.toFixed(4),
-    description: description || `Usage: ${referenceType}`,
-    reference_type: referenceType,
-    reference_id: referenceId,
-  });
+  // Insert one deposit_transaction per cost type so the dashboard stats query
+  // can match them with ILIKE '%stt%', '%llm%', '%tts%', '%telephony%'.
+  // All share the same balance_after (the post-deduction balance).
+  const rows: Array<{
+    workspace_id: string; type: 'usage'; amount_usd: string;
+    balance_after: string; description: string;
+    reference_type: string; reference_id: string;
+  }> = [];
+  if (sttCost > 0)       rows.push({ workspace_id: workspaceId, type: 'usage', amount_usd: (-calculateClientCost(sttCost, markup)).toFixed(4),       balance_after: newBalance.toFixed(4), description: 'STT usage',       reference_type: referenceType, reference_id: referenceId });
+  if (llmCost > 0)       rows.push({ workspace_id: workspaceId, type: 'usage', amount_usd: (-calculateClientCost(llmCost, markup)).toFixed(4),       balance_after: newBalance.toFixed(4), description: 'LLM usage',       reference_type: referenceType, reference_id: referenceId });
+  if (ttsCost > 0)       rows.push({ workspace_id: workspaceId, type: 'usage', amount_usd: (-calculateClientCost(ttsCost, markup)).toFixed(4),       balance_after: newBalance.toFixed(4), description: 'TTS usage',       reference_type: referenceType, reference_id: referenceId });
+  if (telephonyCost > 0) rows.push({ workspace_id: workspaceId, type: 'usage', amount_usd: (-calculateClientCost(telephonyCost, markup)).toFixed(4), balance_after: newBalance.toFixed(4), description: 'Telephony usage', reference_type: referenceType, reference_id: referenceId });
+
+  if (rows.length > 0) {
+    await db.insert(depositTransactions).values(rows);
+  }
 
   return { success: true, newBalance, providerCostTotal, clientCostTotal };
 }
