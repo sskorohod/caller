@@ -552,9 +552,15 @@ ${this.personalContext}` : ''}`;
     if (this.languagesUseDifferentScripts()) {
       const inputScript = this.detectScript(this.currentInputTranscript);
       const outputScript = this.detectScript(this.currentOutputTranscript);
-      if (inputScript && outputScript && inputScript === outputScript) {
-        // Likely same-language echo — keep buffering, response.done will re-translate.
-        return;
+      if (inputScript) {
+        const expectedOutputScript = inputScript === 'cyrillic' ? 'latin' : 'cyrillic';
+        // Stream only when output is CONFIRMED in the expected opposite script.
+        // null/ambiguous (e.g. Russian text with a Latin brand name mid-stream like
+        // "Я знаю Housecall Pro") would otherwise leak echo audio to the listener,
+        // because once streamingApproved=true the response.done echo-check is skipped.
+        if (outputScript !== expectedOutputScript) {
+          return;
+        }
       }
     }
 
@@ -700,13 +706,15 @@ ${this.personalContext}` : ''}`;
         }
 
         if (original && translated) {
-          // Same-language echo detection — if output matches input script, re-translate.
-          // Only meaningful when streaming wasn't approved (streaming itself rejects same-script outputs).
+          // Same-language echo detection — if output isn't confirmed in the expected
+          // opposite script, re-translate. Only meaningful when streaming wasn't approved
+          // (streaming itself rejects unconfirmed-script outputs).
           if (!wasStreamed) {
             const inputScript = this.detectScript(original);
             const outputScript = this.detectScript(translated);
+            const expectedOutputScript = inputScript === 'cyrillic' ? 'latin' : (inputScript === 'latin' ? 'cyrillic' : null);
 
-            if (this.languagesUseDifferentScripts() && inputScript && outputScript && inputScript === outputScript && !this.retranslationPending) {
+            if (this.languagesUseDifferentScripts() && inputScript && expectedOutputScript && outputScript !== expectedOutputScript && !this.retranslationPending) {
               this.retranslationPending = true;
               const targetLangForRetry = inputScript === 'cyrillic'
                 ? (LANG_NAMES[this.targetLang] || this.targetLang)
