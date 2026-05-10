@@ -497,6 +497,31 @@ export const qaEvaluations = pgTable('qa_evaluations', {
 // ============================================================
 // MISSIONS
 // ============================================================
+
+// Conventional shape of mission.outcome JSONB. Not enforced at DB level —
+// extended over time. New fields below support the failure-prompt flow
+// (см. план snappy-kindling-bengio).
+export type MissionFailureReason = 'no_answer' | 'busy' | 'voicemail' | 'error';
+export type MissionFailureAction = 'retry' | 'postponed' | 'closed';
+export type MissionPostponePreset = '15m' | '1h' | '3h' | 'tomorrow_10';
+
+export interface MissionOutcome {
+  // Set by post-call worker on completed calls
+  summary?: string;
+  action_items?: string[];
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  qa_score?: number | null;
+  // Set when a call ends without reaching its goal
+  failure_reason?: MissionFailureReason;
+  failure_prompt_sent_at?: string;        // ISO timestamp
+  failure_prompt_message_id?: number;     // Telegram message_id (for editing)
+  failure_prompt_chat_id?: string;        // Telegram chat_id where prompt lives
+  failure_action_taken?: MissionFailureAction;
+  failure_action_at?: string;             // ISO timestamp
+  failure_postpone_preset?: MissionPostponePreset;
+  [k: string]: unknown;
+}
+
 export const missions = pgTable('missions', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),

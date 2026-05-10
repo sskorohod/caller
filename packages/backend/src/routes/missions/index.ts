@@ -85,6 +85,41 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
     await executeMission(request.auth.workspaceId, id);
     return { ok: true };
   });
+
+  // POST /api/missions/:id/failure-action — Retry/Postpone/Close on a failed
+  // mission. Shares logic with the Telegram callback so dashboard and bot
+  // stay consistent (409 if the other side acted first).
+  app.post('/:id/failure-action', { preHandler: [authenticateUser] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      action: z.enum(['retry', 'postpone', 'close']),
+      preset: z.enum(['15m', '1h', '3h', 'tomorrow_10']).optional(),
+    }).parse(request.body);
+
+    const { handleFailureAction } = await import('../../services/mission-failure.service.js');
+    const { getMission } = await import('../../services/mission.service.js');
+
+    try {
+      const result = await handleFailureAction({
+        workspaceId: request.auth.workspaceId,
+        missionId: id,
+        action: body.action,
+        preset: body.preset,
+      });
+      const mission = await getMission(request.auth.workspaceId, id);
+      return { ok: true, scheduled_at: result.scheduledAt?.toISOString() ?? null, mission };
+    } catch (e: any) {
+      if (e?.statusCode === 409) {
+        reply.status(409);
+        return { error: 'already_handled', message: e.message };
+      }
+      if (e?.statusCode === 400) {
+        reply.status(400);
+        return { error: 'bad_request', message: e.message };
+      }
+      throw e;
+    }
+  });
 };
 
 export default missionRoutes;

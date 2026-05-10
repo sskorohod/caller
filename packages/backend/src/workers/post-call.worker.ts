@@ -261,9 +261,22 @@ Respond in JSON format:
               .limit(1);
           }
           if (mission) {
+            // If the mission was already classified as failed (e.g. voicemail
+            // detected via AMD, or a Twilio status webhook ran before us), keep
+            // that verdict and just merge any extracted analytics into outcome.
+            // Don't flip status back to 'completed' or wipe failure_reason.
+            const prevOutcome = (mission.outcome as Record<string, unknown> | null) ?? {};
+            const isAlreadyFailed = mission.status === 'failed' || !!(prevOutcome as any).failure_reason;
+            const mergedOutcome = {
+              ...prevOutcome,
+              summary: result.summary,
+              action_items: result.action_items,
+              sentiment: result.sentiment,
+              qa_score: qaScore,
+            };
             await db.update(missions).set({
-              status: 'completed',
-              outcome: { summary: result.summary, action_items: result.action_items, sentiment: result.sentiment, qa_score: qaScore },
+              status: isAlreadyFailed ? 'failed' : 'completed',
+              outcome: mergedOutcome,
               completed_at: new Date(),
               updated_at: new Date(),
             }).where(eq(missions.id, mission.id));

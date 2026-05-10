@@ -129,7 +129,13 @@ export async function initiateOutboundCall(params: {
     statusCallback: params.statusCallbackUrl,
     statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
     statusCallbackMethod: 'POST',
-  });
+    // Answering Machine Detection — wait for greeting to end so we can
+    // distinguish voicemail from a human hello, then surface a failure prompt.
+    machineDetection: 'DetectMessageEnd',
+    asyncAmd: 'true',
+    asyncAmdStatusCallback: `https://${env.API_DOMAIN}/webhooks/twilio/amd`,
+    asyncAmdStatusCallbackMethod: 'POST',
+  } as any);
 
   return call.sid;
 }

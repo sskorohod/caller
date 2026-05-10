@@ -149,6 +149,49 @@ export async function sendTelegramMessageWithButtons(
   return response.ok;
 }
 
+export async function sendTelegramMessageWithButtonsReturningId(
+  botToken: string,
+  chatId: string,
+  text: string,
+  buttons: Array<Array<{ text: string; callback_data: string }>>,
+): Promise<number | null> {
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: buttons },
+    }),
+  });
+  const data = await response.json() as { ok: boolean; result?: { message_id: number } };
+  return data.ok ? data.result!.message_id : null;
+}
+
+export async function editTelegramMessageButtons(
+  botToken: string,
+  chatId: string,
+  messageId: number,
+  text: string,
+  buttons: Array<Array<{ text: string; callback_data: string }>> | null,
+): Promise<boolean> {
+  const url = `https://api.telegram.org/bot${botToken}/editMessageText`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: buttons ? { inline_keyboard: buttons } : undefined,
+    }),
+  });
+  return response.ok;
+}
+
 export async function sendTelegramPlainMessage(
   botToken: string,
   chatId: string,

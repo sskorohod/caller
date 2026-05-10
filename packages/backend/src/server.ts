@@ -158,10 +158,16 @@ import { startPostCallWorker } from './workers/post-call.worker.js';
 const postCallWorker = startPostCallWorker();
 app.log.info('Post-call worker started');
 
+// Start mission-scheduled worker (BullMQ delayed jobs for postponed missions)
+import { startMissionScheduledWorker } from './workers/mission-scheduled.worker.js';
+const missionScheduledWorker = startMissionScheduledWorker();
+app.log.info('Mission-scheduled worker started');
+
 // Graceful shutdown
 async function gracefulShutdown(signal: string) {
   app.log.info(`${signal} received, shutting down...`);
   await postCallWorker.close();
+  await missionScheduledWorker.close();
   await app.close();
   await pool.end();
   process.exit(0);

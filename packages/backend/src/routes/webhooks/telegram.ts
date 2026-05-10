@@ -333,6 +333,46 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             if (timer) { clearTimeout(timer); scheduledTimers.delete(missionId); }
             await sendTelegramPlainMessage(ws.botToken, cbChatId, '❌ Миссия отменена.');
 
+          } else if (cbData.startsWith('mfail:')) {
+            // Failure-prompt actions: mfail:retry:<id> | mfail:close:<id>
+            //   mfail:postpone:<id>           — show preset menu
+            //   mfail:postpone:<id>:<preset>  — apply postpone
+            //   mfail:back:<id>               — back to default 3-button keyboard
+            const parts = cbData.split(':');
+            const sub = parts[1];
+            const missionId = parts[2];
+            const preset = parts[3] as ('15m' | '1h' | '3h' | 'tomorrow_10' | undefined);
+            const { handleFailureAction, editPromptKeyboard, buildPostponeMenu, buildFailurePromptButtons } =
+              await import('../../services/mission-failure.service.js');
+
+            try {
+              if (sub === 'postpone' && !preset) {
+                await answerCallbackQuery(ws.botToken, callbackQuery.id);
+                await editPromptKeyboard(missionId, buildPostponeMenu(missionId));
+              } else if (sub === 'back') {
+                await answerCallbackQuery(ws.botToken, callbackQuery.id);
+                await editPromptKeyboard(missionId, buildFailurePromptButtons(missionId));
+              } else if (sub === 'retry') {
+                await answerCallbackQuery(ws.botToken, callbackQuery.id, '🔄 Повтор...');
+                await handleFailureAction({ workspaceId: ws.workspaceId, missionId, action: 'retry' });
+              } else if (sub === 'close') {
+                await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Закрыто');
+                await handleFailureAction({ workspaceId: ws.workspaceId, missionId, action: 'close' });
+              } else if (sub === 'postpone' && preset) {
+                await answerCallbackQuery(ws.botToken, callbackQuery.id, '⏰ Отложено');
+                await handleFailureAction({ workspaceId: ws.workspaceId, missionId, action: 'postpone', preset });
+              } else {
+                await answerCallbackQuery(ws.botToken, callbackQuery.id);
+              }
+            } catch (e: any) {
+              if (e?.statusCode === 409) {
+                await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Уже обработано');
+              } else {
+                log.error({ e, missionId, sub }, 'mfail action failed');
+                await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Ошибка');
+              }
+            }
+
           } else if (cbData.startsWith('rec:')) {
             // Recording selection: rec:shortId:fullCallId
             const callId = cbData.split(':')[2];

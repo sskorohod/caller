@@ -43,6 +43,23 @@ interface MissionDetail {
   messages: MissionMessage[];
 }
 
+type FailureReason = 'no_answer' | 'busy' | 'voicemail' | 'error';
+type PostponePreset = '15m' | '1h' | '3h' | 'tomorrow_10';
+
+const FAILURE_REASON_LABELS: Record<FailureReason, string> = {
+  no_answer: 'не взяли трубку',
+  busy: 'занято',
+  voicemail: 'автоответчик',
+  error: 'ошибка соединения',
+};
+
+const POSTPONE_LABELS: Record<PostponePreset, string> = {
+  '15m': '+15 мин',
+  '1h': '+1 ч',
+  '3h': '+3 ч',
+  'tomorrow_10': 'Завтра 10:00',
+};
+
 interface PlanAction {
   action: string;
   plan: {
@@ -235,10 +252,52 @@ export default function MissionChatPage() {
     }
   }, [executing, missionId, toast, t]);
 
+  // ─── Failure action handlers ───────────────────────────────────────────
+
+  const [failureSubmitting, setFailureSubmitting] = useState(false);
+  const [showPostponeMenu, setShowPostponeMenu] = useState(false);
+
+  const submitFailureAction = useCallback(async (action: 'retry' | 'postpone' | 'close', preset?: PostponePreset) => {
+    if (failureSubmitting) return;
+    setFailureSubmitting(true);
+    try {
+      const res = await api.post<{ ok: boolean; mission: Mission; scheduled_at: string | null }>(
+        `/missions/${missionId}/failure-action`,
+        preset ? { action, preset } : { action },
+      );
+      if (res?.mission) setMission(res.mission);
+      setShowPostponeMenu(false);
+      if (action === 'retry' && res?.mission?.call_id) {
+        router.push(`/dashboard/calls/${res.mission.call_id}/live`);
+        return;
+      }
+      if (action === 'postpone' && res?.scheduled_at) {
+        toast.success(`Отложено до ${new Date(res.scheduled_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}`);
+      }
+    } catch (e: any) {
+      // 409 = другая сторона уже обработала. Перетянем актуальное состояние.
+      if (e?.status === 409 || /already/i.test(e?.message || '')) {
+        toast.error('Уже обработано в Telegram');
+        try {
+          const updated = await api.get<{ mission: Mission }>(`/missions/${missionId}`);
+          if (updated.mission) setMission(updated.mission);
+        } catch { /* ignore */ }
+      } else {
+        toast.error(e?.message || t('common.error'));
+      }
+    } finally {
+      setFailureSubmitting(false);
+    }
+  }, [failureSubmitting, missionId, router, toast, t]);
+
   // ─── Derived state ─────────────────────────────────────────────────────
 
   const isCallActive = mission?.status === 'calling' || mission?.status === 'in_progress';
   const inputDisabled = isCallActive || sending;
+
+  const failureReason = (mission?.outcome as Record<string, unknown> | null)?.failure_reason as FailureReason | undefined;
+  const failureActionTaken = (mission?.outcome as Record<string, unknown> | null)?.failure_action_taken as string | undefined;
+  const showFailureCard = mission?.status === 'failed' && !!failureReason && !failureActionTaken;
 
   // Auto-redirect to live page only when status TRANSITIONS to calling (not on initial load)
   const prevStatusRef = useRef<string | null>(null);
@@ -434,6 +493,73 @@ export default function MissionChatPage() {
             >
               {t('mission.schedule')}
             </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Render failure-action card ────────────────────────────────────────
+
+  function renderFailureCard() {
+    if (!showFailureCard || !failureReason) return null;
+    const reasonLabel = FAILURE_REASON_LABELS[failureReason] || failureReason;
+    return (
+      <div className="rounded-2xl border border-[var(--th-error-bg)] bg-[var(--th-card)] overflow-hidden shadow-[0_1px_3px_var(--th-shadow)]">
+        <div className="px-4 py-3 bg-[var(--th-error-bg)] text-[var(--th-error-text)] flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <span className="text-xs font-semibold">Миссия не удалась — {reasonLabel}</span>
+        </div>
+        <div className="px-4 py-3 space-y-3">
+          <p className="text-sm text-[var(--th-text-secondary)]">Что дальше?</p>
+          {!showPostponeMenu ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => submitFailureAction('retry')}
+                disabled={failureSubmitting}
+                className="px-3 py-2 min-h-[44px] text-xs font-semibold rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_4px_16px_rgba(34,197,94,0.3)] transition-all disabled:opacity-40"
+              >
+                🔄 Повторить
+              </button>
+              <button
+                onClick={() => setShowPostponeMenu(true)}
+                disabled={failureSubmitting}
+                className="px-3 py-2 min-h-[44px] text-xs font-semibold rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text)] hover:bg-[var(--th-surface)] transition-all disabled:opacity-40"
+              >
+                ⏰ Отложить
+              </button>
+              <button
+                onClick={() => submitFailureAction('close')}
+                disabled={failureSubmitting}
+                className="px-3 py-2 min-h-[44px] text-xs font-semibold rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] transition-all disabled:opacity-40"
+              >
+                ✖️ Закрыть
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(POSTPONE_LABELS) as PostponePreset[]).map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => submitFailureAction('postpone', preset)}
+                    disabled={failureSubmitting}
+                    className="px-3 py-2 min-h-[44px] text-xs font-semibold rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text)] hover:bg-[var(--th-surface)] transition-all disabled:opacity-40"
+                  >
+                    {POSTPONE_LABELS[preset]}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowPostponeMenu(false)}
+                disabled={failureSubmitting}
+                className="text-xs text-[var(--th-text-muted)] hover:text-[var(--th-text)] transition-colors"
+              >
+                ← Назад
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -668,6 +794,8 @@ export default function MissionChatPage() {
                     </svg>
                   </button>
                 )}
+
+                {renderFailureCard()}
 
                 {mission.outcome && Object.keys(mission.outcome).length > 0 && (
                   <div className="space-y-1.5">

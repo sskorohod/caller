@@ -10,7 +10,8 @@ import { deliverWebhookEvent } from '../../services/webhook.service.js';
 import { env } from '../../config/env.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { validateTwilioSignature } from '../../middleware/twilio-auth.js';
-import { calls, providerCredentials } from '../../db/schema.js';
+import { calls, providerCredentials, missions, type MissionFailureReason, type MissionOutcome } from '../../db/schema.js';
+import { notifyMissionFailure } from '../../services/mission-failure.service.js';
 import { getIo } from '../../realtime/io.js';
 import * as memoryService from '../../services/memory.service.js';
 import { sendCallNotification } from '../../services/telegram.service.js';
@@ -29,6 +30,11 @@ const statusSchema = z.object({
   CallSid: z.string().min(1),
   CallStatus: z.string().min(1),
   CallDuration: z.string().optional(),
+});
+
+const amdSchema = z.object({
+  CallSid: z.string().min(1),
+  AnsweredBy: z.string().min(1),
 });
 
 import { aiCallSessions } from '../../db/schema.js';
@@ -393,7 +399,14 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       'failed': 'failed',
     };
 
+    const failureReasonMap: Record<string, MissionFailureReason> = {
+      'busy': 'busy',
+      'no-answer': 'no_answer',
+      'failed': 'error',
+    };
+
     const ourStatus = statusMap[callStatus] ?? callStatus;
+    const failureReason = failureReasonMap[callStatus];
 
     await callService.updateCallStatus(call.id, ourStatus as any, {
       twilio_status: callStatus,
@@ -445,6 +458,97 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         status: ourStatus,
         twilio_status: callStatus,
       }).catch((err: unknown) => { app.log.warn({ err, callId: call.id }, 'Webhook delivery failed for call.failed'); });
+
+      // Mission failure prompt: stamp failure_reason on the linked mission and
+      // notify the workspace owner with action buttons.
+      if (failureReason) {
+        try {
+          const [mission] = await db.select().from(missions).where(eq(missions.call_id, call.id));
+          if (mission) {
+            const prevOutcome = (mission.outcome as MissionOutcome | null) ?? {};
+            // Don't overwrite a stronger reason (e.g. AMD already set 'voicemail')
+            const finalReason: MissionFailureReason = prevOutcome.failure_reason ?? failureReason;
+            await db.update(missions).set({
+              status: 'failed',
+              outcome: { ...prevOutcome, failure_reason: finalReason } as any,
+              updated_at: new Date(),
+            }).where(eq(missions.id, mission.id));
+
+            const io2 = getIo();
+            io2?.to(`mission:${mission.id}`).emit('mission:status', { mission_id: mission.id, status: 'failed' });
+
+            notifyMissionFailure(mission.id).catch((e) => {
+              app.log.warn({ e, missionId: mission.id }, 'notifyMissionFailure failed');
+            });
+          }
+        } catch (e) {
+          app.log.warn({ e, callId: call.id }, 'Failed to update mission on call failure');
+        }
+      }
+    }
+
+    reply.status(200).send('OK');
+  });
+
+  // Async Answering Machine Detection callback. Twilio fires this once it has
+  // decided whether the line was picked up by a human or a machine. With
+  // `machineDetection: 'DetectMessageEnd'` it waits for the greeting to finish
+  // before classifying, so we won't get false positives on long human hellos.
+  app.post('/amd', async (request, reply) => {
+    let body: z.infer<typeof amdSchema>;
+    try {
+      body = amdSchema.parse(request.body);
+    } catch {
+      reply.status(200).send('OK');
+      return;
+    }
+    const { CallSid: callSid, AnsweredBy: answeredBy } = body;
+
+    app.log.info({ callSid, answeredBy }, 'Twilio AMD callback');
+
+    const isMachine = answeredBy.startsWith('machine_') || answeredBy === 'fax';
+    if (!isMachine) {
+      reply.status(200).send('OK');
+      return;
+    }
+
+    const [call] = await db.select({ id: calls.id, workspace_id: calls.workspace_id })
+      .from(calls)
+      .where(eq(calls.twilio_call_sid, callSid));
+    if (!call) {
+      reply.status(200).send('OK');
+      return;
+    }
+
+    // Hang up the live call — talking to a voicemail wastes minutes and provides
+    // no business value for outbound missions.
+    try {
+      const client = await telephonyService.getTwilioClient(call.workspace_id);
+      await client.calls(callSid).update({ status: 'completed' });
+    } catch (e) {
+      app.log.warn({ e, callSid }, 'Failed to hang up voicemail call');
+    }
+
+    // Mark mission as failed with voicemail reason and trigger the prompt.
+    try {
+      const [mission] = await db.select().from(missions).where(eq(missions.call_id, call.id));
+      if (mission) {
+        const prevOutcome = (mission.outcome as MissionOutcome | null) ?? {};
+        await db.update(missions).set({
+          status: 'failed',
+          outcome: { ...prevOutcome, failure_reason: 'voicemail' } as any,
+          updated_at: new Date(),
+        }).where(eq(missions.id, mission.id));
+
+        const io = getIo();
+        io?.to(`mission:${mission.id}`).emit('mission:status', { mission_id: mission.id, status: 'failed' });
+
+        notifyMissionFailure(mission.id).catch((e) => {
+          app.log.warn({ e, missionId: mission.id }, 'notifyMissionFailure (voicemail) failed');
+        });
+      }
+    } catch (e) {
+      app.log.warn({ e, callSid }, 'Failed to mark mission as voicemail-failed');
     }
 
     reply.status(200).send('OK');
