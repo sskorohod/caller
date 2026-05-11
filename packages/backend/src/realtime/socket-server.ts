@@ -122,53 +122,70 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       } catch { /* ignore */ }
     });
 
-    // Translator controls — change mode/voice on the fly
-    socket.on('translator:set-mode', async ({ call_id, mode }: { call_id: string; mode: string }) => {
+    // Translator controls — change mode/voice on the fly.
+    // call_id may be omitted by share-token clients (the public translate page);
+    // we fall back to socket.data.shareCallId set during handshake.
+    const resolveCallId = (call_id?: string | null): string | null =>
+      call_id || (socket.data.shareCallId as string | undefined) || null;
+
+    socket.on('translator:set-mode', async ({ call_id, mode }: { call_id?: string; mode: string }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(call_id);
+        const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateMode(mode);
       } catch { /* ignore */ }
     });
 
-    socket.on('translator:set-languages', async ({ call_id, my_language, target_language }: { call_id: string; my_language: string; target_language: string }) => {
+    socket.on('translator:set-languages', async ({ call_id, my_language, target_language }: { call_id?: string; my_language: string; target_language: string }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(call_id);
+        const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateLanguages(my_language, target_language);
       } catch { /* ignore */ }
     });
 
-    socket.on('translator:set-voice', async ({ call_id, voice }: { call_id: string; voice: string }) => {
+    socket.on('translator:set-voice', async ({ call_id, voice }: { call_id?: string; voice: string }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(call_id);
+        const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateVoice(voice);
       } catch { /* ignore */ }
     });
 
     // Translator pause/resume
-    socket.on('translator:pause', async ({ call_id }: { call_id: string }) => {
+    socket.on('translator:pause', async ({ call_id }: { call_id?: string }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(call_id);
+        const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.pause();
       } catch { /* ignore */ }
     });
 
-    socket.on('translator:resume', async ({ call_id }: { call_id: string }) => {
+    socket.on('translator:resume', async ({ call_id }: { call_id?: string }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(call_id);
+        const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.resume();
       } catch { /* ignore */ }
     });
 
     // Translator set tone
-    socket.on('translator:set-tone', async ({ call_id, tone }: { call_id: string; tone: string }) => {
+    socket.on('translator:set-tone', async ({ call_id, tone }: { call_id?: string; tone: string }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(call_id);
+        const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateTone(tone);
       } catch { /* ignore */ }
     });

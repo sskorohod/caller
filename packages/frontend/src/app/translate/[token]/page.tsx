@@ -75,6 +75,13 @@ export default function LiveTranslatePage() {
     s.on('connect', () => {
       s.emit('call:translate:join:token', { token });
       setStatus('live');
+      // Server already knows call_id from the share-token handshake. Push the
+      // UI's current state right away so dropdown changes made before the
+      // first transcript arrives are not lost.
+      s.emit('translator:set-languages', { my_language: myLang, target_language: targetLang });
+      s.emit('translator:set-tone',      { tone });
+      s.emit('translator:set-voice',     { voice });
+      s.emit('translator:set-mode',      { mode });
     });
 
     s.on('connect_error', () => {
@@ -125,54 +132,46 @@ export default function LiveTranslatePage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [translations, interimTranslated, isSpeaking]);
 
-  // Controls
+  // Controls. Server resolves call_id from socket.data.shareCallId (set during
+  // share-token handshake), so we don't need to gate on the local `callId`
+  // state — that state only gets populated when the first transcript arrives,
+  // which is far too late if the user switches languages right after opening
+  // the page.
   const changeMode = useCallback((m: Mode) => {
     setMode(m);
-    if (socketRef.current && callId) {
-      socketRef.current.emit('translator:set-mode', { call_id: callId, mode: m });
-    }
-  }, [callId]);
+    socketRef.current?.emit('translator:set-mode', { mode: m });
+  }, []);
 
   const changeMyLang = useCallback((newMy: string) => {
     const newTarget = newMy === targetLang ? myLang : targetLang;
     setMyLang(newMy);
     setTargetLang(newTarget);
-    if (socketRef.current && callId) {
-      socketRef.current.emit('translator:set-languages', { call_id: callId, my_language: newMy, target_language: newTarget });
-    }
-  }, [callId, myLang, targetLang]);
+    socketRef.current?.emit('translator:set-languages', { my_language: newMy, target_language: newTarget });
+  }, [myLang, targetLang]);
 
   const changeTargetLang = useCallback((newTarget: string) => {
     const newMy = newTarget === myLang ? targetLang : myLang;
     setMyLang(newMy);
     setTargetLang(newTarget);
-    if (socketRef.current && callId) {
-      socketRef.current.emit('translator:set-languages', { call_id: callId, my_language: newMy, target_language: newTarget });
-    }
-  }, [callId, myLang, targetLang]);
+    socketRef.current?.emit('translator:set-languages', { my_language: newMy, target_language: newTarget });
+  }, [myLang, targetLang]);
 
   const changeVoice = useCallback((v: string) => {
     setVoice(v);
-    if (socketRef.current && callId) {
-      socketRef.current.emit('translator:set-voice', { call_id: callId, voice: v });
-    }
-  }, [callId]);
+    socketRef.current?.emit('translator:set-voice', { voice: v });
+  }, []);
 
   const changeTone = useCallback((t: string) => {
     setTone(t);
     setShowToneMenu(false);
-    if (socketRef.current && callId) {
-      socketRef.current.emit('translator:set-tone', { call_id: callId, tone: t });
-    }
-  }, [callId]);
+    socketRef.current?.emit('translator:set-tone', { tone: t });
+  }, []);
 
   const togglePause = useCallback(() => {
     const newPaused = !paused;
     setPaused(newPaused);
-    if (socketRef.current && callId) {
-      socketRef.current.emit(newPaused ? 'translator:pause' : 'translator:resume', { call_id: callId });
-    }
-  }, [callId, paused]);
+    socketRef.current?.emit(newPaused ? 'translator:pause' : 'translator:resume', {});
+  }, [paused]);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
