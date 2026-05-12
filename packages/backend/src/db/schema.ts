@@ -598,7 +598,7 @@ export const translatorSubscribers = pgTable('translator_subscribers', {
 
 export const translatorSessions = pgTable('translator_sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  subscriber_id: uuid('subscriber_id').notNull().references(() => translatorSubscribers.id, { onDelete: 'cascade' }),
+  subscriber_id: uuid('subscriber_id').references(() => translatorSubscribers.id, { onDelete: 'cascade' }),
   call_id: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
   workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
   duration_seconds: integer('duration_seconds').default(0),
