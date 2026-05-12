@@ -76,6 +76,7 @@ export class ConferenceTranslator extends EventEmitter {
   private retranslationPending: boolean = false;
   private reconnectAttempts: number = 0;
   private intentionalReconnect: boolean = false; // true when reconnecting for settings change
+  private settingsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Streaming TTS state — once approved, response.output_audio.delta is forwarded
   // to Twilio immediately instead of waiting for response.done.
@@ -222,15 +223,27 @@ ${this.personalContext}` : ''}`;
   }
 
   private connectGrok(): void {
-    // Close existing connection if any
-    try { this.grokWs?.close(); } catch { /* ignore */ }
+    // Close existing connection if any. During settings changes the UI can send
+    // multiple updates in one burst; detach old handlers so stale close events
+    // don't start competing reconnect loops.
+    const previousWs = this.grokWs;
+    if (previousWs && previousWs.readyState !== WebSocket.CLOSED) {
+      previousWs.removeAllListeners();
+      try {
+        if (previousWs.readyState === WebSocket.OPEN) previousWs.close();
+        else previousWs.terminate();
+      } catch { /* ignore */ }
+    }
 
-    this.grokWs = new WebSocket('wss://api.x.ai/v1/realtime', {
+    const ws = new WebSocket('wss://api.x.ai/v1/realtime', {
       headers: { Authorization: `Bearer ${this.xaiApiKey}` },
     });
+    this.grokWs = ws;
 
-    this.grokWs.on('open', () => {
+    ws.on('open', () => {
+      if (this.grokWs !== ws) return;
       this.reconnectAttempts = 0;
+      this.intentionalReconnect = false;
       log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket connected');
 
       // On reconnect: reset any stale state from the previous session.
@@ -245,7 +258,7 @@ ${this.personalContext}` : ''}`;
       this.currentResponseAudio = [];
       this.retranslationPending = false;
 
-      this.grokWs!.send(JSON.stringify({
+      ws.send(JSON.stringify({
         type: 'session.update',
         session: {
           voice: this.ttsVoiceId || 'eve',
@@ -295,18 +308,21 @@ ${this.personalContext}` : ''}`;
       }
     });
 
-    this.grokWs.on('message', (data: Buffer) => {
+    ws.on('message', (data: Buffer) => {
+      if (this.grokWs !== ws) return;
       try {
         const msg = JSON.parse(data.toString());
         this.handleGrokEvent(msg);
       } catch { /* ignore parse errors */ }
     });
 
-    this.grokWs.on('error', (err: Error) => {
+    ws.on('error', (err: Error) => {
+      if (this.grokWs !== ws) return;
       log.error({ err, callId: this.callId }, 'Grok Voice Agent WebSocket error');
     });
 
-    this.grokWs.on('close', () => {
+    ws.on('close', () => {
+      if (this.grokWs !== ws) return;
       log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket closed');
       // Auto-reconnect if session is still active (skip if intentional reconnect — handled by caller)
       if (!this.saved && !this.intentionalReconnect) {
@@ -327,19 +343,27 @@ ${this.personalContext}` : ''}`;
 
   /** Intentional reconnect — for settings changes (no backoff) */
   private reconnectForSettingsChange(): void {
-    this.intentionalReconnect = true;
-    this.connectGrok();
+    if (this.saved) return;
+    if (this.settingsReconnectTimer) clearTimeout(this.settingsReconnectTimer);
+    this.settingsReconnectTimer = setTimeout(() => {
+      this.settingsReconnectTimer = null;
+      this.intentionalReconnect = true;
+      this.connectGrok();
+    }, 150);
   }
 
   /** Update translation mode on the fly — reconnects Grok with new instructions */
   updateMode(mode: string): void {
-    this.mode = mode as any;
-    log.info({ callId: this.callId, mode }, 'Translator mode updated — reconnecting Grok');
+    const nextMode = mode === 'unidirectional' ? 'text' : 'voice';
+    if (this.mode === nextMode) return;
+    this.mode = nextMode;
+    log.info({ callId: this.callId, mode: nextMode }, 'Translator mode updated — reconnecting Grok');
     this.reconnectForSettingsChange();
   }
 
   /** Update languages on the fly — reconnects Grok */
   updateLanguages(myLang: string, targetLang: string): void {
+    if (this.myLang === myLang && this.targetLang === targetLang) return;
     this.myLang = myLang;
     this.targetLang = targetLang;
     log.info({ callId: this.callId, myLang, targetLang }, 'Translator languages updated — reconnecting Grok');
@@ -348,6 +372,7 @@ ${this.personalContext}` : ''}`;
 
   /** Update tone on the fly — reconnects Grok with new instructions */
   updateTone(tone: string): void {
+    if (this.tone === tone) return;
     this.tone = tone;
     log.info({ callId: this.callId, tone }, 'Translator tone updated — reconnecting Grok');
     this.reconnectForSettingsChange();
@@ -355,6 +380,7 @@ ${this.personalContext}` : ''}`;
 
   /** Update voice on the fly — reconnects Grok with new voice */
   updateVoice(voice: string): void {
+    if (this.ttsVoiceId === voice) return;
     this.ttsVoiceId = voice;
     log.info({ callId: this.callId, voice }, 'Translator voice updated — reconnecting Grok');
     this.reconnectForSettingsChange();
@@ -865,6 +891,10 @@ ${this.personalContext}` : ''}`;
 
     if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
     this.speechStartedAt = null;
+    if (this.settingsReconnectTimer) {
+      clearTimeout(this.settingsReconnectTimer);
+      this.settingsReconnectTimer = null;
+    }
 
     if (this.safetyTimer) {
       clearTimeout(this.safetyTimer);
