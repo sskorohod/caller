@@ -28,3 +28,10 @@
 - API keys are hashed (SHA-256) with prefix lookup (mcp_xxxx...)
 - Provider credentials are AES-256-GCM encrypted at rest
 - All routes use Zod for input validation
+
+## Wiki (Second Brain)
+- `wiki/` — LLM-maintained knowledge base (see `wiki/WIKI.md` for schema)
+- **Ingest**: when user adds files to `wiki/raw/`, read and integrate into wiki pages
+- **Query**: read `wiki/index.md` first, then relevant pages, synthesize with [[wikilinks]]
+- **Lint**: periodically check for contradictions, orphans, stale claims
+- Always update `wiki/index.md` and append to `wiki/log.md` after any wiki operation
