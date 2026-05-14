@@ -466,6 +466,13 @@ ${this.personalContext}` : ''}`;
       && Date.now() - this.playbackStartedAt < ConferenceTranslator.MAX_UNINTERRUPTIBLE_PLAYBACK_MS;
   }
 
+  private hasInterruptibleTranslation(): boolean {
+    return this.playbackState === 'playing'
+      || this.streamingApproved
+      || this.currentResponseAudio.length > 0
+      || this.currentOutputTranscript.length > 0;
+  }
+
   private startPlayback(): void {
     if (this.playbackState === 'playing') return;
     this.playbackState = 'playing';
@@ -615,15 +622,24 @@ ${this.personalContext}` : ''}`;
           log.debug({ callId: this.callId }, 'speech_started ignored — playback protection active');
           break;
         }
-        // Deferred barge-in: start a 4-second timer. Only interrupt the translation
-        // if speech is sustained for ≥4 seconds. Short utterances (acknowledgements,
-        // fillers, brief replies) must not cut off the translator mid-sentence.
-        this.speechStartedAt = Date.now();
-        if (this.bargeInTimer) clearTimeout(this.bargeInTimer);
-        this.bargeInTimer = setTimeout(() => {
-          this.bargeInTimer = null;
-          this.performBargeIn();
-        }, ConferenceTranslator.BARGE_IN_THRESHOLD_MS);
+        // Deferred barge-in only applies while a translation is actually being
+        // prepared or played. A normal speaker holding the floor for >4s is just
+        // speech, not an interruption; cancelling here drops the very audio Grok
+        // is supposed to transcribe.
+        if (this.hasInterruptibleTranslation()) {
+          this.speechStartedAt = Date.now();
+          if (this.bargeInTimer) clearTimeout(this.bargeInTimer);
+          this.bargeInTimer = setTimeout(() => {
+            this.bargeInTimer = null;
+            this.performBargeIn();
+          }, ConferenceTranslator.BARGE_IN_THRESHOLD_MS);
+        } else {
+          this.speechStartedAt = null;
+          if (this.bargeInTimer) {
+            clearTimeout(this.bargeInTimer);
+            this.bargeInTimer = null;
+          }
+        }
         const io0 = getIo();
         if (io0) {
           io0.to(`call:${this.callId}`).volatile.emit('call:transcript', {
