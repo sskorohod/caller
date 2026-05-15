@@ -309,9 +309,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 if (!text) return;
 
                 if (!evt.isFinal) {
-                  // Interim → show raw transcript in UI immediately (real-time feel)
+                  // Interim → show raw transcript in UI immediately. Non-volatile
+                  // because socket.io is forced onto polling (CF Tunnel breaks WS),
+                  // and volatile would drop deltas that land between poll requests.
                   if (io) {
-                    io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                    io.to(`call:${callId}`).emit('call:transcript', {
                       call_id: callId, speaker: 'caller', text: calleeAccum ? calleeAccum + ' ' + text : text,
                       timestamp: new Date().toISOString(), isFinal: false,
                     });
@@ -588,7 +590,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     currentInputTranscript = '';
                     currentOutputTranscript = '';
                     if (io) {
-                      io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                      // Non-volatile (see note above): polling-only transport
+                      // would otherwise drop the speaking-indicator pulse.
+                      io.to(`call:${callId}`).emit('call:transcript', {
                         call_id: callId, speaker: 'operator', text: '', timestamp: new Date().toISOString(), isFinal: false,
                       });
                     }
@@ -607,7 +611,8 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     if (msg.delta) {
                       currentOutputTranscript += msg.delta;
                       if (io) {
-                        io.to(`call:${callId}:translate`).volatile.emit('call:translation:interim', {
+                        // Non-volatile — see conference-translator.ts note.
+                        io.to(`call:${callId}:translate`).emit('call:translation:interim', {
                           call_id: callId, original: currentInputTranscript, translated: currentOutputTranscript,
                           timestamp: new Date().toISOString(),
                         });
@@ -619,7 +624,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     if (msg.transcript) {
                       currentInputTranscript = msg.transcript.trim();
                       if (io) {
-                        io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                        io.to(`call:${callId}`).emit('call:transcript', {
                           call_id: callId, speaker: 'operator', text: currentInputTranscript,
                           timestamp: new Date().toISOString(), isFinal: false,
                         });
@@ -732,9 +737,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   if (!text) return;
 
                   if (!evt.isFinal) {
-                    // Interim → show in UI immediately for real-time feel
+                    // Interim → show in UI immediately. Non-volatile because
+                    // socket.io is forced onto polling (see conference-translator.ts).
                     if (io) {
-                      io.to(`call:${callId}`).volatile.emit('call:transcript', {
+                      io.to(`call:${callId}`).emit('call:transcript', {
                         call_id: callId, speaker,
                         text: accum ? accum + ' ' + text : text,
                         timestamp: new Date().toISOString(), isFinal: false,

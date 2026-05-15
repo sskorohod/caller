@@ -600,7 +600,9 @@ ${this.personalContext}` : ''}`;
         }, ConferenceTranslator.BARGE_IN_THRESHOLD_MS);
         const io0 = getIo();
         if (io0) {
-          io0.to(`call:${this.callId}`).volatile.emit('call:transcript', {
+          // Non-volatile so polling clients (forced by CF Tunnel) reliably see
+          // the speaking indicator even between long-poll requests.
+          io0.to(`call:${this.callId}`).emit('call:transcript', {
             call_id: this.callId, speaker: 'conference', text: '', timestamp: new Date().toISOString(), isFinal: false,
           });
         }
@@ -636,13 +638,18 @@ ${this.personalContext}` : ''}`;
 
       case 'response.audio_transcript.delta':
       case 'response.output_audio_transcript.delta':
-        // Accumulate output transcript + emit interim translation
+        // Accumulate output transcript + emit interim translation.
+        // NOT volatile: socket.io is forced onto long-polling because Cloudflare
+        // Tunnel breaks WS frames (see socket-server.ts), and volatile drops
+        // every event that lands between polls — which is most of them during
+        // Grok's burst-y delta stream. The reliable buffer queue is fine for
+        // these small text payloads.
         if (msg.delta) {
           this.currentOutputTranscript += msg.delta;
           this.tryApproveStreaming();
           const io3 = getIo();
           if (io3) {
-            io3.to(`call:${this.callId}:translate`).volatile.emit('call:translation:interim', {
+            io3.to(`call:${this.callId}:translate`).emit('call:translation:interim', {
               call_id: this.callId,
               original: this.currentInputTranscript,
               translated: this.currentOutputTranscript,
@@ -664,7 +671,7 @@ ${this.personalContext}` : ''}`;
           this.tryApproveStreaming();
           const io2 = getIo();
           if (io2) {
-            io2.to(`call:${this.callId}`).volatile.emit('call:transcript', {
+            io2.to(`call:${this.callId}`).emit('call:transcript', {
               call_id: this.callId, speaker: 'conference', text: this.currentInputTranscript,
               timestamp: new Date().toISOString(), isFinal: false,
             });
