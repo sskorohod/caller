@@ -495,6 +495,25 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               }
             } catch (err) {
               logger.error({ err, callId }, 'Failed to start conference translator');
+              await callService.updateCallStatus(callId, 'failed', {
+                metadata: {
+                  ...callMeta,
+                  failure_reason: 'translator_start_failed',
+                  failure_message: err instanceof Error ? err.message : String(err),
+                },
+              } as any);
+              const io = getIo();
+              if (io) {
+                io.to(`workspace:${callerWsId || call.workspace_id}`).emit('call:status', {
+                  call_id: callId,
+                  status: 'failed',
+                });
+                io.to(`call:${callId}`).emit('call:status', {
+                  call_id: callId,
+                  status: 'failed',
+                });
+              }
+              socket.close(1011, 'translator_start_failed');
             }
             return;
           }
