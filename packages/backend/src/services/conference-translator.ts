@@ -327,11 +327,19 @@ ${this.personalContext}` : ''}`;
     this.grokWs.on('message', (data: Buffer) => {
       try {
         const msg = JSON.parse(data.toString());
-        // TEMP diagnostic: log every Grok event type so we can see what's
-        // actually arriving (greeting playback returns audioBytes:0 in prod
-        // — need to know if Grok sends a different event name now or if it
-        // really sends no audio at all).
-        log.info({ callId: this.callId, type: msg.type }, 'grok_event');
+        // TEMP diagnostic: log every Grok event type, plus the full payload
+        // for *.done events so we can see whether audio/transcript live
+        // inside the done events (Grok appears to have stopped streaming
+        // .delta events entirely).
+        if (msg.type?.endsWith('.done')) {
+          // Truncate any base64 audio so the log line isn't 100KB
+          const dump = JSON.stringify(msg, (k, v) =>
+            typeof v === 'string' && v.length > 200 ? `<str:${v.length}>` : v
+          ).slice(0, 2000);
+          log.info({ callId: this.callId, type: msg.type, payload: dump }, 'grok_event_done');
+        } else {
+          log.info({ callId: this.callId, type: msg.type }, 'grok_event');
+        }
         this.handleGrokEvent(msg);
       } catch { /* ignore parse errors */ }
     });
