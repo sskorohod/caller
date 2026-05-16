@@ -238,7 +238,11 @@ ${this.personalContext}` : ''}`;
     // Close existing connection if any
     try { this.grokWs?.close(); } catch { /* ignore */ }
 
-    this.grokWs = new WebSocket('wss://api.x.ai/v1/realtime', {
+    // Model must be selected via ?model= query string — without it xAI's
+    // realtime endpoint defaults to a text-only stub that responds with
+    // status_details:"unimplemented" and zero output_audio_tokens. This was
+    // the root cause of "translator doesn't speak" for the whole product.
+    this.grokWs = new WebSocket('wss://api.x.ai/v1/realtime?model=grok-3-mini-fast', {
       headers: { Authorization: `Bearer ${this.xaiApiKey}` },
     });
 

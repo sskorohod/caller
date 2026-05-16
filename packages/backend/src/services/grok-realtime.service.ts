@@ -6,7 +6,10 @@ import type { AgentProfile, Call } from '../models/types.js';
 
 const logger = pino({ name: 'grok-realtime' });
 
-const GROK_REALTIME_URL = 'wss://api.x.ai/v1/realtime';
+// Model must be selected via ?model= query string. Without it, xAI's realtime
+// endpoint returns response.done with status_details:"unimplemented" and zero
+// output audio tokens — manifests as agent saying nothing on the call.
+const GROK_REALTIME_URL = 'wss://api.x.ai/v1/realtime?model=grok-3-mini-fast';
 
 export interface GrokRealtimeConfig {
   call: Call;
