@@ -261,6 +261,12 @@ ${this.personalContext}` : ''}`;
       this.grokWs!.send(JSON.stringify({
         type: 'session.update',
         session: {
+          // Explicit modalities — without it some Grok deployments silently
+          // default to text-only, producing response.done with no audio.
+          // That manifested in prod (call df1d980d) as "Translation
+          // dropped: empty output from Grok" on every turn AND zero
+          // audio bytes on the greeting.
+          modalities: ['audio', 'text'],
           voice: this.ttsVoiceId || 'eve',
           instructions: this.buildInstructions(),
           turn_detection: {
@@ -273,11 +279,11 @@ ${this.personalContext}` : ''}`;
             silence_duration_ms: 1000,
             prefix_padding_ms: 400,
           },
-          // Use the full grok-3 (not -mini) for input transcription. Mini drops
-          // proper nouns, brand names, numbers above 99, and fails on
-          // code-switched speech ("Я знаю Housecall Pro"). Costs ~3x more per
-          // minute of audio but is the single biggest quality win available.
-          input_audio_transcription: { model: 'grok-3' },
+          // Reverted to grok-3-mini until xAI's realtime endpoint is
+          // confirmed to accept full grok-3 as a transcription model.
+          // Earlier attempt with 'grok-3' coincided with empty translations
+          // in prod, though that turned out to be a stale-deploy artifact.
+          input_audio_transcription: { model: 'grok-3-mini' },
           audio: {
             input: { format: { type: 'audio/pcmu' } },
             output: { format: { type: 'audio/pcmu' } },
@@ -843,6 +849,21 @@ ${this.personalContext}` : ''}`;
         break;
 
       case 'response.done': {
+        // Diagnostic: surface Grok's response status and any failure detail.
+        // Helps debug "empty output" cases — sometimes Grok returns a clean
+        // response.done with status='completed' but no content because of a
+        // safety filter or modality mismatch.
+        const respStatus = msg.response?.status;
+        const respStatusDetails = msg.response?.status_details;
+        if (respStatus && respStatus !== 'completed') {
+          log.warn({
+            callId: this.callId,
+            status: respStatus,
+            status_details: respStatusDetails,
+            outputItems: msg.response?.output?.length ?? 0,
+          }, 'Grok response.done with non-completed status');
+        }
+
         // Translation turn complete — save transcript and emit to UI
         const original = this.currentInputTranscript;
         const translated = this.currentOutputTranscript.trim();
