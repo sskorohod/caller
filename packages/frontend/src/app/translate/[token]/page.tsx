@@ -8,6 +8,17 @@ interface TranslationEntry {
   original: string;
   translated: string;
   timestamp: string;
+  detected_language?: string;
+}
+
+const LANG_FLAGS: Record<string, string> = {
+  en: '🇬🇧', ru: '🇷🇺', es: '🇪🇸', de: '🇩🇪', fr: '🇫🇷',
+  it: '🇮🇹', pt: '🇵🇹', uk: '🇺🇦', zh: '🇨🇳', ja: '🇯🇵', ar: '🇸🇦',
+};
+
+function flagFor(lang: string | undefined): string {
+  if (!lang) return '🌐';
+  return LANG_FLAGS[lang] || '🌐';
 }
 
 type Mode = 'bidirectional' | 'unidirectional';
@@ -278,12 +289,19 @@ export default function LiveTranslatePage() {
           </div>
         )}
 
-        {translations.map((entry, i) => (
+        {translations.map((entry, i) => {
+          // Direction: src is detected language; dst is the OTHER configured language.
+          const src = entry.detected_language || (entry.speaker === 'subscriber' ? myLang : targetLang);
+          const dst = src === myLang ? targetLang : myLang;
+          return (
           <div key={i} className="mb-5">
             <div className="flex items-center gap-2 mb-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${entry.speaker === 'subscriber' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
                 {entry.speaker === 'subscriber' ? 'You' : 'Other'}
+              </span>
+              <span className="text-[11px] text-[var(--th-text-muted)] tabular-nums" title={`${src.toUpperCase()} → ${dst.toUpperCase()}`}>
+                {flagFor(src)}<span className="mx-1 opacity-60">→</span>{flagFor(dst)}
               </span>
               <span className="text-[10px] text-[var(--th-text-muted)]">
                 {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -296,7 +314,8 @@ export default function LiveTranslatePage() {
               {entry.original}
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {/* Interim */}
         {(isSpeaking || interimTranslated) && (

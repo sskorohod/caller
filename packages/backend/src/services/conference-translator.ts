@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import pino from 'pino';
 import { WebSocket } from 'ws';
+import { detect as detectLang } from 'tinyld';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
@@ -97,11 +98,23 @@ export class ConferenceTranslator extends EventEmitter {
   // Deferred barge-in — only interrupt the translation if speech is sustained for ≥4 seconds.
   // Short utterances (acknowledgements, fillers) must not cut off the translator mid-sentence.
   private speechStartedAt: number | null = null;
+
+  // Per-turn timing instrumentation. Logged on response.done as a single
+  // structured 'translator_turn_metrics' line so you can grep timings and
+  // build dashboards later without a DB migration.
+  private turnSpeechStoppedAt: number | null = null;
+  private turnFirstInterimAt: number | null = null;
+  private turnInterimCount: number = 0;
   private bargeInTimer: ReturnType<typeof setTimeout> | null = null;
 
   private static readonly MAX_UNINTERRUPTIBLE_PLAYBACK_MS = 6000;
   private static readonly MARK_CHUNK_INTERVAL = 25; // ~200ms of mulaw 8kHz audio
-  private static readonly BARGE_IN_THRESHOLD_MS = 4000; // 4 seconds of continuous speech to interrupt
+  // Was 4000. Lowered to 2000 because 4 s of "uninterruptible" translation
+  // feels broken when the user actively wants to stop the bot. The timer is
+  // also now only armed when something is actually being translated/played
+  // (see speech_started handler) — so casual long-form speech with nothing
+  // to interrupt no longer triggers a useless cancel.
+  private static readonly BARGE_IN_THRESHOLD_MS = 2000;
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -253,10 +266,18 @@ ${this.personalContext}` : ''}`;
           turn_detection: {
             type: 'server_vad',
             threshold: 0.7,
-            silence_duration_ms: 1400,
+            // Was 1400. Lowered to give shorter end-of-turn latency on quick
+            // replies ("Да", "OK", short sentences). The translator's own
+            // instructions still tell Grok to wait for a complete thought
+            // before translating, so mid-sentence cutoff stays rare.
+            silence_duration_ms: 1000,
             prefix_padding_ms: 400,
           },
-          input_audio_transcription: { model: 'grok-3-mini' },
+          // Use the full grok-3 (not -mini) for input transcription. Mini drops
+          // proper nouns, brand names, numbers above 99, and fails on
+          // code-switched speech ("Я знаю Housecall Pro"). Costs ~3x more per
+          // minute of audio but is the single biggest quality win available.
+          input_audio_transcription: { model: 'grok-3' },
           audio: {
             input: { format: { type: 'audio/pcmu' } },
             output: { format: { type: 'audio/pcmu' } },
@@ -292,6 +313,8 @@ ${this.personalContext}` : ''}`;
       } else {
         // No greeting configured (or reconnect) — allow VAD/translation immediately
         this.greetingPlayed = true;
+        // Drain any audio buffered while the WS was still in CONNECTING.
+        this.flushPreOpenAudio();
       }
     });
 
@@ -331,33 +354,49 @@ ${this.personalContext}` : ''}`;
     this.connectGrok();
   }
 
-  /** Update translation mode on the fly — reconnects Grok with new instructions */
-  updateMode(mode: string): void {
-    this.mode = mode as any;
-    log.info({ callId: this.callId, mode }, 'Translator mode updated — reconnecting Grok');
-    this.reconnectForSettingsChange();
+  /**
+   * Push a partial session update over the existing Grok WS without tearing
+   * the connection down. Reconnect was wasteful: every settings change cost
+   * a WS handshake (~500-1000ms of dead air) and dropped the in-flight
+   * translation. session.update is the supported way to hot-swap voice,
+   * instructions, turn detection etc.
+   */
+  private pushSessionUpdate(partial: Record<string, unknown>): void {
+    if (this.grokWs?.readyState !== WebSocket.OPEN) {
+      // Not connected yet — change is already stored on `this`, will be
+      // included in the initial session.update on connect.
+      return;
+    }
+    this.grokWs.send(JSON.stringify({ type: 'session.update', session: partial }));
   }
 
-  /** Update languages on the fly — reconnects Grok */
+  /** Update translation mode on the fly — pushes new instructions to Grok. */
+  updateMode(mode: string): void {
+    this.mode = mode as any;
+    log.info({ callId: this.callId, mode }, 'Translator mode updated');
+    this.pushSessionUpdate({ instructions: this.buildInstructions() });
+  }
+
+  /** Update languages on the fly — pushes new instructions to Grok. */
   updateLanguages(myLang: string, targetLang: string): void {
     this.myLang = myLang;
     this.targetLang = targetLang;
-    log.info({ callId: this.callId, myLang, targetLang }, 'Translator languages updated — reconnecting Grok');
-    this.reconnectForSettingsChange();
+    log.info({ callId: this.callId, myLang, targetLang }, 'Translator languages updated');
+    this.pushSessionUpdate({ instructions: this.buildInstructions() });
   }
 
-  /** Update tone on the fly — reconnects Grok with new instructions */
+  /** Update tone on the fly — pushes new instructions to Grok. */
   updateTone(tone: string): void {
     this.tone = tone;
-    log.info({ callId: this.callId, tone }, 'Translator tone updated — reconnecting Grok');
-    this.reconnectForSettingsChange();
+    log.info({ callId: this.callId, tone }, 'Translator tone updated');
+    this.pushSessionUpdate({ instructions: this.buildInstructions() });
   }
 
-  /** Update voice on the fly — reconnects Grok with new voice */
+  /** Update voice on the fly — pushes new voice id to Grok. */
   updateVoice(voice: string): void {
     this.ttsVoiceId = voice;
-    log.info({ callId: this.callId, voice }, 'Translator voice updated — reconnecting Grok');
-    this.reconnectForSettingsChange();
+    log.info({ callId: this.callId, voice }, 'Translator voice updated');
+    this.pushSessionUpdate({ voice });
   }
 
   private paused: boolean = false;
@@ -394,6 +433,59 @@ ${this.personalContext}` : ''}`;
     return myIsCyrillic !== targetIsCyrillic;
   }
 
+  // Languages we treat as "close enough" to a configured language for direction
+  // detection. Phone-call STT is short and noisy and tinyld will often
+  // misclassify within these families (e.g. ru ↔ uk on a Russian phrase with
+  // a Ukrainian-looking name).
+  private static readonly LANG_FAMILIES: Record<string, string[]> = {
+    ru: ['ru', 'uk', 'bg', 'sr', 'be', 'mk'],
+    en: ['en'],
+    es: ['es', 'gl', 'ca'],
+    pt: ['pt', 'gl'],
+    fr: ['fr'],
+    de: ['de', 'nl'],
+    it: ['it'],
+  };
+
+  /**
+   * Decide whether transcribed input belongs to myLang or targetLang.
+   * Uses tinyld (a real language detector) and falls back to the older
+   * cyrillic-only heuristic if tinyld can't decide. The cyrillic heuristic
+   * is what existed before — fine for ru↔en, useless for ES↔EN, FR↔EN, etc.
+   */
+  private detectInputDirection(text: string): { isMyLang: boolean; detectedLang: string } {
+    const myFamily = ConferenceTranslator.LANG_FAMILIES[this.myLang] ?? [this.myLang];
+    const targetFamily = ConferenceTranslator.LANG_FAMILIES[this.targetLang] ?? [this.targetLang];
+
+    if (text && text.length >= 4) {
+      const detected = detectLang(text);
+      if (detected) {
+        if (myFamily.includes(detected)) {
+          return { isMyLang: true, detectedLang: this.myLang };
+        }
+        if (targetFamily.includes(detected)) {
+          return { isMyLang: false, detectedLang: this.targetLang };
+        }
+      }
+    }
+
+    // Fallback: legacy cyrillic-ratio heuristic. Only meaningful when one of
+    // the configured languages uses Cyrillic and the other doesn't.
+    const cyrillicRatio = (text.match(/[Ѐ-ӿ]/g) || []).length / Math.max(text.length, 1);
+    const myIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.myLang);
+    const targetIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.targetLang);
+    if (myIsCyrillic !== targetIsCyrillic) {
+      const inputIsCyrillic = cyrillicRatio > 0.3;
+      const isMyLang = inputIsCyrillic === myIsCyrillic;
+      return { isMyLang, detectedLang: isMyLang ? this.myLang : this.targetLang };
+    }
+
+    // Same-script pair and no detection signal — assume myLang as a stable
+    // default (better than coin-flipping per turn). The translator's own
+    // instructions still drive the actual translation direction.
+    return { isMyLang: true, detectedLang: this.myLang };
+  }
+
   /** Detect script of text: 'cyrillic' | 'latin' | null (ambiguous). */
   private detectScript(text: string): 'cyrillic' | 'latin' | null {
     if (!text || text.length < 2) return null;
@@ -408,6 +500,13 @@ ${this.personalContext}` : ''}`;
   }
 
   /** Forward telephony audio to Grok Voice Agent */
+  // Tiny ring buffer for audio that arrives before Grok WS finishes handshake.
+  // Without it the caller's first ~200-500ms of speech would be silently
+  // dropped on the no-greeting path, making the very first translated
+  // phrase feel chopped. Cap at ~2s to bound memory.
+  private preOpenAudioBuffer: Buffer[] = [];
+  private static readonly MAX_PREOPEN_AUDIO_CHUNKS = 100;
+
   sendAudio(audioBuffer: Buffer): void {
     if (this.paused) return;
     // Drop incoming audio until the greeting has played — otherwise Grok's VAD
@@ -421,6 +520,26 @@ ${this.personalContext}` : ''}`;
       this.grokWs.send(JSON.stringify({
         type: 'input_audio_buffer.append',
         audio: audioBuffer.toString('base64'),
+      }));
+    } else if (this.grokWs?.readyState === WebSocket.CONNECTING) {
+      // Buffer while handshake completes — flushed in flushPreOpenAudio().
+      if (this.preOpenAudioBuffer.length < ConferenceTranslator.MAX_PREOPEN_AUDIO_CHUNKS) {
+        this.preOpenAudioBuffer.push(audioBuffer);
+      }
+    }
+  }
+
+  /** Replay any audio captured during the WS handshake. Called after open. */
+  private flushPreOpenAudio(): void {
+    if (this.preOpenAudioBuffer.length === 0) return;
+    if (this.grokWs?.readyState !== WebSocket.OPEN) return;
+    const buffered = this.preOpenAudioBuffer;
+    this.preOpenAudioBuffer = [];
+    log.info({ callId: this.callId, chunks: buffered.length }, 'Flushing pre-open audio buffer');
+    for (const buf of buffered) {
+      this.grokWs.send(JSON.stringify({
+        type: 'input_audio_buffer.append',
+        audio: buf.toString('base64'),
       }));
     }
   }
@@ -438,6 +557,14 @@ ${this.personalContext}` : ''}`;
     return this.playbackState === 'playing'
       && this.playbackStartedAt !== null
       && Date.now() - this.playbackStartedAt < ConferenceTranslator.MAX_UNINTERRUPTIBLE_PLAYBACK_MS;
+  }
+
+  /** True when there's an active translation worth interrupting. */
+  private hasInterruptibleTranslation(): boolean {
+    return this.playbackState === 'playing'
+      || this.streamingApproved
+      || this.currentResponseAudio.length > 0
+      || this.currentOutputTranscript.length > 0;
   }
 
   private startPlayback(): void {
@@ -589,15 +716,24 @@ ${this.personalContext}` : ''}`;
           log.debug({ callId: this.callId }, 'speech_started ignored — playback protection active');
           break;
         }
-        // Deferred barge-in: start a 4-second timer. Only interrupt the translation
-        // if speech is sustained for ≥4 seconds. Short utterances (acknowledgements,
-        // fillers, brief replies) must not cut off the translator mid-sentence.
-        this.speechStartedAt = Date.now();
-        if (this.bargeInTimer) clearTimeout(this.bargeInTimer);
-        this.bargeInTimer = setTimeout(() => {
-          this.bargeInTimer = null;
-          this.performBargeIn();
-        }, ConferenceTranslator.BARGE_IN_THRESHOLD_MS);
+        // Deferred barge-in: only arm the timer if there's actually something
+        // to interrupt. Long-form speech with no in-flight translation is just
+        // someone holding the floor — cancelling there would drop the very
+        // audio Grok is supposed to transcribe.
+        if (this.hasInterruptibleTranslation()) {
+          this.speechStartedAt = Date.now();
+          if (this.bargeInTimer) clearTimeout(this.bargeInTimer);
+          this.bargeInTimer = setTimeout(() => {
+            this.bargeInTimer = null;
+            this.performBargeIn();
+          }, ConferenceTranslator.BARGE_IN_THRESHOLD_MS);
+        } else {
+          this.speechStartedAt = null;
+          if (this.bargeInTimer) {
+            clearTimeout(this.bargeInTimer);
+            this.bargeInTimer = null;
+          }
+        }
         const io0 = getIo();
         if (io0) {
           // Non-volatile so polling clients (forced by CF Tunnel) reliably see
@@ -610,6 +746,7 @@ ${this.personalContext}` : ''}`;
       }
 
       case 'input_audio_buffer.speech_stopped': {
+        this.turnSpeechStoppedAt = Date.now();
         // Speech ended — if it lasted less than BARGE_IN_THRESHOLD_MS, cancel the timer
         // and let the translator finish saying the current translation.
         if (this.bargeInTimer) {
@@ -645,6 +782,8 @@ ${this.personalContext}` : ''}`;
         // Grok's burst-y delta stream. The reliable buffer queue is fine for
         // these small text payloads.
         if (msg.delta) {
+          if (this.turnFirstInterimAt === null) this.turnFirstInterimAt = Date.now();
+          this.turnInterimCount++;
           this.currentOutputTranscript += msg.delta;
           this.tryApproveStreaming();
           const io3 = getIo();
@@ -659,14 +798,38 @@ ${this.personalContext}` : ''}`;
         }
         break;
 
+      case 'conversation.item.input_audio_transcription.delta':
+        // Partial input transcription (if Grok emits it — mirrors OpenAI
+        // realtime spec). Lets the UI show what's being heard live, instead
+        // of waiting for the .completed event after speech ends.
+        if (msg.delta) {
+          this.currentInputTranscript = (this.currentInputTranscript + msg.delta).trim();
+          const ioPartial = getIo();
+          if (ioPartial) {
+            ioPartial.to(`call:${this.callId}`).emit('call:transcript', {
+              call_id: this.callId, speaker: 'conference', text: this.currentInputTranscript,
+              timestamp: new Date().toISOString(), isFinal: false,
+            });
+            // Also push interim with original updated, in case translation
+            // delta hasn't arrived yet.
+            ioPartial.to(`call:${this.callId}:translate`).emit('call:translation:interim', {
+              call_id: this.callId,
+              original: this.currentInputTranscript,
+              translated: this.currentOutputTranscript,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+        break;
+
       case 'conversation.item.input_audio_transcription.completed':
         // Input speech transcribed — show original text on UI
         if (msg.transcript) {
           this.currentInputTranscript = msg.transcript.trim();
-          // Determine direction now (mirrors logic in response.done's transcript push).
-          const cyrillicRatio = (this.currentInputTranscript.match(/[\u0400-\u04FF]/g) || []).length
-            / Math.max(this.currentInputTranscript.length, 1);
-          this.currentIsMyLang = cyrillicRatio > 0.3 ? this.myLang === 'ru' : this.myLang !== 'ru';
+          // Determine direction via real language detection (tinyld) instead
+          // of script-only heuristic \u2014 works for any pair, not just ru\u2194latin.
+          const direction = this.detectInputDirection(this.currentInputTranscript);
+          this.currentIsMyLang = direction.isMyLang;
           this.currentInputDirectionKnown = true;
           this.tryApproveStreaming();
           const io2 = getIo();
@@ -684,6 +847,26 @@ ${this.personalContext}` : ''}`;
         const original = this.currentInputTranscript;
         const translated = this.currentOutputTranscript.trim();
         const wasStreamed = this.streamedAlready;
+
+        // Emit per-turn metrics. Skip greetings (original is empty) — they
+        // distort numbers (no input speech to time from).
+        if (original) {
+          const now = Date.now();
+          log.info({
+            callId: this.callId,
+            metric: 'translator_turn_metrics',
+            speech_to_first_interim_ms: this.turnSpeechStoppedAt && this.turnFirstInterimAt
+              ? this.turnFirstInterimAt - this.turnSpeechStoppedAt : null,
+            speech_to_done_ms: this.turnSpeechStoppedAt ? now - this.turnSpeechStoppedAt : null,
+            interim_count: this.turnInterimCount,
+            input_chars: original.length,
+            output_chars: translated.length,
+            streamed: wasStreamed,
+          }, 'translator_turn_metrics');
+        }
+        this.turnSpeechStoppedAt = null;
+        this.turnFirstInterimAt = null;
+        this.turnInterimCount = 0;
 
         // Greeting or system response (no input) — inject audio directly (never streamed)
         if (!original) {
@@ -757,11 +940,11 @@ ${this.personalContext}` : ''}`;
 
           this.retranslationPending = false;
 
-          // Detect direction
-          const cyrillicRatio = (original.match(/[\u0400-\u04FF]/g) || []).length / Math.max(original.length, 1);
-          const isMyLang = cyrillicRatio > 0.3 ? this.myLang === 'ru' : this.myLang !== 'ru';
+          // Detect direction (real language detection \u2014 see detectInputDirection).
+          const direction = this.detectInputDirection(original);
+          const isMyLang = direction.isMyLang;
           const speaker = isMyLang ? 'subscriber' : 'other';
-          const detectedLang = isMyLang ? this.myLang : this.targetLang;
+          const detectedLang = direction.detectedLang;
 
           this.transcript.push({
             speaker,
@@ -819,10 +1002,10 @@ ${this.personalContext}` : ''}`;
             retranslationWas: this.retranslationPending,
           }, 'Translation dropped: empty output from Grok');
 
-          const cyrillicRatio = (original.match(/[Ѐ-ӿ]/g) || []).length / Math.max(original.length, 1);
-          const isMyLang = cyrillicRatio > 0.3 ? this.myLang === 'ru' : this.myLang !== 'ru';
+          const direction = this.detectInputDirection(original);
+          const isMyLang = direction.isMyLang;
           const speaker = isMyLang ? 'subscriber' : 'other';
-          const detectedLang = isMyLang ? this.myLang : this.targetLang;
+          const detectedLang = direction.detectedLang;
 
           this.transcript.push({
             speaker,
