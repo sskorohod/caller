@@ -312,14 +312,16 @@ ${this.personalContext}` : ''}`;
             log.info({ callId: this.callId }, 'Greeting sent to Grok Voice Agent');
           }
         }, 1500);
-        // Safety net: if Grok never produces a greeting response.done within 15s,
+        // Safety net: if Grok never produces a greeting response.done within 5s,
         // unblock translation anyway so the call doesn't sit silent forever.
+        // 5s is plenty for a 1-2 sentence greeting; longer would mean Grok is
+        // broken and we should fail open rather than make the user wait.
         setTimeout(() => {
           if (!this.greetingPlayed) {
             log.warn({ callId: this.callId }, 'Greeting response timed out — enabling translation');
             this.greetingPlayed = true;
           }
-        }, 15000);
+        }, 5000);
       } else {
         // No greeting configured (or reconnect) — allow VAD/translation immediately
         this.greetingPlayed = true;
@@ -331,18 +333,24 @@ ${this.personalContext}` : ''}`;
     this.grokWs.on('message', (data: Buffer) => {
       try {
         const msg = JSON.parse(data.toString());
-        // TEMP diagnostic: log every Grok event type, plus the full payload
-        // for *.done events so we can see whether audio/transcript live
-        // inside the done events (Grok appears to have stopped streaming
-        // .delta events entirely).
-        if (msg.type?.endsWith('.done')) {
-          // Truncate any base64 audio so the log line isn't 100KB
-          const dump = JSON.stringify(msg, (k, v) =>
-            typeof v === 'string' && v.length > 200 ? `<str:${v.length}>` : v
-          ).slice(0, 2000);
-          log.info({ callId: this.callId, type: msg.type, payload: dump }, 'grok_event_done');
-        } else {
-          log.info({ callId: this.callId, type: msg.type }, 'grok_event');
+        // Only log response.done with a problem (non-completed or zero audio
+        // output) — happy path was dumping ~10 lines per turn into prod.
+        if (msg.type === 'response.done') {
+          const audioOut = msg.usage?.output_token_details?.audio_tokens;
+          if (msg.response?.status && msg.response.status !== 'completed') {
+            log.warn({
+              callId: this.callId,
+              status: msg.response.status,
+              status_details: msg.response?.status_details,
+              audio_tokens_out: audioOut,
+            }, 'Grok response.done with non-completed status');
+          } else if (audioOut === 0) {
+            log.warn({
+              callId: this.callId,
+              status_details: msg.response?.status_details,
+              transcript: msg.response?.output?.[0]?.content?.[0]?.transcript?.slice(0, 120),
+            }, 'Grok response.done with zero output audio_tokens');
+          }
         }
         this.handleGrokEvent(msg);
       } catch { /* ignore parse errors */ }
@@ -393,11 +401,30 @@ ${this.personalContext}` : ''}`;
     this.grokWs.send(JSON.stringify({ type: 'session.update', session: partial }));
   }
 
+  // Coalesce rapid-fire setting updates: dashboard sends mode/lang/tone/voice
+  // as four separate calls in <50ms, which used to fire four full session.update
+  // payloads back-to-back.
+  private pendingUpdate: { instructions?: boolean; voice?: boolean } = {};
+  private updateTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private scheduleUpdate(kind: 'instructions' | 'voice'): void {
+    this.pendingUpdate[kind] = true;
+    if (this.updateTimer) return;
+    this.updateTimer = setTimeout(() => {
+      this.updateTimer = null;
+      const partial: Record<string, unknown> = {};
+      if (this.pendingUpdate.instructions) partial.instructions = this.buildInstructions();
+      if (this.pendingUpdate.voice) partial.voice = this.ttsVoiceId;
+      this.pendingUpdate = {};
+      if (Object.keys(partial).length > 0) this.pushSessionUpdate(partial);
+    }, 50);
+  }
+
   /** Update translation mode on the fly — pushes new instructions to Grok. */
   updateMode(mode: string): void {
     this.mode = mode as any;
     log.info({ callId: this.callId, mode }, 'Translator mode updated');
-    this.pushSessionUpdate({ instructions: this.buildInstructions() });
+    this.scheduleUpdate('instructions');
   }
 
   /** Update languages on the fly — pushes new instructions to Grok. */
@@ -405,21 +432,21 @@ ${this.personalContext}` : ''}`;
     this.myLang = myLang;
     this.targetLang = targetLang;
     log.info({ callId: this.callId, myLang, targetLang }, 'Translator languages updated');
-    this.pushSessionUpdate({ instructions: this.buildInstructions() });
+    this.scheduleUpdate('instructions');
   }
 
   /** Update tone on the fly — pushes new instructions to Grok. */
   updateTone(tone: string): void {
     this.tone = tone;
     log.info({ callId: this.callId, tone }, 'Translator tone updated');
-    this.pushSessionUpdate({ instructions: this.buildInstructions() });
+    this.scheduleUpdate('instructions');
   }
 
   /** Update voice on the fly — pushes new voice id to Grok. */
   updateVoice(voice: string): void {
     this.ttsVoiceId = voice;
     log.info({ callId: this.callId, voice }, 'Translator voice updated');
-    this.pushSessionUpdate({ voice });
+    this.scheduleUpdate('voice');
   }
 
   private paused: boolean = false;
@@ -527,8 +554,11 @@ ${this.personalContext}` : ''}`;
   // Without it the caller's first ~200-500ms of speech would be silently
   // dropped on the no-greeting path, making the very first translated
   // phrase feel chopped. Cap at ~2s to bound memory.
-  private preOpenAudioBuffer: Buffer[] = [];
+  private preOpenAudioBuffer: Array<{ buf: Buffer; at: number }> = [];
   private static readonly MAX_PREOPEN_AUDIO_CHUNKS = 100;
+  // Drop chunks older than 3s on flush — if handshake stalls long enough, the
+  // audio inside the buffer is stale enough that replaying it just confuses VAD.
+  private static readonly PREOPEN_AUDIO_TTL_MS = 3000;
 
   sendAudio(audioBuffer: Buffer): void {
     if (this.paused) return;
@@ -547,7 +577,7 @@ ${this.personalContext}` : ''}`;
     } else if (this.grokWs?.readyState === WebSocket.CONNECTING) {
       // Buffer while handshake completes — flushed in flushPreOpenAudio().
       if (this.preOpenAudioBuffer.length < ConferenceTranslator.MAX_PREOPEN_AUDIO_CHUNKS) {
-        this.preOpenAudioBuffer.push(audioBuffer);
+        this.preOpenAudioBuffer.push({ buf: audioBuffer, at: Date.now() });
       }
     }
   }
@@ -558,11 +588,16 @@ ${this.personalContext}` : ''}`;
     if (this.grokWs?.readyState !== WebSocket.OPEN) return;
     const buffered = this.preOpenAudioBuffer;
     this.preOpenAudioBuffer = [];
-    log.info({ callId: this.callId, chunks: buffered.length }, 'Flushing pre-open audio buffer');
-    for (const buf of buffered) {
+    const now = Date.now();
+    const fresh = buffered.filter(b => now - b.at <= ConferenceTranslator.PREOPEN_AUDIO_TTL_MS);
+    log.info(
+      { callId: this.callId, chunks: fresh.length, dropped: buffered.length - fresh.length },
+      'Flushing pre-open audio buffer',
+    );
+    for (const b of fresh) {
       this.grokWs.send(JSON.stringify({
         type: 'input_audio_buffer.append',
-        audio: buf.toString('base64'),
+        audio: b.buf.toString('base64'),
       }));
     }
   }
