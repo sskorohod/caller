@@ -327,6 +327,11 @@ ${this.personalContext}` : ''}`;
     this.grokWs.on('message', (data: Buffer) => {
       try {
         const msg = JSON.parse(data.toString());
+        // TEMP diagnostic: log every Grok event type so we can see what's
+        // actually arriving (greeting playback returns audioBytes:0 in prod
+        // — need to know if Grok sends a different event name now or if it
+        // really sends no audio at all).
+        log.info({ callId: this.callId, type: msg.type }, 'grok_event');
         this.handleGrokEvent(msg);
       } catch { /* ignore parse errors */ }
     });
