@@ -11,6 +11,7 @@ import type { SkillPack } from './_lib/types';
 import { getCategoryForIntent, SKILL_CATEGORIES } from './_lib/constants';
 import SkillCard from './_components/SkillCard';
 import SkillFilters from './_components/SkillFilters';
+import SkillGuide from './_components/SkillGuide';
 
 export default function SkillsPage() {
   const t = useT();
@@ -29,6 +30,7 @@ export default function SkillsPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [guideOpen, setGuideOpen] = useState(false);
 
   function loadPacks() {
     setLoadError('');
@@ -116,13 +118,21 @@ export default function SkillsPage() {
             <p className="text-sm text-[var(--th-text-muted)] mt-0.5">{t('skills.subtitle')}</p>
           </div>
         </div>
-        <button onClick={() => router.push('/dashboard/skills/new')}
-          className="px-4 py-2.5 btn-primary shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          {t('skills.newPack')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setGuideOpen(true)} title="Как настроить скилл"
+            className="px-4 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] hover:text-[var(--th-text)] transition-all font-medium flex items-center gap-2"
+            aria-label="Open guide">
+            <span className="material-symbols-outlined text-lg">menu_book</span>
+            <span className="hidden lg:inline">Как настроить</span>
+          </button>
+          <button onClick={() => router.push('/dashboard/skills/new')}
+            className="px-4 py-2.5 btn-primary shadow-lg shadow-[var(--th-shadow-primary)] flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            {t('skills.newPack')}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -201,6 +211,15 @@ export default function SkillsPage() {
         label={t('skills.newPack')}
         onClick={() => router.push('/dashboard/skills/new')}
       />
+
+      {/* Mobile guide button — floats above FAB */}
+      <button onClick={() => setGuideOpen(true)} aria-label="Open guide" title="Как настроить скилл"
+        className="md:hidden fixed bottom-24 right-4 w-12 h-12 rounded-full bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] shadow-[0_4px_16px_var(--th-shadow)] flex items-center justify-center z-30 active:scale-95 transition-transform">
+        <span className="material-symbols-outlined text-xl">menu_book</span>
+      </button>
+
+      {/* Guide drawer */}
+      <SkillGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
     </div>
   );
 }

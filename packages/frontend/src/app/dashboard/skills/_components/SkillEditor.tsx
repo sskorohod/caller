@@ -13,6 +13,7 @@ import AllowedToolsEditor from './AllowedToolsEditor';
 import EscalationEditor from './EscalationEditor';
 import CompletionEditor from './CompletionEditor';
 import InterruptionEditor from './InterruptionEditor';
+import SkillGuide from './SkillGuide';
 
 // ─── Props ─────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,18 @@ export default function SkillEditor({ skillId, initialForm }: SkillEditorProps) 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showIntentSuggestions, setShowIntentSuggestions] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  // Map editor section → guide section
+  const GUIDE_SECTION_MAP: Record<SkillSection, string> = {
+    general: 'general',
+    humanLike: 'humanLike',
+    activation: 'activation',
+    dataTools: 'data',
+    escalation: 'escalation',
+    completion: 'completion',
+    json: 'rules',
+  };
 
   // JSON tab state
   const [jsonFields, setJsonFields] = useState<Record<string, string>>({});
@@ -594,6 +607,11 @@ export default function SkillEditor({ skillId, initialForm }: SkillEditorProps) 
           <span className="hidden md:inline">{t('skills.backToSkills')}</span>
         </button>
         <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setGuideOpen(true)} title="Как настроить скилл"
+            className="w-11 h-11 rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] hover:text-[var(--th-text)] transition-all flex items-center justify-center"
+            aria-label="Open guide">
+            <span className="material-symbols-outlined text-lg">help</span>
+          </button>
           <button type="button" onClick={() => router.push('/dashboard/skills')}
             className="hidden md:inline-flex px-4 py-2 text-sm rounded-xl border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] transition-all font-medium min-h-[44px] items-center">
             {t('common.cancel')}
@@ -654,6 +672,9 @@ export default function SkillEditor({ skillId, initialForm }: SkillEditorProps) 
           </div>
         </div>
       </div>
+
+      {/* Skill guide drawer */}
+      <SkillGuide open={guideOpen} onClose={() => setGuideOpen(false)} initialSection={GUIDE_SECTION_MAP[section]} />
 
       {/* Delete confirmation modal */}
       {showDeleteModal && (
