@@ -33,6 +33,14 @@ interface ConversationTurn {
  * Replaces the STT -> LLM -> TTS pipeline with a single WebSocket connection
  * when both voice_provider and llm_provider are 'xai'.
  */
+// Window for merging back-to-back caller transcripts that Grok emits as separate
+// finals. The dominant case: the first interim flips to final too early on a
+// brief hesitation ("Эм, да, я") and the rest arrives as a new final 1s later.
+const GROK_CALLER_MERGE_MS = 1500;
+// If a function call takes longer than this before resolving, play a bridging
+// phrase ("секунду, посмотрю") so the caller doesn't sit in silence.
+const GROK_TOOL_BRIDGE_MS = 800;
+
 export class GrokRealtimeOrchestrator extends EventEmitter {
   private config: GrokRealtimeConfig;
   private grokWs: WebSocket | null = null;
@@ -42,6 +50,22 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private currentAgentTranscript = '';
   private currentInstructions = '';
   private pendingHangup = false;
+  // Turn-taking metrics (same shape as CallOrchestrator)
+  private bargeInCount = 0;
+  private callerSpeechMs = 0;
+  private agentSpeechMs = 0;
+  private callerSpeechStartedAt: number | null = null;
+  private agentSpeechStartedAt: number | null = null;
+  private pauseBeforeResponseMs: number[] = [];
+  private longestSilenceMs = 0;
+  private lastSpeechAt: number | null = null;
+  private bargeInsByAgentTurn: number[] = [];
+  private mergedUtterances = 0;
+  // Capture the moment the caller finishes (final transcript) — used to
+  // compute pauseBeforeResponse when the agent's first audio delta arrives.
+  private lastCallerFinalAt: number | null = null;
+  // Tool-call bridging — fires only if function call takes longer than threshold
+  private toolBridgeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   constructor(config: GrokRealtimeConfig) {
     super();
@@ -111,6 +135,15 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
 
       case 'input_audio_buffer.speech_started':
         this.onSpeechStarted();
+        break;
+
+      case 'input_audio_buffer.speech_stopped':
+        this.onSpeechStopped();
+        break;
+
+      case 'response.function_call_arguments.delta':
+      case 'response.function_call_arguments.done':
+        this.onToolCallProgress(msg);
         break;
 
       case 'conversation.item.input_audio_transcription.completed':
@@ -295,6 +328,16 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     const delta = msg.delta as string;
     if (!delta) return;
 
+    // Track agent speech start (first delta of a response) for metrics.
+    if (this.agentSpeechStartedAt === null) {
+      const now = Date.now();
+      this.agentSpeechStartedAt = now;
+      if (this.lastCallerFinalAt !== null) {
+        this.pauseBeforeResponseMs.push(now - this.lastCallerFinalAt);
+        this.lastCallerFinalAt = null;
+      }
+    }
+
     this.sendTwilio({
       event: 'media',
       streamSid: this.config.streamSid,
@@ -307,10 +350,69 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
    */
   private onSpeechStarted(): void {
     logger.debug({ callId: this.config.call.id }, 'Caller speech started (barge-in)');
+
+    const now = Date.now();
+    if (this.callerSpeechStartedAt === null) this.callerSpeechStartedAt = now;
+    // Compute silence gap from the last speech-end of EITHER side
+    if (this.lastSpeechAt) {
+      const gap = now - this.lastSpeechAt;
+      if (gap > this.longestSilenceMs) this.longestSilenceMs = gap;
+    }
+    // Count as barge-in if agent was actively speaking
+    if (this.agentSpeechStartedAt !== null) {
+      this.bargeInCount++;
+      this.bargeInsByAgentTurn.push(this.turnCount);
+      this.agentSpeechMs += now - this.agentSpeechStartedAt;
+      this.agentSpeechStartedAt = null;
+    }
+
     this.sendTwilio({
       event: 'clear',
       streamSid: this.config.streamSid,
     });
+  }
+
+  /**
+   * Caller stopped speaking — close the speech window.
+   */
+  private onSpeechStopped(): void {
+    if (this.callerSpeechStartedAt !== null) {
+      this.callerSpeechMs += Date.now() - this.callerSpeechStartedAt;
+      this.callerSpeechStartedAt = null;
+    }
+    this.lastSpeechAt = Date.now();
+  }
+
+  /**
+   * Tool-call bridging: when Grok starts emitting function_call args, schedule
+   * a bridging phrase if execution will take >800ms. Today only end_call is
+   * registered (instant), but the framework is in place for slower tools.
+   */
+  private onToolCallProgress(msg: Record<string, unknown>): void {
+    const callId = (msg.call_id as string) || (msg.item_id as string) || 'unknown';
+    const name = (msg.name as string) || '';
+    const type = msg.type as string;
+
+    if (type === 'response.function_call_arguments.delta') {
+      // First delta — start the bridging timer if not already running.
+      if (!this.toolBridgeTimers.has(callId) && name !== 'end_call') {
+        const timer = setTimeout(() => {
+          if (this.isStopped) return;
+          // Inject a bridging utterance via Grok conversation item so the agent
+          // speaks it naturally. Avoid speaking directly to Twilio — would conflict
+          // with the in-flight response.
+          logger.debug({ callId: this.config.call.id, toolCallId: callId }, 'Tool bridge fired');
+          this.injectInstruction('Quickly say one short bridging phrase like "Секунду, посмотрю" / "One moment, let me check" while the tool runs.');
+        }, GROK_TOOL_BRIDGE_MS);
+        this.toolBridgeTimers.set(callId, timer);
+      }
+    } else if (type === 'response.function_call_arguments.done') {
+      const t = this.toolBridgeTimers.get(callId);
+      if (t) {
+        clearTimeout(t);
+        this.toolBridgeTimers.delete(callId);
+      }
+    }
   }
 
   /**
@@ -324,18 +426,35 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     if (this.pendingHangup) return;
 
     const trimmed = transcript.trim();
+    const now = Date.now();
+    this.lastCallerFinalAt = now;
+    this.lastSpeechAt = now;
 
-    // Deduplicate: merge with previous caller turn if same/similar text or very recent
+    // Deduplicate: merge with previous caller turn if same/similar text, OR if
+    // emitted within GROK_CALLER_MERGE_MS (Grok sometimes flips an interim to
+    // final too early on hesitation, then emits the rest as a second final).
     const prev = this.conversationHistory[this.conversationHistory.length - 1];
     if (prev && prev.speaker === 'caller') {
+      const prevTime = new Date(prev.timestamp).getTime();
+      const withinWindow = now - prevTime <= GROK_CALLER_MERGE_MS;
       const prevNorm = prev.text.toLowerCase().replace(/[?!.,\s]+/g, '');
       const currNorm = trimmed.toLowerCase().replace(/[?!.,\s]+/g, '');
-      // Exact duplicate or one contains the other → merge (keep longer)
-      if (prevNorm === currNorm || prevNorm.includes(currNorm) || currNorm.includes(prevNorm)) {
-        if (trimmed.length > prev.text.length) {
-          prev.text = trimmed; // Keep the longer/more complete version
-          this.emit('transcript', { speaker: 'caller', text: trimmed, timestamp: new Date().toISOString(), isFinal: true });
+      // Merge if (a) one is a substring of the other (Grok overlap pattern),
+      // or (b) they arrived within the merge window (segmentation hiccup).
+      const textOverlap = prevNorm === currNorm || prevNorm.includes(currNorm) || currNorm.includes(prevNorm);
+      if (textOverlap || withinWindow) {
+        // Stitch — keep both segments if they're distinct, prefer concatenation.
+        let merged: string;
+        if (textOverlap) {
+          merged = trimmed.length > prev.text.length ? trimmed : prev.text;
+        } else {
+          // Adjacent finals from one continuous utterance → join with a space.
+          merged = `${prev.text} ${trimmed}`.replace(/\s+/g, ' ').trim();
         }
+        prev.text = merged;
+        this.mergedUtterances++;
+        logger.debug({ callId: this.config.call.id, mergedText: merged, reason: textOverlap ? 'overlap' : 'window' }, 'Grok caller transcript merged');
+        this.emit('transcript', { speaker: 'caller', text: merged, timestamp: new Date().toISOString(), isFinal: true });
         return;
       }
     }
@@ -382,6 +501,13 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         this.currentAgentTranscript = '';
         return;
       }
+
+      // Close agent speech window for metrics
+      if (this.agentSpeechStartedAt !== null) {
+        this.agentSpeechMs += Date.now() - this.agentSpeechStartedAt;
+        this.agentSpeechStartedAt = null;
+      }
+      this.lastSpeechAt = Date.now();
 
       this.conversationHistory.push({ speaker: 'agent', text, timestamp: new Date().toISOString() });
       logger.info({ callId: this.config.call.id, text }, 'Agent response (Grok)');
@@ -465,16 +591,64 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     });
   }
 
-  stop(reason = 'normal'): void {
+  async stop(reason = 'normal'): Promise<void> {
     if (this.isStopped) return;
     this.isStopped = true;
 
     logger.info({ callId: this.config.call.id, reason }, 'Stopping Grok Realtime orchestration');
 
+    // Clean up any pending tool bridge timers
+    for (const t of this.toolBridgeTimers.values()) clearTimeout(t);
+    this.toolBridgeTimers.clear();
+
     if (this.grokWs && this.grokWs.readyState === WebSocket.OPEN) {
       this.grokWs.close();
     }
     this.grokWs = null;
+
+    // Close any open speech windows
+    if (this.agentSpeechStartedAt !== null) {
+      this.agentSpeechMs += Date.now() - this.agentSpeechStartedAt;
+      this.agentSpeechStartedAt = null;
+    }
+    if (this.callerSpeechStartedAt !== null) {
+      this.callerSpeechMs += Date.now() - this.callerSpeechStartedAt;
+      this.callerSpeechStartedAt = null;
+    }
+
+    // Compute summary metrics
+    const totalSpeechMs = this.agentSpeechMs + this.callerSpeechMs;
+    const talkListenRatio = totalSpeechMs > 0
+      ? Number((this.agentSpeechMs / totalSpeechMs).toFixed(2))
+      : null;
+    const avgPauseBeforeResponseMs = this.pauseBeforeResponseMs.length > 0
+      ? Math.round(this.pauseBeforeResponseMs.reduce((a, b) => a + b, 0) / this.pauseBeforeResponseMs.length)
+      : null;
+
+    // Persist as a call_event for post-call analytics (same shape as
+    // CallOrchestrator's turn_taking_metrics so dashboard queries work for both).
+    try {
+      const callService = await import('./call.service.js');
+      await callService.addCallEvent({
+        callId: this.config.call.id,
+        workspaceId: this.config.call.workspace_id,
+        eventType: 'turn_taking_metrics',
+        eventData: {
+          bargeInCount: this.bargeInCount,
+          talkListenRatio,
+          agentSpeechMs: this.agentSpeechMs,
+          callerSpeechMs: this.callerSpeechMs,
+          avgPauseBeforeResponseMs,
+          longestSilenceMs: this.longestSilenceMs,
+          bargeInsByAgentTurn: this.bargeInsByAgentTurn,
+          mergedUtterances: this.mergedUtterances,
+          totalTurns: this.turnCount,
+          pipeline: 'grok_realtime',
+        },
+      });
+    } catch (err) {
+      logger.warn({ err }, 'Failed to record Grok turn-taking metrics');
+    }
 
     this.emit('stopped', {
       reason,
@@ -485,6 +659,10 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       totalTtsCharacters: 0, // Grok realtime handles TTS internally
       sttAudioDurationMs: this.audioChunksDurationMs,
       avgLatencyMs: null,
+      bargeInCount: this.bargeInCount,
+      talkListenRatio,
+      avgPauseBeforeResponseMs,
+      longestSilenceMs: this.longestSilenceMs,
       // Provider info for cost calculation
       llmModel: 'grok-3-mini-fast',
       llmProvider: 'xai',

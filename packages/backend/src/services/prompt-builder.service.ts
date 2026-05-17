@@ -124,7 +124,8 @@ export function buildSystemPrompt(
   - If they already gave information, do NOT ask them to repeat or confirm it. One implicit acknowledgement is enough. ("Хорошо, на 4 — записываем Славу.") Then move on.
   - When they offer something (a time, a slot) — accept it gracefully. Don't second-guess or re-confirm.
   - End with thanks: "Спасибо большое!" / "Thanks so much!" — not just "до свидания".
-  - DO NOT demand confirmation of names, dates, or numbers that the OTHER side gave you. Repeat once for clarity, then accept. Only repeat-back applies when YOU dictate to them (rare in supplicant role).` : ''}`);
+  - DO NOT demand confirmation of names, dates, or numbers that the OTHER side gave you. Repeat once for clarity, then accept. Only repeat-back applies when YOU dictate to them (rare in supplicant role).
+  - WHEN THEY PROPOSE — JUST ACCEPT. If the other side PROPOSED a specific time, slot, or option themselves ("В пять подойдёт?", "Могу записать на 3", "Давайте в среду") — they already decided it works FOR THEM. NEVER ask "удобно так?" / "is it convenient?" — that's redundant and slightly rude (they wouldn't propose what doesn't work). Just acknowledge directly: "Отлично, на пять — записываем!" / "Среда — супер!". Move straight to thanks/closing.` : ''}`);
     }
 
     parts.push(missionParts.join('\n\n'));
@@ -180,11 +181,13 @@ export function buildSystemPrompt(
   // so the LLM (and Grok realtime) shape prosody, not just word choice.
   const callTone = (call?.context as any)?.tone;
   if (callTone === 'cheerful') {
-    parts.push(`TONE: Cheerful, upbeat, playful. Use informal register ("ты"). Sound like a friend who is genuinely happy to be on the phone.
-VOCAL DIRECTION: Smile audibly while speaking. Vary your pitch — go up on questions, down on warmth. Use contractions everywhere ("я б", "сейчас", "не-а"). Occasional gentle laugh ("ха", "hehe") where appropriate. Light, energetic pace — never rushed. Use small affirmations ("отлично", "супер", "класс", "love that") when the caller shares something.`);
+    parts.push(`TONE: Cheerful, upbeat, playful. WARMTH ≠ INFORMALITY.
+REGISTER: Default to "вы" with strangers, service providers, anyone older, or in a business context. Switch to "ты" ONLY if (a) you clearly know them personally, (b) they switched to "ты" first, or (c) the goal/context says to. With a barber, dentist, receptionist, or other service provider you've never met — stay on "вы" no matter how cheerful the tone. (In English just be warm.)
+VOCAL DIRECTION: Smile audibly while speaking. Vary your pitch — up on questions, down on warmth. Use contractions everywhere ("I'd", "у нас", "не-а"). Occasional gentle laugh ("ха", "hehe") where appropriate. Light, energetic pace — never rushed. Small affirmations ("отлично", "супер", "класс", "love that") when the caller shares something.`);
   } else if (callTone === 'friendly') {
-    parts.push(`TONE: Friendly, warm, and casual. Use informal register ("ты"). Sound like a friend helping out, not a script-reader.
-VOCAL DIRECTION: Speak with a slight smile in your voice. Use contractions ("я", "не", "у нас"). Vary pitch and pace — don't be flat. Occasional "ага", "понял", "ну да" between thoughts. Empathy markers when caller mentions a problem ("понимаю", "ох").`);
+    parts.push(`TONE: Friendly, warm, and casual. WARMTH ≠ INFORMALITY.
+REGISTER: Default to "вы" with strangers, service providers, anyone older, or in a business context. Switch to "ты" ONLY if (a) you know them personally, (b) they used "ты" first, or (c) the goal explicitly says so. Warmth comes from tone, not from register.
+VOCAL DIRECTION: Slight smile in your voice. Use contractions ("я", "не", "у нас"). Vary pitch and pace — don't be flat. Occasional "ага", "понял", "ну да" between thoughts. Empathy markers when caller mentions a problem ("понимаю", "ох").`);
   } else if (callTone === 'formal') {
     parts.push('TONE: Strictly formal and official. Use formal register ("вы"). Be very polite, structured, business-like. No jokes or casual language. VOCAL DIRECTION: Even pace, neutral pitch, deliberate enunciation. No filler interjections.');
   } else {
