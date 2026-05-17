@@ -1,11 +1,14 @@
 import { Server } from 'socket.io';
 import type { IncomingMessage, ServerResponse, Server as HttpServer } from 'node:http';
 import { jwtVerify } from 'jose';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
+import pino from 'pino';
 import { env } from '../config/env.js';
 import { db } from '../config/db.js';
-import { workspaceMembers } from '../db/schema.js';
+import { workspaceMembers, calls as callsTable } from '../db/schema.js';
 import { setIo } from './io.js';
+
+const log = pino({ name: 'socket-server' });
 
 export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, typeof ServerResponse>) {
   const io = new Server(httpServer, {
@@ -256,19 +259,47 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       socket.leave(`mission:${mission_id}`);
     });
 
-    // Live call monitoring: send operator instruction to active call
-    socket.on('call:instruction', async ({ call_id, text }: { call_id: string; text: string }) => {
-      console.log(`[Socket.IO] call:instruction received: call_id=${call_id}, text=${text?.slice(0, 50)}`);
+    // Live call monitoring: operator sends a free-text instruction to an
+    // active call. Three guards before we honor it:
+    //   1) Caller must NOT be a share-token monitor (those are read-only).
+    //   2) The call_id must belong to the connected user's workspace.
+    //   3) Text must be non-empty and capped to 2KB (anti-prompt-flood).
+    socket.on('call:instruction', async (raw: unknown) => {
+      const { call_id, text } = (raw as { call_id?: string; text?: string }) || {};
+      const userId = socket.data.userId as string | undefined;
+      const role = socket.data.role as string | undefined;
+      const wsId = socket.data.workspaceId as string | undefined;
+
+      if (!call_id || typeof call_id !== 'string') return;
+      if (!text || typeof text !== 'string' || !text.trim()) return;
+      if (role === 'monitor') {
+        log.warn({ userId, call_id }, 'call:instruction rejected — monitor role is read-only');
+        return;
+      }
+      const trimmed = text.trim().slice(0, 2000);
+
       try {
+        // Workspace isolation: verify the call belongs to this user's workspace.
+        const [callRow] = await db
+          .select({ workspace_id: callsTable.workspace_id })
+          .from(callsTable)
+          .where(and(eq(callsTable.id, call_id), eq(callsTable.workspace_id, wsId || '')))
+          .limit(1);
+        if (!callRow) {
+          log.warn({ userId, wsId, call_id }, 'call:instruction rejected — call not in this workspace');
+          return;
+        }
+
         const { getActiveOrchestrator } = await import('../routes/webhooks/media-stream.js');
         const orch = getActiveOrchestrator(call_id);
-        console.log(`[Socket.IO] Orchestrator found: ${!!orch}, hasInject: ${'injectInstruction' in (orch || {})}`);
         if (orch && 'injectInstruction' in orch) {
-          (orch as any).injectInstruction(text);
-          console.log(`[Socket.IO] Instruction injected successfully`);
+          (orch as any).injectInstruction(trimmed);
+          log.info({ userId, call_id, len: trimmed.length }, 'Operator instruction injected');
+        } else {
+          log.info({ userId, call_id, found: !!orch }, 'call:instruction — orchestrator missing or no inject method');
         }
       } catch (err) {
-        console.error(`[Socket.IO] Instruction error:`, err);
+        log.error({ err, userId, call_id }, 'call:instruction error');
       }
     });
 
