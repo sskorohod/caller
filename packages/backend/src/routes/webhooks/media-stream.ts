@@ -1245,6 +1245,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call, attachedKBs);
+    if ((call.context as any)?.briefing) {
+      logger.info({ callId, briefingLength: ((call.context as any).briefing as string).length }, 'Agent briefing applied to system prompt');
+    }
     const contextPhone = call.direction === 'outbound' ? call.to_number : call.from_number;
     const callerContext = await loadCallerContext(call.workspace_id, contextPhone, call.direction);
 

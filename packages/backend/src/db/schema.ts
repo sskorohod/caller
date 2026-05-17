@@ -541,6 +541,7 @@ export const missions = pgTable('missions', {
   target_phone: text('target_phone'),
   goal: text('goal'),
   context: jsonb('context').notNull().default({}),
+  briefing: text('briefing'),
   fallback_action: text('fallback_action').notNull().default('report'),
   call_id: uuid('call_id').references(() => calls.id),
   outcome: jsonb('outcome'),

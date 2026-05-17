@@ -289,6 +289,14 @@ EXAMPLE correct response:
           status: 'ready',
         });
         emitStatus(missionId, 'ready');
+
+        // Fire-and-forget: expand operator's dictation into a structured agent
+        // briefing in the background. By the time the operator clicks Execute,
+        // the briefing is already saved on the mission. Failures are non-fatal
+        // — the call falls back to current short-goal behavior.
+        import('./mission-briefing.expander.js')
+          .then(m => m.expandMissionBriefing(missionId, workspaceId))
+          .catch(err => logger.warn({ err, missionId }, 'Briefing expander error (non-fatal)'));
       } else if (actionJson.action === 'execute') {
         // Treat execute same as ready — show green button
         await updateMission(missionId, { status: 'ready' });
@@ -359,6 +367,7 @@ export async function executeMission(workspaceId: string, missionId: string): Pr
   const callContext = {
     ...(mission.context as any ?? {}),
     ...(originalInstructions ? { original_instructions: originalInstructions } : {}),
+    ...(mission.briefing ? { briefing: mission.briefing } : {}),
   };
 
   // Create call record

@@ -84,20 +84,29 @@ export function buildSystemPrompt(
   if (call?.goal) {
     const missionParts: string[] = [];
 
-    missionParts.push(`MISSION GOAL: ${call.goal}`);
-
-    // Original operator dictation — verbatim. The MISSION GOAL above is an
-    // AI-summarized short version; the original may carry nuance (specific
-    // branches, exact phrasing, first-person tone, jokes the operator wants
-    // told) that the summary dropped. Treat the goal as the WHAT, the original
-    // as the HOW and the SPIRIT.
+    // Briefing-expander output is the PRIMARY instruction block when present
+    // (generated from the operator's verbatim dictation right after the planner
+    // emits {action: 'ready'}). The short MISSION GOAL becomes UI-only. The
+    // original dictation stays nearby verbatim as the source of truth.
+    const briefing = (call.context as any)?.briefing as string | undefined;
     const originalInstructions = (call.context as any)?.original_instructions as string | undefined;
-    if (originalInstructions) {
-      missionParts.push(`ORIGINAL OPERATOR INSTRUCTIONS (verbatim — use for nuance, exact phrasing, and any conditional branches the short goal may have lost):\n"${originalInstructions}"`);
+
+    if (briefing) {
+      missionParts.push(`AGENT BRIEFING (PRIMARY — follow this. Generated from the operator's verbatim instructions):\n${briefing}`);
+      if (originalInstructions) {
+        missionParts.push(`ORIGINAL OPERATOR INSTRUCTIONS (source of truth — refer to this when the briefing is ambiguous):\n"${originalInstructions}"`);
+      }
+    } else {
+      // Fallback: legacy behavior when no briefing was generated (older missions,
+      // expander failure). Use the short goal + original instructions if available.
+      missionParts.push(`MISSION GOAL: ${call.goal}`);
+      if (originalInstructions) {
+        missionParts.push(`ORIGINAL OPERATOR INSTRUCTIONS (verbatim — use for nuance, exact phrasing, and any conditional branches the short goal may have lost):\n"${originalInstructions}"`);
+      }
     }
 
     if (call.context && Object.keys(call.context).length > 0) {
-      const skipKeys = ['name', 'target_name', 'contact_name', 'client_name', 'original_instructions'];
+      const skipKeys = ['name', 'target_name', 'contact_name', 'client_name', 'original_instructions', 'briefing'];
       const contextLines = Object.entries(call.context)
         .filter(([key]) => !skipKeys.includes(key))
         .map(([key, value]) => `- ${key.replace(/_/g, ' ')}: ${value}`)

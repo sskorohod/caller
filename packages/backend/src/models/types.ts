@@ -434,6 +434,7 @@ export interface Mission {
   target_phone: string | null;
   goal: string | null;
   context: Record<string, unknown>;
+  briefing: string | null;
   fallback_action: FallbackAction;
   call_id: string | null;
   outcome: Record<string, unknown> | null;
