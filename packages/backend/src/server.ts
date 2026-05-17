@@ -185,6 +185,10 @@ try {
   // Load pricing overrides from DB (cached, falls back to hardcoded)
   import('./config/pricing.js').then(m => m.loadPricingOverrides()).catch(() => {});
 
+  // Seed the platform "Sales & Persuasion" knowledge base per workspace
+  // (idempotent — only inserts missing docs). Runs in background; safe to fail.
+  import('./services/persuasion-kb.seed.js').then(m => m.seedPersuasionKnowledgeBase()).catch(() => {});
+
   // Auto-setup Telegram bot webhook + commands
   (async () => {
     try {

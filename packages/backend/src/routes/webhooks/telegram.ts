@@ -380,11 +380,16 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             await sendRecordingVoice(ws.botToken, cbChatId, ws.workspaceId, callId);
 
           } else if (cbData.startsWith('tone:')) {
-            // Tone selection: tone:neutral:missionId
+            // Tone selection: tone:neutral:missionId → save tone, then ask voice.
             const parts = cbData.split(':');
             const tone = parts[1];
             const missionId = parts[2];
-            const toneLabels: Record<string, string> = { neutral: '🔹 Обычный', formal: '💼 Официальный', friendly: '😄 Дружеский' };
+            const toneLabels: Record<string, string> = {
+              neutral: '🔹 Обычный',
+              formal: '💼 Официальный',
+              friendly: '😄 Дружеский',
+              cheerful: '🎉 Весёлый',
+            };
             await answerCallbackQuery(ws.botToken, callbackQuery.id, toneLabels[tone] || tone);
 
             // Save tone in mission context
@@ -393,12 +398,46 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             ctx.tone = tone;
             await missionService.updateMission(missionId, { context: ctx });
 
+            // Next: ask voice
+            await sendTelegramMessageWithButtons(ws.botToken, cbChatId,
+              `${toneLabels[tone] || tone} — выбран. Теперь голос:`, [
+              [
+                { text: '🎉 Eve (upbeat)', callback_data: `voice:eve:${missionId}` },
+                { text: '😊 Ara (warm)', callback_data: `voice:ara:${missionId}` },
+              ],
+              [
+                { text: '🧘 Sal (smooth)', callback_data: `voice:sal:${missionId}` },
+                { text: '💼 Rex (confident)', callback_data: `voice:rex:${missionId}` },
+              ],
+              [
+                { text: '🎯 Leo (authoritative)', callback_data: `voice:leo:${missionId}` },
+                { text: '⏭ Пропустить (по умолчанию)', callback_data: `voice:_skip_:${missionId}` },
+              ],
+            ]);
+
+          } else if (cbData.startsWith('voice:')) {
+            // Voice selection: voice:eve:missionId → save as context.voice_override, then activate.
+            const parts = cbData.split(':');
+            const voice = parts[1];
+            const missionId = parts[2];
+            const voiceLabels: Record<string, string> = {
+              eve: '🎉 Eve', ara: '😊 Ara', sal: '🧘 Sal', rex: '💼 Rex', leo: '🎯 Leo',
+              _skip_: 'голос по умолчанию',
+            };
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, voiceLabels[voice] || voice);
+
+            const mission = await missionService.getMission(ws.workspaceId, missionId);
+            const ctx = (mission.context as any) || {};
+            if (voice !== '_skip_') {
+              ctx.voice_override = voice;
+              await missionService.updateMission(missionId, { context: ctx });
+            }
+
             // Activate mission mode — ready for task description
-            // Language will be asked by the AI planner as part of the conversation
             activeMissions.set(cbChatId, { missionId, workspaceId: ws.workspaceId });
 
             await sendTelegramPlainMessage(ws.botToken, cbChatId,
-              `${toneLabels[tone] || tone} — выбран.\n\n` +
+              `Голос: ${voiceLabels[voice] || voice}.\n\n` +
               'Опишите задачу:\n' +
               '• Кому позвонить (имя, номер)\n' +
               '• Зачем\n' +

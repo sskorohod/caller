@@ -81,7 +81,10 @@ const commandHandlers: Record<string, CommandHandler> = {
         [
           { text: '🔹 Обычный', callback_data: `tone:neutral:${mission.id}` },
           { text: '💼 Официальный', callback_data: `tone:formal:${mission.id}` },
+        ],
+        [
           { text: '😄 Дружеский', callback_data: `tone:friendly:${mission.id}` },
+          { text: '🎉 Весёлый', callback_data: `tone:cheerful:${mission.id}` },
         ],
       ]);
     } catch (err) {

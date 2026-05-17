@@ -1233,6 +1233,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       agentService.listSkillPacks(call.workspace_id),
       agentService.getAgentKnowledgeBases(agentProfile.id),
     ]);
+
+    // Per-call voice override (set in Telegram /mission flow): if mission
+    // context has voice_override, swap the agent's voice_id for this call only.
+    // We mutate a SHALLOW COPY of agentProfile so other concurrent calls are
+    // unaffected.
+    const voiceOverride = (call.context as any)?.voice_override as string | undefined;
+    if (voiceOverride && agentProfile.voice_provider === 'xai') {
+      agentProfile = { ...agentProfile, voice_id: voiceOverride } as any;
+      logger.info({ callId, voiceOverride }, 'Voice override applied from mission context');
+    }
+
     const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call, attachedKBs);
     const contextPhone = call.direction === 'outbound' ? call.to_number : call.from_number;
     const callerContext = await loadCallerContext(call.workspace_id, contextPhone, call.direction);
