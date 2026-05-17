@@ -22,6 +22,7 @@ const createAgentSchema = z.object({
   stt_provider: z.enum(['deepgram', 'openai']).default('deepgram'),
   system_prompt: z.string().nullable().optional(),
   greeting_message: z.string().nullable().optional(),
+  voice_vibe: z.string().max(2000).nullable().optional(),
   business_mode: z.string().nullable().optional(),
   is_default: z.boolean().default(false),
   is_active: z.boolean().optional(),

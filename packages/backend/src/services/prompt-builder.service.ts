@@ -165,14 +165,26 @@ export function buildSystemPrompt(
   }
   parts.push('Keep responses concise — this is a phone conversation, not a chat.');
 
-  // Tone
+  // Tone — each preset combines a register choice with concrete VOCAL DIRECTION
+  // so the LLM (and Grok realtime) shape prosody, not just word choice.
   const callTone = (call?.context as any)?.tone;
-  if (callTone === 'friendly') {
-    parts.push('TONE: Friendly, warm, and casual. Use informal register ("ты"). Be cheerful, can use light humor. Sound like a friend helping out.');
+  if (callTone === 'cheerful') {
+    parts.push(`TONE: Cheerful, upbeat, playful. Use informal register ("ты"). Sound like a friend who is genuinely happy to be on the phone.
+VOCAL DIRECTION: Smile audibly while speaking. Vary your pitch — go up on questions, down on warmth. Use contractions everywhere ("я б", "сейчас", "не-а"). Occasional gentle laugh ("ха", "hehe") where appropriate. Light, energetic pace — never rushed. Use small affirmations ("отлично", "супер", "класс", "love that") when the caller shares something.`);
+  } else if (callTone === 'friendly') {
+    parts.push(`TONE: Friendly, warm, and casual. Use informal register ("ты"). Sound like a friend helping out, not a script-reader.
+VOCAL DIRECTION: Speak with a slight smile in your voice. Use contractions ("я", "не", "у нас"). Vary pitch and pace — don't be flat. Occasional "ага", "понял", "ну да" between thoughts. Empathy markers when caller mentions a problem ("понимаю", "ох").`);
   } else if (callTone === 'formal') {
-    parts.push('TONE: Strictly formal and official. Use formal register ("вы"). Be very polite, structured, business-like. No jokes or casual language.');
+    parts.push('TONE: Strictly formal and official. Use formal register ("вы"). Be very polite, structured, business-like. No jokes or casual language. VOCAL DIRECTION: Even pace, neutral pitch, deliberate enunciation. No filler interjections.');
   } else {
-    parts.push('TONE: Professional and polite. Use formal register ("вы"). Be respectful but efficient.');
+    parts.push('TONE: Professional and polite. Use formal register ("вы"). Be respectful but efficient. VOCAL DIRECTION: Steady warm pace, slight melodic variation on questions, no sing-song.');
+  }
+
+  // Per-agent custom voice direction — overrides nothing, layers on top.
+  // Users write something like "слегка игривый, тёплый, с короткими паузами
+  // перед именами, без формальностей" and it gets injected verbatim.
+  if (agentProfile.voice_vibe?.trim()) {
+    parts.push(`VOICE DIRECTION (custom for this agent): ${agentProfile.voice_vibe.trim()}`);
   }
   parts.push('Never use markdown, bullet points, or formatting. Speak naturally.');
   parts.push(`CALL ENDING RULES:

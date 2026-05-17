@@ -14,6 +14,7 @@ export interface AgentDetail {
   llm_temperature: number | null;
   system_prompt: string | null;
   greeting_message: string | null;
+  voice_vibe: string | null;
   business_mode: string | null;
   memory_enabled: boolean;
   is_default: boolean;
@@ -64,6 +65,7 @@ export interface FormState {
   llm_temperature: number;
   system_prompt: string;
   greeting_message: string;
+  voice_vibe: string;
   business_mode: string;
   memory_enabled: boolean;
   is_default: boolean;
@@ -207,6 +209,7 @@ export const INITIAL_FORM: FormState = {
   llm_temperature: 0.7,
   system_prompt: '',
   greeting_message: '',
+  voice_vibe: '',
   business_mode: '',
   memory_enabled: false,
   is_default: false,

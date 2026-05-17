@@ -128,6 +128,7 @@ export const agentProfiles = pgTable('agent_profiles', {
   stt_provider: text('stt_provider').notNull().default('deepgram'),
   system_prompt: text('system_prompt'),
   greeting_message: text('greeting_message'),
+  voice_vibe: text('voice_vibe'),
   escalation_rules: jsonb('escalation_rules').notNull().default([]),
   tool_policies: jsonb('tool_policies').notNull().default({}),
   supported_goals: text('supported_goals').array().notNull().default(sql`'{}'`),

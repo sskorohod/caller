@@ -133,6 +133,7 @@ export interface AgentProfile {
   stt_provider: SttProvider;
   system_prompt: string | null;
   greeting_message: string | null;
+  voice_vibe: string | null;
   escalation_rules: unknown[];
   tool_policies: Record<string, unknown>;
   supported_goals: string[];

@@ -94,6 +94,7 @@ export default function AgentEditPage() {
           llm_temperature: agent.llm_temperature ?? 0.7,
           system_prompt: agent.system_prompt || '',
           greeting_message: agent.greeting_message || '',
+          voice_vibe: agent.voice_vibe || '',
           business_mode: agent.business_mode || '',
           memory_enabled: agent.memory_enabled ?? false,
           is_default: agent.is_default ?? false,
@@ -142,6 +143,7 @@ export default function AgentEditPage() {
         llm_temperature: form.llm_temperature,
         system_prompt: form.system_prompt || null,
         greeting_message: form.greeting_message || null,
+        voice_vibe: form.voice_vibe || null,
         business_mode: form.business_mode || null,
         memory_enabled: form.memory_enabled,
         is_default: form.is_default,
@@ -455,6 +457,48 @@ export default function AgentEditPage() {
                 {v.label}
               </button>
             ))}
+          </div>
+          {form.voice_provider === 'xai' && (
+            <div className="mt-2 text-[11px] text-[var(--th-text-muted)] leading-relaxed">
+              <span className="font-semibold">xAI voices:</span>{' '}
+              <b>Eve</b> — energetic/upbeat, <b>Ara</b> — warm/friendly, <b>Sal</b> — smooth/balanced, <b>Rex</b> — confident/clear, <b>Leo</b> — authoritative.
+              Для дружелюбного/весёлого тона выбирай <b>Eve</b> или <b>Ara</b>.
+            </div>
+          )}
+        </div>
+
+        {/* Voice vibe — custom vocal direction */}
+        <div>
+          <label className="block text-sm font-semibold text-[var(--th-text)] mb-2">Voice vibe (опц.)</label>
+          <textarea
+            value={form.voice_vibe}
+            onChange={e => set('voice_vibe', e.target.value)}
+            rows={3}
+            maxLength={2000}
+            placeholder='Например: "тёплый, слегка игривый, с улыбкой в голосе, без формальностей, короткие паузы перед именами"'
+            className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all"
+          />
+          <p className="text-[11px] text-[var(--th-text-muted)] mt-1.5 leading-relaxed">
+            Свободным текстом опиши характер голоса. Идёт в system prompt как <code>VOICE DIRECTION</code> поверх tone-пресета миссии.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {[
+              { label: '😊 Дружелюбный', value: 'Тёплый, с улыбкой в голосе. Использует «ты», лёгкие междометия («ага», «ну да»). Короткие паузы перед именами. Без формальностей.' },
+              { label: '🎉 Весёлый', value: 'Энергичный, играющий голосом. Поднимает интонацию в важных местах. Иногда лёгкий смешок («ха», «хех»). Короткие восторженные подтверждения («супер», «класс»). Никакой монотонности.' },
+              { label: '🧘 Спокойный', value: 'Низкий, размеренный, тёплый. Длинные паузы между фразами. Никакой спешки. Голос будто бы улыбается, но мягко, без всплесков.' },
+              { label: '👔 Деловой', value: 'Чёткая дикция, ровный темп, нейтральная высота. Никаких междометий и юмора. Уважительно и по делу.' },
+            ].map(p => (
+              <button key={p.label} type="button" onClick={() => set('voice_vibe', p.value)}
+                className="px-2.5 py-1 text-[11px] rounded-full border border-[var(--th-card-border-subtle)] text-[var(--th-text-secondary)] hover:bg-[var(--th-surface)] hover:border-[var(--th-primary)] transition-all">
+                {p.label}
+              </button>
+            ))}
+            {form.voice_vibe && (
+              <button type="button" onClick={() => set('voice_vibe', '')}
+                className="px-2.5 py-1 text-[11px] rounded-full text-[var(--th-error-text)] hover:bg-[var(--th-error-bg)] transition-all">
+                ✕ очистить
+              </button>
+            )}
           </div>
         </div>
       </div>
