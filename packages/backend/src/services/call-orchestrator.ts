@@ -9,9 +9,11 @@ import * as callService from './call.service.js';
 
 const logger = pino({ name: 'call-orchestrator' });
 
-import { FILLER_PHRASES } from '../config/languages.js';
+import { FILLER_PHRASES, pickBridgingPhrase } from '../config/languages.js';
 
 const FILLER_TIMEOUT_MS = 1500;
+const BRIDGING_TIMEOUT_MS = 800;
+const FAREWELL_PATTERN = /\b(пока|до свидания|goodbye|bye|bye-bye|всего доброго|до встречи|see you|take care)\b/i;
 
 export interface CallOrchestratorConfig {
   call: Call;
@@ -25,6 +27,7 @@ export interface CallOrchestratorConfig {
   systemPrompt: string;
   callerContext?: string; // memory/knowledge context
   knowledgeSearch?: (query: string) => Promise<Array<{ chunk_text: string; similarity: number; document_title: string }>>;
+  bridgingPhrases?: string[]; // optional override from skill_packs.bridging_phrases
 }
 
 interface ConversationTurn {
@@ -223,10 +226,28 @@ export class CallOrchestrator extends EventEmitter {
     // Start filler timer
     this.startFillerTimer();
 
-    // RAG: search knowledge bases for relevant context
+    // RAG: search knowledge bases for relevant context. If the search takes
+    // longer than BRIDGING_TIMEOUT_MS, play a bridging phrase ("секунду, посмотрю")
+    // to fill the silence instead of letting the caller hear dead air.
     if (this.config.knowledgeSearch) {
+      let bridgingFired = false;
+      const bridgingTimer = setTimeout(() => {
+        if (this.isStopped || this.isAgentSpeaking) return;
+        bridgingFired = true;
+        const lang = this.config.language === 'ru' ? 'ru' : 'en';
+        const phrase = pickBridgingPhrase(lang, this.config.bridgingPhrases);
+        this.speakText(phrase);
+        callService.addCallEvent({
+          callId: this.config.call.id,
+          workspaceId: this.config.call.workspace_id,
+          eventType: 'bridging_played',
+          eventData: { phrase, reason: 'rag_search' },
+        }).catch(() => { /* non-critical */ });
+      }, BRIDGING_TIMEOUT_MS);
+
       try {
         const results = await this.config.knowledgeSearch(text);
+        clearTimeout(bridgingTimer);
         if (results.length > 0) {
           const ragContext = results
             .filter(r => r.similarity > 0.3)
@@ -240,7 +261,12 @@ export class CallOrchestrator extends EventEmitter {
           }
         }
       } catch (err) {
+        clearTimeout(bridgingTimer);
         logger.warn({ err }, 'RAG search failed, continuing without knowledge');
+      }
+      if (bridgingFired) {
+        // Mark that we already spoke; LLM response will follow on top of it.
+        logger.debug({ callId: this.config.call.id }, 'Bridging phrase played during RAG');
       }
     }
 
@@ -295,6 +321,13 @@ export class CallOrchestrator extends EventEmitter {
           if (sentenceEnd && sentenceBuffer.length > 20) {
             const sentence = sentenceBuffer.trim();
             sentenceBuffer = '';
+            // Farewell dedup: if we already said goodbye this call, suppress any
+            // further sentence chunk that contains a farewell. Prevents the
+            // classic "До свидания. До свидания." artifact.
+            if (this.farewellSent && FAREWELL_PATTERN.test(sentence)) {
+              logger.debug({ callId: this.config.call.id, sentence }, 'Suppressed duplicate farewell chunk');
+              return;
+            }
             if (!firstChunkSent) {
               firstChunkSent = true;
               this.isAgentSpeaking = true;
@@ -341,8 +374,7 @@ export class CallOrchestrator extends EventEmitter {
 
           // Detect end-of-call: explicit [END_CALL] marker OR farewell heuristics
           const hasEndMarker = fullResponse.includes('[END_CALL]');
-          const farewellPattern = /\b(пока|до свидания|goodbye|bye|bye-bye|всего доброго|до встречи|see you|take care)\b/i;
-          const hasFarewell = farewellPattern.test(fullResponse);
+          const hasFarewell = FAREWELL_PATTERN.test(fullResponse);
 
           if (hasEndMarker || (hasFarewell && !this.farewellSent)) {
             this.farewellSent = true;
@@ -351,6 +383,7 @@ export class CallOrchestrator extends EventEmitter {
           } else if (hasFarewell && this.farewellSent) {
             // Agent said goodbye AGAIN — stop immediately, don't speak it
             logger.warn({ callId: this.config.call.id }, 'Agent repeated farewell, stopping immediately');
+            this.clearFillerTimer();
             this.stop('agent_repeated_farewell');
           }
 

@@ -48,6 +48,12 @@ export function startPostCallWorker(): Worker {
         .map(t => `${t.speaker}: ${t.text}`)
         .join('\n');
 
+      // Load mission goal (if this call was for a mission) — used by the
+      // analytics LLM to classify goal_achieved.
+      const [callRow] = await db.select({ goal: calls.goal, direction: calls.direction })
+        .from(calls).where(eq(calls.id, callId)).limit(1);
+      const missionGoal = callRow?.goal || null;
+
       try {
         // Get LLM provider — try anthropic first, fall back to xai, then openai
         let llm;
@@ -80,8 +86,15 @@ export function startPostCallWorker(): Worker {
 4. Sentiment (positive/neutral/negative)
 5. Key facts about the caller that should be remembered
 6. QA evaluation: score 0-10 and criteria breakdown
+7. Goal achievement: if a MISSION GOAL was provided, judge whether the agent achieved it during the call.
+   - "yes" — goal clearly accomplished and the OTHER party agreed.
+   - "partial" — partial progress (e.g. agreed to think, agreed to a different time, agreed in principle but no concrete commitment).
+   - "no" — goal not accomplished.
+   - "n/a" — no mission goal was provided.
+8. Goal evidence: short quote (≤120 chars) from the transcript that supports your goal_achieved verdict, or null.
+9. Closed-loop confirmed: true ONLY if the agent restated the result and the OTHER party gave an explicit affirmative ("да", "yes", "конечно", "sure", "точно", "ага, записывайте", etc.) in the LAST 4 turns. Silence, "ok", "угу", "посмотрим", "я подумаю" do NOT count.
 
-IMPORTANT: Write ALL output (short_title, summary, action_items, extracted_facts, quality_flags, qa_criteria comments) in ${summaryLang}.
+IMPORTANT: Write ALL output (short_title, summary, action_items, extracted_facts, quality_flags, qa_criteria comments, goal_evidence) in ${summaryLang}.
 CRITICAL: Do NOT localize or adapt proper nouns, brand names, institutions, or cultural references. Keep them exactly as mentioned in the conversation. For example: DMV stays DMV (not ГИБДД), Costco stays Costco, etc. Write in ${summaryLang} but preserve original terminology.
 
 Respond in JSON format:
@@ -98,12 +111,17 @@ Respond in JSON format:
     {"name": "problem_resolution", "score": 8, "max": 10, "comment": "..."},
     {"name": "professionalism", "score": 9, "max": 10, "comment": "..."},
     {"name": "closing", "score": 8, "max": 10, "comment": "..."}
-  ]
+  ],
+  "goal_achieved": "yes|no|partial|n/a",
+  "goal_evidence": "short quote from transcript or null",
+  "closed_loop_confirmed": true
 }`,
           },
           {
             role: 'user',
-            content: `Transcript:\n${transcriptText}`,
+            content: missionGoal
+              ? `MISSION GOAL: ${missionGoal}\n\nTranscript:\n${transcriptText}`
+              : `Transcript:\n${transcriptText}`,
           },
         ];
 
@@ -267,12 +285,21 @@ Respond in JSON format:
             // Don't flip status back to 'completed' or wipe failure_reason.
             const prevOutcome = (mission.outcome as Record<string, unknown> | null) ?? {};
             const isAlreadyFailed = mission.status === 'failed' || !!(prevOutcome as any).failure_reason;
+            const goalAchieved = ['yes', 'no', 'partial', 'n/a'].includes(result.goal_achieved)
+              ? result.goal_achieved
+              : 'n/a';
+            const closedLoop = typeof result.closed_loop_confirmed === 'boolean'
+              ? result.closed_loop_confirmed
+              : false;
             const mergedOutcome = {
               ...prevOutcome,
               summary: result.summary,
               action_items: result.action_items,
               sentiment: result.sentiment,
               qa_score: qaScore,
+              goal_achieved: goalAchieved,
+              goal_evidence: result.goal_evidence ?? null,
+              closed_loop_confirmed: closedLoop,
             };
             await db.update(missions).set({
               status: isAlreadyFailed ? 'failed' : 'completed',
@@ -337,6 +364,18 @@ Respond in JSON format:
                 }
                 if (qaScore != null) {
                   lines.push('', `⭐ Оценка: ${qaScore}/10`);
+                }
+                if (goalAchieved !== 'n/a') {
+                  const goalLabel = goalAchieved === 'yes' ? '✅ достигнута'
+                    : goalAchieved === 'partial' ? '🟡 частично'
+                    : '❌ не достигнута';
+                  lines.push('', `🎯 Цель: ${goalLabel}`);
+                  if (!closedLoop && goalAchieved !== 'no') {
+                    lines.push(`⚠️ Клиент не подтвердил явно`);
+                  }
+                  if (result.goal_evidence) {
+                    lines.push(`<i>«${String(result.goal_evidence).slice(0, 140)}»</i>`);
+                  }
                 }
 
                 await sendTelegramPlainMessage(creds.bot_token, creds.chat_id, lines.join('\n'));

@@ -1294,6 +1294,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
             call.workspace_id, agentProfile.id, query, 3,
           )
         : undefined,
+      // Pick the first attached skill that defines bridging_phrases; the
+      // orchestrator falls back to BRIDGING_PHRASES from config/languages.ts
+      // if this is empty/undefined.
+      bridgingPhrases: (() => {
+        for (const s of attachedSkills as any[]) {
+          if (Array.isArray(s.bridging_phrases) && s.bridging_phrases.length) {
+            return s.bridging_phrases as string[];
+          }
+        }
+        return undefined;
+      })(),
     });
 
     wireOrchestratorEvents(orchestrator, call, callId);

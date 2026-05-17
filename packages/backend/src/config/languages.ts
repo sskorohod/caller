@@ -35,3 +35,18 @@ export const FILLER_PHRASES: Record<string, string[]> = {
   en: ['One moment...', 'Let me check...', 'Just a second...'],
   ru: ['Одну секунду...', 'Сейчас проверю...', 'Минуточку...'],
 };
+
+/**
+ * Bridging phrases — said BEFORE a slow lookup/RAG/tool call to fill the silence
+ * while the agent thinks. Distinct from FILLER_PHRASES (which fire when the agent
+ * is unexpectedly slow). Used by the call orchestrator's RAG bridging timer.
+ */
+export const BRIDGING_PHRASES: Record<string, string[]> = {
+  en: ['One moment, let me check', 'Let me pull that up', 'Just a second, looking that up'],
+  ru: ['Секунду, посмотрю', 'Минутку, сейчас уточню', 'Подождите немного, проверю'],
+};
+
+export function pickBridgingPhrase(lang: string, customPhrases?: string[]): string {
+  const pool = customPhrases?.length ? customPhrases : (BRIDGING_PHRASES[lang] || BRIDGING_PHRASES.en);
+  return pool[Math.floor(Math.random() * pool.length)];
+}

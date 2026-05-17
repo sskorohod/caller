@@ -249,6 +249,32 @@ export default function MissionsPage() {
                     {m.outcome && (m.outcome as any).summary && (
                       <p className="text-xs text-[var(--th-text-secondary)] mt-2 line-clamp-1">{(m.outcome as any).summary}</p>
                     )}
+                    {(() => {
+                      const o = m.outcome as any;
+                      const goal: string | undefined = o?.goal_achieved;
+                      if (!goal || goal === 'n/a') return null;
+                      const map: Record<string, { bg: string; fg: string; label: string; icon: string }> = {
+                        yes:     { bg: 'rgba(16,185,129,0.12)',  fg: 'var(--th-success-text)', label: 'Цель достигнута',  icon: '✅' },
+                        partial: { bg: 'rgba(245,158,11,0.12)',  fg: '#d97706',                label: 'Частично',         icon: '🟡' },
+                        no:      { bg: 'rgba(239,68,68,0.12)',   fg: 'var(--th-error-text)',   label: 'Не достигнута',    icon: '❌' },
+                      };
+                      const cfg = map[goal] ?? map.no;
+                      const needsWarn = o?.closed_loop_confirmed === false && goal !== 'no';
+                      return (
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                            style={{ backgroundColor: cfg.bg, color: cfg.fg }}>
+                            <span>{cfg.icon}</span>{cfg.label}
+                          </span>
+                          {needsWarn && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-600"
+                              title="Клиент не подтвердил явно — возможно, цель оформлена без согласия">
+                              ⚠ нет подтверждения
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {isLive ? (
                     <span className="flex items-center gap-1.5 text-[10px] font-semibold text-[var(--th-success-text)] shrink-0">
