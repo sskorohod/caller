@@ -268,7 +268,18 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         tools: [{
           type: 'function',
           name: 'end_call',
-          description: 'End the phone call. Use this when: the caller says goodbye, the conversation is clearly over, or the operator instructs to end the call.',
+          description: `End the phone call. ONLY use when ONE of the following is clearly true:
+(a) The caller has explicitly said goodbye — "пока", "до свидания", "удачи", "bye", "see you", "всё, пока". NOT mere politeness like "спасибо".
+(b) The goal is FULLY achieved AND explicitly confirmed by both sides.
+
+NEVER use end_call when:
+- The caller is thinking, hesitating, or asked for time ("дайте подумать", "подождите", "секунду", "минутку", "сейчас уточню", "let me think", "hold on", "give me a sec", "one moment").
+- The caller just proposed a time, price, or option ("в 6:30", "tomorrow at 10", "$50", "могу в...") and you have not yet acknowledged it back. Confirm first, THEN consider ending.
+- The caller asked you a question you have not answered.
+- The conversation is mid-flow and the goal has not been mutually agreed upon.
+- You are uncertain about whether to end. When unsure — DO NOT end. Continue the conversation.
+
+If the operator/system instructs you to end — politely wrap up and call end_call.`,
           parameters: { type: 'object', properties: { reason: { type: 'string', description: 'Brief reason for ending' } } },
         }],
       },
@@ -606,6 +617,46 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     const callId = item.call_id as string;
 
     if (functionName === 'end_call') {
+      // GUARD: before honoring end_call, inspect the last caller utterance for
+      // signals that the call is NOT actually ready to end. Common failures:
+      // 1) Caller said "дайте подумать / подождите / секундочку" — they want time.
+      // 2) Caller proposed a counter-offer (time / price / option) we haven't
+      //    confirmed yet — agent jumped to ending instead of acknowledging.
+      // In those cases, refuse the function call and tell Grok to continue
+      // the conversation instead.
+      const lastCaller = [...this.conversationHistory].reverse().find(t => t.speaker === 'caller');
+      const lastAgent = [...this.conversationHistory].reverse().find(t => t.speaker === 'agent');
+      if (lastCaller) {
+        const callerText = lastCaller.text.toLowerCase();
+        const isWaitSignal = /(дайте\s*подумать|подождите|секунд|секундоч|минутк|сейчас\s*(уточн|гляну|посмотр|проверю)|let me think|hold on|one moment|give me a sec|let me check)/.test(callerText);
+
+        // Numeric proposal — has a time/price/number that wasn't yet echoed by agent
+        const numMatch = callerText.match(/\b(\d{1,2}[:.]\d{2}|\d{1,2}\s*(?:часов|час|часу|утра|дня|вечера|ночи|pm|am)?)\b/);
+        const proposalUnconfirmed = numMatch && !(lastAgent?.text.toLowerCase().includes(numMatch[1]) ?? false);
+
+        // Caller explicit farewell still wins — only refuse end_call when NO farewell signal
+        const isExplicitFarewell = /(пока|до\s*свидан|до\s*встреч|всего\s*добр|удачи|\bbye\b|see you|take care|good night)/.test(callerText);
+
+        if (!isExplicitFarewell && (isWaitSignal || proposalUnconfirmed)) {
+          const reason = isWaitSignal
+            ? `The caller is thinking or asked to wait ("${lastCaller.text}"). Do NOT end the call. Respond with a brief 2-3 word acknowledgment ("Конечно, жду." / "Без проблем."), then stay silent and wait for them to continue.`
+            : `The caller just proposed "${numMatch?.[1]}" but you have not acknowledged it yet ("${lastCaller.text}"). Do NOT end the call. Acknowledge their offer and either confirm it ("Отлично, тогда на ${numMatch?.[1]} записываем!") or briefly clarify if needed.`;
+
+          logger.warn({ callId: this.config.call.id, callerText, isWaitSignal, proposalUnconfirmed }, 'end_call refused by orchestrator guard');
+
+          this.sendGrok({
+            type: 'conversation.item.create',
+            item: {
+              type: 'function_call_output',
+              call_id: callId,
+              output: JSON.stringify({ status: 'refused', reason }),
+            },
+          });
+          this.sendGrok({ type: 'response.create' });
+          return; // don't trigger hangup
+        }
+      }
+
       logger.info({ callId: this.config.call.id }, 'Grok called end_call — waiting for goodbye to finish');
 
       // Send function result back — tell Grok to say goodbye first
