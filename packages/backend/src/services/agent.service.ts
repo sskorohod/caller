@@ -31,6 +31,24 @@ export async function createAgentProfile(
     .returning();
 
   if (!created) throw new Error('Failed to create agent profile');
+
+  // Auto-attach the workspace's Human-Like Conversation skill so the new agent
+  // gets human-like conversation discipline by default. Silent no-op if the
+  // workspace doesn't have the skill yet (older workspaces pre-migration 00028).
+  try {
+    const [humanLike] = await db.select({ id: skillPacks.id }).from(skillPacks)
+      .where(and(
+        eq(skillPacks.workspace_id, workspaceId),
+        eq(skillPacks.intent, 'human_like_conversation'),
+      ))
+      .limit(1);
+    if (humanLike) {
+      await db.insert(agentSkillPacks)
+        .values({ agent_profile_id: created.id, skill_pack_id: humanLike.id, priority: 0 })
+        .onConflictDoNothing();
+    }
+  } catch { /* non-critical; agent creation must not fail because of this */ }
+
   return created as unknown as AgentProfile;
 }
 
