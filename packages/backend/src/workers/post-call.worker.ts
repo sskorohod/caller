@@ -87,9 +87,13 @@ export function startPostCallWorker(): Worker {
 5. Key facts about the caller that should be remembered
 6. QA evaluation: score 0-10 and criteria breakdown
 7. Goal achievement: if a MISSION GOAL was provided, judge whether the agent achieved it during the call.
-   - "yes" — goal clearly accomplished and the OTHER party agreed.
-   - "partial" — partial progress (e.g. agreed to think, agreed to a different time, agreed in principle but no concrete commitment).
-   - "no" — goal not accomplished.
+   - "yes" — goal clearly accomplished and the OTHER party agreed. Interpret CONSTRAINTS LITERALLY:
+     * "after X" / "после X" — ANY time satisfying the constraint counts as yes (5pm satisfies "after 4pm").
+     * "before X" / "до X" — ANY time before X counts as yes.
+     * "if there's time, book; if not, say will inform" — both branches count as yes when fully executed.
+     * Range "between X and Y" — anything inside is yes.
+   - "partial" — goal had MULTIPLE objectives and only some were met (e.g. asked to book AND collect email, only got booking). Or progress was made but no commitment ("я подумаю", "пришлите на email").
+   - "no" — goal not accomplished. Customer refused, hung up, or agreed to nothing concrete.
    - "n/a" — no mission goal was provided.
 8. Goal evidence: short quote (≤120 chars) from the transcript that supports your goal_achieved verdict, or null.
 9. Closed-loop confirmed: true ONLY if the agent restated the result and the OTHER party gave an explicit affirmative ("да", "yes", "конечно", "sure", "точно", "ага, записывайте", etc.) in the LAST 4 turns. Silence, "ok", "угу", "посмотрим", "я подумаю" do NOT count.

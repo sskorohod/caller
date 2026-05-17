@@ -14,6 +14,9 @@ import { FILLER_PHRASES, pickBridgingPhrase } from '../config/languages.js';
 const FILLER_TIMEOUT_MS = 1500;
 const BRIDGING_TIMEOUT_MS = 800;
 const FAREWELL_PATTERN = /\b(пока|до свидания|goodbye|bye|bye-bye|всего доброго|до встречи|see you|take care)\b/i;
+// Window for merging back-to-back final transcripts from the same speaker —
+// avoids treating a single utterance segmented by Deepgram as two turns.
+const STT_MERGE_WINDOW_MS = 500;
 
 export interface CallOrchestratorConfig {
   call: Call;
@@ -62,6 +65,15 @@ export class CallOrchestrator extends EventEmitter {
   private callerTurnStartedAt: number | null = null;
   private agentTurnStartedAt: number | null = null;
   private pauseBeforeResponseMs: number[] = [];
+  // Deeper turn metrics
+  private longestSilenceMs = 0;
+  private lastSpeechAt: number | null = null;
+  private bargeInsByAgentTurn: number[] = []; // which agent turn (1-indexed) got barged
+  private mergedUtterances = 0;
+  // STT debounce: collapse multiple utterance_end events that fire within
+  // STT_MERGE_WINDOW_MS — Deepgram occasionally splits one continuous reply
+  // into two finals when interim segmentation flips.
+  private utteranceFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: CallOrchestratorConfig) {
     super();
@@ -127,16 +139,37 @@ export class CallOrchestrator extends EventEmitter {
         this.callerSpeechMs += Date.now() - this.callerTurnStartedAt;
         this.callerTurnStartedAt = null;
       }
-      if (this.currentCallerUtterance.trim()) {
-        this.handleCallerUtterance(this.currentCallerUtterance.trim());
-        this.currentCallerUtterance = '';
+      if (!this.currentCallerUtterance.trim()) return;
+
+      // Track silence gap from previous speech.
+      const now = Date.now();
+      if (this.lastSpeechAt) {
+        const gap = now - this.lastSpeechAt;
+        if (gap > this.longestSilenceMs) this.longestSilenceMs = gap;
       }
+      this.lastSpeechAt = now;
+
+      // STT debounce: wait STT_MERGE_WINDOW_MS before processing. If another
+      // final arrives in that window, append and keep waiting. Otherwise fire.
+      if (this.utteranceFlushTimer) {
+        clearTimeout(this.utteranceFlushTimer);
+        this.mergedUtterances++;
+        logger.debug({ callId: this.config.call.id, text: this.currentCallerUtterance }, 'STT debounce: merging adjacent utterance');
+      }
+      this.utteranceFlushTimer = setTimeout(() => {
+        this.utteranceFlushTimer = null;
+        const merged = this.currentCallerUtterance.trim();
+        if (!merged) return;
+        this.currentCallerUtterance = '';
+        this.handleCallerUtterance(merged);
+      }, STT_MERGE_WINDOW_MS);
     });
 
     stt.on('speech_started', () => {
       if (this.callerTurnStartedAt === null) this.callerTurnStartedAt = Date.now();
       if (this.isAgentSpeaking) {
         this.bargeInCount++;
+        this.bargeInsByAgentTurn.push(this.turnCount);
         this.handleInterruption();
       }
     });
@@ -452,6 +485,10 @@ export class CallOrchestrator extends EventEmitter {
     if (this.isStopped) return;
     this.isStopped = true;
     this.clearFillerTimer();
+    if (this.utteranceFlushTimer) {
+      clearTimeout(this.utteranceFlushTimer);
+      this.utteranceFlushTimer = null;
+    }
 
     logger.info({ callId: this.config.call.id, reason }, 'Stopping call orchestration');
 
@@ -494,6 +531,10 @@ export class CallOrchestrator extends EventEmitter {
           agentSpeechMs: this.agentSpeechMs,
           callerSpeechMs: this.callerSpeechMs,
           avgPauseBeforeResponseMs,
+          longestSilenceMs: this.longestSilenceMs,
+          bargeInsByAgentTurn: this.bargeInsByAgentTurn,
+          mergedUtterances: this.mergedUtterances,
+          totalTurns: this.turnCount,
         },
       });
     } catch (err) {
