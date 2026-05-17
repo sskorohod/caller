@@ -210,18 +210,11 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       ? '\n\nIMPORTANT: Detect the language the caller is speaking and respond in the same language. Switch languages mid-conversation if the caller switches.'
       : `\n\nIMPORTANT: Always respond in ${langMap[lang] || 'English'}. ALL your speech MUST be in ${langMap[lang] || 'English'} — never switch to another language.`;
 
-    // Add current date/time in workspace timezone
-    const tz = this.config.timezone || 'America/Los_Angeles';
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz,
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: true,
-    });
-    const currentTime = formatter.format(now);
-
+    // CURRENT DATE & TIME is already baked into systemPrompt at the top by
+    // buildSystemPrompt() in prompt-builder.service.ts — no need to repeat it
+    // here. systemPrompt is built with the workspace timezone so the agent
+    // already knows the date/time/day-of-week at call start.
     let instructions = this.config.systemPrompt + langInstruction;
-    instructions += `\n\nCURRENT DATE/TIME: ${currentTime} (${tz})`;
 
     if (this.config.callerContext) {
       const contextLabel = this.config.call.direction === 'outbound'

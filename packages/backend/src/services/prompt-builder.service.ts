@@ -49,8 +49,26 @@ export function buildSystemPrompt(
   allSkills: any[] = [],
   call?: any,
   attachedKBs: any[] = [],
+  timezone: string = 'America/Los_Angeles',
 ): string {
   const parts: string[] = [];
+
+  // CURRENT DATE & TIME (first thing in the prompt) — so the agent always
+  // knows what "today / tomorrow / в пятницу / next week / после 4" means
+  // when scheduling. Always uses the workspace timezone.
+  try {
+    const now = new Date();
+    const dateFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+    const timeFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+    const cityFromTz = timezone.split('/').pop()?.replace(/_/g, ' ') || timezone;
+    parts.push(`CURRENT DATE & TIME: ${dateFmt.format(now)}, ${timeFmt.format(now)} (${cityFromTz} time, ${timezone}).\nUse this when scheduling — "today/сегодня" = this exact date, "tomorrow/завтра" = the next day, "next Monday/в следующий понедельник" = the next occurrence of that weekday. Never invent dates.`);
+  } catch { /* timezone parse error — skip block rather than crash */ }
 
   // Identity block
   if (call?.direction === 'outbound') {

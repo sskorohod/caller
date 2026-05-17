@@ -1244,16 +1244,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       logger.info({ callId, voiceOverride }, 'Voice override applied from mission context');
     }
 
-    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call, attachedKBs);
+    // Load workspace timezone BEFORE building the system prompt so the
+    // CURRENT DATE & TIME block can be stamped with the right zone.
+    const workspace = await workspaceService.getWorkspace(call.workspace_id);
+    const timezone = workspace?.timezone || 'America/Los_Angeles';
+
+    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call, attachedKBs, timezone);
     if ((call.context as any)?.briefing) {
       logger.info({ callId, briefingLength: ((call.context as any).briefing as string).length }, 'Agent briefing applied to system prompt');
     }
     const contextPhone = call.direction === 'outbound' ? call.to_number : call.from_number;
     const callerContext = await loadCallerContext(call.workspace_id, contextPhone, call.direction);
-
-    // Load workspace timezone
-    const workspace = await workspaceService.getWorkspace(call.workspace_id);
-    const timezone = workspace?.timezone || 'America/Los_Angeles';
 
     // --- Grok Realtime path: skip STT/TTS/LLM when both voice and LLM are xAI ---
     const useGrokRealtime =
