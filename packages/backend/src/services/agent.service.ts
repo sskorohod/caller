@@ -32,19 +32,26 @@ export async function createAgentProfile(
 
   if (!created) throw new Error('Failed to create agent profile');
 
-  // Auto-attach the workspace's Human-Like Conversation skill so the new agent
-  // gets human-like conversation discipline by default. Silent no-op if the
-  // workspace doesn't have the skill yet (older workspaces pre-migration 00028).
+  // Auto-attach platform-default skills so the new agent gets the right
+  // discipline out of the box. Silent no-op if the workspace doesn't have
+  // the skills yet (older workspaces pre-migration 00028/00034).
   try {
-    const [humanLike] = await db.select({ id: skillPacks.id }).from(skillPacks)
+    const defaults = await db.select({ id: skillPacks.id, intent: skillPacks.intent }).from(skillPacks)
       .where(and(
         eq(skillPacks.workspace_id, workspaceId),
-        eq(skillPacks.intent, 'human_like_conversation'),
-      ))
-      .limit(1);
-    if (humanLike) {
+        inArray(skillPacks.intent, ['human_like_conversation', 'pronunciation_us_ru']),
+      ));
+    const priorityMap: Record<string, number> = {
+      human_like_conversation: 0,
+      pronunciation_us_ru: 10,
+    };
+    for (const sp of defaults) {
       await db.insert(agentSkillPacks)
-        .values({ agent_profile_id: created.id, skill_pack_id: humanLike.id, priority: 0 })
+        .values({
+          agent_profile_id: created.id,
+          skill_pack_id: sp.id,
+          priority: priorityMap[sp.intent] ?? 0,
+        })
         .onConflictDoNothing();
     }
   } catch { /* non-critical; agent creation must not fail because of this */ }
