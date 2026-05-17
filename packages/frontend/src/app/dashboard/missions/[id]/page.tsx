@@ -887,6 +887,50 @@ export default function MissionChatPage() {
               </div>
             )}
 
+            {/* Memory toggle — editable when mission hasn't started yet */}
+            {(() => {
+              const editable = ['draft', 'ready', 'scheduled'].includes(mission.status);
+              const memoryEnabled = (mission.context as any)?.memory_enabled !== false;
+              const toggle = async () => {
+                if (!editable) return;
+                const next = { ...(mission.context || {}), memory_enabled: !memoryEnabled };
+                try {
+                  await api.patch(`/missions/${mission.id}`, { context: next });
+                  setMission({ ...mission, context: next });
+                  toast.success(memoryEnabled ? 'Память выключена' : 'Память включена');
+                } catch (err: unknown) {
+                  toast.error((err as Error).message || 'Не удалось обновить');
+                }
+              };
+              return (
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]">
+                  <div className="flex-1 pr-3">
+                    <p className="text-sm font-semibold text-[var(--th-text)]">
+                      {memoryEnabled ? '🧠 С памятью' : '🆕 Без памяти'}
+                    </p>
+                    <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">
+                      {memoryEnabled
+                        ? 'Агент видит профиль собеседника + факты + краткие итоги предыдущих звонков'
+                        : 'Агент стартует с нуля — без истории'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggle}
+                    disabled={!editable}
+                    aria-label="Toggle memory"
+                    className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${
+                      memoryEnabled ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'
+                    } ${editable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                  >
+                    <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      memoryEnabled ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+              );
+            })()}
+
             {/* Context */}
             {mission.context && Object.keys(mission.context).length > 0 && (
               <div className="space-y-1.5">
@@ -894,7 +938,9 @@ export default function MissionChatPage() {
                   {t('mission.context')}
                 </label>
                 <div className="space-y-1.5">
-                  {Object.entries(mission.context).map(([k, v]) => (
+                  {Object.entries(mission.context)
+                    .filter(([k]) => k !== 'memory_enabled') // rendered above as a dedicated toggle
+                    .map(([k, v]) => (
                     <div
                       key={k}
                       className="flex items-start gap-2 text-sm px-3 py-2 rounded-xl bg-[var(--th-surface)] border border-[var(--th-card-border-subtle)]"

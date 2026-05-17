@@ -1254,7 +1254,16 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       logger.info({ callId, briefingLength: ((call.context as any).briefing as string).length }, 'Agent briefing applied to system prompt');
     }
     const contextPhone = call.direction === 'outbound' ? call.to_number : call.from_number;
-    const callerContext = await loadCallerContext(call.workspace_id, contextPhone, call.direction);
+    // Memory toggle: if the mission set context.memory_enabled = false, the
+    // agent starts FRESH — no caller profile, no facts, no previous summaries.
+    // Default (undefined or true) keeps memory on for backward compatibility.
+    const memoryEnabled = (call.context as any)?.memory_enabled !== false;
+    const callerContext = memoryEnabled
+      ? await loadCallerContext(call.workspace_id, contextPhone, call.direction)
+      : undefined;
+    if (!memoryEnabled) {
+      logger.info({ callId }, 'Memory disabled for this call — starting fresh');
+    }
 
     // --- Grok Realtime path: skip STT/TTS/LLM when both voice and LLM are xAI ---
     const useGrokRealtime =

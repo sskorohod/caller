@@ -416,7 +416,7 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             ]);
 
           } else if (cbData.startsWith('voice:')) {
-            // Voice selection: voice:eve:missionId → save as context.voice_override, then activate.
+            // Voice selection: voice:eve:missionId → save voice, then ask about memory.
             const parts = cbData.split(':');
             const voice = parts[1];
             const missionId = parts[2];
@@ -433,11 +433,34 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
               await missionService.updateMission(missionId, { context: ctx });
             }
 
-            // Activate mission mode — ready for task description
+            // Next step: ask about memory.
+            await sendTelegramMessageWithButtons(ws.botToken, cbChatId,
+              `Голос: ${voiceLabels[voice] || voice}.\n\n` +
+              'Использовать память о предыдущих звонках с этим номером?', [
+              [
+                { text: '🧠 С памятью', callback_data: `memory:on:${missionId}` },
+                { text: '🆕 Без памяти', callback_data: `memory:off:${missionId}` },
+              ],
+            ]);
+
+          } else if (cbData.startsWith('memory:')) {
+            // Memory toggle: memory:on|off:missionId → save, then activate.
+            const parts = cbData.split(':');
+            const memoryFlag = parts[1]; // 'on' or 'off'
+            const missionId = parts[2];
+            const memoryLabel = memoryFlag === 'on' ? '🧠 С памятью' : '🆕 Без памяти';
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, memoryLabel);
+
+            const mission = await missionService.getMission(ws.workspaceId, missionId);
+            const ctx = (mission.context as any) || {};
+            ctx.memory_enabled = memoryFlag === 'on';
+            await missionService.updateMission(missionId, { context: ctx });
+
+            // Activate mission mode — ready for task description.
             activeMissions.set(cbChatId, { missionId, workspaceId: ws.workspaceId });
 
             await sendTelegramPlainMessage(ws.botToken, cbChatId,
-              `Голос: ${voiceLabels[voice] || voice}.\n\n` +
+              `${memoryLabel} — выбрано.\n\n` +
               'Опишите задачу:\n' +
               '• Кому позвонить (имя, номер)\n' +
               '• Зачем\n' +

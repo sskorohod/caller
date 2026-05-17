@@ -60,6 +60,7 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
       agent_profile_id: z.string().uuid().nullable().optional(),
       target_phone: z.string().nullable().optional(),
       goal: z.string().nullable().optional(),
+      context: z.record(z.unknown()).optional(),
       fallback_action: z.string().optional(),
       scheduled_at: z.string().nullable().optional(),
     }).parse(request.body);
