@@ -73,6 +73,10 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private lastCallerFinalAt: number | null = null;
   // Tool-call bridging — fires only if function call takes longer than threshold
   private toolBridgeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  // Pending hangup timer — replaceable. We may schedule a rough safety hangup
+  // when end_call is requested, then refine it once the actual farewell text
+  // arrives (using a length-based estimate of how long the audio will play).
+  private hangupTimer: ReturnType<typeof setTimeout> | null = null;
   // Interruption resume — capture full text of agent's last response and the
   // moment its audio finished playing (estimated). If the caller starts
   // speaking within LATE_INTERRUPTION_WINDOW_MS, the tail of that response was
@@ -411,6 +415,22 @@ If the operator/system instructs you to end — politely wrap up and call end_ca
   }
 
   /**
+   * Schedule (or replace) the hangup timer. Used by both the function-call
+   * end_call path and the text-based farewell detector — they can refine
+   * each other's delay estimate.
+   */
+  private scheduleHangup(delayMs: number, reason: string): void {
+    if (this.hangupTimer) clearTimeout(this.hangupTimer);
+    this.hangupTimer = setTimeout(() => {
+      this.hangupTimer = null;
+      if (this.isStopped) return;
+      logger.info({ callId: this.config.call.id, reason }, 'Executing hangup now');
+      this.stop('agent_ended_call');
+      try { this.config.twilioWs.close(); } catch { /* ignore */ }
+    }, delayMs);
+  }
+
+  /**
    * Caller stopped speaking — close the speech window.
    */
   private onSpeechStopped(): void {
@@ -584,15 +604,29 @@ If the operator/system instructs you to end — politely wrap up and call end_ca
       const hasFarewell = ['пока', 'до свидания', 'всего доброго', 'до встречи', 'спокойной', 'удачи',
         'goodbye', 'bye', 'see you', 'take care', 'good night', 'sweet dreams'].some(w => textLower.includes(w));
       logger.info({ callId: this.config.call.id, text, hasFarewell, pendingHangup: this.pendingHangup }, 'Farewell check');
-      if (hasFarewell && !this.pendingHangup) {
-        logger.info({ callId: this.config.call.id, text }, 'FAREWELL DETECTED — hanging up in 6s (wait for audio to finish)');
-        this.pendingHangup = true;
-        setTimeout(() => {
-          if (this.isStopped) return;
-          logger.info({ callId: this.config.call.id }, 'Executing hangup now');
-          this.stop('agent_ended_call');
-          try { this.config.twilioWs.close(); } catch { /* ignore */ }
-        }, 6000);
+      if (hasFarewell) {
+        // Dynamic hangup delay based on text length. The fixed 6s timeout used
+        // to cut off long farewells mid-audio. Estimate audio length:
+        // ~14 chars/sec for typical Russian speech → ~70ms/char. Add a 2s
+        // Twilio drain buffer. Clamp to [3s, 15s].
+        const estimatedAudioMs = text.length * 70;
+        const hangupDelay = Math.min(Math.max(estimatedAudioMs + 2000, 3000), 15000);
+
+        // If a hangup is already pending (e.g. safety timer from end_call
+        // function path), this REPLACES it with a tighter estimate now that
+        // we have the actual goodbye text.
+        if (this.hangupTimer || !this.pendingHangup) {
+          logger.info({
+            callId: this.config.call.id,
+            text,
+            textLength: text.length,
+            estimatedAudioMs,
+            hangupDelay,
+            refining: !!this.hangupTimer,
+          }, 'FAREWELL DETECTED — scheduling hangup (dynamic delay)');
+          this.pendingHangup = true;
+          this.scheduleHangup(hangupDelay, 'farewell_text_detected');
+        }
       }
     }
 
@@ -663,14 +697,12 @@ If the operator/system instructs you to end — politely wrap up and call end_ca
       });
       this.sendGrok({ type: 'response.create' });
 
-      // Wait 3 seconds for Grok to finish saying goodbye, then hang up
+      // Set a 15s SAFETY hangup. The actual hangup will be refined by the
+      // text-farewell detector in onResponseDone once Grok generates the
+      // goodbye text — it computes a tighter delay based on the actual
+      // length of the goodbye audio.
       this.pendingHangup = true;
-      setTimeout(() => {
-        if (!this.pendingHangup || this.isStopped) return;
-        logger.info({ callId: this.config.call.id }, 'Hanging up after goodbye');
-        this.stop('agent_ended_call');
-        try { this.config.twilioWs.close(); } catch { /* ignore */ }
-      }, 3000);
+      this.scheduleHangup(15000, 'end_call safety');
     }
   }
 
@@ -705,6 +737,7 @@ If the operator/system instructs you to end — politely wrap up and call end_ca
     // Clean up any pending tool bridge timers
     for (const t of this.toolBridgeTimers.values()) clearTimeout(t);
     this.toolBridgeTimers.clear();
+    if (this.hangupTimer) { clearTimeout(this.hangupTimer); this.hangupTimer = null; }
 
     if (this.grokWs && this.grokWs.readyState === WebSocket.OPEN) {
       this.grokWs.close();
