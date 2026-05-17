@@ -1,5 +1,24 @@
 // ─── Skill Pack Types ──────────────────────────────────────────────────────
 
+export interface PauseProfile {
+  pre_response_ms?: number;
+  post_question_ms?: number;
+  pre_price_ms?: number;
+  after_close_ms?: number;
+}
+
+export interface BackchannelPolicy {
+  enabled?: boolean;
+  min_user_turn_ms?: number;
+  phrases?: Record<string, string[]>;
+}
+
+export interface ObjectionBranch {
+  trigger: string;
+  response: string;
+  action?: string;
+}
+
 export interface SkillPack {
   id: string;
   name: string;
@@ -17,6 +36,15 @@ export interface SkillPack {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Human-likeness fields
+  opening_line?: string | null;
+  talk_listen_ratio?: string | number | null;
+  pause_profile?: PauseProfile;
+  backchannel_policy?: BackchannelPolicy;
+  bridging_phrases?: string[];
+  objection_branches?: ObjectionBranch[];
+  escalation_tags?: string[];
+  requires_explicit_confirmation?: boolean;
 }
 
 export interface SkillPackForm {
@@ -32,6 +60,15 @@ export interface SkillPackForm {
   escalation_conditions: EscalationCondition[];
   completion_criteria: Record<string, unknown>;
   interruption_rules: Record<string, unknown>;
+  // Human-likeness fields
+  opening_line: string;
+  talk_listen_ratio: number | null;
+  pause_profile: PauseProfile;
+  backchannel_policy: BackchannelPolicy;
+  bridging_phrases: string[];
+  objection_branches: ObjectionBranch[];
+  escalation_tags: string[];
+  requires_explicit_confirmation: boolean;
 }
 
 export interface RequiredDataItem {
@@ -54,7 +91,7 @@ export interface EscalationCondition {
   message: string;
 }
 
-export type SkillSection = 'general' | 'activation' | 'dataTools' | 'escalation' | 'completion' | 'json';
+export type SkillSection = 'general' | 'humanLike' | 'activation' | 'dataTools' | 'escalation' | 'completion' | 'json';
 
 export interface SkillCategory {
   id: string;

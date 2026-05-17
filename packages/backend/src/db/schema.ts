@@ -209,6 +209,15 @@ export const skillPacks = pgTable('skill_packs', {
   completion_criteria: jsonb('completion_criteria').notNull().default({}),
   interruption_rules: jsonb('interruption_rules').notNull().default({}),
   conversation_rules: text('conversation_rules'),
+  // Human-likeness fields (00028)
+  opening_line: text('opening_line'),
+  talk_listen_ratio: text('talk_listen_ratio'), // numeric(3,2) stored as string by pg driver
+  pause_profile: jsonb('pause_profile').notNull().default({}),
+  backchannel_policy: jsonb('backchannel_policy').notNull().default({}),
+  bridging_phrases: text('bridging_phrases').array().notNull().default(sql`'{}'`),
+  objection_branches: jsonb('objection_branches').notNull().default([]),
+  escalation_tags: text('escalation_tags').array().notNull().default(sql`'{}'`),
+  requires_explicit_confirmation: boolean('requires_explicit_confirmation').notNull().default(false),
   version: integer('version').notNull().default(1),
   is_active: boolean('is_active').notNull().default(true),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

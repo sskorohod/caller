@@ -52,6 +52,13 @@ export class CallOrchestrator extends EventEmitter {
   private latencies: number[] = [];
   private farewellSent = false;
   private fillerTimer: ReturnType<typeof setTimeout> | null = null;
+  // Turn-taking metrics (human-likeness telemetry)
+  private bargeInCount = 0;
+  private callerSpeechMs = 0;
+  private agentSpeechMs = 0;
+  private callerTurnStartedAt: number | null = null;
+  private agentTurnStartedAt: number | null = null;
+  private pauseBeforeResponseMs: number[] = [];
 
   constructor(config: CallOrchestratorConfig) {
     super();
@@ -113,6 +120,10 @@ export class CallOrchestrator extends EventEmitter {
 
     stt.on('utterance_end', () => {
       if (this.isStopped) return;
+      if (this.callerTurnStartedAt) {
+        this.callerSpeechMs += Date.now() - this.callerTurnStartedAt;
+        this.callerTurnStartedAt = null;
+      }
       if (this.currentCallerUtterance.trim()) {
         this.handleCallerUtterance(this.currentCallerUtterance.trim());
         this.currentCallerUtterance = '';
@@ -120,7 +131,9 @@ export class CallOrchestrator extends EventEmitter {
     });
 
     stt.on('speech_started', () => {
+      if (this.callerTurnStartedAt === null) this.callerTurnStartedAt = Date.now();
       if (this.isAgentSpeaking) {
+        this.bargeInCount++;
         this.handleInterruption();
       }
     });
@@ -164,6 +177,10 @@ export class CallOrchestrator extends EventEmitter {
 
     logger.debug({ callId: this.config.call.id }, 'Caller interrupted agent');
     this.isAgentSpeaking = false;
+    if (this.agentTurnStartedAt) {
+      this.agentSpeechMs += Date.now() - this.agentTurnStartedAt;
+      this.agentTurnStartedAt = null;
+    }
 
     // Clear Twilio audio queue
     this.sendTwilioMessage({ event: 'clear', streamSid: this.config.streamSid });
@@ -259,6 +276,8 @@ export class CallOrchestrator extends EventEmitter {
     let firstChunkSent = false;
 
     const startTime = Date.now();
+    // Time from caller's last utterance to agent's first audible token
+    const turnStartRef = startTime;
 
     await llm.generateStream(
       this.llmMessages,
@@ -279,6 +298,8 @@ export class CallOrchestrator extends EventEmitter {
             if (!firstChunkSent) {
               firstChunkSent = true;
               this.isAgentSpeaking = true;
+              this.agentTurnStartedAt = Date.now();
+              this.pauseBeforeResponseMs.push(this.agentTurnStartedAt - turnStartRef);
             }
             this.speakText(sentence);
           }
@@ -404,10 +425,47 @@ export class CallOrchestrator extends EventEmitter {
     // Close STT
     this.config.stt.close();
 
+    // Close any open speech windows
+    if (this.agentTurnStartedAt) {
+      this.agentSpeechMs += Date.now() - this.agentTurnStartedAt;
+      this.agentTurnStartedAt = null;
+    }
+    if (this.callerTurnStartedAt) {
+      this.callerSpeechMs += Date.now() - this.callerTurnStartedAt;
+      this.callerTurnStartedAt = null;
+    }
+
     // Calculate average latency
     const avgLatency = this.latencies.length > 0
       ? Math.round(this.latencies.reduce((a, b) => a + b, 0) / this.latencies.length)
       : null;
+
+    // Human-likeness metrics
+    const totalSpeechMs = this.agentSpeechMs + this.callerSpeechMs;
+    const talkListenRatio = totalSpeechMs > 0
+      ? Number((this.agentSpeechMs / totalSpeechMs).toFixed(2))
+      : null;
+    const avgPauseBeforeResponseMs = this.pauseBeforeResponseMs.length > 0
+      ? Math.round(this.pauseBeforeResponseMs.reduce((a, b) => a + b, 0) / this.pauseBeforeResponseMs.length)
+      : null;
+
+    // Persist as a call event for post-call analysis
+    try {
+      await callService.addCallEvent({
+        callId: this.config.call.id,
+        workspaceId: this.config.call.workspace_id,
+        eventType: 'turn_taking_metrics',
+        eventData: {
+          bargeInCount: this.bargeInCount,
+          talkListenRatio,
+          agentSpeechMs: this.agentSpeechMs,
+          callerSpeechMs: this.callerSpeechMs,
+          avgPauseBeforeResponseMs,
+        },
+      });
+    } catch (err) {
+      logger.warn({ err }, 'Failed to record turn-taking metrics');
+    }
 
     this.emit('stopped', {
       reason,
@@ -418,6 +476,9 @@ export class CallOrchestrator extends EventEmitter {
       totalTtsCharacters: this.totalTtsCharacters,
       sttAudioDurationMs: this.sttAudioDurationMs,
       avgLatencyMs: avgLatency,
+      bargeInCount: this.bargeInCount,
+      talkListenRatio,
+      avgPauseBeforeResponseMs,
       // Provider info for cost calculation
       llmModel: this.config.agentProfile.llm_model,
       llmProvider: this.config.agentProfile.llm_provider,

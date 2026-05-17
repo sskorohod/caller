@@ -9,6 +9,35 @@ import { db } from '../config/db.js';
 import { calls as callsTable, aiCallSessions, callerProfiles, callerMemoryFacts } from '../db/schema.js';
 import { getLangName } from '../config/languages.js';
 
+function renderCoreSkill(s: any): string {
+  const lines: string[] = [`[${s.name}]`];
+  if (s.conversation_rules) lines.push(s.conversation_rules);
+  if (s.opening_line) lines.push(`Opening line: "${s.opening_line}"`);
+  if (s.talk_listen_ratio) lines.push(`Talk-listen ratio target: speak no more than ${Math.round(Number(s.talk_listen_ratio) * 100)}% of the time.`);
+
+  if (s.bridging_phrases?.length) {
+    lines.push(`When you need a moment (lookup, thinking), use one of: ${s.bridging_phrases.map((p: string) => `"${p}"`).join(', ')}.`);
+  }
+
+  const branches = Array.isArray(s.objection_branches) ? s.objection_branches : [];
+  if (branches.length) {
+    const tree = branches
+      .map((b: any) => `- If "${b.trigger}" → ${b.response}${b.action ? ` (then: ${b.action})` : ''}`)
+      .join('\n');
+    lines.push(`Objection handling:\n${tree}`);
+  }
+
+  if (s.escalation_tags?.length) {
+    lines.push(`Escalate to a human (do NOT improvise) when the call hits any of: ${s.escalation_tags.join(', ')}. Acknowledge, tag the call, and offer a human callback.`);
+  }
+
+  if (s.requires_explicit_confirmation) {
+    lines.push(`Before marking the goal as complete, repeat the outcome back and get an explicit "yes/да". Do not assume agreement from silence.`);
+  }
+
+  return lines.join('\n');
+}
+
 export function buildSystemPrompt(
   agentProfile: any,
   promptPacks: any[],
@@ -89,13 +118,13 @@ export function buildSystemPrompt(
     if (pack.content) parts.push(`--- ${pack.name} ---\n${pack.content}`);
   }
 
-  // Core skills (always active — full conversation rules)
+  // Core skills (always active — full conversation rules + human-likeness fields)
   if (attachedSkills.length > 0) {
     const coreSkillParts = attachedSkills
-      .filter(s => s.conversation_rules)
-      .map(s => `[${s.name}]: ${s.conversation_rules}`);
+      .filter(s => s.conversation_rules || s.opening_line || (s.objection_branches?.length))
+      .map(s => renderCoreSkill(s));
     if (coreSkillParts.length > 0) {
-      parts.push(`CORE SKILLS (always active):\n${coreSkillParts.join('\n')}`);
+      parts.push(`CORE SKILLS (always active):\n${coreSkillParts.join('\n\n')}`);
     }
   }
 

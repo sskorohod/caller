@@ -2,10 +2,11 @@ import type { SkillCategory, SkillPackForm, SkillSection, RequiredDataItem, Tool
 
 // ─── Sections ──────────────────────────────────────────────────────────────
 
-export const SECTIONS: SkillSection[] = ['general', 'activation', 'dataTools', 'escalation', 'completion', 'json'];
+export const SECTIONS: SkillSection[] = ['general', 'humanLike', 'activation', 'dataTools', 'escalation', 'completion', 'json'];
 
 export const SECTION_KEYS: Record<SkillSection, string> = {
   general: 'skills.sec.general',
+  humanLike: 'skills.sec.humanLike',
   activation: 'skills.sec.activation',
   dataTools: 'skills.sec.dataTools',
   escalation: 'skills.sec.escalation',
@@ -15,6 +16,7 @@ export const SECTION_KEYS: Record<SkillSection, string> = {
 
 export const SECTION_ICONS: Record<SkillSection, string> = {
   general: 'info',
+  humanLike: 'record_voice_over',
   activation: 'play_circle',
   dataTools: 'build',
   escalation: 'warning',
@@ -216,7 +218,17 @@ export const EMPTY_FORM: SkillPackForm = {
   escalation_conditions: [],
   completion_criteria: {},
   interruption_rules: {},
+  opening_line: '',
+  talk_listen_ratio: null,
+  pause_profile: {},
+  backchannel_policy: {},
+  bridging_phrases: [],
+  objection_branches: [],
+  escalation_tags: [],
+  requires_explicit_confirmation: false,
 };
+
+export const ESCALATION_TAG_PRESETS = ['regulated', 'emotional', 'novel_objection', 'legal', 'medical', 'financial', 'safety'];
 
 // ─── Intent Suggestions ────────────────────────────────────────────────────
 

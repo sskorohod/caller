@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
-import type { SkillPack, SkillPackForm, SkillSection, RequiredDataItem, ToolStep, EscalationCondition } from '../_lib/types';
-import { SECTIONS, SECTION_KEYS, SECTION_ICONS, EMPTY_FORM } from '../_lib/constants';
+import type { SkillPack, SkillPackForm, SkillSection, RequiredDataItem, ToolStep, EscalationCondition, ObjectionBranch, PauseProfile, BackchannelPolicy } from '../_lib/types';
+import { SECTIONS, SECTION_KEYS, SECTION_ICONS, EMPTY_FORM, ESCALATION_TAG_PRESETS } from '../_lib/constants';
 import ActivationRulesEditor from './ActivationRulesEditor';
 import RequiredDataEditor from './RequiredDataEditor';
 import ToolSequenceEditor from './ToolSequenceEditor';
@@ -24,6 +24,7 @@ interface SkillEditorProps {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function packToForm(pack: SkillPack): SkillPackForm {
+  const ratio = pack.talk_listen_ratio;
   return {
     name: pack.name,
     description: pack.description ?? '',
@@ -37,6 +38,14 @@ function packToForm(pack: SkillPack): SkillPackForm {
     escalation_conditions: (pack.escalation_conditions ?? []) as EscalationCondition[],
     completion_criteria: pack.completion_criteria ?? {},
     interruption_rules: pack.interruption_rules ?? {},
+    opening_line: pack.opening_line ?? '',
+    talk_listen_ratio: ratio === null || ratio === undefined ? null : Number(ratio),
+    pause_profile: pack.pause_profile ?? {},
+    backchannel_policy: pack.backchannel_policy ?? {},
+    bridging_phrases: pack.bridging_phrases ?? [],
+    objection_branches: pack.objection_branches ?? [],
+    escalation_tags: pack.escalation_tags ?? [],
+    requires_explicit_confirmation: pack.requires_explicit_confirmation ?? false,
   };
 }
 
@@ -54,6 +63,14 @@ function formToPayload(form: SkillPackForm): Record<string, unknown> {
     escalation_conditions: form.escalation_conditions,
     completion_criteria: form.completion_criteria,
     interruption_rules: form.interruption_rules,
+    opening_line: form.opening_line || null,
+    talk_listen_ratio: form.talk_listen_ratio,
+    pause_profile: form.pause_profile,
+    backchannel_policy: form.backchannel_policy,
+    bridging_phrases: form.bridging_phrases,
+    objection_branches: form.objection_branches,
+    escalation_tags: form.escalation_tags,
+    requires_explicit_confirmation: form.requires_explicit_confirmation,
   };
 }
 
@@ -343,8 +360,211 @@ export default function SkillEditor({ skillId, initialForm }: SkillEditorProps) 
     );
   }
 
+  function renderHumanLike() {
+    const pp: PauseProfile = form.pause_profile || {};
+    const bc: BackchannelPolicy = form.backchannel_policy || {};
+    const phrasesRu = (bc.phrases?.ru || []).join(', ');
+    const phrasesEn = (bc.phrases?.en || []).join(', ');
+
+    function setPause<K extends keyof PauseProfile>(k: K, v: number | null) {
+      set('pause_profile', { ...pp, [k]: v ?? undefined });
+    }
+    function setBc<K extends keyof BackchannelPolicy>(k: K, v: any) {
+      set('backchannel_policy', { ...bc, [k]: v });
+    }
+    function setBcPhrases(lang: 'ru' | 'en', csv: string) {
+      const arr = csv.split(',').map(s => s.trim()).filter(Boolean);
+      set('backchannel_policy', { ...bc, phrases: { ...(bc.phrases || {}), [lang]: arr } });
+    }
+    function setBridging(csv: string) {
+      set('bridging_phrases', csv.split(/,|\n/).map(s => s.trim()).filter(Boolean));
+    }
+    function toggleTag(tag: string) {
+      const has = form.escalation_tags.includes(tag);
+      set('escalation_tags', has ? form.escalation_tags.filter(t => t !== tag) : [...form.escalation_tags, tag]);
+    }
+
+    function updateBranch(i: number, patch: Partial<ObjectionBranch>) {
+      const next = [...form.objection_branches];
+      next[i] = { ...next[i], ...patch };
+      set('objection_branches', next);
+    }
+    function addBranch() {
+      set('objection_branches', [...form.objection_branches, { trigger: '', response: '', action: '' }]);
+    }
+    function removeBranch(i: number) {
+      set('objection_branches', form.objection_branches.filter((_, idx) => idx !== i));
+    }
+
+    const inputCls = 'w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[var(--th-card)] border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all';
+    const labelCls = 'block text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider mb-1.5';
+
+    return (
+      <div className="space-y-7">
+        <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl px-4 py-3">
+          <p className="text-xs text-[var(--th-text-secondary)]">
+            Поля, которые делают агента похожим на человека: ритм, паузы, backchannels, обработка возражений, эскалация. Они автоматически добавляются в system prompt.
+          </p>
+        </div>
+
+        {/* Opening line */}
+        <div>
+          <label className={labelCls}>Opening line</label>
+          <input type="text" value={form.opening_line} onChange={e => set('opening_line', e.target.value)}
+            placeholder='Здравствуйте, меня зовут Анна, я из FixarCRM…' className={inputCls} />
+          <p className="text-[10px] text-[var(--th-text-muted)] mt-1">Одна короткая фраза: кто звонит и зачем. Без «Вам удобно говорить?»</p>
+        </div>
+
+        {/* Talk-listen ratio */}
+        <div>
+          <label className={labelCls}>Talk-listen ratio target</label>
+          <div className="flex items-center gap-3">
+            <input type="range" min={0.3} max={0.8} step={0.05}
+              value={form.talk_listen_ratio ?? 0.55}
+              onChange={e => set('talk_listen_ratio', Number(e.target.value))}
+              className="flex-1 accent-[var(--th-primary)]" />
+            <span className="font-mono text-sm text-[var(--th-text)] w-14 text-right">
+              {Math.round((form.talk_listen_ratio ?? 0.55) * 100)}%
+            </span>
+            <button type="button" onClick={() => set('talk_listen_ratio', null)}
+              className="text-[10px] text-[var(--th-text-muted)] hover:text-[var(--th-text)] underline">очистить</button>
+          </div>
+          <p className="text-[10px] text-[var(--th-text-muted)] mt-1">Максимум времени, которое агент должен говорить. Цель ≈55%.</p>
+        </div>
+
+        {/* Pause profile */}
+        <div>
+          <label className={labelCls}>Pause profile (ms)</label>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              ['pre_response_ms', 'Перед ответом', 200],
+              ['post_question_ms', 'После вопроса', 600],
+              ['pre_price_ms', 'Перед ценой/датой', 400],
+              ['after_close_ms', 'После closing-вопроса', 3000],
+            ] as const).map(([k, label, ph]) => (
+              <div key={k}>
+                <label className="block text-[10px] text-[var(--th-text-secondary)] mb-1">{label}</label>
+                <input type="number" min={0} max={10000} step={50}
+                  value={pp[k] ?? ''}
+                  placeholder={String(ph)}
+                  onChange={e => setPause(k, e.target.value === '' ? null : Number(e.target.value))}
+                  className={inputCls} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Backchannel policy */}
+        <div>
+          <label className={labelCls}>Backchannels («угу», «mm-hmm»)</label>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[var(--th-text-secondary)]">Включено</span>
+              <button type="button" onClick={() => setBc('enabled', !bc.enabled)}
+                className={`relative w-10 h-6 rounded-full transition-colors ${bc.enabled ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}>
+                <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${bc.enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+            </div>
+            <div>
+              <label className="block text-[10px] text-[var(--th-text-secondary)] mb-1">Минимальная длина реплики юзера (мс), после которой агент вставляет backchannel</label>
+              <input type="number" min={0} step={500} value={bc.min_user_turn_ms ?? ''} placeholder="4000"
+                onChange={e => setBc('min_user_turn_ms', e.target.value === '' ? undefined : Number(e.target.value))}
+                className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[10px] text-[var(--th-text-secondary)] mb-1">Фразы RU (через запятую)</label>
+              <input type="text" defaultValue={phrasesRu} onBlur={e => setBcPhrases('ru', e.target.value)}
+                placeholder="угу, ага, понятно, хорошо" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[10px] text-[var(--th-text-secondary)] mb-1">Фразы EN (через запятую)</label>
+              <input type="text" defaultValue={phrasesEn} onBlur={e => setBcPhrases('en', e.target.value)}
+                placeholder="mm-hmm, right, got it, okay" className={inputCls} />
+            </div>
+          </div>
+        </div>
+
+        {/* Bridging phrases */}
+        <div>
+          <label className={labelCls}>Bridging phrases</label>
+          <textarea rows={3} defaultValue={form.bridging_phrases.join(', ')}
+            onBlur={e => setBridging(e.target.value)}
+            placeholder="Секунду, посмотрю, Минутку, One moment, let me check"
+            className={`${inputCls} resize-none`} />
+          <p className="text-[10px] text-[var(--th-text-muted)] mt-1">Что агент говорит во время lookup'а / tool call, чтобы не было тишины.</p>
+        </div>
+
+        {/* Objection branches */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-semibold text-[var(--th-text)]">Objection branches</label>
+            <button type="button" onClick={addBranch}
+              className="px-3 py-1.5 text-xs rounded-lg bg-[var(--th-primary)]/10 text-[var(--th-primary-text)] hover:bg-[var(--th-primary)]/20 transition font-medium">
+              + Добавить
+            </button>
+          </div>
+          <p className="text-[10px] text-[var(--th-text-muted)] mb-3">Branching tree типовых возражений. Берётся из реальных записей.</p>
+          {form.objection_branches.length === 0 && (
+            <p className="text-xs text-[var(--th-text-muted)] italic">Нет возражений. Добавь хотя бы для «не интересно».</p>
+          )}
+          <div className="space-y-3">
+            {form.objection_branches.map((b, i) => (
+              <div key={i} className="border border-[var(--th-card-border-subtle)] rounded-xl p-3 space-y-2 bg-[var(--th-card)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">#{i + 1}</span>
+                  <button type="button" onClick={() => removeBranch(i)}
+                    className="text-[10px] text-[var(--th-error-text)] hover:underline">удалить</button>
+                </div>
+                <input type="text" value={b.trigger} onChange={e => updateBranch(i, { trigger: e.target.value })}
+                  placeholder='Триггер, напр. "не интересно"' className={inputCls} />
+                <textarea rows={2} value={b.response} onChange={e => updateBranch(i, { response: e.target.value })}
+                  placeholder="Ответ агента (acknowledge → pivot → конкретный шаг)" className={`${inputCls} resize-none`} />
+                <input type="text" value={b.action ?? ''} onChange={e => updateBranch(i, { action: e.target.value })}
+                  placeholder='Действие (опц.): "offer_callback" / "escalate"' className={inputCls} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Escalation tags */}
+        <div>
+          <label className={labelCls}>Escalation tags</label>
+          <div className="flex flex-wrap gap-2">
+            {ESCALATION_TAG_PRESETS.map(tag => {
+              const active = form.escalation_tags.includes(tag);
+              return (
+                <button key={tag} type="button" onClick={() => toggleTag(tag)}
+                  className={`px-3 py-1.5 text-xs rounded-full border transition-all font-medium ${
+                    active
+                      ? 'bg-[var(--th-primary)] text-white border-transparent shadow-[0_2px_8px_var(--th-shadow-primary)]'
+                      : 'bg-[var(--th-card)] text-[var(--th-text-secondary)] border-[var(--th-card-border-subtle)] hover:bg-[var(--th-surface)]'
+                  }`}>
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-[var(--th-text-muted)] mt-2">Когда разговор попадает в один из тегов — агент эскалирует, а не импровизирует.</p>
+        </div>
+
+        {/* Closed-loop confirmation */}
+        <div className="flex items-center justify-between border-t border-[var(--th-card-border-subtle)] pt-5">
+          <div className="flex-1 pr-3">
+            <p className="text-sm font-semibold text-[var(--th-text)]">Closed-loop confirmation</p>
+            <p className="text-[10px] text-[var(--th-text-muted)] mt-0.5">Перед завершением агент повторяет результат и ждёт явного «да».</p>
+          </div>
+          <button type="button" onClick={() => set('requires_explicit_confirmation', !form.requires_explicit_confirmation)}
+            className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${form.requires_explicit_confirmation ? 'bg-[var(--th-primary)]' : 'bg-[var(--th-border)]'}`}>
+            <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.requires_explicit_confirmation ? 'translate-x-4' : 'translate-x-0'}`} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const RENDER_MAP: Record<SkillSection, () => React.ReactNode> = {
     general: renderGeneral,
+    humanLike: renderHumanLike,
     activation: renderActivation,
     dataTools: renderDataTools,
     escalation: renderEscalation,

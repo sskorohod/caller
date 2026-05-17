@@ -559,6 +559,7 @@ const en: Record<string, string> = {
   'skills.filterInactive': 'Inactive',
   // Skills - Sections
   'skills.sec.general': 'General',
+  'skills.sec.humanLike': 'Human-Like',
   'skills.sec.activation': 'Activation',
   'skills.sec.dataTools': 'Data & Tools',
   'skills.sec.escalation': 'Escalation',

@@ -559,6 +559,7 @@ const ru: Record<string, string> = {
   'skills.filterInactive': 'Неактивные',
   // Skills - Sections
   'skills.sec.general': 'Основное',
+  'skills.sec.humanLike': 'Человечность',
   'skills.sec.activation': 'Активация',
   'skills.sec.dataTools': 'Данные и инструменты',
   'skills.sec.escalation': 'Эскалация',

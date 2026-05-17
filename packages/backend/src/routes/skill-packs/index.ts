@@ -16,6 +16,15 @@ const createSkillPackSchema = z.object({
   interruption_rules: z.record(z.unknown()).optional(),
   conversation_rules: z.string().optional(),
   is_active: z.boolean().optional(),
+  // Human-likeness fields (00028)
+  opening_line: z.string().nullable().optional(),
+  talk_listen_ratio: z.union([z.number(), z.string()]).nullable().optional(),
+  pause_profile: z.record(z.unknown()).optional(),
+  backchannel_policy: z.record(z.unknown()).optional(),
+  bridging_phrases: z.array(z.string()).optional(),
+  objection_branches: z.array(z.unknown()).optional(),
+  escalation_tags: z.array(z.string()).optional(),
+  requires_explicit_confirmation: z.boolean().optional(),
 });
 
 const skillPackRoutes: FastifyPluginAsync = async (app) => {
