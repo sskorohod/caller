@@ -86,8 +86,18 @@ export function buildSystemPrompt(
 
     missionParts.push(`MISSION GOAL: ${call.goal}`);
 
+    // Original operator dictation — verbatim. The MISSION GOAL above is an
+    // AI-summarized short version; the original may carry nuance (specific
+    // branches, exact phrasing, first-person tone, jokes the operator wants
+    // told) that the summary dropped. Treat the goal as the WHAT, the original
+    // as the HOW and the SPIRIT.
+    const originalInstructions = (call.context as any)?.original_instructions as string | undefined;
+    if (originalInstructions) {
+      missionParts.push(`ORIGINAL OPERATOR INSTRUCTIONS (verbatim — use for nuance, exact phrasing, and any conditional branches the short goal may have lost):\n"${originalInstructions}"`);
+    }
+
     if (call.context && Object.keys(call.context).length > 0) {
-      const skipKeys = ['name', 'target_name', 'contact_name', 'client_name'];
+      const skipKeys = ['name', 'target_name', 'contact_name', 'client_name', 'original_instructions'];
       const contextLines = Object.entries(call.context)
         .filter(([key]) => !skipKeys.includes(key))
         .map(([key, value]) => `- ${key.replace(/_/g, ' ')}: ${value}`)

@@ -337,6 +337,30 @@ export async function executeMission(workspaceId: string, missionId: string): Pr
   // Get outbound connection
   const conn = await telephonyService.getOutboundConnection(workspaceId);
 
+  // Pull the operator's ORIGINAL dictation (first user-typed/voiced message in
+  // the mission chat) so we can pass it into the call's system prompt verbatim
+  // alongside the AI-summarized short goal. The planner's summary sometimes
+  // loses nuance — branches, exact phrasing, first-person tone — so the agent
+  // sees BOTH.
+  let originalInstructions: string | null = null;
+  try {
+    const firstUserMsg = await db.select({ content: missionMessages.content })
+      .from(missionMessages)
+      .where(and(
+        eq(missionMessages.mission_id, missionId),
+        eq(missionMessages.sender_type, 'user'),
+        eq(missionMessages.message_type, 'chat'),
+      ))
+      .orderBy(asc(missionMessages.created_at))
+      .limit(1);
+    originalInstructions = firstUserMsg[0]?.content ?? null;
+  } catch { /* non-critical */ }
+
+  const callContext = {
+    ...(mission.context as any ?? {}),
+    ...(originalInstructions ? { original_instructions: originalInstructions } : {}),
+  };
+
   // Create call record
   const call = await callService.createCall({
     workspaceId,
@@ -347,7 +371,7 @@ export async function executeMission(workspaceId: string, missionId: string): Pr
     agentProfileId: agentProfile.id,
     goal: mission.goal ?? undefined,
     goalSource: 'mission',
-    context: mission.context as any,
+    context: callContext as any,
   });
 
   // Create AI session (promptSnapshot is for audit — actual prompt built at call connect time by buildSystemPrompt)
