@@ -9,7 +9,7 @@ import { db } from '../config/db.js';
 import { calls as callsTable, aiCallSessions, callerProfiles, callerMemoryFacts } from '../db/schema.js';
 import { getLangName } from '../config/languages.js';
 
-function renderCoreSkill(s: any): string {
+function renderCoreSkill(s: any, opts: { disableEscalation?: boolean } = {}): string {
   const lines: string[] = [`[${s.name}]`];
   if (s.conversation_rules) lines.push(s.conversation_rules);
   if (s.opening_line) lines.push(`Opening line: "${s.opening_line}"`);
@@ -27,7 +27,11 @@ function renderCoreSkill(s: any): string {
     lines.push(`Objection handling:\n${tree}`);
   }
 
-  if (s.escalation_tags?.length) {
+  // Skip escalation_tags entirely on outbound mission calls — there is no
+  // human available to take the hand-off. The outbound prompt block adds an
+  // explicit "no escalation" override to neutralize any escalation language
+  // that may still be in conversation_rules.
+  if (!opts.disableEscalation && s.escalation_tags?.length) {
     lines.push(`Escalate to a human (do NOT improvise) when the call hits any of: ${s.escalation_tags.join(', ')}. Acknowledge, tag the call, and offer a human callback.`);
   }
 
@@ -108,7 +112,8 @@ export function buildSystemPrompt(
 - NEVER mention alternatives or fallbacks upfront. Try the main approach FIRST. Only suggest alternatives if the other person says no.
 - NEVER dump all context at once. Use it piece by piece as the conversation flows.
 - When done, briefly confirm the result and say goodbye.
-- NUMBERS & IDs: When someone dictates a number, ID, passport, phone number, or any sequence of digits/letters — repeat it back DIGIT BY DIGIT, LETTER BY LETTER (e.g. "С-Л-четыре-четыре-один-восемь-Д"). Never group digits (not "44 18" but "четыре, четыре, один, восемь"). This prevents mishearing.`);
+- NUMBERS & IDs: When someone dictates a number, ID, passport, phone number, or any sequence of digits/letters — repeat it back DIGIT BY DIGIT, LETTER BY LETTER (e.g. "С-Л-четыре-четыре-один-восемь-Д"). Never group digits (not "44 18" but "четыре, четыре, один, восемь"). This prevents mishearing.
+- NO HUMAN HAND-OFF: You are an autonomous outbound caller. NEVER offer to "transfer to a human", "connect to a specialist", "let a colleague call back", or "передать коллеге / специалисту". There is no human available right now. If you genuinely cannot help, acknowledge politely, suggest the caller can email or call back during business hours, and end the call with [END_CALL]. This rule OVERRIDES any earlier escalation instructions from skills.`);
     }
 
     parts.push(missionParts.join('\n\n'));
@@ -119,10 +124,11 @@ export function buildSystemPrompt(
   }
 
   // Core skills (always active — full conversation rules + human-likeness fields)
+  const isOutbound = call?.direction === 'outbound';
   if (attachedSkills.length > 0) {
     const coreSkillParts = attachedSkills
       .filter(s => s.conversation_rules || s.opening_line || (s.objection_branches?.length))
-      .map(s => renderCoreSkill(s));
+      .map(s => renderCoreSkill(s, { disableEscalation: isOutbound }));
     if (coreSkillParts.length > 0) {
       parts.push(`CORE SKILLS (always active):\n${coreSkillParts.join('\n\n')}`);
     }
