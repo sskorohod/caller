@@ -40,6 +40,13 @@ const GROK_CALLER_MERGE_MS = 1500;
 // If a function call takes longer than this before resolving, play a bridging
 // phrase ("секунду, посмотрю") so the caller doesn't sit in silence.
 const GROK_TOOL_BRIDGE_MS = 800;
+// If the caller starts speaking within this window after the agent's
+// response.done, treat it as a LATE INTERRUPTION — the agent's text generation
+// finished but Twilio was still draining its audio buffer. The audio tail got
+// truncated when we sent 'clear' on speech_started. The agent's full intended
+// text never reached the caller's ear → capture it as interrupted_thought so
+// the agent can resume the unfinished idea on the next turn.
+const LATE_INTERRUPTION_WINDOW_MS = 1500;
 
 export class GrokRealtimeOrchestrator extends EventEmitter {
   private config: GrokRealtimeConfig;
@@ -66,6 +73,15 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
   private lastCallerFinalAt: number | null = null;
   // Tool-call bridging — fires only if function call takes longer than threshold
   private toolBridgeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  // Interruption resume — capture full text of agent's last response and the
+  // moment its audio finished playing (estimated). If the caller starts
+  // speaking within LATE_INTERRUPTION_WINDOW_MS, the tail of that response was
+  // audibly truncated when we cleared Twilio's audio buffer. Save the text so
+  // we can inject a "resume from where you were cut off" system note for Grok
+  // before its next response.
+  private lastAgentText: string | null = null;
+  private lastAgentResponseEndedAt: number | null = null;
+  private interruptedFullText: string | null = null;
 
   constructor(config: GrokRealtimeConfig) {
     super();
@@ -364,6 +380,24 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
       this.bargeInsByAgentTurn.push(this.turnCount);
       this.agentSpeechMs += now - this.agentSpeechStartedAt;
       this.agentSpeechStartedAt = null;
+      // Mid-response interruption — Grok's currentAgentTranscript holds the
+      // partial generated text. The FULL intended text will arrive in
+      // onResponseDone (or be missing if Grok cancels). We mark it here so
+      // onResponseDone knows to stash the full text as interrupted.
+      this.interruptedFullText = '__pending__'; // sentinel: replaced in onResponseDone
+    } else if (
+      this.lastAgentResponseEndedAt !== null &&
+      now - this.lastAgentResponseEndedAt < LATE_INTERRUPTION_WINDOW_MS &&
+      this.lastAgentText
+    ) {
+      // LATE INTERRUPTION: text generation done but Twilio was still playing
+      // the tail. By clearing the buffer below, the caller never hears the
+      // last ~0.5-1.5s of the agent's message. Capture the full text so we
+      // can ask the agent to resume the unfinished idea next turn.
+      this.bargeInCount++;
+      this.bargeInsByAgentTurn.push(this.turnCount);
+      this.interruptedFullText = this.lastAgentText;
+      logger.info({ callId: this.config.call.id, gap: now - this.lastAgentResponseEndedAt, lastAgentText: this.lastAgentText.slice(0, 80) }, 'Late audio interruption detected');
     }
 
     this.sendTwilio({
@@ -469,6 +503,20 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
     });
 
     this.emit('transcript', { speaker: 'caller', text: trimmed, timestamp: new Date().toISOString(), isFinal: true });
+
+    // INTERRUPTION RESUME — if the previous agent turn was cut off (mid- or
+    // late audio interruption), inject a system note so Grok knows to resume
+    // the unfinished idea instead of restarting or fragmenting. We do this
+    // AFTER recording the caller's turn so the system note lands between
+    // their input and Grok's auto-generated response.
+    if (this.interruptedFullText && this.interruptedFullText !== '__pending__') {
+      const resumeText = this.interruptedFullText;
+      this.interruptedFullText = null;
+      this.injectInstruction(
+        `Your previous turn was cut off — the caller started speaking before they could hear all of it. The FULL sentence you intended was:\n\n"${resumeText}"\n\n` +
+        `Now check the caller's latest reply. If they addressed what you were trying to say — just continue the conversation normally. If they did NOT address it (e.g. they just said "Алё/Hello/Yes?", asked you to repeat, gave an unrelated brief response) — resume your unfinished thought NATURALLY from where you were cut off. Do not restart from the beginning. Do not fragment. Pick up the idea.`
+      );
+    }
   }
 
   /**
@@ -508,6 +556,19 @@ export class GrokRealtimeOrchestrator extends EventEmitter {
         this.agentSpeechStartedAt = null;
       }
       this.lastSpeechAt = Date.now();
+
+      // Stash the full text + end timestamp so we can detect a late audio
+      // interruption (caller speaks within LATE_INTERRUPTION_WINDOW_MS after
+      // text generation completes while Twilio is still playing audio).
+      this.lastAgentText = text;
+      this.lastAgentResponseEndedAt = Date.now();
+
+      // If a mid-response interruption was flagged during streaming, now we
+      // have the full intended text — replace the sentinel with it.
+      if (this.interruptedFullText === '__pending__') {
+        this.interruptedFullText = text;
+        logger.info({ callId: this.config.call.id, lastAgentText: text.slice(0, 80) }, 'Mid-response interruption: captured full intended text');
+      }
 
       this.conversationHistory.push({ speaker: 'agent', text, timestamp: new Date().toISOString() });
       logger.info({ callId: this.config.call.id, text }, 'Agent response (Grok)');
