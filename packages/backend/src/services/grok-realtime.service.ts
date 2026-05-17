@@ -47,6 +47,11 @@ const GROK_TOOL_BRIDGE_MS = 800;
 // text never reached the caller's ear → capture it as interrupted_thought so
 // the agent can resume the unfinished idea on the next turn.
 const LATE_INTERRUPTION_WINDOW_MS = 1500;
+// Self-proposal pattern: phrases by which the OTHER side proposes a specific
+// time / slot / option themselves. When matched, we inject a system note
+// telling the agent NOT to ask "удобно?/подходит?" — the proposer already
+// signalled it works for them. Prompt-rule alone has been ignored 5+ times.
+const SELF_PROPOSAL_PATTERN = /(\b(могу|можно|давайте|давай|подойдёт|подходит)\b.{0,40}\b(\d{1,2}([:.]\d{2})?)?)|(\bна\s*\d{1,2}([:.]\d{2})?\b)|(\bв\s*\d{1,2}([:.]\d{2})?\b)|\bпредлагаю\b|\bзапишу\b|\bзаписать вас\b|\bI can (do|fit|take you) at\b|\bhow about (\d|tomorrow|today|monday|tuesday|wednesday|thursday|friday)\b/i;
 
 export class GrokRealtimeOrchestrator extends EventEmitter {
   private config: GrokRealtimeConfig;
@@ -539,6 +544,16 @@ If the operator/system instructs you to end — politely wrap up and call end_ca
       this.injectInstruction(
         `Your previous turn was cut off — the caller started speaking before they could hear all of it. The FULL sentence you intended was:\n\n"${resumeText}"\n\n` +
         `Now check the caller's latest reply. If they addressed what you were trying to say — just continue the conversation normally. If they did NOT address it (e.g. they just said "Алё/Hello/Yes?", asked you to repeat, gave an unrelated brief response) — resume your unfinished thought NATURALLY from where you were cut off. Do not restart from the beginning. Do not fragment. Pick up the idea.`
+      );
+    }
+
+    // SUPPLICANT NUDGE — if the caller PROPOSED a specific time/option/slot
+    // themselves, the agent must NOT then ask "удобно?/подходит?". The
+    // skill-prompt rule alone has failed 5+ times in real calls. Inject a
+    // pointed reminder right here, before Grok generates the next response.
+    if (SELF_PROPOSAL_PATTERN.test(trimmed)) {
+      this.injectInstruction(
+        `[Supplicant rule reminder] The caller JUST proposed something themselves in their last turn ("${trimmed}"). They already decided it works FOR THEM. Do NOT ask "Удобно так?/Подходит?/Всё верно?" — that's redundant and slightly rude. Just acknowledge directly ("Отлично, на пять — записываем!" / "Хорошо, давайте на 6:30, спасибо большое!") and move to closing thanks. NO question mark at the end of your next turn unless you genuinely need NEW info.`
       );
     }
   }
