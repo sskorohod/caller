@@ -65,7 +65,11 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
       scheduled_at: z.string().nullable().optional(),
     }).parse(request.body);
 
-    const { updateMission } = await import('../../services/mission.service.js');
+    const { updateMission, getMission } = await import('../../services/mission.service.js');
+    // Workspace-isolation gate: throws NotFoundError if the mission doesn't
+    // belong to this workspace. Prevents cross-workspace patching when an
+    // attacker guesses or scrapes a mission UUID.
+    await getMission(request.auth.workspaceId, id);
     const mission = await updateMission(id, body as any);
     return { mission };
   });
@@ -81,7 +85,10 @@ const missionRoutes: FastifyPluginAsync = async (app) => {
   // POST /api/missions/:id/retry — retry the call (supports MCP)
   app.post('/:id/retry', { preHandler: [authenticateAny] }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
-    const { executeMission, updateMission } = await import('../../services/mission.service.js');
+    const { executeMission, updateMission, getMission } = await import('../../services/mission.service.js');
+    // Workspace-isolation gate before any state change. executeMission already
+    // re-checks, but we need it here BEFORE updateMission flips the status.
+    await getMission(request.auth.workspaceId, id);
     await updateMission(id, { status: 'ready', retry_count: 0 } as any);
     await executeMission(request.auth.workspaceId, id);
     return { ok: true };

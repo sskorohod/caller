@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { createHmac } from 'node:crypto';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../../config/db.js';
 import { providerCredentials, workspaces, translatorSessions, callShareTokens, workspaceMembers } from '../../db/schema.js';
@@ -213,9 +214,48 @@ async function sendRecordingVoice(botToken: string, chatId: string, workspaceId:
   }
 }
 
+/**
+ * Per-bot webhook secret, derived deterministically from JWT_SECRET + botToken.
+ * Telegram includes this in the X-Telegram-Bot-Api-Secret-Token header on
+ * every webhook delivery (we set it when calling setWebhook). Anything without
+ * the matching header is forged/spoofed and must be rejected.
+ */
+function deriveTelegramWebhookSecret(botToken: string): string {
+  return createHmac('sha256', env.JWT_SECRET).update(botToken).digest('hex').slice(0, 32);
+}
+
 const telegramWebhook: FastifyPluginAsync = async (app) => {
   // POST /webhooks/telegram — incoming updates from Telegram
   app.post('/telegram', async (request, reply) => {
+    // Signature check: Telegram echoes the secret_token we set in setWebhook
+    // back as a header. If any active bot's expected secret matches, the
+    // delivery is authentic. Mismatch → 403.
+    const headerSecret = request.headers['x-telegram-bot-api-secret-token'] as string | undefined;
+    if (!headerSecret) {
+      log.warn({ ip: request.ip }, 'Telegram webhook rejected — missing secret header');
+      return reply.status(403).send({ ok: false, error: 'forbidden' });
+    }
+    try {
+      const allBots = await db.select({ credential_data: providerCredentials.credential_data })
+        .from(providerCredentials)
+        .where(eq(providerCredentials.provider, 'telegram'));
+      const matched = allBots.some(b => {
+        try {
+          const creds = JSON.parse(decrypt(b.credential_data)) as { bot_token?: string };
+          return creds.bot_token && deriveTelegramWebhookSecret(creds.bot_token) === headerSecret;
+        } catch {
+          return false;
+        }
+      });
+      if (!matched) {
+        log.warn({ ip: request.ip }, 'Telegram webhook rejected — secret mismatch');
+        return reply.status(403).send({ ok: false, error: 'forbidden' });
+      }
+    } catch (err) {
+      log.error({ err }, 'Telegram webhook secret verification error');
+      return reply.status(500).send({ ok: false });
+    }
+
     const body = request.body as any;
 
     // ─── Handle callback_query (inline button presses) ─────────────
@@ -681,13 +721,16 @@ export async function setupTelegramBotCommands(botToken: string): Promise<void> 
   }
 }
 
-/** Set Telegram webhook URL */
+/** Set Telegram webhook URL with a derived secret_token. Telegram echoes the
+ *  secret in X-Telegram-Bot-Api-Secret-Token on every delivery — we verify it
+ *  on every incoming POST /webhooks/telegram to reject forged updates. */
 export async function setupTelegramWebhook(botToken: string, webhookUrl: string): Promise<void> {
   try {
+    const secretToken = deriveTelegramWebhookSecret(botToken);
     const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: webhookUrl }),
+      body: JSON.stringify({ url: webhookUrl, secret_token: secretToken }),
     });
     const data = await res.json() as any;
     log.info({ webhookUrl, ok: data.ok }, 'Telegram webhook set');

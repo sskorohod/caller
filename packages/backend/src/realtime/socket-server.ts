@@ -13,9 +13,13 @@ const log = pino({ name: 'socket-server' });
 export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, typeof ServerResponse>) {
   const io = new Server(httpServer, {
     cors: {
+      // Production: only allow the configured API_DOMAIN. The previously
+      // hardcoded "caller.n8nskorx.top" fallback was a security hazard if the
+      // domain ever changed — left CORS open to a foreign origin. Operators
+      // who need extra origins for testing should set API_DOMAIN explicitly.
       origin: env.NODE_ENV === 'development'
         ? true
-        : [`https://${env.API_DOMAIN}`, 'https://caller.n8nskorx.top'],
+        : [`https://${env.API_DOMAIN}`],
       credentials: true,
     },
     path: '/socket.io',
@@ -128,13 +132,34 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     // Translator controls — change mode/voice on the fly.
     // call_id may be omitted by share-token clients (the public translate page);
     // we fall back to socket.data.shareCallId set during handshake.
+    //
+    // AUTHORIZATION: legitimate cases are
+    //   (a) share-token client modifying its own session (shareCallId === id), OR
+    //   (b) workspace user modifying a call in their own workspace.
+    // Anything else gets dropped silently.
     const resolveCallId = (call_id?: string | null): string | null =>
       call_id || (socket.data.shareCallId as string | undefined) || null;
+
+    async function authorizeTranslatorAction(id: string): Promise<boolean> {
+      const role = socket.data.role as string | undefined;
+      const wsId = socket.data.workspaceId as string | undefined;
+      // Share-token monitors can ONLY touch their own pre-bound share call.
+      if (role === 'monitor') {
+        return socket.data.shareCallId === id;
+      }
+      if (!wsId) return false;
+      const [row] = await db
+        .select({ workspace_id: callsTable.workspace_id })
+        .from(callsTable)
+        .where(and(eq(callsTable.id, id), eq(callsTable.workspace_id, wsId)))
+        .limit(1);
+      return !!row;
+    }
 
     socket.on('translator:set-mode', async ({ call_id, mode }: { call_id?: string; mode: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id) return;
+        if (!id || !await authorizeTranslatorAction(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateMode(mode);
@@ -144,7 +169,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:set-languages', async ({ call_id, my_language, target_language }: { call_id?: string; my_language: string; target_language: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id) return;
+        if (!id || !await authorizeTranslatorAction(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateLanguages(my_language, target_language);
@@ -154,7 +179,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:set-voice', async ({ call_id, voice }: { call_id?: string; voice: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id) return;
+        if (!id || !await authorizeTranslatorAction(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateVoice(voice);
@@ -165,7 +190,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:pause', async ({ call_id }: { call_id?: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id) return;
+        if (!id || !await authorizeTranslatorAction(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.pause();
@@ -175,7 +200,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:resume', async ({ call_id }: { call_id?: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id) return;
+        if (!id || !await authorizeTranslatorAction(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.resume();
@@ -186,7 +211,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:set-tone', async ({ call_id, tone }: { call_id?: string; tone: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id) return;
+        if (!id || !await authorizeTranslatorAction(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateTone(tone);
@@ -206,9 +231,9 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         if (ct && voice) { ct.updateVoice(voice); return; }
 
         // Dialer VT: reconnect Grok with new voice (not supported yet — would need session.update)
-        console.log(`[Socket.IO] Voice change requested: call=${call_id} voice=${voice}`);
+        log.debug({ call_id, voice }, 'Voice change requested (no active translator)');
       } catch (err) {
-        console.error(`[Socket.IO] Voice change failed:`, err);
+        log.error({ err, call_id }, 'Voice change failed');
       }
     });
 
@@ -245,7 +270,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const session = getActiveVoiceTranslateSessions().get(call_id);
         if (session) {
           session.translationEnabled = enabled;
-          console.log(`[Socket.IO] Translation toggled: call=${call_id} enabled=${enabled}`);
+          log.info({ call_id, enabled }, 'Translation toggled');
         }
       } catch { /* ignore */ }
     });

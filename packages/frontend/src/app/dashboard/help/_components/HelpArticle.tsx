@@ -50,11 +50,28 @@ function renderMarkdown(md: string, accent: string): string {
     if (inTable) { out.push('</tbody></table></div></div>'); inTable = false; }
   };
 
+  // Sanitize URLs in [text](url) so that javascript:, data:, vbscript:, file:
+  // schemes can't slip through dangerouslySetInnerHTML. Only http(s), mailto,
+  // tel, and relative paths are permitted.
+  const safeUrl = (u: string): string => {
+    const trimmed = u.trim();
+    if (!trimmed) return '#';
+    if (/^(https?:|mailto:|tel:|\/[^\/])/i.test(trimmed)) {
+      return trimmed.replace(/"/g, '%22');
+    }
+    if (trimmed.startsWith('#') || trimmed.startsWith('/')) {
+      return trimmed.replace(/"/g, '%22');
+    }
+    return '#';
+  };
+
   const inline = (text: string): string => {
     return text
       .replace(/`([^`]+)`/g, `<code style="padding:2px 6px;border-radius:6px;background:var(--th-card-hover);color:${accent};font-size:12px;font-family:ui-monospace,monospace;font-weight:500">$1</code>`)
       .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--th-text);font-weight:600">$1</strong>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" target="_blank" rel="noopener" style="color:${accent};text-decoration:none;font-weight:500;border-bottom:1px solid ${accent}40">$1</a>`);
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, url) =>
+        `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer" style="color:${accent};text-decoration:none;font-weight:500;border-bottom:1px solid ${accent}40">${label}</a>`
+      );
   };
 
   for (const rawLine of lines) {
