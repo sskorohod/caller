@@ -81,7 +81,18 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // POST /api/auth/register — create first user + workspace
-  app.post('/register', async (request, reply) => {
+  // Rate-limited per IP: registration is a one-time action, so 5/hour is
+  // generous for legit users while blocking signup-spam / email-flood / DB
+  // enumeration via the 409 "email already registered" response.
+  app.post('/register', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 hour',
+        keyGenerator: (request: import('fastify').FastifyRequest) => request.ip,
+      },
+    },
+  }, async (request, reply) => {
     const body = registerBody.parse(request.body);
 
     // Check if email already exists
