@@ -101,6 +101,7 @@ const ru: Record<string, string> = {
   'help.art.teamSettings': 'Управление командой',
   'nav.audit': 'Аудит',
   'nav.missions': 'Миссии',
+  'nav.checkin': 'Чек-ин',
   'nav.sectionOverview': 'Обзор',
   'nav.sectionOperations': 'Операции',
   'nav.sectionAi': 'ИИ Конфигурация',

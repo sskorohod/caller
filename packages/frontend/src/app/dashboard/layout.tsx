@@ -95,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           const isTranslatorOnly = plan === 'translator';
 
           const translatorOps = ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator'];
-          const fullOps = [...translatorOps, '/dashboard/missions'];
+          const fullOps = [...translatorOps, '/dashboard/missions', '/dashboard/checkin'];
 
           return [
             { label: t('nav.sectionOverview') || 'Overview', items: navItems.filter(i => i.href === '/dashboard') },

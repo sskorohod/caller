@@ -122,6 +122,7 @@ await app.register(import('./routes/webhook-endpoints/index.js'), { prefix: '/ap
 await app.register(import('./routes/connectors/index.js'), { prefix: '/api/connectors' });
 await app.register(import('./routes/audit/index.js'), { prefix: '/api/audit-logs' });
 await app.register(import('./routes/missions/index.js'), { prefix: '/api/missions' });
+await app.register(import('./routes/checkins/index.js'), { prefix: '/api/checkins' });
 await app.register(import('./routes/translator/index.js'), { prefix: '/api/translator' });
 await app.register(import('./routes/translator/stripe.js'), { prefix: '/api/translator' });
 // Portal disabled — subscribers merged into workspaces
@@ -163,11 +164,17 @@ import { startMissionScheduledWorker } from './workers/mission-scheduled.worker.
 const missionScheduledWorker = startMissionScheduledWorker();
 app.log.info('Mission-scheduled worker started');
 
+// Start daily check-in worker (BullMQ hourly repeatable — evening Telegram survey)
+import { startDailyCheckinWorker } from './workers/daily-checkin.worker.js';
+const dailyCheckinWorker = startDailyCheckinWorker();
+app.log.info('Daily check-in worker started');
+
 // Graceful shutdown
 async function gracefulShutdown(signal: string) {
   app.log.info(`${signal} received, shutting down...`);
   await postCallWorker.close();
   await missionScheduledWorker.close();
+  await dailyCheckinWorker.close();
   await app.close();
   await pool.end();
   process.exit(0);

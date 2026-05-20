@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, boolean, integer, numeric, timestamp, jsonb, unique, index, customType,
+  pgTable, uuid, text, boolean, integer, numeric, timestamp, jsonb, unique, index, customType, date,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -55,6 +55,8 @@ export const workspaces = pgTable('workspaces', {
   phone_numbers: jsonb('phone_numbers').notNull().default([]), // up to 3 phone numbers for translator identification
   provider_config: jsonb('provider_config').notNull().default({}), // { twilio: 'platform'|'own', deepgram: ... }
   translator_defaults: jsonb('translator_defaults').notNull().default({}), // { greeting_text, tts_provider, tts_voice_id, my_language, target_language, translation_mode }
+  daily_checkin_enabled: boolean('daily_checkin_enabled').notNull().default(false),
+  daily_checkin_hour: integer('daily_checkin_hour').notNull().default(22),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -801,4 +803,23 @@ export const contactMessages = pgTable('contact_messages', {
 }, (t) => [
   index('idx_contact_messages_status').on(t.status, t.created_at),
   index('idx_contact_messages_created').on(t.created_at),
+]);
+
+// ── Daily Check-ins (evening Telegram survey) ───────────────
+export const dailyCheckIns = pgTable('daily_check_ins', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  chat_id: text('chat_id').notNull(),
+  checkin_date: date('checkin_date').notNull(),
+  status: text('status').notNull().default('in_progress'), // in_progress | completed
+  current_question: integer('current_question').notNull().default(1), // 1..4
+  energy_level: text('energy_level'), // great|good|ok|low|drained
+  lunch: text('lunch'),
+  dinner: text('dinner'),
+  highlight: text('highlight'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique().on(t.workspace_id, t.chat_id, t.checkin_date),
+  index('idx_daily_check_ins_workspace_date').on(t.workspace_id, t.checkin_date),
 ]);

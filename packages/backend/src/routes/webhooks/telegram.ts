@@ -43,6 +43,7 @@ const BOT_COMMANDS = [
   { command: 'pause', description: 'Pause translator' },
   { command: 'resume', description: 'Resume translator' },
   { command: 'summary', description: 'Summary of last conversation' },
+  { command: 'checkin', description: '📝 Вечерний чек-ин' },
 ];
 
 async function findWorkspaceByChatId(chatId: string) {
@@ -508,6 +509,15 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
               'Можно текстом или 🎤 голосовым.'
             );
 
+          } else if (cbData.startsWith('checkin:energy:')) {
+            // Daily check-in Q1 — energy level. Format: checkin:energy:<level>:<checkinId>
+            const parts = cbData.split(':');
+            const level = parts[2];
+            const checkinId = parts[3];
+            await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Записал ✅');
+            const { recordEnergyAnswer } = await import('../../services/checkin.service.js');
+            await recordEnergyAnswer(ws.botToken, checkinId, level as any);
+
           } else {
             await answerCallbackQuery(ws.botToken, callbackQuery.id);
           }
@@ -563,6 +573,39 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
         `⏰ Звонок отложен на <b>${timeStr}</b>. Напомню, когда придёт время.`
       );
       return reply.send({ ok: true });
+    }
+
+    // ─── Daily check-in: non-command text/voice answers an in-progress survey ───
+    if (!command) {
+      const ws = await findWorkspaceByChatId(chatId);
+      if (ws) {
+        const [wsRow] = await db.select({ timezone: workspaces.timezone })
+          .from(workspaces).where(eq(workspaces.id, ws.workspaceId)).limit(1);
+        const tz = wsRow?.timezone || 'America/Los_Angeles';
+        const localDate = new Intl.DateTimeFormat('en-CA', {
+          timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date());
+        const { findActiveCheckin, recordTextAnswer } = await import('../../services/checkin.service.js');
+        const checkin = await findActiveCheckin(ws.workspaceId, chatId, localDate);
+        if (checkin && checkin.current_question >= 2) {
+          let answer = text;
+          if (hasVoice && !hasText) {
+            try {
+              const openaiCreds = await getProviderCredential(ws.workspaceId, 'openai');
+              answer = await transcribeVoiceMessage(ws.botToken, message.voice.file_id, openaiCreds.api_key);
+              await sendTelegramPlainMessage(ws.botToken, chatId, `🎤 <i>${answer}</i>`);
+            } catch (err) {
+              log.error({ err, chatId }, 'Check-in voice transcription failed');
+              await sendTelegramPlainMessage(ws.botToken, chatId, '❌ Не удалось распознать голосовое.');
+              return reply.send({ ok: true });
+            }
+          }
+          if (answer && answer.trim()) {
+            await recordTextAnswer(ws.botToken, checkin, answer);
+          }
+          return reply.send({ ok: true });
+        }
+      }
     }
 
     // ─── Active call: inject voice/text as hint to the agent ───
