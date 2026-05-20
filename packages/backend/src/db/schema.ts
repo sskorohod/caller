@@ -823,3 +823,24 @@ export const dailyCheckIns = pgTable('daily_check_ins', {
   unique().on(t.workspace_id, t.chat_id, t.checkin_date),
   index('idx_daily_check_ins_workspace_date').on(t.workspace_id, t.checkin_date),
 ]);
+
+// ── Reminders (standalone, Apple-style) ─────────────────────
+export const reminders = pgTable('reminders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  chat_id: text('chat_id').notNull(),
+  kind: text('kind').notNull().default('generic'), // generic | mission_plan
+  text: text('text').notNull(),
+  payload: jsonb('payload').notNull().default({}),
+  remind_at: timestamp('remind_at', { withTimezone: true }).notNull(),
+  timezone: text('timezone').notNull().default('America/Los_Angeles'),
+  recurrence: text('recurrence'), // null | daily | weekdays | weekly
+  status: text('status').notNull().default('pending'), // pending | done | cancelled
+  fired_count: integer('fired_count').notNull().default(0),
+  last_fired_at: timestamp('last_fired_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_reminders_due').on(t.status, t.remind_at),
+  index('idx_reminders_workspace').on(t.workspace_id, t.status, t.remind_at),
+]);

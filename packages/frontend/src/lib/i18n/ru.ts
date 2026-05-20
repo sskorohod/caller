@@ -102,6 +102,7 @@ const ru: Record<string, string> = {
   'nav.audit': 'Аудит',
   'nav.missions': 'Миссии',
   'nav.checkin': 'Чек-ин',
+  'nav.reminders': 'Напоминания',
   'nav.sectionOverview': 'Обзор',
   'nav.sectionOperations': 'Операции',
   'nav.sectionAi': 'ИИ Конфигурация',
