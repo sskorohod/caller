@@ -101,8 +101,6 @@ const en: Record<string, string> = {
   'help.art.teamSettings': 'Team management',
   'nav.audit': 'Audit Log',
   'nav.missions': 'Missions',
-  'nav.checkin': 'Check-in',
-  'nav.reminders': 'Reminders',
   'nav.sectionOverview': 'Overview',
   'nav.sectionOperations': 'Operations',
   'nav.sectionAi': 'AI Config',

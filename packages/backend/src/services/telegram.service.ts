@@ -200,27 +200,6 @@ export async function sendTelegramPlainMessage(
   return sendTelegramMessage(botToken, chatId, text);
 }
 
-/**
- * Mission plan card with the 3 action buttons. Extracted here so both the
- * Telegram webhook and the reminders worker (mission_plan kind) can send it
- * without a circular import.
- */
-export async function sendMissionPlanCard(
-  botToken: string,
-  chatId: string,
-  missionId: string,
-  planText: string,
-): Promise<boolean> {
-  return sendTelegramMessageWithButtons(botToken, chatId,
-    planText + '\n\n<i>Или напишите, что изменить — план обновится.</i>', [
-    [
-      { text: '📞 Позвонить', callback_data: `mission_call:${missionId}` },
-      { text: '⏰ Отложить', callback_data: `mission_delay:${missionId}` },
-      { text: '❌ Отменить', callback_data: `mission_cancel:${missionId}` },
-    ],
-  ]);
-}
-
 export async function answerCallbackQuery(
   botToken: string,
   callbackQueryId: string,

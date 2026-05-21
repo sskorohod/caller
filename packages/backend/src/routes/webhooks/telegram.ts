@@ -29,21 +29,7 @@ export const activeMissions = new Map<string, { missionId: string; workspaceId: 
 const pendingDelay = new Map<string, { missionId: string; workspaceId: string; planText: string }>();
 
 // Scheduled mission timers
-/** Cancel any pending durable mission-plan reminders for a mission. */
-async function cancelMissionReminders(missionId: string): Promise<void> {
-  try {
-    const { db } = await import('../../config/db.js');
-    const { reminders } = await import('../../db/schema.js');
-    const { and, eq, sql } = await import('drizzle-orm');
-    await db.update(reminders)
-      .set({ status: 'cancelled', updated_at: new Date() })
-      .where(and(
-        eq(reminders.status, 'pending'),
-        eq(reminders.kind, 'mission_plan'),
-        sql`${reminders.payload}->>'missionId' = ${missionId}`,
-      ));
-  } catch { /* non-critical */ }
-}
+const scheduledTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Active calls per chat (for voice injection during calls)
 const activeCalls = new Map<string, { callId: string; workspaceId: string }>();
@@ -57,14 +43,7 @@ const BOT_COMMANDS = [
   { command: 'pause', description: 'Pause translator' },
   { command: 'resume', description: 'Resume translator' },
   { command: 'summary', description: 'Summary of last conversation' },
-  { command: 'checkin', description: '📝 Вечерний чек-ин' },
-  { command: 'remind', description: '⏰ Создать напоминание' },
-  { command: 'reminders', description: '📋 Мои напоминания' },
 ];
-
-/** Chats awaiting a free-form reminder phrase after a bare /remind. */
-const pendingReminderInput = new Set<string>();
-export { pendingReminderInput };
 
 async function findWorkspaceByChatId(chatId: string) {
   const rows = await db.select({
@@ -114,94 +93,26 @@ async function sendPlanCard(botToken: string, chatId: string, missionId: string,
   ]);
 }
 
-/**
- * Schedule a mission-call reminder. Durable — backed by the `reminders`
- * table + BullMQ minutely worker, so it survives a backend restart (the
- * old in-memory setTimeout did not).
- */
-async function scheduleMissionCall(
-  _botToken: string, chatId: string, workspaceId: string,
+/** Schedule a mission call with timer and Telegram reminder */
+function scheduleMissionCall(
+  botToken: string, chatId: string, workspaceId: string,
   missionId: string, planText: string, delayMs: number,
 ) {
-  // Cancel any prior pending mission_plan reminder for this mission.
-  try {
-    const { db } = await import('../../config/db.js');
-    const { reminders } = await import('../../db/schema.js');
-    const { and, eq, sql } = await import('drizzle-orm');
-    await db.update(reminders)
-      .set({ status: 'cancelled', updated_at: new Date() })
-      .where(and(
-        eq(reminders.status, 'pending'),
-        eq(reminders.kind, 'mission_plan'),
-        sql`${reminders.payload}->>'missionId' = ${missionId}`,
-      ));
-  } catch (err) {
-    log.warn({ err, missionId }, 'Failed to cancel prior mission reminder');
-  }
+  // Clear any existing timer
+  const existing = scheduledTimers.get(missionId);
+  if (existing) clearTimeout(existing);
 
-  // Resolve workspace timezone for display/recurrence consistency.
-  let tz = 'America/Los_Angeles';
-  try {
-    const { db } = await import('../../config/db.js');
-    const { eq } = await import('drizzle-orm');
-    const [wsRow] = await db.select({ timezone: workspaces.timezone })
-      .from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
-    if (wsRow?.timezone) tz = wsRow.timezone;
-  } catch { /* default tz */ }
+  const timer = setTimeout(async () => {
+    scheduledTimers.delete(missionId);
+    try {
+      await sendTelegramPlainMessage(botToken, chatId, '⏰ <b>Напоминание!</b> Время звонить:');
+      await sendPlanCard(botToken, chatId, missionId, planText);
+    } catch (err) {
+      log.error({ err, missionId }, 'Failed to send scheduled mission reminder');
+    }
+  }, delayMs);
 
-  const { createReminder } = await import('../../services/reminder.service.js');
-  await createReminder({
-    workspaceId,
-    chatId,
-    text: planText,
-    remindAt: new Date(Date.now() + Math.max(0, delayMs)),
-    timezone: tz,
-    kind: 'mission_plan',
-    payload: { missionId },
-  });
-}
-
-/**
- * Parse a free-form reminder phrase, create the reminder, and reply with a
- * confirmation card. Used by both `/remind <text>` and the bare-`/remind`
- * follow-up message.
- */
-async function handleReminderPhrase(
-  botToken: string, chatId: string, workspaceId: string, phrase: string,
-): Promise<void> {
-  let tz = 'America/Los_Angeles';
-  try {
-    const [wsRow] = await db.select({ timezone: workspaces.timezone })
-      .from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
-    if (wsRow?.timezone) tz = wsRow.timezone;
-  } catch { /* default tz */ }
-
-  const reminderSvc = await import('../../services/reminder.service.js');
-  const parsed = await reminderSvc.parseReminder(workspaceId, phrase, tz);
-
-  if (parsed.needs_time || !parsed.remind_at) {
-    pendingReminderInput.add(chatId);
-    await sendTelegramPlainMessage(botToken, chatId,
-      '🤔 Не понял, <b>когда</b> напомнить. Уточни время — например: «завтра в 17:00» или «через 2 часа».');
-    return;
-  }
-
-  pendingReminderInput.delete(chatId);
-  const remindAt = new Date(parsed.remind_at);
-  const row = await reminderSvc.createReminder({
-    workspaceId, chatId,
-    text: parsed.text || phrase,
-    remindAt,
-    timezone: tz,
-    recurrence: parsed.recurrence,
-  });
-  await sendTelegramMessageWithButtons(botToken, chatId,
-    `✅ <b>Напомню:</b> ${row.text}\n📅 ${reminderSvc.formatWhen(remindAt, parsed.recurrence, tz)}`, [
-    [
-      { text: '😴 Другое время', callback_data: `reminder:snooze:60:${row.id}` },
-      { text: '❌ Удалить', callback_data: `reminder:cancel:${row.id}` },
-    ],
-  ]);
+  scheduledTimers.set(missionId, timer);
 }
 
 /** Process a mission chat message (text) and send AI response back to Telegram */
@@ -361,7 +272,8 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             await answerCallbackQuery(ws.botToken, callbackQuery.id, '📞 Звоню...');
             activeMissions.delete(cbChatId);
             pendingDelay.delete(cbChatId);
-            await cancelMissionReminders(missionId);
+            const timer = scheduledTimers.get(missionId);
+            if (timer) { clearTimeout(timer); scheduledTimers.delete(missionId); }
 
             try {
               await missionService.executeMission(ws.workspaceId, missionId);
@@ -457,7 +369,8 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
             await missionService.updateMission(missionId, { status: 'failed' });
             activeMissions.delete(cbChatId);
             pendingDelay.delete(cbChatId);
-            await cancelMissionReminders(missionId);
+            const timer = scheduledTimers.get(missionId);
+            if (timer) { clearTimeout(timer); scheduledTimers.delete(missionId); }
             await sendTelegramPlainMessage(ws.botToken, cbChatId, '❌ Миссия отменена.');
 
           } else if (cbData.startsWith('mfail:')) {
@@ -595,39 +508,6 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
               'Можно текстом или 🎤 голосовым.'
             );
 
-          } else if (cbData.startsWith('reminder:')) {
-            // reminder:done:<id> | reminder:snooze:<10|60|tomorrow>:<id> | reminder:cancel:<id>
-            const parts = cbData.split(':');
-            const action = parts[1];
-            const reminderSvc = await import('../../services/reminder.service.js');
-            if (action === 'done') {
-              await reminderSvc.completeReminder(parts[2]);
-              await answerCallbackQuery(ws.botToken, callbackQuery.id, '✅ Готово');
-            } else if (action === 'cancel') {
-              await reminderSvc.cancelReminder(parts[2]);
-              await answerCallbackQuery(ws.botToken, callbackQuery.id, '❌ Удалено');
-            } else if (action === 'snooze') {
-              const spec = parts[2] === 'tomorrow' ? 'tomorrow' : parseInt(parts[2], 10);
-              const next = await reminderSvc.snoozeReminder(parts[3], spec as any);
-              await answerCallbackQuery(ws.botToken, callbackQuery.id, next ? '😴 Отложено' : 'Не найдено');
-              if (next) {
-                const r = await reminderSvc.getReminder(parts[3]);
-                if (r) {
-                  await sendTelegramPlainMessage(ws.botToken, cbChatId,
-                    `😴 Напомню снова: ${reminderSvc.formatWhen(next, null, r.timezone)}`);
-                }
-              }
-            }
-
-          } else if (cbData.startsWith('checkin:energy:')) {
-            // Daily check-in Q1 — energy level. Format: checkin:energy:<level>:<checkinId>
-            const parts = cbData.split(':');
-            const level = parts[2];
-            const checkinId = parts[3];
-            await answerCallbackQuery(ws.botToken, callbackQuery.id, 'Записал ✅');
-            const { recordEnergyAnswer } = await import('../../services/checkin.service.js');
-            await recordEnergyAnswer(ws.botToken, checkinId, level as any);
-
           } else {
             await answerCallbackQuery(ws.botToken, callbackQuery.id);
           }
@@ -677,67 +557,12 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
       const m = delayMins % 60;
       const timeStr = h > 0 ? `${h}ч ${m}м` : `${m} мин`;
 
-      await scheduleMissionCall(ws.botToken, chatId, ws.workspaceId, delay.missionId, delay.planText, delayMs);
+      scheduleMissionCall(ws.botToken, chatId, ws.workspaceId, delay.missionId, delay.planText, delayMs);
 
       await sendTelegramPlainMessage(ws.botToken, chatId,
         `⏰ Звонок отложен на <b>${timeStr}</b>. Напомню, когда придёт время.`
       );
       return reply.send({ ok: true });
-    }
-
-    // ─── Pending reminder input: chat sent bare /remind, this is the phrase ───
-    if (!command && pendingReminderInput.has(chatId)) {
-      const ws = await findWorkspaceByChatId(chatId);
-      if (ws) {
-        let phrase = text;
-        if (hasVoice && !hasText) {
-          try {
-            const openaiCreds = await getProviderCredential(ws.workspaceId, 'openai');
-            phrase = await transcribeVoiceMessage(ws.botToken, message.voice.file_id, openaiCreds.api_key);
-          } catch (err) {
-            log.error({ err, chatId }, 'Reminder voice transcription failed');
-            await sendTelegramPlainMessage(ws.botToken, chatId, '❌ Не удалось распознать голосовое.');
-            return reply.send({ ok: true });
-          }
-        }
-        if (phrase && phrase.trim()) {
-          await handleReminderPhrase(ws.botToken, chatId, ws.workspaceId, phrase.trim());
-        }
-        return reply.send({ ok: true });
-      }
-    }
-
-    // ─── Daily check-in: non-command text/voice answers an in-progress survey ───
-    if (!command) {
-      const ws = await findWorkspaceByChatId(chatId);
-      if (ws) {
-        const [wsRow] = await db.select({ timezone: workspaces.timezone })
-          .from(workspaces).where(eq(workspaces.id, ws.workspaceId)).limit(1);
-        const tz = wsRow?.timezone || 'America/Los_Angeles';
-        const localDate = new Intl.DateTimeFormat('en-CA', {
-          timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-        }).format(new Date());
-        const { findActiveCheckin, recordTextAnswer } = await import('../../services/checkin.service.js');
-        const checkin = await findActiveCheckin(ws.workspaceId, chatId, localDate);
-        if (checkin && checkin.current_question >= 2) {
-          let answer = text;
-          if (hasVoice && !hasText) {
-            try {
-              const openaiCreds = await getProviderCredential(ws.workspaceId, 'openai');
-              answer = await transcribeVoiceMessage(ws.botToken, message.voice.file_id, openaiCreds.api_key);
-              await sendTelegramPlainMessage(ws.botToken, chatId, `🎤 <i>${answer}</i>`);
-            } catch (err) {
-              log.error({ err, chatId }, 'Check-in voice transcription failed');
-              await sendTelegramPlainMessage(ws.botToken, chatId, '❌ Не удалось распознать голосовое.');
-              return reply.send({ ok: true });
-            }
-          }
-          if (answer && answer.trim()) {
-            await recordTextAnswer(ws.botToken, checkin, answer);
-          }
-          return reply.send({ ok: true });
-        }
-      }
     }
 
     // ─── Active call: inject voice/text as hint to the agent ───
@@ -866,39 +691,10 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
     }
 
     const { workspaceId, botToken } = ws;
-    const args = text.slice(command!.length).trim();
-
-    // Reminders commands handled here (reach handleReminderPhrase + reminder.service directly).
-    if (command === '/remind') {
-      if (args) {
-        await handleReminderPhrase(botToken, chatId, workspaceId, args);
-      } else {
-        pendingReminderInput.add(chatId);
-        await sendTelegramPlainMessage(botToken, chatId,
-          '⏰ Что и когда напомнить? Напиши одной фразой — например:\n' +
-          '«позвонить маме завтра в 17:00» или «пить воду каждый день в 10:00».\n' +
-          'Можно текстом или 🎤 голосовым.');
-      }
-      return reply.send({ ok: true });
-    }
-    if (command === '/reminders') {
-      const reminderSvc = await import('../../services/reminder.service.js');
-      const pending = await reminderSvc.listReminders(workspaceId, 'pending');
-      const generic = pending.filter(r => r.kind === 'generic');
-      if (generic.length === 0) {
-        await sendTelegramPlainMessage(botToken, chatId, '📋 Активных напоминаний нет. Создай: /remind');
-      } else {
-        for (const r of generic) {
-          await sendTelegramMessageWithButtons(botToken, chatId,
-            `🔔 ${r.text}\n📅 ${reminderSvc.formatWhen(r.remind_at, r.recurrence, r.timezone)}`,
-            [[{ text: '❌ Удалить', callback_data: `reminder:cancel:${r.id}` }]]);
-        }
-      }
-      return reply.send({ ok: true });
-    }
 
     try {
       const { handleCommand } = await import('../../services/telegram-commands.service.js');
+      const args = text.slice(command!.length).trim();
       const handled = await handleCommand({ botToken, chatId, workspaceId }, command!, args);
       if (!handled) {
         log.warn({ command, chatId }, 'Unknown Telegram command');

@@ -244,19 +244,6 @@ const commandHandlers: Record<string, CommandHandler> = {
 
     await sendReply(ctx.botToken, ctx.chatId, lines.join('\n'));
   },
-
-  '/checkin': async (ctx) => {
-    // Manually start (or resume) today's evening check-in survey.
-    const { workspaces } = await import('../db/schema.js');
-    const { startCheckin } = await import('./checkin.service.js');
-    const [ws] = await db.select({ timezone: workspaces.timezone })
-      .from(workspaces).where(eq(workspaces.id, ctx.workspaceId)).limit(1);
-    const tz = ws?.timezone || 'America/Los_Angeles';
-    const localDate = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date());
-    await startCheckin(ctx.workspaceId, ctx.botToken, ctx.chatId, localDate);
-  },
 };
 
 // --- Public API ---
