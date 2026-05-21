@@ -24,7 +24,7 @@ export function getLangName(code: string): string {
 
 export const TONE_INSTRUCTIONS: Record<string, string> = {
   neutral: 'Translate naturally, preserving the original tone and meaning.',
-  business: 'Use a professional, formal business tone. Remove filler words (um, uh, er, hmm). Use clear, precise language appropriate for business meetings and appointments.',
+  business: 'Use a professional, formal business tone. Remove filler words and hesitations — both English (um, uh, er, hmm) AND Russian (м, э, ну, типа, как бы, как-то так, вот, значит). Clean up false starts and repetitions. Use clear, precise language appropriate for business meetings and appointments.',
   friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
   medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
   legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
