@@ -184,33 +184,71 @@ async function sendRecordingVoice(botToken: string, chatId: string, workspaceId:
       audioBuffer = Buffer.from(await res.arrayBuffer());
     }
 
-    const { execSync } = await import('child_process');
-    const { writeFileSync, readFileSync, unlinkSync } = await import('fs');
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const { writeFileSync, readFileSync, unlinkSync, statSync } = await import('fs');
     const { join } = await import('path');
+    const execAsync = promisify(exec);
     const ts = Date.now();
     const mp3Path = join('/tmp', `rec_${ts}.mp3`);
     const oggPath = join('/tmp', `rec_${ts}.ogg`);
 
+    // Telegram bot upload hard limit is 50 MB. Stay safely under it.
+    const TELEGRAM_MAX_BYTES = 48 * 1024 * 1024;
+
     writeFileSync(mp3Path, audioBuffer);
     try {
-      execSync(`ffmpeg -i ${mp3Path} -c:a libopus -b:a 48k -ar 48000 -ac 1 ${oggPath}`, { timeout: 30000 });
-      const oggBuffer = readFileSync(oggPath);
+      // Async ffmpeg — does NOT block the Node event loop (execSync did, which
+      // froze the whole backend while a long recording transcoded). Generous
+      // 4-minute timeout: opus encoding of a 40-min call on the NAS CPU can
+      // take well over the old 30s cap, which truncated/failed big recordings.
+      await execAsync(
+        `ffmpeg -y -i "${mp3Path}" -c:a libopus -b:a 48k -ar 48000 -ac 1 "${oggPath}"`,
+        { timeout: 240_000, maxBuffer: 16 * 1024 * 1024 },
+      );
 
+      const oggBytes = statSync(oggPath).size;
+      if (oggBytes > TELEGRAM_MAX_BYTES) {
+        log.warn({ callId, oggBytes }, 'Recording too large for Telegram');
+        await sendTelegramPlainMessage(botToken, chatId,
+          `⚠️ Запись слишком большая для Telegram (${(oggBytes / 1024 / 1024).toFixed(1)} МБ, лимит 50 МБ). ` +
+          `Послушайте её в дашборде на странице звонка.`);
+        return;
+      }
+
+      const oggBuffer = readFileSync(oggPath);
       const formData = new FormData();
       formData.append('chat_id', chatId);
       formData.append('voice', new Blob([new Uint8Array(oggBuffer)], { type: 'audio/ogg' }), 'voice.ogg');
 
-      await fetch(`https://api.telegram.org/bot${botToken}/sendVoice`, {
-        method: 'POST',
-        body: formData,
-      });
+      // Upload with a timeout so a stalled connection can't hang forever.
+      const ctrl = new AbortController();
+      const uploadTimer = setTimeout(() => ctrl.abort(), 180_000);
+      let tgRes: Response;
+      try {
+        tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendVoice`, {
+          method: 'POST',
+          body: formData,
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(uploadTimer);
+      }
+
+      // Surface real Telegram errors instead of silently "succeeding".
+      const tgJson = await tgRes.json().catch(() => ({})) as { ok?: boolean; description?: string };
+      if (!tgRes.ok || !tgJson.ok) {
+        log.error({ callId, status: tgRes.status, description: tgJson.description }, 'Telegram sendVoice rejected');
+        await sendTelegramPlainMessage(botToken, chatId,
+          `❌ Telegram отклонил запись: ${tgJson.description || tgRes.status}. Послушайте её в дашборде.`);
+      }
     } finally {
       try { unlinkSync(mp3Path); } catch { /* ignore */ }
       try { unlinkSync(oggPath); } catch { /* ignore */ }
     }
   } catch (err) {
     log.error({ err, chatId, callId }, 'Failed to send recording voice');
-    await sendTelegramPlainMessage(botToken, chatId, '❌ Не удалось отправить запись.');
+    await sendTelegramPlainMessage(botToken, chatId, '❌ Не удалось отправить запись. Послушайте её в дашборде.');
   }
 }
 
