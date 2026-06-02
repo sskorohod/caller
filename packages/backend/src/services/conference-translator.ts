@@ -36,6 +36,16 @@ import { LANG_NAMES, TONE_INSTRUCTIONS } from '../config/languages.js';
 
 const DEFAULT_GREETING = `A live interpreter has joined this call. I will translate between your languages. Please speak naturally, then pause briefly after finishing your thought so I can translate. Let's begin.`;
 
+// Grok Voice Agent realtime model. We were passing the undocumented slug
+// "grok-3-mini-fast", which xAI silently mapped to a default model. Around
+// 2026-06 that default drifted to a more conversational model that started
+// ANSWERING utterances and adding helper phrases instead of translating
+// verbatim — a regression with zero changes on our side (a clean 90-turn call
+// on 2026-05-27 vs additions on every turn by 2026-06-02). Fix: pin to the
+// documented, version-stable flagship voice model so xAI churn can't change
+// behavior again. Overridable via env for fast iteration without a rebuild.
+const GROK_VOICE_MODEL = process.env.GROK_VOICE_MODEL || 'grok-voice-think-fast-1.0';
+
 /**
  * Conference Translator — uses xAI Grok Voice Agent API for speech-to-speech
  * translation with minimal latency. Single WebSocket replaces STT+LLM+TTS pipeline.
@@ -247,13 +257,13 @@ ${this.personalContext}` : ''}`;
     // realtime endpoint defaults to a text-only stub that responds with
     // status_details:"unimplemented" and zero output_audio_tokens. This was
     // the root cause of "translator doesn't speak" for the whole product.
-    this.grokWs = new WebSocket('wss://api.x.ai/v1/realtime?model=grok-3-mini-fast', {
+    this.grokWs = new WebSocket(`wss://api.x.ai/v1/realtime?model=${encodeURIComponent(GROK_VOICE_MODEL)}`, {
       headers: { Authorization: `Bearer ${this.xaiApiKey}` },
     });
 
     this.grokWs.on('open', () => {
       this.reconnectAttempts = 0;
-      log.info({ callId: this.callId }, 'Grok Voice Agent WebSocket connected');
+      log.info({ callId: this.callId, model: GROK_VOICE_MODEL }, 'Grok Voice Agent WebSocket connected');
 
       // On reconnect: reset any stale state from the previous session.
       // Without this, a mid-stream Grok drop leaves playbackState='playing' which
