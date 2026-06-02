@@ -80,10 +80,11 @@ services:
       HOST: 0.0.0.0
       LOG_LEVEL: ${LOG_LEVEL:-info}
       OPENAI_OAUTH_PROXY_URL: ${OPENAI_OAUTH_PROXY_URL:-}
-      # Grok Voice Agent realtime model for the translator. Configurable so we
-      # can A/B model slugs (grok-voice-think-fast-1.0 / grok-voice-fast-1.0 /
-      # grok-voice-latest) without a rebuild — set GROK_VOICE_MODEL in .env.
-      GROK_VOICE_MODEL: ${GROK_VOICE_MODEL:-grok-voice-think-fast-1.0}
+      # Grok Voice Agent realtime model for the translator. Default
+      # grok-voice-fast-1.0 (non-think) translates verbatim; the "think"
+      # flagship elaborates with helper phrases. Overridable via .env to A/B
+      # slugs without a rebuild.
+      GROK_VOICE_MODEL: ${GROK_VOICE_MODEL:-grok-voice-fast-1.0}
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-caller}

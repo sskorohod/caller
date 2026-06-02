@@ -38,13 +38,18 @@ const DEFAULT_GREETING = `A live interpreter has joined this call. I will transl
 
 // Grok Voice Agent realtime model. We were passing the undocumented slug
 // "grok-3-mini-fast", which xAI silently mapped to a default model. Around
-// 2026-06 that default drifted to a more conversational model that started
-// ANSWERING utterances and adding helper phrases instead of translating
-// verbatim — a regression with zero changes on our side (a clean 90-turn call
-// on 2026-05-27 vs additions on every turn by 2026-06-02). Fix: pin to the
-// documented, version-stable flagship voice model so xAI churn can't change
-// behavior again. Overridable via env for fast iteration without a rebuild.
-const GROK_VOICE_MODEL = process.env.GROK_VOICE_MODEL || 'grok-voice-think-fast-1.0';
+// 2026-06 that default drifted to the "think" flagship — a REASONING model
+// that reasons about being helpful and therefore ANSWERS utterances and
+// appends helper phrases ("How can I help you?", "I'm ready to translate")
+// instead of translating verbatim. Regression confirmed with zero code
+// changes: a clean 90-turn call on 2026-05-27 vs additions on every turn by
+// 2026-06-02; pinning the "think" flagship (grok-voice-think-fast-1.0) did
+// NOT fix it, but the NON-thinking model below does — output_chars ≈
+// input_chars, no additions, and lower latency.
+//
+// Pin: grok-voice-fast-1.0 (non-think) translates verbatim. Version-pinned so
+// xAI churn can't silently change behavior again. Overridable via env.
+const GROK_VOICE_MODEL = process.env.GROK_VOICE_MODEL || 'grok-voice-fast-1.0';
 
 /**
  * Conference Translator — uses xAI Grok Voice Agent API for speech-to-speech
