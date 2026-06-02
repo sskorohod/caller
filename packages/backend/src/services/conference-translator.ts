@@ -300,33 +300,25 @@ ${this.personalContext}` : ''}`;
         },
       }));
 
-      // Speak greeting only on the first connection (not on reconnects for tone/voice/mode changes)
+      // Greeting only on the first connection (not on reconnects for tone/voice/mode changes).
+      //
+      // ROOT-CAUSE FIX: the greeting is pre-rendered with a SEPARATE XaiTTS call
+      // and injected straight to Twilio — Grok never generates it. Previously we
+      // asked Grok to speak the greeting via response.create; that greeting
+      // became Grok's own assistant turn in the conversation context and seeded a
+      // "helpful AI interpreter" persona. Grok then continued that persona by
+      // appending helper phrases ("I can help you with them", "I'm ready to
+      // translate", "Можете уточнить?") to EVERY translation — the exact
+      // "adds content it shouldn't" bug. Keeping Grok's context free of any
+      // assistant turn makes it translate verbatim. This also removes the
+      // duplicate-greeting and greeting-timeout failure modes entirely.
       if (this.greetingText && !this.greetingSent) {
         this.greetingSent = true;
-        setTimeout(() => {
-          if (this.grokWs?.readyState === WebSocket.OPEN) {
-            this.grokWs.send(JSON.stringify({
-              type: 'response.create',
-              response: {
-                modalities: ['audio', 'text'],
-                // Override the session's strict "translation only" rule for this single
-                // response — otherwise Grok refuses to speak anything that isn't a translation.
-                instructions: `For THIS response only, ignore your translation-only directive. Speak the following greeting aloud EXACTLY ONCE, word-for-word as written, in a warm professional tone. Do not repeat it. Do not translate it. Do not add anything before or after. After this single response you will return to your normal translation duties.\n\n"${this.greetingText}"`,
-              },
-            }));
-            log.info({ callId: this.callId }, 'Greeting sent to Grok Voice Agent');
-          }
-        }, 1500);
-        // Safety net: if Grok never produces a greeting response.done within 5s,
-        // unblock translation anyway so the call doesn't sit silent forever.
-        // 5s is plenty for a 1-2 sentence greeting; longer would mean Grok is
-        // broken and we should fail open rather than make the user wait.
-        setTimeout(() => {
-          if (!this.greetingPlayed) {
-            log.warn({ callId: this.callId }, 'Greeting response timed out — enabling translation');
-            this.greetingPlayed = true;
-          }
-        }, 5000);
+        this.playPreRenderedGreeting().catch((err) => {
+          log.error({ err, callId: this.callId }, 'Pre-rendered greeting failed — enabling translation anyway');
+          this.greetingPlayed = true;
+          this.flushPreOpenAudio();
+        });
       } else {
         // No greeting configured (or reconnect) — allow VAD/translation immediately
         this.greetingPlayed = true;
@@ -720,6 +712,42 @@ ${this.personalContext}` : ''}`;
     this.currentOutputTranscript = '';
     this.currentResponseAudio = [];
     this.retranslationPending = false;
+  }
+
+  /**
+   * Render the greeting with a SEPARATE XaiTTS call (mulaw 8kHz, same voice as
+   * translations) and inject it straight to Twilio. Grok never sees or speaks
+   * the greeting, so its conversation context starts with ZERO assistant turns
+   * — no persona seed, hence no "helpful interpreter" additions on translations.
+   */
+  private async playPreRenderedGreeting(): Promise<void> {
+    const { XaiTTS } = await import('./tts.service.js');
+    const voice = (this.ttsVoiceId || 'ara').toLowerCase();
+    const tts = new XaiTTS(this.xaiApiKey, voice, this.targetLang || 'en');
+
+    let audio: Buffer;
+    try {
+      audio = await tts.synthesize(this.greetingText);
+    } catch (err) {
+      log.error({ err, callId: this.callId }, 'XaiTTS greeting synthesis failed — enabling translation anyway');
+      this.greetingPlayed = true;
+      this.flushPreOpenAudio();
+      return;
+    }
+
+    if (audio.length > 0 && this.twilioSocket.readyState === 1) {
+      const chunkSize = 640;
+      for (let i = 0; i < audio.length; i += chunkSize) {
+        this.twilioSocket.send(JSON.stringify({
+          event: 'media',
+          streamSid: this.streamSid,
+          media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+        }));
+      }
+    }
+    log.info({ callId: this.callId, audioBytes: audio.length }, 'Pre-rendered greeting played — enabling translation');
+    this.greetingPlayed = true;
+    this.flushPreOpenAudio();
   }
 
   /** Reset per-turn streaming state (called on speech_started and after response.done). */
