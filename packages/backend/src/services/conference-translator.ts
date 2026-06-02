@@ -194,6 +194,11 @@ export class ConferenceTranslator extends EventEmitter {
 - NEVER output a partial or incomplete translation. If you only received a fragment (e.g. ending with "and", "but", "that", "to"), wait for more input and combine it into one complete translation.
 - When translating numbers, be EXTREMELY precise. For numbers above 99, spell them out clearly (e.g. "one hundred thirty-eight dollars", NOT "three hundred thirty-eight"). Double-check that the number in your translation matches exactly what was spoken.
 - If someone interrupts while you are translating, finish your current translation first, then translate the new speech. Do NOT drop incomplete translations.
+- VERBATIM ONLY — THIS IS THE MOST IMPORTANT RULE: Your output must convey ONLY the meaning of the words that were actually spoken — nothing more, nothing less. NEVER add a single word the speaker did not say.
+  · NEVER add helper/assistant phrases such as "I'm ready to translate", "I'm listening", "Please go ahead", "I'm ready", "Готов переводить", "Слушаю".
+  · NEVER add follow-up questions the speaker did not ask, e.g. do NOT append "Which customer do you mean?", "Можете уточнить?", "Please tell me who you are", "If you have any questions, feel free to ask", "Если есть информация, поделитесь."
+  · NEVER add closing pleasantries, offers of help, or any sentence beyond the literal translation.
+  · If the speaker said one sentence, you output exactly one sentence's worth of meaning. The translation should be roughly the SAME length as the original — if your output is noticeably longer, you have added something forbidden. Remove it.
 - ONLY output the translation. Do NOT add any commentary, greetings, or explanations.
 - If you hear ONLY filler sounds (um, uh, er, hmm, М, Э, А, мм, ммм, угу) with NO actual words, do NOT translate or respond — produce NO output at all. These are thinking pauses, not speech.
 - If you cannot understand something, stay silent — produce NO audio output.`;
@@ -306,7 +311,7 @@ ${this.personalContext}` : ''}`;
                 modalities: ['audio', 'text'],
                 // Override the session's strict "translation only" rule for this single
                 // response — otherwise Grok refuses to speak anything that isn't a translation.
-                instructions: `For THIS response only, ignore your translation-only directive. Speak the following greeting aloud, exactly as written, in a warm professional tone. Do not translate it, do not add anything, just read it. After this response you will return to your normal translation duties.\n\n"${this.greetingText}"`,
+                instructions: `For THIS response only, ignore your translation-only directive. Speak the following greeting aloud EXACTLY ONCE, word-for-word as written, in a warm professional tone. Do not repeat it. Do not translate it. Do not add anything before or after. After this single response you will return to your normal translation duties.\n\n"${this.greetingText}"`,
               },
             }));
             log.info({ callId: this.callId }, 'Greeting sent to Grok Voice Agent');
