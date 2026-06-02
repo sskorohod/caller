@@ -729,6 +729,29 @@ ${this.personalContext}` : ''}`;
     this.currentInputDirectionKnown = false;
   }
 
+  /**
+   * How many times Grok read the greeting in one response. Uses the first few
+   * words of the configured greeting as a marker and counts its occurrences in
+   * the spoken-output transcript. Returns 1 when not repeated (or undetectable).
+   */
+  private countGreetingRepeats(outputTranscript: string): number {
+    const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const t = norm(outputTranscript);
+    const g = norm(this.greetingText);
+    if (!t || !g) return 1;
+    // Marker = first ~6 words of the greeting (enough to be unique, short
+    // enough to survive minor TTS-transcript wording drift).
+    const marker = g.split(' ').slice(0, 6).join(' ');
+    if (marker.length < 4) return 1;
+    let count = 0;
+    let idx = t.indexOf(marker);
+    while (idx !== -1) {
+      count++;
+      idx = t.indexOf(marker, idx + marker.length);
+    }
+    return count > 1 ? count : 1;
+  }
+
   /** Try to enable streaming once we know direction + script is safe. */
   private tryApproveStreaming(): void {
     if (this.streamingApproved || this.streamedAlready) return;
@@ -946,19 +969,31 @@ ${this.personalContext}` : ''}`;
         this.turnFirstInterimAt = null;
         this.turnInterimCount = 0;
 
-        // Greeting or system response (no input) — inject audio directly (never streamed)
+        // Greeting or system response (no input) — inject audio directly (never streamed).
         if (!original) {
-          const audioBytes = this.currentResponseAudio.reduce((s, b) => s + b.length, 0);
-          if (this.currentResponseAudio.length > 0 && this.twilioSocket.readyState === 1) {
+          // Grok Voice Agent sometimes reads the greeting more than once within a
+          // single response ("Hi, I'm your AI interpreter... Hi, I'm your AI
+          // interpreter..."). Detect the repeat from the output transcript and
+          // play only the first copy of the audio — deterministic, not reliant
+          // on Grok obeying the "say it once" instruction.
+          let audio = Buffer.concat(this.currentResponseAudio);
+          const repeats = this.countGreetingRepeats(this.currentOutputTranscript);
+          if (repeats > 1 && audio.length > 0) {
+            const oneLen = Math.floor(audio.length / repeats);
+            log.warn({ callId: this.callId, repeats, fullBytes: audio.length, keptBytes: oneLen },
+              'Greeting repeated by Grok — trimming to first copy');
+            audio = audio.subarray(0, oneLen);
+          }
+
+          const audioBytes = audio.length;
+          if (audioBytes > 0 && this.twilioSocket.readyState === 1) {
             const chunkSize = 640;
-            for (const buf of this.currentResponseAudio) {
-              for (let i = 0; i < buf.length; i += chunkSize) {
-                this.twilioSocket.send(JSON.stringify({
-                  event: 'media',
-                  streamSid: this.streamSid,
-                  media: { payload: buf.subarray(i, i + chunkSize).toString('base64') },
-                }));
-              }
+            for (let i = 0; i < audio.length; i += chunkSize) {
+              this.twilioSocket.send(JSON.stringify({
+                event: 'media',
+                streamSid: this.streamSid,
+                media: { payload: audio.subarray(i, i + chunkSize).toString('base64') },
+              }));
             }
           }
           if (!this.greetingPlayed) {
