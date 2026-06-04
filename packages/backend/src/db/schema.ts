@@ -617,6 +617,7 @@ export const translatorSessions = pgTable('translator_sessions', {
   cost_usd: numeric('cost_usd', { precision: 10, scale: 4 }).default('0'),
   transcript: jsonb('transcript').notNull().default([]),
   status: text('status').notNull().default('active'), // 'active' | 'completed'
+  is_training: boolean('is_training').notNull().default(false), // sandbox/trainer session — not billed
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('idx_translator_sess_subscriber').on(t.subscriber_id),

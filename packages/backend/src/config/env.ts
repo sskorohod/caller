@@ -36,6 +36,13 @@ const envSchema = z.object({
   // Stripe Connect OAuth
   STRIPE_CONNECT_CLIENT_ID: z.string().default(''),
   STRIPE_CONNECT_SECRET: z.string().default(''),
+
+  // Online Sandbox (AI-trainer for Live Translator) — free browser-based trial.
+  // Workspace whose xAI credentials power the sandbox Grok session (and that owns
+  // the persisted training rows). Empty = feature disabled (route rejects).
+  SANDBOX_WORKSPACE_ID: z.string().default(''),
+  SANDBOX_TTS_VOICE: z.string().default('eve'),
+  SANDBOX_MAX_SECONDS: z.coerce.number().default(300), // hard cap per session (also the daily per-user cap)
 });
 
 export const env = envSchema.parse(process.env);

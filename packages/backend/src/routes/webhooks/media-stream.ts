@@ -25,6 +25,8 @@ import type { DeepgramSTT } from '../../services/stt.service.js';
 import type { Call } from '../../models/types.js';
 import { getIo } from '../../realtime/io.js';
 import { callEvents } from '../../realtime/call-events.js';
+import { redis } from '../../config/redis.js';
+import { SandboxSession, type SandboxMode } from '../../services/sandbox-session.service.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'media-stream' });
@@ -264,6 +266,61 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
   // Track active external sessions by callId so external WS can find them
   const externalSessions = new Map<string, ExternalAgentSession>();
+
+  /* ----------------------------------------------------------------- */
+  /*  Online Sandbox (AI-trainer) — Twilio-free browser ↔ Grok bridge   */
+  /* ----------------------------------------------------------------- */
+  app.get('/sandbox', { websocket: true }, async (socket, request) => {
+    const q = (request.query as Record<string, string>) || {};
+    const mode = (['echo', 'simulation', 'support'].includes(q.mode) ? q.mode : 'echo') as SandboxMode;
+    const lang = (q.lang || 'ru').slice(0, 8);
+    const cid = (q.cid || 'anon').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'anon';
+    const voiceId = q.voice ? q.voice.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : undefined;
+
+    const send = (obj: Record<string, unknown>) => {
+      if (socket.readyState === 1) socket.send(JSON.stringify(obj));
+    };
+
+    if (!env.SANDBOX_WORKSPACE_ID) {
+      send({ type: 'error', message: 'Sandbox is not configured' });
+      socket.close();
+      return;
+    }
+
+    // Daily per-user budget (ip + client id). SANDBOX_MAX_SECONDS total per day.
+    const ip = ((request.headers['x-forwarded-for'] as string) || request.ip || '').split(',')[0].trim() || 'unknown';
+    const rlKey = `sandbox:used:${ip}:${cid}`;
+    let used = 0;
+    try { used = parseInt((await redis.get(rlKey)) || '0', 10) || 0; } catch { /* redis down — fail open */ }
+    const remaining = Math.max(0, env.SANDBOX_MAX_SECONDS - used);
+    if (remaining <= 0) {
+      send({ type: 'limit', remainingSeconds: 0 });
+      socket.close();
+      return;
+    }
+    send({ type: 'session', remainingSeconds: remaining });
+
+    const session = new SandboxSession({ browserWs: socket as any, mode, lang, voiceId, maxSeconds: remaining });
+    session.setOnFinalize(async (durationSecs) => {
+      try {
+        await redis.incrby(rlKey, durationSecs);
+        await redis.expire(rlKey, 86400);
+      } catch { /* non-critical */ }
+    });
+
+    const ping = setInterval(() => { if (socket.readyState === 1) socket.ping(); }, 30000);
+    socket.on('message', (data: Buffer) => session.handleBrowserMessage(data));
+    socket.on('close', () => { clearInterval(ping); session.finalize().catch(() => {}); });
+    socket.on('error', () => { clearInterval(ping); session.finalize().catch(() => {}); });
+
+    try {
+      await session.start();
+    } catch (err) {
+      logger.error({ err }, 'Sandbox session start failed');
+      send({ type: 'error', message: 'Failed to start session' });
+      socket.close();
+    }
+  });
 
   app.get('/media-stream/:callId', { websocket: true }, async (socket, request) => {
     const rawCallId = (request.params as any).callId as string;

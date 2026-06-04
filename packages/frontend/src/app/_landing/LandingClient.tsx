@@ -6,6 +6,7 @@ import AnimatedCounter from './AnimatedCounter';
 import FaqAccordion from './FaqAccordion';
 import ContactPopup from './ContactPopup';
 import { useLang, LangSwitcher, LangProvider } from './useLang';
+import TrySandboxWidget from './TrySandboxWidget';
 
 /* ── Inline styles tag ───────────────────────────────────────────────── */
 function LandingStyles() {
@@ -405,6 +406,11 @@ function LandingContent() {
             </AnimatedSection>
           </div>
         </section>
+
+        {/* ═══ Try it now — online AI-trainer sandbox ═══════════════ */}
+        <AnimatedSection animation="fade-in">
+          <TrySandboxWidget />
+        </AnimatedSection>
 
         {/* ═══ Logo Strip + Stats ═══════════════════════════════════ */}
         <section className="border-y" style={{ borderColor: 'rgba(255,255,255,0.04)', background: 'rgba(22,28,40,0.5)' }}>
