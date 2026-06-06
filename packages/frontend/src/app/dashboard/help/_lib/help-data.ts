@@ -70,39 +70,53 @@ That's it — you're ready to call. The rest of this help walks you through each
         id: 'first-call',
         titleKey: 'help.art.firstCall',
         content: {
-          ru: `# Ваш первый перевод — за 4 шага
+          ru: `# Ваш первый перевод
 
-1. **Откройте страницу «Переводчик».** Там крупно показан ваш номер.
+## Подготовка (один раз)
 
-2. **Выберите языки.** «Я говорю на» — ваш язык, «Переводить на» — язык собеседника.
-   Настройка сохраняется автоматически.
+1. **Откройте страницу «Переводчик»** — там крупно показан ваш номер.
+2. **Сохраните этот номер в контакты** телефона (например, «Переводчик»).
+3. **Выберите языки**: «Я говорю на» — ваш язык, «Переводить на» — язык собеседника.
+   Сохраняется автоматически.
 
-3. **Позвоните на номер** с любого телефона и **включите громкую связь**, чтобы вас
-   обоих было слышно.
+## Звонок
 
-4. **Говорите по очереди.** Скажите фразу и сделайте короткую паузу — AI переведёт её
-   вслух на нужный язык. Затем ответит собеседник, и перевод пойдёт в обратную сторону.
+**Если собеседник далеко (обычный случай):**
+1. Позвоните ему как обычно.
+2. Попросите подождать: «Одну секунду, я подключу переводчика».
+3. Нажмите **«Добавить звонок»**, наберите сохранённый номер переводчика.
+4. Когда переводчик ответит — нажмите **«Объединить» / «Merge»**.
+5. Говорите по очереди — AI переводит обе стороны.
 
-> Совет: говорите законченными фразами и делайте паузу в 1–2 секунды — так перевод
-> точнее.
+**Если вы рядом:** просто позвоните на номер переводчика и включите **громкую связь**.
 
-Во время звонка на странице видно живую расшифровку разговора. После звонка он
-сохранится в разделе **«Звонки»**.`,
-          en: `# Your first translation — in 4 steps
+> Совет: говорите законченными фразами и делайте паузу 1–2 секунды — так перевод
+> точнее. Подробнее — в статье «Как идёт звонок».
 
-1. **Open the "Translator" page.** Your number is shown there in large text.
+Во время звонка на странице видно живую расшифровку. После звонка он сохранится в
+разделе **«Звонки»**.`,
+          en: `# Your first translation
 
-2. **Choose your languages.** "I speak" — your language; "Translate to" — the other
-   person's language. The setting saves automatically.
+## Set up (once)
 
-3. **Call the number** from any phone and **turn on speakerphone** so both of you can
-   be heard.
+1. **Open the "Translator" page** — your number is shown there in large text.
+2. **Save that number to your phone contacts** (e.g. "Translator").
+3. **Choose your languages**: "I speak" — your language; "Translate to" — the other
+   person's language. Saved automatically.
 
-4. **Take turns speaking.** Say a phrase and pause briefly — the AI will speak the
-   translation aloud. Then the other person replies, and it translates back.
+## The call
 
-> Tip: speak in complete phrases and pause for 1–2 seconds — it makes translation
-> more accurate.
+**If the other person is remote (the common case):**
+1. Call them as usual.
+2. Ask them to hold: "One second, I'll add a translator."
+3. Tap **"Add call"** and dial the saved translator number.
+4. When the translator answers — tap **"Merge" / "Merge calls"**.
+5. Take turns speaking — the AI translates both sides.
+
+**If you're together:** just call the translator number and turn on **speakerphone**.
+
+> Tip: speak in complete phrases and pause 1–2 seconds — it makes translation more
+> accurate. See "How a call works" for details.
 
 During the call you'll see a live transcript on the page. After the call it's saved
 under **"Calls"**.`,
@@ -124,41 +138,81 @@ under **"Calls"**.`,
           ru: `# Как идёт звонок с переводчиком
 
 Переводчик подключается к разговору как третий участник, который слышит обоих и
-озвучивает перевод.
+озвучивает перевод. Есть два способа подключить его — выберите свой.
 
-## Как правильно
+## Сначала сохраните номер
 
-- **Оба собеседника — у одного телефона** на громкой связи. Переводчик слышит обоих
-  через один микрофон.
-- **Говорите по очереди.** Закончили мысль — пауза. AI переводит и озвучивает.
-- **Не перебивайте перевод** — дайте фразе доозвучиться, потом говорите дальше.
+Добавьте номер переводчика в контакты телефона (например, «Переводчик») — так его
+будет быстро набрать во время звонка.
 
-## Что переводится
+## Способ 1 — удалённый звонок (объединение звонков)
 
-По умолчанию перевод идёт **в обе стороны**: ваша речь → на язык собеседника, его
-речь → на ваш язык. Язык определяется автоматически по тому, что было сказано.
+Когда вы и собеседник в разных местах:
 
-> Если нужно переводить только в одну сторону — включите режим «Одна сторона» в
-> расширенных настройках.`,
+1. **Позвоните собеседнику** как обычно и дождитесь ответа.
+2. **Попросите его подождать** короткой фразой, например:
+   «Одну секунду, я подключу переводчика».
+3. На экране звонка нажмите **«Добавить звонок» (Add call)** и наберите сохранённый
+   номер переводчика.
+4. Когда переводчик ответит, нажмите **«Объединить» / «Merge calls»** — все окажутся
+   в одном разговоре.
+5. Говорите — AI переводит обе стороны.
+
+> Кнопка называется «Объединить», «Merge» или «Merge calls» — она появляется на экране
+> звонка после того, как вы добавили второй вызов.
+
+## Способ 2 — личная встреча (громкая связь)
+
+Когда вы и собеседник рядом:
+
+1. **Позвоните на номер переводчика** и включите **громкую связь**.
+2. Положите телефон между вами — переводчик слышит обоих через один микрофон.
+3. Говорите по очереди.
+
+## Общие правила
+
+- **Говорите по очереди.** Закончили мысль — короткая пауза. AI переведёт и озвучит.
+- **Не перебивайте перевод** — дайте фразе доозвучиться, потом продолжайте.
+- Перевод по умолчанию идёт **в обе стороны**; язык определяется автоматически.`,
           en: `# How a translated call works
 
 The translator joins the conversation as a third participant that hears both people
-and voices the translation.
+and voices the translation. There are two ways to add it — pick what fits.
 
-## How to do it right
+## First, save the number
 
-- **Both people are near one phone** on speakerphone. The translator hears both
-  through the same microphone.
-- **Take turns.** Finish your thought, then pause. The AI translates and speaks it.
+Add the translator number to your phone contacts (e.g. "Translator") so you can dial
+it quickly during a call.
+
+## Option 1 — remote call (merge calls)
+
+When you and the other person are in different places:
+
+1. **Call the other person** as usual and wait for them to answer.
+2. **Ask them to hold** with a short phrase, e.g.:
+   "One second, I'll add a translator."
+3. On the call screen tap **"Add call"** and dial the saved translator number.
+4. When the translator answers, tap **"Merge" / "Merge calls"** — everyone is now in
+   one conversation.
+5. Speak — the AI translates both sides.
+
+> The button is labeled "Merge", "Merge calls", or "Combine" — it appears on the call
+> screen once you've added the second call.
+
+## Option 2 — in person (speakerphone)
+
+When you and the other person are together:
+
+1. **Call the translator number** and turn on **speakerphone**.
+2. Put the phone between you — the translator hears both through one microphone.
+3. Take turns speaking.
+
+## General rules
+
+- **Take turns.** Finish your thought, then pause briefly. The AI translates and
+  speaks it.
 - **Don't talk over the translation** — let the phrase finish, then continue.
-
-## What gets translated
-
-By default it translates **both ways**: your speech → the other person's language,
-their speech → your language. The language is detected automatically from what's said.
-
-> If you need one-way translation only, switch to "One direction" mode in advanced
-> settings.`,
+- Translation is **both ways** by default; the language is detected automatically.`,
         },
       },
       {
@@ -442,8 +496,9 @@ are configured on the "Translator" page.`,
 С любого — мобильного или стационарного, любого оператора. Приложения не нужны.
 
 **Нужно ли обоим быть рядом?**
-Да. Оба собеседника находятся у одного телефона на громкой связи — так переводчик
-слышит обоих.
+Нет. Если собеседник далеко — позвоните ему, затем добавьте звонок на номер
+переводчика и нажмите «Объединить» (Merge). Если вы рядом — включите громкую связь.
+Подробнее в статье «Как идёт звонок».
 
 **Какие языки поддерживаются?**
 Английский, русский, испанский, немецкий, французский, китайский, японский, корейский,
@@ -470,8 +525,9 @@ are configured on the "Translator" page.`,
 Any phone — mobile or landline, any carrier. No apps required.
 
 **Do both people need to be together?**
-Yes. Both people are near one phone on speakerphone — that's how the translator hears
-both of you.
+No. If the other person is remote — call them, then add a call to the translator
+number and tap "Merge". If you're together — use speakerphone. See "How a call works"
+for details.
 
 **Which languages are supported?**
 English, Russian, Spanish, German, French, Chinese, Japanese, Korean, Arabic,
