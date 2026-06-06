@@ -81,6 +81,13 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
       friendly_name: z.string().optional(),
     }).parse(request.body);
 
+    // If pointing the connection at an agent profile, verify it belongs to this
+    // workspace (otherwise a foreign agent id could be attached).
+    if (body.default_agent_profile_id) {
+      const { getAgentProfile } = await import('../../services/agent.service.js');
+      await getAgentProfile(request.auth.workspaceId, body.default_agent_profile_id);
+    }
+
     const { db } = await import('../../config/db.js');
     const { telephonyConnections } = await import('../../db/schema.js');
     const { eq, and } = await import('drizzle-orm');

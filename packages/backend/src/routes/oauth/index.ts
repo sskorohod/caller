@@ -230,7 +230,14 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
       .from(oauthClients)
       .where(eq(oauthClients.client_id, d.client_id));
 
-    if (!client || client.client_secret_hash !== sha256(d.client_secret)) {
+    // Constant-time comparison of the client-secret hash to avoid timing oracles.
+    const secretOk = (() => {
+      if (!client) return false;
+      const a = Buffer.from(client.client_secret_hash);
+      const b = Buffer.from(sha256(d.client_secret));
+      return a.length === b.length && crypto.timingSafeEqual(a, b);
+    })();
+    if (!secretOk) {
       reply.status(401);
       return { error: 'invalid_client', error_description: 'Invalid client credentials' };
     }

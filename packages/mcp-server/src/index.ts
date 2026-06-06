@@ -3,12 +3,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-const PLATFORM_API_URL = process.env.CALLER_API_URL || 'http://localhost:3001';
+const PLATFORM_API_URL = process.env.CALLER_API_URL || 'http://localhost:3011';
 const API_KEY = process.env.CALLER_API_KEY || '';
 
 const server = new McpServer({
   name: 'caller',
-  version: '0.2.0',
+  version: '0.1.0',
 });
 
 async function apiRequest(path: string, options: RequestInit = {}) {
@@ -27,7 +27,9 @@ async function apiRequest(path: string, options: RequestInit = {}) {
     throw new Error(`API error ${res.status}: ${(body as any).message || res.statusText}`);
   }
 
-  return res.json();
+  // Tolerate empty / non-JSON success bodies (e.g. 204) instead of throwing.
+  const text = await res.text();
+  return text ? JSON.parse(text) : {};
 }
 
 function jsonResponse(data: unknown) {

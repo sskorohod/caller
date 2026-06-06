@@ -69,6 +69,13 @@ export async function deleteCall(workspaceId: string, callId: string): Promise<v
   // Delete related records in a transaction (order matters for FK constraints)
   // Mission messages → missions → call events → ai sessions → share tokens → call
   await db.transaction(async (tx) => {
+    // Verify ownership FIRST — otherwise child records of a call belonging to
+    // another workspace would be deleted before the workspace-scoped parent
+    // delete no-ops (cross-workspace data destruction / IDOR).
+    const [owned] = await tx.select({ id: calls.id }).from(calls)
+      .where(and(eq(calls.id, callId), eq(calls.workspace_id, workspaceId)));
+    if (!owned) return;
+
     const missionRows = await tx.select({ id: missions.id }).from(missions).where(eq(missions.call_id, callId));
     for (const m of missionRows) {
       await tx.delete(missionMessages).where(eq(missionMessages.mission_id, m.id));
@@ -87,19 +94,27 @@ export async function bulkDeleteCalls(workspaceId: string, callIds: string[]): P
   if (callIds.length === 0) return 0;
   let deleted = 0;
   await db.transaction(async (tx) => {
-    // Get mission IDs for all calls
+    // Restrict to calls actually owned by this workspace BEFORE touching any
+    // child records — otherwise child rows of other workspaces' calls would be
+    // deleted (cross-workspace data destruction / IDOR).
+    const ownedRows = await tx.select({ id: calls.id }).from(calls)
+      .where(and(inArray(calls.id, callIds), eq(calls.workspace_id, workspaceId)));
+    const ownedIds = ownedRows.map(r => r.id);
+    if (ownedIds.length === 0) return;
+
+    // Get mission IDs for owned calls
     const missionRows = await tx.select({ id: missions.id })
-      .from(missions).where(inArray(missions.call_id, callIds));
+      .from(missions).where(inArray(missions.call_id, ownedIds));
     if (missionRows.length > 0) {
       const missionIds = missionRows.map(m => m.id);
       await tx.delete(missionMessages).where(inArray(missionMessages.mission_id, missionIds));
       await tx.delete(missions).where(inArray(missions.id, missionIds));
     }
-    await tx.delete(callEvents).where(inArray(callEvents.call_id, callIds));
-    await tx.delete(aiCallSessions).where(inArray(aiCallSessions.call_id, callIds));
-    await tx.delete(callShareTokens).where(inArray(callShareTokens.call_id, callIds));
+    await tx.delete(callEvents).where(inArray(callEvents.call_id, ownedIds));
+    await tx.delete(aiCallSessions).where(inArray(aiCallSessions.call_id, ownedIds));
+    await tx.delete(callShareTokens).where(inArray(callShareTokens.call_id, ownedIds));
     const result = await tx.delete(calls).where(
-      and(inArray(calls.id, callIds), eq(calls.workspace_id, workspaceId)),
+      and(inArray(calls.id, ownedIds), eq(calls.workspace_id, workspaceId)),
     ).returning({ id: calls.id });
     deleted = result.length;
   });

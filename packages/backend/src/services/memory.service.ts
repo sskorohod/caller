@@ -74,6 +74,17 @@ export async function addMemoryFact(params: {
   content: string;
   sourceCallId?: string;
 }): Promise<CallerMemoryFact> {
+  // Verify the caller profile belongs to this workspace before attaching a fact
+  // (the profile id is client-supplied → IDOR without this check).
+  const [owned] = await db
+    .select({ id: callerProfiles.id })
+    .from(callerProfiles)
+    .where(and(
+      eq(callerProfiles.id, params.callerProfileId),
+      eq(callerProfiles.workspace_id, params.workspaceId),
+    ));
+  if (!owned) throw new Error('Caller profile not found in workspace');
+
   const [created] = await db
     .insert(callerMemoryFacts)
     .values({

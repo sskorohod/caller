@@ -387,6 +387,9 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser],
   }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    // Verify the call belongs to this workspace before serving its recording
+    // (getAiSession is not workspace-scoped → IDOR without this).
+    await callService.getCall(request.auth.workspaceId, id);
     const session = await callService.getAiSession(id);
 
     if (!session?.recording_url) {
@@ -641,7 +644,11 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
       mode: z.enum(['phone', 'browser']),
-      phone_number: z.string().optional(),
+      // E.164 only — this value is interpolated into TwiML, so anything other
+      // than +digits would allow XML/TwiML injection.
+      phone_number: z.string().regex(/^\+[1-9]\d{6,14}$/, 'Invalid phone number').optional(),
+    }).refine(b => b.mode !== 'phone' || !!b.phone_number, {
+      message: 'phone_number is required for phone takeover', path: ['phone_number'],
     }).parse(request.body);
 
     // Get call from DB

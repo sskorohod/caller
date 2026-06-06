@@ -133,6 +133,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
     await agentService.detachAllPromptPacks(id);
     return { deleted: true };
   });
@@ -142,6 +143,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id, packId } = z.object({ id: z.string().uuid(), packId: z.string().uuid() }).parse(request.params);
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
     await agentService.detachPromptPack(id, packId);
     return { deleted: true };
   });
@@ -151,6 +153,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
     await agentService.detachAllSkillPacks(id);
     return { deleted: true };
   });
@@ -160,6 +163,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id, packId } = z.object({ id: z.string().uuid(), packId: z.string().uuid() }).parse(request.params);
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
     await agentService.detachSkillPack(id, packId);
     return { deleted: true };
   });
@@ -173,6 +177,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
       knowledge_base_id: z.string().uuid(),
     }).parse(request.body);
 
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
     await agentService.attachKnowledgeBase(id, body.knowledge_base_id);
     return { attached: true };
   });
@@ -182,6 +187,7 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
     await agentService.detachAllKnowledgeBases(id);
     return { deleted: true };
   });
@@ -196,6 +202,8 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
       priority: z.number().optional(),
     }).parse(request.body);
 
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
+    await agentService.getPromptPack(request.auth.workspaceId, body.prompt_pack_id); // pack ownership
     await agentService.attachPromptPack(id, body.prompt_pack_id, body.priority);
     return { attached: true };
   });
@@ -210,6 +218,8 @@ const agentRoutes: FastifyPluginAsync = async (app) => {
       priority: z.number().optional(),
     }).parse(request.body);
 
+    await agentService.getAgentProfile(request.auth.workspaceId, id); // workspace ownership
+    await agentService.getSkillPack(request.auth.workspaceId, body.skill_pack_id); // pack ownership
     await agentService.attachSkillPack(id, body.skill_pack_id, body.priority);
     return { attached: true };
   });

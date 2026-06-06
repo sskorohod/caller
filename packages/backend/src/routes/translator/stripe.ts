@@ -44,6 +44,23 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
       price_per_minute: z.number().min(0.01).max(10).default(0.15),
     }).parse(request.body);
 
+    // Verify the subscriber belongs to the caller's workspace (IDOR guard).
+    {
+      const { db } = await import('../../config/db.js');
+      const { translatorSubscribers } = await import('../../db/schema.js');
+      const { eq, and } = await import('drizzle-orm');
+      const [sub] = await db.select({ id: translatorSubscribers.id })
+        .from(translatorSubscribers)
+        .where(and(
+          eq(translatorSubscribers.id, body.subscriber_id),
+          eq(translatorSubscribers.workspace_id, request.auth.workspaceId),
+        ));
+      if (!sub) {
+        reply.status(404).send({ error: 'Subscriber not found' });
+        return;
+      }
+    }
+
     const session = await createCheckoutSession({
       subscriberId: body.subscriber_id,
       minutes: body.minutes,
