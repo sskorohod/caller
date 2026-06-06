@@ -16,6 +16,7 @@ export type SandboxMode = 'echo' | 'simulation' | 'support';
 
 interface SandboxSessionOptions {
   browserWs: WebSocket;
+  workspaceId: string; // authenticated user's workspace (creds + training rows)
   mode: SandboxMode;
   lang: string;       // user's native language (e.g. 'ru')
   voiceId?: string;
@@ -67,7 +68,7 @@ export class SandboxSession {
     this.mode = options.mode;
     this.lang = options.lang;
     this.voiceId = options.voiceId || env.SANDBOX_TTS_VOICE;
-    this.workspaceId = env.SANDBOX_WORKSPACE_ID;
+    this.workspaceId = options.workspaceId;
     this.maxSeconds = Math.max(1, options.maxSeconds ?? env.SANDBOX_MAX_SECONDS);
   }
 

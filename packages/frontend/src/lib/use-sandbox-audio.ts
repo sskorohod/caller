@@ -68,19 +68,6 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-function getClientId(): string {
-  try {
-    let id = localStorage.getItem('sandbox_cid');
-    if (!id) {
-      id = (crypto.randomUUID?.() || `c${Date.now()}${Math.floor(Math.random() * 1e6)}`);
-      localStorage.setItem('sandbox_cid', id);
-    }
-    return id;
-  } catch {
-    return `c${Date.now()}`;
-  }
-}
-
 export type SandboxStatus = 'idle' | 'connecting' | 'live' | 'ended' | 'limit' | 'denied' | 'error';
 export type SandboxMode = 'echo' | 'simulation' | 'support';
 export interface TranscriptLine { role: 'user' | 'assistant'; text: string }
@@ -151,7 +138,7 @@ export function useSandboxAudio() {
     setStatus(prev => (prev === 'limit' || prev === 'denied' || prev === 'error' ? prev : 'ended'));
   }, []);
 
-  const start = useCallback(async (mode: SandboxMode, lang: string) => {
+  const start = useCallback(async (mode: SandboxMode, lang: string, token: string) => {
     setError(null);
     setLines([]);
     setLiveLine(null);
@@ -170,9 +157,9 @@ export function useSandboxAudio() {
     micStreamRef.current = stream;
 
     // 2. Open the raw WebSocket to the backend Grok bridge (through the tunnel).
+    //    Auth (JWT) is sent as the first message, not in the URL.
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const cid = getClientId();
-    const url = `${proto}//${window.location.host}/webhooks/ws/sandbox?mode=${encodeURIComponent(mode)}&lang=${encodeURIComponent(lang)}&cid=${encodeURIComponent(cid)}`;
+    const url = `${proto}//${window.location.host}/webhooks/ws/sandbox`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
@@ -221,7 +208,10 @@ export function useSandboxAudio() {
     };
 
     ws.onopen = () => {
-      // 3. Wire up playback context.
+      // 3. Authenticate first — backend waits for this before starting Grok.
+      ws.send(JSON.stringify({ type: 'start', token, mode, lang }));
+
+      // 4. Wire up playback context.
       const playCtx = new AudioContext({ sampleRate: 8000 });
       const gain = playCtx.createGain();
       gain.gain.value = 1;
@@ -230,7 +220,7 @@ export function useSandboxAudio() {
       gainRef.current = gain;
       nextPlayRef.current = 0;
 
-      // 4. Wire up mic capture → mulaw → WS.
+      // 5. Wire up mic capture → mulaw → WS.
       const micCtx = new AudioContext();
       micCtxRef.current = micCtx;
       const source = micCtx.createMediaStreamSource(stream);

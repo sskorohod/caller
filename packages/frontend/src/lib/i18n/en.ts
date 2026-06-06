@@ -20,6 +20,7 @@ const en: Record<string, string> = {
   'nav.calls': 'Calls',
   'nav.dialer': 'Dialer',
   'nav.translator': 'Translator',
+  'nav.sandbox': 'Trainer',
   'nav.agents': 'Agents',
   'nav.knowledge': 'Knowledge',
   'nav.prompts': 'Prompts',

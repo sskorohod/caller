@@ -20,6 +20,7 @@ const ru: Record<string, string> = {
   'nav.calls': 'Звонки',
   'nav.dialer': 'Набиратель',
   'nav.translator': 'Переводчик',
+  'nav.sandbox': 'Тренажёр',
   'nav.agents': 'Агенты',
   'nav.knowledge': 'Знания',
   'nav.prompts': 'Промпты',
