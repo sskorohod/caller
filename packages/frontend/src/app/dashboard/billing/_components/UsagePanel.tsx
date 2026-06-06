@@ -18,6 +18,8 @@ function fmtDur(secs: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+const cardCls = 'rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]';
+
 export function UsagePanel() {
   const { lang } = useI18n();
   const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
@@ -29,9 +31,7 @@ export function UsagePanel() {
   useEffect(() => {
     setLoading(true);
     api.get<UsageResponse>(`/translator/usage?period=${period}`)
-      .then(setData)
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+      .then(setData).catch(() => setData(null)).finally(() => setLoading(false));
   }, [period]);
 
   const periods: { key: Period; label: string }[] = [
@@ -40,28 +40,28 @@ export function UsagePanel() {
     { key: 'all', label: tt('All time', 'Всё время') },
   ];
 
-  const totals = data?.totals;
+  const tot = data?.totals;
   const kpis = [
-    { label: tt('Calls', 'Звонков'), value: totals ? String(totals.calls) : '—' },
-    { label: tt('Minutes', 'Минут'), value: totals ? String(totals.minutes) : '—' },
-    { label: tt('Words translated', 'Слов переведено'), value: totals ? totals.words.toLocaleString() : '—' },
-    { label: tt('Spent', 'Потрачено'), value: totals ? `$${totals.cost.toFixed(2)}` : '—' },
-    { label: tt('Avg / call', 'Средняя / звонок'), value: totals ? `$${totals.avgCost.toFixed(2)}` : '—' },
+    { icon: 'call', label: tt('Calls', 'Звонков'), value: tot ? String(tot.calls) : '—', tint: '#6366f1' },
+    { icon: 'schedule', label: tt('Minutes', 'Минут'), value: tot ? String(tot.minutes) : '—', tint: '#06b6d4' },
+    { icon: 'translate', label: tt('Words', 'Слов'), value: tot ? tot.words.toLocaleString() : '—', tint: '#10b981' },
+    { icon: 'payments', label: tt('Spent', 'Потрачено'), value: tot ? `$${tot.cost.toFixed(2)}` : '—', tint: '#f59e0b' },
+    { icon: 'trending_up', label: tt('Avg / call', 'Средняя'), value: tot ? `$${tot.avgCost.toFixed(2)}` : '—', tint: '#ec4899' },
   ];
 
   const maxDaily = data?.daily.length ? Math.max(...data.daily.map(d => d.cost), 0.01) : 1;
 
   return (
-    <div className="rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] p-4 md:p-5 shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-      {/* Header + period switcher */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 className="text-sm font-bold text-[var(--th-text)]">{tt('Usage', 'Использование')}</h3>
-        <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'var(--th-surface)' }}>
+    <div className="space-y-3 md:space-y-4">
+      {/* Section header + period switcher */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="text-base font-bold text-[var(--th-text)]">{tt('Usage & reports', 'Использование и отчёты')}</h2>
+        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}>
           {periods.map(p => (
             <button key={p.key} onClick={() => setPeriod(p.key)}
-              className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
               style={period === p.key
-                ? { background: 'var(--th-primary)', color: '#fff' }
+                ? { background: 'var(--th-primary)', color: '#fff', boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }
                 : { color: 'var(--th-text-muted)' }}>
               {p.label}
             </button>
@@ -69,51 +69,74 @@ export function UsagePanel() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-4">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {kpis.map(k => (
-          <div key={k.label} className="rounded-xl p-3" style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}>
-            <div className="text-lg font-bold text-[var(--th-text)] leading-tight">{loading ? '…' : k.value}</div>
-            <div className="text-[11px] text-[var(--th-text-muted)] mt-0.5">{k.label}</div>
+          <div key={k.label} className={`${cardCls} p-4`}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5" style={{ background: `${k.tint}1a` }}>
+              <span className="material-symbols-outlined text-lg" style={{ color: k.tint }}>{k.icon}</span>
+            </div>
+            <div className="text-2xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{loading ? '…' : k.value}</div>
+            <div className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{k.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Daily spend chart (simple bars) */}
-      {data && data.daily.length > 0 && (
-        <div className="mb-4">
-          <div className="text-[11px] font-semibold uppercase tracking-wider mb-2 text-[var(--th-text-muted)]">{tt('Spend by day', 'Траты по дням')}</div>
-          <div className="flex items-end gap-1 h-24">
-            {data.daily.map(d => (
-              <div key={d.date} className="flex-1 flex flex-col items-center justify-end group relative" title={`${d.date}: $${d.cost.toFixed(2)} · ${d.calls}`}>
-                <div className="w-full rounded-t" style={{ height: `${Math.max(4, (d.cost / maxDaily) * 100)}%`, background: 'var(--th-primary)', opacity: 0.85 }} />
-              </div>
-            ))}
-          </div>
+      {/* Chart + calls */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
+        {/* Spend by day */}
+        <div className={`${cardCls} lg:col-span-7 p-5`}>
+          <div className="text-sm font-bold text-[var(--th-text)] mb-4">{tt('Spend by day', 'Траты по дням')}</div>
+          {data && data.daily.length > 0 ? (
+            <div className="flex items-end gap-1.5 h-40">
+              {data.daily.map(d => (
+                <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                  <div className="w-full rounded-t-md transition-all group-hover:opacity-100"
+                    style={{ height: `${Math.max(3, (d.cost / maxDaily) * 100)}%`, background: 'linear-gradient(to top, var(--th-primary), #818cf8)', opacity: 0.8 }} />
+                  <div className="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap text-[10px] font-semibold px-2 py-1 rounded-md z-10"
+                    style={{ background: 'var(--th-text)', color: 'var(--th-page)' }}>
+                    ${d.cost.toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-sm text-[var(--th-text-muted)]">
+              {loading ? '…' : tt('No data for this period', 'Нет данных за период')}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Sessions with cost */}
-      <div className="text-[11px] font-semibold uppercase tracking-wider mb-2 text-[var(--th-text-muted)]">{tt('Calls & cost', 'Звонки и стоимость')}</div>
-      {loading ? (
-        <div className="text-sm text-[var(--th-text-muted)] py-4 text-center">…</div>
-      ) : data && data.sessions.length > 0 ? (
-        <div className="space-y-1">
-          {data.sessions.map(s => (
-            <button key={s.id}
-              onClick={() => router.push(s.call_id ? `/dashboard/calls?call=${s.call_id}` : '/dashboard/calls')}
-              className="w-full flex items-center justify-between gap-3 py-2 px-2 rounded-lg text-left hover:bg-[var(--th-surface)] transition-colors border-b border-[var(--th-border)] last:border-0">
-              <span className="text-sm text-[var(--th-text)] shrink-0">{new Date(s.created_at).toLocaleDateString()}</span>
-              <span className="text-xs text-[var(--th-text-muted)] flex-1 text-right">
-                {fmtDur(s.duration_seconds)} · {s.words} {tt('words', 'слов')}
-              </span>
-              <span className="text-sm font-semibold text-[var(--th-text)] shrink-0 w-16 text-right">${s.cost_usd.toFixed(2)}</span>
-            </button>
-          ))}
+        {/* Calls with cost */}
+        <div className={`${cardCls} lg:col-span-5 p-5 flex flex-col`}>
+          <div className="text-sm font-bold text-[var(--th-text)] mb-3">{tt('Calls & cost', 'Звонки и стоимость')}</div>
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center text-sm text-[var(--th-text-muted)] py-8">…</div>
+          ) : data && data.sessions.length > 0 ? (
+            <div className="space-y-0.5 -mx-2 overflow-y-auto max-h-[280px]">
+              {data.sessions.map(s => (
+                <button key={s.id}
+                  onClick={() => router.push(s.call_id ? `/dashboard/calls?call=${s.call_id}` : '/dashboard/calls')}
+                  className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left hover:bg-[var(--th-surface)] transition-colors group">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--th-surface)' }}>
+                    <span className="material-symbols-outlined text-base text-[var(--th-text-muted)] group-hover:text-[var(--th-primary)] transition-colors">graphic_eq</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-[var(--th-text)]">{new Date(s.created_at).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric' })}</div>
+                    <div className="text-[11px] text-[var(--th-text-muted)]">{fmtDur(s.duration_seconds)} · {s.words} {tt('words', 'слов')}</div>
+                  </div>
+                  <div className="text-sm font-bold tabular-nums text-[var(--th-text)] shrink-0">${s.cost_usd.toFixed(2)}</div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-8 gap-2">
+              <span className="material-symbols-outlined text-3xl text-[var(--th-text-muted)] opacity-50">forum</span>
+              <div className="text-sm text-[var(--th-text-muted)]">{tt('No calls yet', 'Пока нет звонков')}</div>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="text-sm text-[var(--th-text-muted)] py-4 text-center">{tt('No calls in this period yet.', 'Пока нет звонков за этот период.')}</div>
-      )}
+      </div>
     </div>
   );
 }
