@@ -13,7 +13,6 @@ import { db } from '../config/db.js';
 import { calls as callsTable, workspaces as workspacesTable } from '../db/schema.js';
 import * as callService from './call.service.js';
 import { deductUsageCost } from './billing.service.js';
-import { queuePostCallProcessing } from '../workers/post-call.worker.js';
 import { getIo } from '../realtime/io.js';
 
 const log = pino({ name: 'session-finalizer' });
@@ -102,12 +101,7 @@ export async function finalizeSession(params: FinalizeSessionParams): Promise<vo
     log.error({ err, callId }, 'Failed to update call status');
   }
 
-  // 4. Queue post-call processing (summary, facts, etc.)
-  if (transcript.length > 0) {
-    queuePostCallProcessing({ callId, workspaceId, sessionId });
-  }
-
-  // 5. Notify frontend
+  // 4. Notify frontend
   const io = getIo();
   if (io) {
     io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });

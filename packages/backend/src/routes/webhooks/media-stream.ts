@@ -5,21 +5,15 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../../config/db.js';
 import { calls as callsTable, aiCallSessions, workspaces as workspacesTable } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
-import * as agentService from '../../services/agent.service.js';
 import * as workspaceService from '../../services/workspace.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import { createSTTProvider } from '../../services/stt.service.js';
 import { createTTSProvider } from '../../services/tts.service.js';
 import { createLLMProvider } from '../../services/llm.service.js';
 import { decrypt } from '../../lib/crypto.js';
-import { CallOrchestrator } from '../../services/call-orchestrator.js';
-import { GrokRealtimeOrchestrator } from '../../services/grok-realtime.service.js';
-import { sendBootstrapWebhook, ExternalAgentSession } from '../../services/external-handoff.service.js';
 import { getProviderCredential } from '../../services/provider.service.js';
-import * as knowledgeService from '../../services/knowledge.service.js';
 import { env } from '../../config/env.js';
 import { registerSession, unregisterSession } from '../../services/active-sessions.service.js';
-import { queuePostCallProcessing } from '../../workers/post-call.worker.js';
 import { calculateLLMCost, calculateTTSCost, calculateSTTCost, calculateTelephonyCost } from '../../config/pricing.js';
 import type { DeepgramSTT } from '../../services/stt.service.js';
 import type { Call } from '../../models/types.js';
@@ -57,7 +51,10 @@ export function pcmToMulaw(pcmBuf: Buffer): Buffer {
   return mulaw;
 }
 
-const activeOrchestrators = new Map<string, CallOrchestrator | GrokRealtimeOrchestrator>();
+// Retained as an always-empty stub: the AI-agent orchestrator was removed in the
+// translator-only split, but getActiveOrchestrator() is still referenced by
+// socket-server / call-takeover, which now simply find nothing and no-op.
+const activeOrchestrators = new Map<string, any>();
 const activeTranslators = new Map<string, { feedAudio: (buf: Buffer) => void; stop: () => void; translateText?: (text: string) => void; flushTranslation?: () => void }>();
 
 interface ManualSession {
@@ -194,7 +191,7 @@ async function finalizeManualSession(callId: string): Promise<void> {
 export function registerPttFlush(callId: string, cb: () => void | Promise<void>) { pttFlushCallbacks.set(callId, cb); }
 export function flushPttAudio(callId: string): void | Promise<void> { return pttFlushCallbacks.get(callId)?.(); }
 
-export function getActiveOrchestrator(callId: string): CallOrchestrator | GrokRealtimeOrchestrator | undefined {
+export function getActiveOrchestrator(callId: string): any {
   return activeOrchestrators.get(callId);
 }
 
@@ -267,7 +264,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
   await app.register(websocket);
 
   // Track active external sessions by callId so external WS can find them
-  const externalSessions = new Map<string, ExternalAgentSession>();
 
   /* ----------------------------------------------------------------- */
   /*  Online Sandbox (AI-trainer) — Twilio-free browser ↔ Grok bridge.   */
@@ -494,8 +490,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     }, 30000);
     socket.on('close', () => clearInterval(pingInterval));
 
-    let orchestrator: CallOrchestrator | GrokRealtimeOrchestrator | null = null;
-    let externalSession: ExternalAgentSession | null = null;
     let streamSid: string | null = null;
 
     socket.on('message', async (data: Buffer) => {
@@ -969,42 +963,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
             return; // Manual call — no orchestrator needed
           }
 
-          const agentProfile = call.agent_profile_id
-            ? await agentService.getAgentProfile(call.workspace_id, call.agent_profile_id)
-            : await agentService.getDefaultAgentProfile(call.workspace_id);
-
-          if (!agentProfile) {
-            logger.error({ callId }, 'No agent profile found');
-            socket.close();
-            return;
-          }
-
-          // --- External handoff path ---
-          if (call.conversation_owner_requested === 'external') {
-            const started = await startExternalHandoff(
-              call as unknown as Call,
-              agentProfile,
-              callId,
-              streamSid!,
-              socket as any,
-              externalSessions,
-            );
-            if (started) {
-              externalSession = started;
-              return; // External agent owns the call now
-            }
-            // Fallback: continue to internal orchestrator below
-            logger.info({ callId }, 'External handoff failed, falling back to internal orchestrator');
-          }
-
-          // --- Internal orchestrator path ---
-          orchestrator = await startInternalOrchestrator(
-            call,
-            agentProfile,
-            callId,
-            streamSid!,
-            socket as any,
-          );
+          // Translator-only product: any call that isn't translator / voice-translate /
+          // manual / sandbox has no handler here (the AI business agent was removed).
+          logger.warn({ callId }, 'Unhandled media-stream call type — closing socket');
+          socket.close();
+          return;
         }
 
         if (msg.event === 'media' && msg.media?.payload) {
@@ -1070,12 +1033,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
             return;
           }
 
-          // --- AI orchestrator path ---
-          // Forward audio to Grok Realtime orchestrator
-          if (orchestrator && orchestrator instanceof GrokRealtimeOrchestrator) {
-            (orchestrator as GrokRealtimeOrchestrator).sendAudio(msg.media.payload);
-          }
-          // Standard CallOrchestrator receives audio via STT directly (wired in start())
 
           // Forward caller audio to listen room for browser monitoring
           const io = getIo();
@@ -1106,8 +1063,6 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); unregisterSession(callId).catch(() => {}); }
           finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on stop'));
           finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on stop'));
-          if (orchestrator) orchestrator.stop('stream_stopped');
-          if (externalSession) externalSession.sendCallEnded('stream_stopped');
         }
       } catch (err) {
         logger.error({ err, callId }, 'Error processing WebSocket message');
@@ -1121,426 +1076,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); unregisterSession(callId).catch(() => {}); }
       finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on close'));
       finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on close'));
-      if (orchestrator) orchestrator.stop('ws_closed');
-      if (externalSession) {
-        externalSession.sendCallEnded('ws_closed');
-        externalSessions.delete(callId);
-      }
     });
   });
-
-  /**
-   * Attempt external handoff. Returns ExternalAgentSession if successful, null if fallback needed.
-   */
-  async function startExternalHandoff(
-    call: Call,
-    agentProfile: any,
-    callId: string,
-    streamSid: string,
-    twilioSocket: import('ws').WebSocket,
-    sessions: Map<string, ExternalAgentSession>,
-  ): Promise<ExternalAgentSession | null> {
-    const workspace = await workspaceService.getWorkspace(call.workspace_id);
-
-    if (!workspace.external_inbound_webhook_url || !workspace.external_inbound_auth_secret) {
-      logger.warn({ callId }, 'No external webhook URL configured, falling back to internal');
-      await callService.updateCallStatus(callId, 'in_progress', {
-        conversation_owner_actual: 'internal',
-        external_bootstrap_status: 'failed',
-        fallback_reason: 'no_webhook_url_configured',
-      } as any);
-      await callService.addCallEvent({
-        callId,
-        workspaceId: call.workspace_id,
-        eventType: 'external_handoff_fallback',
-        eventData: { reason: 'no_webhook_url_configured' },
-      });
-      return null;
-    }
-
-    const readyTimeoutMs = workspace.external_ready_timeout_ms ?? 8000;
-    const sessionId = `es_${callId.slice(0, 8)}_${Date.now()}`;
-
-    // Update bootstrap status to requested
-    await callService.updateCallStatus(callId, 'in_progress', {
-      external_bootstrap_status: 'requested',
-    } as any);
-
-    // Send bootstrap webhook
-    const wsBaseUrl = `wss://${env.API_DOMAIN}`;
-    const { accepted, sessionToken } = await sendBootstrapWebhook({
-      callId,
-      sessionId,
-      workspaceId: call.workspace_id,
-      calledNumber: call.to_number,
-      callerNumber: call.from_number,
-      agentProfileId: agentProfile.id,
-      language: agentProfile.language,
-      webhookUrl: workspace.external_inbound_webhook_url,
-      authSecret: workspace.external_inbound_auth_secret,
-      readyTimeoutMs,
-      wsBaseUrl,
-    });
-
-    if (!accepted) {
-      logger.warn({ callId }, 'External agent rejected bootstrap webhook');
-      await callService.updateCallStatus(callId, 'in_progress', {
-        conversation_owner_actual: 'internal',
-        external_bootstrap_status: 'failed',
-        fallback_reason: 'bootstrap_webhook_rejected',
-      } as any);
-      await callService.addCallEvent({
-        callId,
-        workspaceId: call.workspace_id,
-        eventType: 'external_handoff_fallback',
-        eventData: { reason: 'bootstrap_webhook_rejected' },
-      });
-      return null;
-    }
-
-    await callService.updateCallStatus(callId, 'in_progress', {
-      external_bootstrap_status: 'accepted',
-    } as any);
-
-    // Create session and wait for external agent to connect
-    const session = new ExternalAgentSession(callId, sessionId);
-    sessions.set(callId, session);
-
-    return new Promise<ExternalAgentSession | null>((resolve) => {
-      const timeout = setTimeout(async () => {
-        sessions.delete(callId);
-        logger.warn({ callId }, 'External agent connection timed out');
-        await callService.updateCallStatus(callId, 'in_progress', {
-          conversation_owner_actual: 'internal',
-          external_bootstrap_status: 'timed_out',
-          fallback_reason: 'external_agent_connection_timeout',
-        } as any);
-        await callService.addCallEvent({
-          callId,
-          workspaceId: call.workspace_id,
-          eventType: 'external_handoff_fallback',
-          eventData: { reason: 'external_agent_connection_timeout', timeout_ms: readyTimeoutMs },
-        });
-        resolve(null);
-      }, readyTimeoutMs);
-
-      session.on('ready', async () => {
-        clearTimeout(timeout);
-        logger.info({ callId }, 'External agent is ready, handing off call');
-        await callService.updateCallStatus(callId, 'in_progress', {
-          conversation_owner_actual: 'external',
-          external_bootstrap_status: 'ready',
-          external_runtime_connected_at: new Date().toISOString(),
-        } as any);
-        await callService.addCallEvent({
-          callId,
-          workspaceId: call.workspace_id,
-          eventType: 'external_agent_ready',
-          eventData: { session_id: sessionId },
-        });
-
-        // Pipe Twilio audio to external agent via events
-        // The ExternalAgentSession handles sending transcript deltas;
-        // for raw audio piping, forward media events directly
-        setupExternalAudioBridge(twilioSocket, session, streamSid);
-
-        resolve(session);
-      });
-
-      session.on('timeout', async () => {
-        clearTimeout(timeout);
-        sessions.delete(callId);
-        await callService.updateCallStatus(callId, 'in_progress', {
-          conversation_owner_actual: 'internal',
-          external_bootstrap_status: 'timed_out',
-          fallback_reason: 'external_agent_readiness_timeout',
-        } as any);
-        resolve(null);
-      });
-
-      session.on('disconnected', async () => {
-        clearTimeout(timeout);
-        sessions.delete(callId);
-        logger.info({ callId }, 'External agent disconnected');
-        await callService.addCallEvent({
-          callId,
-          workspaceId: call.workspace_id,
-          eventType: 'external_agent_disconnected',
-          eventData: { session_id: sessionId },
-        });
-      });
-    });
-  }
-
-  /**
-   * Set up bidirectional audio bridge between Twilio WebSocket and external agent session.
-   * Forward Twilio media events to external agent, and external agent replies back to Twilio.
-   */
-  function setupExternalAudioBridge(
-    twilioSocket: import('ws').WebSocket,
-    session: ExternalAgentSession,
-    streamSid: string,
-  ): void {
-    // External agent reply_text events -> TTS would be handled by the external agent itself.
-    // The external agent sends audio back via its own WebSocket; we listen for control events.
-    session.on('control', (controlName: string) => {
-      if (controlName === 'hangup') {
-        logger.info('External agent requested hangup');
-        twilioSocket.close();
-      }
-    });
-  }
-
-  /** Start the internal STT->LLM->TTS orchestrator (or Grok Realtime when both voice + LLM are xAI) */
-  async function startInternalOrchestrator(
-    call: any,
-    agentProfile: any,
-    callId: string,
-    streamSid: string,
-    twilioSocket: import('ws').WebSocket,
-  ): Promise<CallOrchestrator | GrokRealtimeOrchestrator> {
-    // Ensure conversation_owner_actual is set to internal
-    await callService.updateCallStatus(callId, 'in_progress', {
-      conversation_owner_actual: 'internal',
-    } as any);
-
-    const [promptPacks, attachedSkills, allSkills, attachedKBs] = await Promise.all([
-      agentService.getAgentPromptPacks(agentProfile.id),
-      agentService.getAgentSkillPacks(agentProfile.id),
-      agentService.listSkillPacks(call.workspace_id),
-      agentService.getAgentKnowledgeBases(agentProfile.id),
-    ]);
-
-    // Per-call voice override (set in Telegram /mission flow): if mission
-    // context has voice_override, swap the agent's voice_id for this call only.
-    // We mutate a SHALLOW COPY of agentProfile so other concurrent calls are
-    // unaffected.
-    const voiceOverride = (call.context as any)?.voice_override as string | undefined;
-    if (voiceOverride && agentProfile.voice_provider === 'xai') {
-      agentProfile = { ...agentProfile, voice_id: voiceOverride } as any;
-      logger.info({ callId, voiceOverride }, 'Voice override applied from mission context');
-    }
-
-    // Load workspace timezone BEFORE building the system prompt so the
-    // CURRENT DATE & TIME block can be stamped with the right zone.
-    const workspace = await workspaceService.getWorkspace(call.workspace_id);
-    const timezone = workspace?.timezone || 'America/Los_Angeles';
-
-    const systemPrompt = buildSystemPrompt(agentProfile, promptPacks, attachedSkills, allSkills, call, attachedKBs, timezone);
-    if ((call.context as any)?.briefing) {
-      logger.info({ callId, briefingLength: ((call.context as any).briefing as string).length }, 'Agent briefing applied to system prompt');
-    }
-    const contextPhone = call.direction === 'outbound' ? call.to_number : call.from_number;
-    // Memory toggle: if the mission set context.memory_enabled = false, the
-    // agent starts FRESH — no caller profile, no facts, no previous summaries.
-    // Default (undefined or true) keeps memory on for backward compatibility.
-    const memoryEnabled = (call.context as any)?.memory_enabled !== false;
-    const callerContext = memoryEnabled
-      ? await loadCallerContext(call.workspace_id, contextPhone, call.direction)
-      : undefined;
-    if (!memoryEnabled) {
-      logger.info({ callId }, 'Memory disabled for this call — starting fresh');
-    }
-
-    // --- Grok Realtime path: skip STT/TTS/LLM when both voice and LLM are xAI ---
-    const useGrokRealtime =
-      agentProfile.voice_provider === 'xai' && agentProfile.llm_provider === 'xai';
-
-    if (useGrokRealtime) {
-      logger.info({ callId }, 'Using Grok Realtime (voice-to-voice) orchestrator');
-
-      const xaiCreds = await getProviderCredential(call.workspace_id, 'xai');
-      const apiKey = xaiCreds.api_key;
-
-      const grokOrchestrator = new GrokRealtimeOrchestrator({
-        call: call as any,
-        agentProfile: agentProfile as any,
-        twilioWs: twilioSocket,
-        streamSid,
-        systemPrompt,
-        callerContext,
-        apiKey,
-        timezone,
-      });
-
-      // Audio forwarding handled in main socket.on('message') handler
-      wireOrchestratorEvents(grokOrchestrator, call, callId);
-      grokOrchestrator.start();
-      return grokOrchestrator;
-    }
-
-    // --- Standard STT -> LLM -> TTS pipeline ---
-    const [stt, tts, llm] = await Promise.all([
-      createSTTProvider(call.workspace_id, agentProfile.stt_provider as any),
-      createTTSProvider(call.workspace_id, agentProfile.voice_provider as any, agentProfile.voice_id ?? undefined),
-      createLLMProvider(call.workspace_id, agentProfile.llm_provider as any),
-    ]);
-
-    // Use language from call context (mission) if available, otherwise agent profile
-    const callLanguage = (call.context as import('../../models/types.js').CallContext)?.language || agentProfile.language;
-
-    const orchestrator = new CallOrchestrator({
-      call: call as any,
-      agentProfile: agentProfile as any,
-      stt: stt as DeepgramSTT,
-      tts,
-      llm,
-      twilioWs: twilioSocket,
-      streamSid,
-      language: callLanguage,
-      systemPrompt,
-      callerContext,
-      knowledgeSearch: attachedKBs.length > 0
-        ? (query: string) => knowledgeService.searchKnowledgeForAgent(
-            call.workspace_id, agentProfile.id, query, 3,
-          )
-        : undefined,
-      // Pick the first attached skill that defines bridging_phrases; the
-      // orchestrator falls back to BRIDGING_PHRASES from config/languages.ts
-      // if this is empty/undefined.
-      bridgingPhrases: (() => {
-        for (const s of attachedSkills as any[]) {
-          if (Array.isArray(s.bridging_phrases) && s.bridging_phrases.length) {
-            return s.bridging_phrases as string[];
-          }
-        }
-        return undefined;
-      })(),
-    });
-
-    wireOrchestratorEvents(orchestrator, call, callId);
-    orchestrator.start();
-    return orchestrator;
-  }
-
-  /** Wire up stopped/error event handlers shared by both orchestrator types */
-  function wireOrchestratorEvents(
-    orchestrator: CallOrchestrator | GrokRealtimeOrchestrator,
-    call: any,
-    callId: string,
-  ): void {
-    // Store orchestrator for live monitoring access
-    activeOrchestrators.set(callId, orchestrator);
-    registerSession(callId, { callId, workspaceId: call.workspace_id, type: 'orchestrator', startedAt: new Date().toISOString(), fromNumber: call.from_number, toNumber: call.to_number }).catch(() => {});
-
-    // Forward transcript events to Socket.IO for live monitoring + callEvents for Telegram
-    orchestrator.on('transcript', (entry: { speaker: string; text: string; timestamp: string; isFinal: boolean }) => {
-      const io = getIo();
-      logger.info({ callId, speaker: entry.speaker, text: entry.text?.slice(0, 50), hasIo: !!io }, 'Forwarding transcript to Socket.IO');
-      io?.to(`call:${callId}`).emit('call:transcript', { call_id: callId, ...entry });
-      // Emit to global callEvents for Telegram live transcript
-      callEvents.emit(`transcript:${callId}`, { speaker: entry.speaker, text: entry.text, isFinal: entry.isFinal });
-    });
-
-    // Forward agent TTS audio to browser listen room
-    orchestrator.on('agent_audio', (data: { payload: string }) => {
-      const io = getIo();
-      if (io) {
-        io.to(`call:${callId}:audio`).volatile.emit('call:audio', {
-          source: 'agent',
-          payload: data.payload,
-        });
-      }
-    });
-
-    orchestrator.on('skill_activated', (data: { intent: string }) => {
-      const io = getIo();
-      io?.to(`call:${callId}`).emit('call:transcript', {
-        call_id: callId,
-        speaker: 'system',
-        text: `[Skill activated: ${data.intent}]`,
-        timestamp: new Date().toISOString(),
-        isFinal: true,
-      });
-    });
-
-    orchestrator.on('stopped', async (result: any) => {
-      activeOrchestrators.delete(callId);
-      unregisterSession(callId).catch(() => {});
-      callEvents.emit(`call_ended:${callId}`);
-      logger.info({ callId, reason: result.reason }, 'Orchestrator stopped');
-      const session = await callService.getAiSession(callId);
-      if (session) {
-        // Calculate costs based on actual usage
-        const costLlm = calculateLLMCost(
-          result.llmModel ?? 'claude-sonnet-4-5-20250514',
-          result.totalTokensIn ?? 0,
-          result.totalTokensOut ?? 0,
-        );
-        const costTts = calculateTTSCost(
-          result.voiceProvider ?? 'elevenlabs',
-          result.totalTtsCharacters ?? 0,
-        );
-        const costStt = calculateSTTCost(
-          result.sttProvider ?? 'deepgram',
-          (result.sttAudioDurationMs ?? 0) / 60_000,
-        );
-        // Get call duration for telephony cost
-        const callRecord = await callService.getCall(call.workspace_id, callId);
-        const durationMin = (callRecord?.duration_seconds ?? 0) / 60;
-        const costTelephony = calculateTelephonyCost('twilio', durationMin);
-        const costTotal = costLlm + costTts + costStt + costTelephony;
-
-        await callService.updateAiSession(session.id, {
-          transcript: result.conversationHistory,
-          total_turns: result.turnCount,
-          total_tokens_in: result.totalTokensIn,
-          total_tokens_out: result.totalTokensOut,
-          avg_latency_ms: result.avgLatencyMs,
-          cost_llm: costLlm.toFixed(6),
-          cost_tts: costTts.toFixed(6),
-          cost_stt: costStt.toFixed(6),
-          cost_telephony: costTelephony.toFixed(6),
-          cost_total: costTotal.toFixed(6),
-        } as any);
-
-        logger.info({ callId, costLlm, costTts, costStt, costTelephony, costTotal }, 'Call costs calculated');
-
-        // Deduct usage cost from workspace deposit
-        try {
-          const { deductUsageCost } = await import('../../services/billing.service.js');
-          const workspace = await db.select({ provider_config: workspacesTable.provider_config })
-            .from(workspacesTable)
-            .where(eq(workspacesTable.id, call.workspace_id))
-            .limit(1);
-          const providerConfig = (workspace[0]?.provider_config as Record<string, string>) || {};
-          await deductUsageCost({
-            workspaceId: call.workspace_id,
-            providerCosts: {
-              stt: costStt,
-              llm: costLlm,
-              tts: costTts,
-              telephony: costTelephony,
-              sttProvider: result.sttProvider ?? 'deepgram',
-              llmProvider: result.llmModel?.startsWith('claude') ? 'anthropic' : result.llmModel?.startsWith('grok') ? 'xai' : 'openai',
-              ttsProvider: result.voiceProvider ?? 'elevenlabs',
-            },
-            providerConfig: providerConfig as any,
-            referenceType: 'call_session',
-            referenceId: session.id,
-          });
-        } catch (err) {
-          logger.error({ err, callId }, 'Failed to deduct usage cost');
-        }
-
-        // Queue post-call processing (summary, sentiment, fact extraction, memory)
-        queuePostCallProcessing({
-          callId,
-          sessionId: session.id,
-          workspaceId: call.workspace_id,
-          callerProfileId: call.caller_profile_id ?? undefined,
-        }).catch(err => logger.error({ err, callId }, 'Failed to queue post-call processing'));
-      }
-      await callService.updateCallStatus(callId, 'completed');
-    });
-
-    orchestrator.on('error', (err) => {
-      logger.error({ err, callId }, 'Orchestrator error');
-    });
-  }
 };
 
-// buildSystemPrompt and loadCallerContext extracted to services/prompt-builder.service.ts
-import { buildSystemPrompt, loadCallerContext } from '../../services/prompt-builder.service.js';
 
 export default mediaStreamRoutes;

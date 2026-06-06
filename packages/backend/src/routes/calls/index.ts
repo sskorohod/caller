@@ -4,7 +4,6 @@ import { authenticateUser, authenticateApiKey, authenticateAny, requireRole } fr
 import { requireMcpAccess, requireDialerAccess } from '../../middleware/plan-gate.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
-import * as agentService from '../../services/agent.service.js';
 import * as memoryService from '../../services/memory.service.js';
 import { ValidationError, AppError } from '../../lib/errors.js';
 import { env } from '../../config/env.js';
@@ -38,175 +37,6 @@ const listCallsSchema = z.object({
 });
 
 const callRoutes: FastifyPluginAsync = async (app) => {
-  // MCP route: POST /api/calls/start (API key auth)
-  app.post('/start', {
-    preHandler: [authenticateApiKey, requireMcpAccess()],
-  }, async (request, reply) => {
-    const body = startCallSchema.parse(request.body);
-
-    // Idempotency: check for existing call with same key within 24 hours
-    const idempotencyKey = (request.headers as Record<string, string | undefined>)['idempotency-key'];
-    if (idempotencyKey) {
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const [existing] = await db
-        .select()
-        .from(calls)
-        .where(
-          and(
-            eq(calls.workspace_id, request.auth.workspaceId),
-            sql`${calls.metadata}->>'idempotency_key' = ${idempotencyKey}`,
-            gte(calls.created_at, twentyFourHoursAgo),
-          ),
-        )
-        .limit(1);
-
-      if (existing) {
-        reply.status(200);
-        return {
-          call_id: existing.id,
-          status: existing.status,
-          conversation_owner_requested: existing.conversation_owner_requested,
-          conversation_owner_actual: existing.conversation_owner_actual,
-          agent_profile_id: existing.agent_profile_id,
-          created_at: existing.created_at,
-          twilio_call_sid: existing.twilio_call_sid,
-          idempotent: true,
-        };
-      }
-    }
-
-    const connection = await telephonyService.getOutboundConnection(request.auth.workspaceId);
-    const resolvedAgentProfileId = body.agent_profile_id ?? connection.default_agent_profile_id ?? undefined;
-
-    let agentProfile = resolvedAgentProfileId
-      ? await agentService.getAgentProfile(request.auth.workspaceId, resolvedAgentProfileId)
-      : await agentService.getDefaultAgentProfile(request.auth.workspaceId);
-
-    if (!agentProfile) {
-      throw new ValidationError('No active agent profile configured for outbound calls');
-    }
-
-    const call = await callService.createCall({
-      workspaceId: request.auth.workspaceId,
-      direction: 'outbound',
-      fromNumber: connection.phone_number,
-      toNumber: body.to,
-      telephonyConnectionId: connection.id,
-      conversationOwnerRequested: body.conversation_owner ?? 'internal',
-      agentProfileId: agentProfile.id,
-      goal: body.goal,
-      goalSource: request.auth.authMethod === 'api_key' ? 'mcp' : 'dashboard',
-      context: body.context,
-      outcomeSchema: body.outcome_schema,
-      metadata: {
-        ...body.metadata,
-        ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
-      },
-    });
-
-    // Create AI session
-    await callService.createAiSession({
-      callId: call.id,
-      workspaceId: request.auth.workspaceId,
-      agentProfileId: agentProfile.id,
-      conversationOwner: body.conversation_owner ?? 'internal',
-      promptSnapshot: agentProfile.system_prompt ?? undefined,
-    });
-
-    // Log event
-    await callService.addCallEvent({
-      callId: call.id,
-      workspaceId: request.auth.workspaceId,
-      eventType: 'call_initiated',
-      eventData: {
-        goal: body.goal,
-        conversation_owner: body.conversation_owner ?? 'internal',
-        source: request.auth.authMethod,
-      },
-    });
-
-    const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
-    const streamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${call.id}`;
-
-    try {
-      const twilioCallSid = await telephonyService.initiateOutboundCall({
-        workspaceId: request.auth.workspaceId,
-        to: body.to,
-        from: connection.phone_number,
-        callId: call.id,
-        statusCallbackUrl,
-        streamUrl,
-      });
-
-      const updatedCall = await callService.updateCallStatus(call.id, 'initiated', {
-        twilio_call_sid: twilioCallSid,
-        twilio_status: 'queued',
-      } as any);
-
-      // Telegram notification (fire-and-forget)
-      (async () => {
-        try {
-          const [telegramCreds] = await db
-            .select()
-            .from(providerCredsTable)
-            .where(and(
-              eq(providerCredsTable.workspace_id, request.auth.workspaceId),
-              eq(providerCredsTable.provider, 'telegram'),
-            ));
-          if (telegramCreds) {
-            const { sendCallNotification } = await import('../../services/telegram.service.js');
-            const { decrypt } = await import('../../lib/crypto.js');
-            const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
-            const shareToken = await callService.createShareToken(call.id);
-            const monitorUrl = `https://${env.API_DOMAIN}/calls/${call.id}/monitor?token=${shareToken}`;
-            sendCallNotification(creds.bot_token, creds.chat_id, {
-              phone: body.to,
-              direction: 'outbound',
-              name: null,
-              company: null,
-              total_calls: 0,
-              agent_name: agentProfile?.display_name ?? agentProfile?.name ?? '',
-              recent_facts: [],
-              monitor_url: monitorUrl,
-            }).catch((err: unknown) => { request.log.warn({ err }, 'Telegram notification failed'); });
-          }
-        } catch { /* non-critical */ }
-      })();
-
-      reply.status(201);
-      return {
-        call_id: updatedCall.id,
-        status: updatedCall.status,
-        conversation_owner_requested: updatedCall.conversation_owner_requested,
-        conversation_owner_actual: updatedCall.conversation_owner_actual,
-        agent_profile_id: updatedCall.agent_profile_id,
-        created_at: updatedCall.created_at,
-        twilio_call_sid: twilioCallSid,
-      };
-    } catch (error) {
-      await callService.updateCallStatus(call.id, 'failed', {
-        fallback_reason: error instanceof Error ? error.message : 'Failed to initiate outbound call',
-      } as any);
-
-      await callService.addCallEvent({
-        callId: call.id,
-        workspaceId: request.auth.workspaceId,
-        eventType: 'outbound_call_failed_to_start',
-        eventData: {
-          message: error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-
-      if (error instanceof AppError) {
-        throw error;
-      }
-
-      throw new ValidationError(
-        error instanceof Error ? error.message : 'Failed to initiate outbound call',
-      );
-    }
-  });
-
   // GET /api/calls/:id/status (supports both auth methods)
   app.get('/:id/status', {
     preHandler: [authenticateApiKey, requireMcpAccess()],
@@ -279,7 +109,6 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       qaRow,
       avgDurationRow,
       dailyRows,
-      topAgentRows,
     ] = await Promise.all([
       // Total calls all time
       db.select({ count: sql<number>`count(*)::int` }).from(calls).where(eq(calls.workspace_id, wid)),
@@ -321,11 +150,6 @@ const callRoutes: FastifyPluginAsync = async (app) => {
         day: sql<string>`to_char(created_at, 'YYYY-MM-DD')`,
         count: sql<number>`count(*)::int`,
       }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, sevenDaysAgo))).groupBy(sql`to_char(created_at, 'YYYY-MM-DD')`).orderBy(sql`to_char(created_at, 'YYYY-MM-DD')`),
-      // Top agents by call count (last 30 days)
-      db.select({
-        agent_profile_id: calls.agent_profile_id,
-        count: sql<number>`count(*)::int`,
-      }).from(calls).where(and(eq(calls.workspace_id, wid), gte(calls.created_at, thirtyDaysAgo), sql`agent_profile_id IS NOT NULL`)).groupBy(calls.agent_profile_id).orderBy(sql`count(*) desc`).limit(5),
     ]);
 
     const statusMap = Object.fromEntries(statusRows.map(r => [r.status, r.count]));
@@ -354,7 +178,6 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       avg_qa_score: parseFloat(parseFloat(qaRow[0]?.avg_qa ?? '0').toFixed(1)),
       total_turns_30d: qaRow[0]?.total_turns ?? 0,
       daily_calls: dailyRows,
-      top_agents: topAgentRows,
     };
   });
 

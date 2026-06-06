@@ -8,7 +8,6 @@ import { translatorSessions, workspaceMembers } from '../db/schema.js';
 import { env } from '../config/env.js';
 import { getActiveConferenceTranslators } from '../routes/webhooks/media-stream.js';
 import * as callService from './call.service.js';
-import * as missionService from './mission.service.js';
 import {
   sendTelegramPlainMessage,
   sendTelegramMessageWithButtons,
@@ -49,7 +48,6 @@ async function sendReply(botToken: string, chatId: string, text: string) {
 const HELP_TEXT =
   '🌐 <b>Caller</b>\n\n' +
   'Commands:\n' +
-  '/mission — 📞 Создать миссию (звонок)\n' +
   '/live — Live translation link\n' +
   '/hangup — End current call\n' +
   '/pause — Pause translator\n' +
@@ -65,44 +63,6 @@ const commandHandlers: Record<string, CommandHandler> = {
 
   '/help': async (ctx) => {
     await sendReply(ctx.botToken, ctx.chatId, HELP_TEXT);
-  },
-
-  '/mission': async (ctx) => {
-    try {
-      const [member] = await db.select({ user_id: workspaceMembers.user_id })
-        .from(workspaceMembers)
-        .where(eq(workspaceMembers.workspace_id, ctx.workspaceId))
-        .limit(1);
-      const userId = member?.user_id || ctx.workspaceId;
-      const mission = await missionService.createMission(ctx.workspaceId, userId);
-
-      await sendTelegramMessageWithButtons(ctx.botToken, ctx.chatId,
-        '📞 <b>Новая миссия</b>\n\nВыберите тон разговора:', [
-        [
-          { text: '🔹 Обычный', callback_data: `tone:neutral:${mission.id}` },
-          { text: '💼 Официальный', callback_data: `tone:formal:${mission.id}` },
-        ],
-        [
-          { text: '😄 Дружеский', callback_data: `tone:friendly:${mission.id}` },
-          { text: '🎉 Весёлый', callback_data: `tone:cheerful:${mission.id}` },
-        ],
-      ]);
-    } catch (err) {
-      log.error({ err, chatId: ctx.chatId }, 'Failed to create mission');
-      await sendReply(ctx.botToken, ctx.chatId, '❌ Не удалось создать миссию.');
-    }
-  },
-
-  '/cancel': async (ctx) => {
-    const { activeMissions } = await import('../routes/webhooks/telegram.js');
-    if (activeMissions.has(ctx.chatId)) {
-      const mission = activeMissions.get(ctx.chatId)!;
-      await missionService.updateMission(mission.missionId, { status: 'failed' });
-      activeMissions.delete(ctx.chatId);
-      await sendReply(ctx.botToken, ctx.chatId, '❌ Миссия отменена.');
-    } else {
-      await sendReply(ctx.botToken, ctx.chatId, '📭 Нет активной миссии.');
-    }
   },
 
   '/recording': async (ctx) => {

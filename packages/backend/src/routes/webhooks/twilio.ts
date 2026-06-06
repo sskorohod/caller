@@ -5,13 +5,11 @@ import { db } from '../../config/db.js';
 import { telephonyConnections, workspaces } from '../../db/schema.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
-import * as agentService from '../../services/agent.service.js';
 import { deliverWebhookEvent } from '../../services/webhook.service.js';
 import { env } from '../../config/env.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { validateTwilioSignature } from '../../middleware/twilio-auth.js';
-import { calls, providerCredentials, missions, type MissionFailureReason, type MissionOutcome } from '../../db/schema.js';
-import { notifyMissionFailure } from '../../services/mission-failure.service.js';
+import { calls, providerCredentials } from '../../db/schema.js';
 import { getIo } from '../../realtime/io.js';
 import * as memoryService from '../../services/memory.service.js';
 import { sendCallNotification } from '../../services/telegram.service.js';
@@ -218,157 +216,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    // --- Regular inbound call flow ---
-    const agentProfileId = connection.default_agent_profile_id;
-
-    let agentProfile = agentProfileId
-      ? await agentService.getAgentProfile(workspace.id, agentProfileId)
-      : await agentService.getDefaultAgentProfile(workspace.id);
-
-    if (!agentProfile) {
-      reply.type('text/xml').send('<Response><Say>No agent configured. Goodbye.</Say><Hangup/></Response>');
-      return;
-    }
-
-    // Find or create caller profile for memory
-    const callerProfile = await memoryService.findOrCreateCallerProfile(workspace.id, callerNumber);
-
-    const call = await callService.createCall({
-      workspaceId: workspace.id,
-      direction: 'inbound',
-      fromNumber: callerNumber,
-      toNumber: calledNumber,
-      telephonyConnectionId: connection.id,
-      conversationOwnerRequested: workspace.conversation_owner_default as any,
-      agentProfileId: agentProfile.id,
-      callerProfileId: callerProfile.id,
-    });
-
-    await callService.updateCallStatus(call.id, 'ringing', {
-      twilio_call_sid: callSid,
-    } as any);
-
-    await callService.createAiSession({
-      callId: call.id,
-      workspaceId: workspace.id,
-      agentProfileId: agentProfile.id,
-      conversationOwner: workspace.conversation_owner_default as any,
-      promptSnapshot: agentProfile.system_prompt ?? undefined,
-    });
-
-    await callService.addCallEvent({
-      callId: call.id,
-      workspaceId: workspace.id,
-      eventType: 'inbound_call_received',
-      eventData: { callerNumber, calledNumber, callSid },
-    });
-
-    // --- Real-time notifications (fire-and-forget) ---
-    (async () => {
-      try {
-        const profile = await memoryService.findOrCreateCallerProfile(workspace.id, callerNumber);
-        const facts = await memoryService.getUnresolvedFacts(profile.id, 5);
-
-        // Socket.IO event
-        const io = getIo();
-        if (io) {
-          io.to(`workspace:${workspace.id}`).emit('call:incoming', {
-            call_id: call.id,
-            from_number: callerNumber,
-            to_number: calledNumber,
-            direction: 'inbound',
-            agent_name: agentProfile.display_name,
-            caller: {
-              name: profile.name,
-              company: profile.company,
-              total_calls: profile.total_calls,
-              last_call_at: profile.last_call_at,
-              recent_facts: facts.map(f => f.content),
-            },
-          });
-        }
-
-        // Telegram notification
-        const [telegramCreds] = await db
-          .select()
-          .from(providerCredentials)
-          .where(and(
-            eq(providerCredentials.workspace_id, workspace.id),
-            eq(providerCredentials.provider, 'telegram'),
-          ));
-
-        if (telegramCreds) {
-          let creds: { bot_token: string; chat_id: string };
-          try { creds = JSON.parse(decrypt(telegramCreds.credential_data)); } catch { return; }
-          // Generate share token for monitor link
-          const shareToken = await callService.createShareToken(call.id);
-          const monitorUrl = `https://${env.API_DOMAIN}/calls/${call.id}/monitor?token=${shareToken}`;
-          sendCallNotification(creds.bot_token, creds.chat_id, {
-            phone: callerNumber,
-            direction: 'inbound',
-            name: profile.name,
-            company: profile.company,
-            total_calls: profile.total_calls,
-            agent_name: agentProfile.display_name,
-            recent_facts: facts.map(f => f.content),
-            monitor_url: monitorUrl,
-          }).catch((err: unknown) => { app.log.warn({ err }, 'Telegram notification failed'); });
-        }
-      } catch (err) {
-        trackError(err, { service: 'twilio-inbound', callId: call.id, workspaceId: workspace.id });
-      }
-    })();
-
-    // Hold TwiML — wait for operator to answer/reject, or auto-answer by agent
-    const autoAnswerDelay = (workspace as any).inbound_auto_answer_delay_seconds ?? 30;
-    const holdTwiml = new (await import('twilio')).default.twiml.VoiceResponse();
-    if (workspace.call_recording_disclosure) {
-      holdTwiml.say({ voice: 'Polly.Joanna' },
-        agentProfile.language === 'ru'
-          ? 'Пожалуйста, подождите. Ваш звонок будет обработан в ближайшее время.'
-          : 'Please hold. Your call will be answered shortly.');
-    }
-    holdTwiml.pause({ length: Math.max(autoAnswerDelay + 5, 65) });
-    holdTwiml.say({ voice: 'Polly.Joanna' }, 'We are sorry, no one is available right now. Goodbye.');
-
-    // Auto-answer timer: if operator doesn't respond, AI agent takes over
-    const callId = call.id;
-    const wsId = workspace.id;
-    setTimeout(async () => {
-      try {
-        const [currentCall] = await db.select().from(calls).where(eq(calls.id, callId));
-        if (currentCall && currentCall.status === 'ringing') {
-          // Auto-answer with AI agent
-          const streamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}`;
-          const twiml = telephonyService.generateInboundTwiml({ callId, streamUrl });
-          await telephonyService.updateActiveCall(wsId, callSid, twiml);
-          await callService.updateCallStatus(callId, 'in_progress', {
-            conversation_owner_actual: 'internal',
-          } as any);
-          // Start recording on auto-answered inbound call
-          telephonyService.startCallRecording(wsId, callSid)
-            .catch((err: unknown) => { app.log.warn({ err, callId }, 'Failed to start recording on auto-answered call'); });
-          const io = getIo();
-          if (io) {
-            io.to(`workspace:${wsId}`).emit('call:answered', { call_id: callId, mode: 'internal', auto: true });
-          }
-          app.log.info({ callId, autoAnswerDelay }, 'Inbound call auto-answered by AI agent');
-        }
-      } catch (err) {
-        app.log.error({ err, callId }, 'Auto-answer failed');
-      }
-    }, autoAnswerDelay * 1000);
-
-    // Send auto_answer_delay to frontend via Socket.IO
-    const io2 = getIo();
-    if (io2) {
-      io2.to(`workspace:${workspace.id}`).emit('call:incoming:config', {
-        call_id: call.id,
-        auto_answer_delay_seconds: autoAnswerDelay,
-      });
-    }
-
-    reply.type('text/xml').send(holdTwiml.toString());
+    // Translator-only: non-translator inbound calls have no AI-agent handler.
+    reply.type('text/xml').send('<Response><Say>Sorry, this number is not available right now. Goodbye.</Say><Hangup/></Response>');
   });
 
   app.post('/status', async (request, reply) => {
@@ -399,14 +248,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       'failed': 'failed',
     };
 
-    const failureReasonMap: Record<string, MissionFailureReason> = {
-      'busy': 'busy',
-      'no-answer': 'no_answer',
-      'failed': 'error',
-    };
-
     const ourStatus = statusMap[callStatus] ?? callStatus;
-    const failureReason = failureReasonMap[callStatus];
 
     await callService.updateCallStatus(call.id, ourStatus as any, {
       twilio_status: callStatus,
@@ -458,97 +300,6 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
         status: ourStatus,
         twilio_status: callStatus,
       }).catch((err: unknown) => { app.log.warn({ err, callId: call.id }, 'Webhook delivery failed for call.failed'); });
-
-      // Mission failure prompt: stamp failure_reason on the linked mission and
-      // notify the workspace owner with action buttons.
-      if (failureReason) {
-        try {
-          const [mission] = await db.select().from(missions).where(eq(missions.call_id, call.id));
-          if (mission) {
-            const prevOutcome = (mission.outcome as MissionOutcome | null) ?? {};
-            // Don't overwrite a stronger reason (e.g. AMD already set 'voicemail')
-            const finalReason: MissionFailureReason = prevOutcome.failure_reason ?? failureReason;
-            await db.update(missions).set({
-              status: 'failed',
-              outcome: { ...prevOutcome, failure_reason: finalReason } as any,
-              updated_at: new Date(),
-            }).where(eq(missions.id, mission.id));
-
-            const io2 = getIo();
-            io2?.to(`mission:${mission.id}`).emit('mission:status', { mission_id: mission.id, status: 'failed' });
-
-            notifyMissionFailure(mission.id).catch((e) => {
-              app.log.warn({ e, missionId: mission.id }, 'notifyMissionFailure failed');
-            });
-          }
-        } catch (e) {
-          app.log.warn({ e, callId: call.id }, 'Failed to update mission on call failure');
-        }
-      }
-    }
-
-    reply.status(200).send('OK');
-  });
-
-  // Async Answering Machine Detection callback. Twilio fires this once it has
-  // decided whether the line was picked up by a human or a machine. With
-  // `machineDetection: 'DetectMessageEnd'` it waits for the greeting to finish
-  // before classifying, so we won't get false positives on long human hellos.
-  app.post('/amd', async (request, reply) => {
-    let body: z.infer<typeof amdSchema>;
-    try {
-      body = amdSchema.parse(request.body);
-    } catch {
-      reply.status(200).send('OK');
-      return;
-    }
-    const { CallSid: callSid, AnsweredBy: answeredBy } = body;
-
-    app.log.info({ callSid, answeredBy }, 'Twilio AMD callback');
-
-    const isMachine = answeredBy.startsWith('machine_') || answeredBy === 'fax';
-    if (!isMachine) {
-      reply.status(200).send('OK');
-      return;
-    }
-
-    const [call] = await db.select({ id: calls.id, workspace_id: calls.workspace_id })
-      .from(calls)
-      .where(eq(calls.twilio_call_sid, callSid));
-    if (!call) {
-      reply.status(200).send('OK');
-      return;
-    }
-
-    // Hang up the live call — talking to a voicemail wastes minutes and provides
-    // no business value for outbound missions.
-    try {
-      const client = await telephonyService.getTwilioClient(call.workspace_id);
-      await client.calls(callSid).update({ status: 'completed' });
-    } catch (e) {
-      app.log.warn({ e, callSid }, 'Failed to hang up voicemail call');
-    }
-
-    // Mark mission as failed with voicemail reason and trigger the prompt.
-    try {
-      const [mission] = await db.select().from(missions).where(eq(missions.call_id, call.id));
-      if (mission) {
-        const prevOutcome = (mission.outcome as MissionOutcome | null) ?? {};
-        await db.update(missions).set({
-          status: 'failed',
-          outcome: { ...prevOutcome, failure_reason: 'voicemail' } as any,
-          updated_at: new Date(),
-        }).where(eq(missions.id, mission.id));
-
-        const io = getIo();
-        io?.to(`mission:${mission.id}`).emit('mission:status', { mission_id: mission.id, status: 'failed' });
-
-        notifyMissionFailure(mission.id).catch((e) => {
-          app.log.warn({ e, missionId: mission.id }, 'notifyMissionFailure (voicemail) failed');
-        });
-      }
-    } catch (e) {
-      app.log.warn({ e, callSid }, 'Failed to mark mission as voicemail-failed');
     }
 
     reply.status(200).send('OK');

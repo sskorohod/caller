@@ -108,20 +108,14 @@ await app.register(import('./routes/auth/session.js'), { prefix: '/api/auth' });
 // Authenticated routes
 await app.register(import('./routes/auth/index.js'), { prefix: '/api/auth' });
 await app.register(import('./routes/workspaces/index.js'), { prefix: '/api/workspaces' });
-await app.register(import('./routes/agents/index.js'), { prefix: '/api/agents' });
 await app.register(import('./routes/calls/index.js'), { prefix: '/api/calls' });
 await app.register(import('./routes/webhooks/index.js'), { prefix: '/webhooks' });
 await app.register(import('./routes/webhooks/telegram.js'), { prefix: '/webhooks' });
-await app.register(import('./routes/prompt-packs/index.js'), { prefix: '/api/prompt-packs' });
-await app.register(import('./routes/skill-packs/index.js'), { prefix: '/api/skill-packs' });
-await app.register(import('./routes/knowledge/index.js'), { prefix: '/api/knowledge' });
 await app.register(import('./routes/memory/index.js'), { prefix: '/api/memory' });
 await app.register(import('./routes/oauth/index.js'), { prefix: '/api/oauth' });
 await app.register(import('./routes/telephony/index.js'), { prefix: '/api/telephony' });
 await app.register(import('./routes/webhook-endpoints/index.js'), { prefix: '/api/webhook-endpoints' });
-await app.register(import('./routes/connectors/index.js'), { prefix: '/api/connectors' });
 await app.register(import('./routes/audit/index.js'), { prefix: '/api/audit-logs' });
-await app.register(import('./routes/missions/index.js'), { prefix: '/api/missions' });
 await app.register(import('./routes/translator/index.js'), { prefix: '/api/translator' });
 await app.register(import('./routes/translator/stripe.js'), { prefix: '/api/translator' });
 // Portal disabled — subscribers merged into workspaces
@@ -153,21 +147,9 @@ await app.register(import('./routes/support/index.js'), { prefix: '/api/support'
 await app.register(import('./routes/contact/index.js'), { prefix: '/api/contact' });
 await app.register(import('./routes/admin/index.js'), { prefix: '/api/admin' });
 
-// Start post-call worker (BullMQ)
-import { startPostCallWorker } from './workers/post-call.worker.js';
-const postCallWorker = startPostCallWorker();
-app.log.info('Post-call worker started');
-
-// Start mission-scheduled worker (BullMQ delayed jobs for postponed missions)
-import { startMissionScheduledWorker } from './workers/mission-scheduled.worker.js';
-const missionScheduledWorker = startMissionScheduledWorker();
-app.log.info('Mission-scheduled worker started');
-
 // Graceful shutdown
 async function gracefulShutdown(signal: string) {
   app.log.info(`${signal} received, shutting down...`);
-  await postCallWorker.close();
-  await missionScheduledWorker.close();
   await app.close();
   await pool.end();
   process.exit(0);
@@ -184,10 +166,6 @@ try {
 
   // Load pricing overrides from DB (cached, falls back to hardcoded)
   import('./config/pricing.js').then(m => m.loadPricingOverrides()).catch(() => {});
-
-  // Seed the platform "Sales & Persuasion" knowledge base per workspace
-  // (idempotent — only inserts missing docs). Runs in background; safe to fail.
-  import('./services/persuasion-kb.seed.js').then(m => m.seedPersuasionKnowledgeBase()).catch(() => {});
 
   // Auto-setup Telegram bot webhook + commands
   (async () => {
