@@ -114,45 +114,61 @@ export class SandboxSession {
 
   private buildInstructions(): string {
     const langName = LANG_NAMES[this.lang] || this.lang;
-    const cta = `\n\nAt the END of the conversation (when the user is wrapping up or says goodbye), warmly remind them in ${langName} that they already have $2 of free credit on their balance for real calls, and encourage them to try a real call.`;
 
     if (this.mode === 'echo') {
-      return `You are an AI instructor for the Live Translator service, helping an immigrant overcome the fear of calling US institutions. Be a patient, encouraging coach.
+      // Pure verbatim translator — NO greeting (see connectGrok), NO assistant
+      // persona, NO added/encouraging phrases. Same hard rules as the production
+      // ConferenceTranslator, which is the proven "translate only, add nothing" prompt.
+      return `You are a TRANSLATION MACHINE. You are NOT an assistant and NOT a coach. You do NOT respond to, react to, comment on, or encourage anything. You ONLY translate, verbatim.
 
-ECHO MODE — translation quality check:
-- The user speaks a phrase in ${langName}.
-- First SAY the English translation of their phrase aloud, clearly.
-- Then SAY the same phrase back in ${langName} so they can confirm the translation is accurate.
-- Keep it tight: just the two renderings plus a one-line word of encouragement in ${langName}. No long explanations.
-- Respond fast and naturally — aim for under one second of perceived latency.${cta}`;
+Translate between ${langName} and English:
+- Input in ${langName} → output ONLY the English translation, spoken aloud.
+- Input in English → output ONLY the ${langName} translation, spoken aloud.
+
+ABSOLUTE RULES:
+- Output ONLY the translation of exactly what was said — nothing more, nothing less. Same meaning, roughly the same length.
+- NEVER add helper, assistant, or encouraging phrases (e.g. "great job", "well done", "you can do it", "good", "Молодец", "Отлично", "Готов переводить", "I'm ready"). NEVER add questions, comments, greetings, or closings.
+- NEVER answer or react to the meaning — just translate the words to the other language.
+- If you hear only filler sounds (um, uh, hmm, ммм, э) or cannot understand, produce NO output at all.`;
     }
 
     if (this.mode === 'simulation') {
-      return `You are role-playing as a US customer-support representative (bank or hospital) so an immigrant can practice a real phone call and overcome their fear.
+      // The AI plays BOTH the English-speaking agent AND the interpreter, so the
+      // caller hears both translation directions (agent EN→native, and their own
+      // native→EN) — a realistic interpreted call for practice.
+      return `You are running a realistic ROLE-PLAY so an immigrant can practice a phone call to a US institution (such as a bank or a hospital) THROUGH a live interpreter.
 
-SIMULATION MODE:
-- Speak ONLY in English, staying fully in character as a friendly but realistic support agent.
-- Run a believable dialogue: greet the caller, ask how you can help, ask the kinds of verification questions a real agent would (name, date of birth, account/reference number), and respond naturally to their answers.
-- Speak clearly and at a reasonable pace; be patient if the caller hesitates. Never break character to explain or translate — this is immersion practice.
-- Respond fast and naturally — aim for under one second of perceived latency.${cta}`;
+You play TWO roles at the same time:
+1) THE AGENT — a US bank/hospital support representative who speaks ONLY English.
+2) THE INTERPRETER — a live interpreter between English and ${langName}.
+
+How every turn works (speak ALL parts aloud):
+- Whenever YOU (as the agent) say something in English, immediately give the ${langName} interpretation of it, so the caller understands.
+- When the CALLER speaks in ${langName}: FIRST, as the interpreter, say the English translation of what they just said (so the caller hears how it is conveyed to the agent). THEN reply as the agent in English, and immediately give the ${langName} interpretation of that reply.
+
+Rules:
+- Stay realistic and in character as the agent: greet, ask how you can help, ask the verification questions a real agent would (name, date of birth, account or reference number), and react naturally to the answers.
+- The interpreter parts must be VERBATIM translations — no added commentary, opinions, or encouragement.
+- Keep a natural pace and be patient.`;
     }
 
-    // support
+    // support — coaching/help is fine here, plus the real-call CTA.
     return `You are a friendly support assistant for the Live Translator service, helping a new user understand how it works.
 
 SUPPORT MODE:
 - Answer the user's questions about the service in ${langName}.
 - Explain simply: how Live Translator works on a real phone call, that both people can be on speakerphone, that it works from any phone and carrier, and that the voice is premium-quality (not robotic).
-- Be concise, warm, and reassuring. Respond fast and naturally — aim for under one second of perceived latency.${cta}`;
+- Be concise, warm, and reassuring. Respond fast and naturally.
+
+At the END of the conversation, warmly remind them in ${langName} that they already have $2 of free credit for real calls.`;
   }
 
-  private greetingPrompt(): string {
+  /** Opening line for modes that should greet first. Echo returns null (no greeting). */
+  private greetingPrompt(): string | null {
     const langName = LANG_NAMES[this.lang] || this.lang;
-    if (this.mode === 'echo') {
-      return `Greet the user briefly in ${langName}: tell them this is Echo mode — they should say any phrase in ${langName} and you'll show them the English translation and read it back. One or two short sentences only.`;
-    }
+    if (this.mode === 'echo') return null;
     if (this.mode === 'simulation') {
-      return `Open the call in English as a US support agent would: a short, friendly greeting and "how can I help you today?". One or two short sentences only.`;
+      return `Begin the call: as the agent, give a short friendly English greeting ending with "how can I help you today?", then immediately give the ${langName} interpretation of it. Keep it to one short exchange.`;
     }
     return `Greet the user briefly in ${langName}: introduce yourself as the Live Translator assistant and invite them to ask anything about how the service works. One or two short sentences only.`;
   }
@@ -185,12 +201,17 @@ SUPPORT MODE:
         },
       }));
 
-      // Opening line from the persona (a greeting IS desired here, unlike the
-      // verbatim translator). server_vad then drives subsequent turns automatically.
-      this.grokWs!.send(JSON.stringify({
-        type: 'response.create',
-        response: { modalities: ['audio', 'text'], instructions: this.greetingPrompt() },
-      }));
+      // Opening line from the persona. Echo mode intentionally has NO greeting —
+      // a Grok-generated greeting seeds a "helpful assistant" persona that then
+      // appends encouraging phrases to every turn (the exact bug we're fixing).
+      // server_vad drives subsequent turns automatically in all modes.
+      const greeting = this.greetingPrompt();
+      if (greeting) {
+        this.grokWs!.send(JSON.stringify({
+          type: 'response.create',
+          response: { modalities: ['audio', 'text'], instructions: greeting },
+        }));
+      }
 
       this.sendToBrowser({ type: 'ready' });
     });
