@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import pino from 'pino';
 import { env } from '../config/env.js';
 import { db } from '../config/db.js';
-import { workspaceMembers, calls as callsTable, missions as missionsTable } from '../db/schema.js';
+import { workspaceMembers, calls as callsTable } from '../db/schema.js';
 import { setIo } from './io.js';
 
 const log = pino({ name: 'socket-server' });
@@ -159,19 +159,6 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       return !!row;
     }
 
-    // Mission rooms carry cross-tenant chat/status — gate joins on ownership.
-    async function authorizeMissionAccess(id: string): Promise<boolean> {
-      const role = socket.data.role as string | undefined;
-      const wsId = socket.data.workspaceId as string | undefined;
-      if (role === 'monitor' || !wsId) return false; // share-token monitors are call-scoped
-      const [row] = await db
-        .select({ id: missionsTable.id })
-        .from(missionsTable)
-        .where(and(eq(missionsTable.id, id), eq(missionsTable.workspace_id, wsId)))
-        .limit(1);
-      return !!row;
-    }
-
     socket.on('translator:set-mode', async ({ call_id, mode }: { call_id?: string; mode: string }) => {
       try {
         const id = resolveCallId(call_id);
@@ -289,16 +276,6 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
           log.info({ call_id, enabled }, 'Translation toggled');
         }
       } catch { /* ignore */ }
-    });
-
-    // Mission chat: join/leave mission room (workspace-scoped)
-    socket.on('mission:join', async ({ mission_id }: { mission_id: string }) => {
-      if (!mission_id || !await authorizeMissionAccess(mission_id)) return;
-      socket.join(`mission:${mission_id}`);
-    });
-
-    socket.on('mission:leave', ({ mission_id }: { mission_id: string }) => {
-      socket.leave(`mission:${mission_id}`);
     });
 
     // Live call monitoring: operator sends a free-text instruction to an

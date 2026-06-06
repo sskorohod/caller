@@ -215,7 +215,6 @@ export async function createTelephonyConnection(params: {
       inbound_enabled: params.inboundEnabled ?? false,
       outbound_enabled: params.outboundEnabled ?? true,
       ai_answering_enabled: params.aiAnsweringEnabled ?? false,
-      default_agent_profile_id: params.defaultAgentProfileId ?? null,
     })
     .returning();
 

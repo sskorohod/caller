@@ -109,44 +109,6 @@ export const providerCredentials = pgTable('provider_credentials', {
 ]);
 
 // ============================================================
-// AGENT PROFILES
-// ============================================================
-export const agentProfiles = pgTable('agent_profiles', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  display_name: text('display_name').notNull(),
-  company_name: text('company_name'),
-  company_identity: text('company_identity'),
-  language: text('language').notNull().default('en'),
-  voice_provider: text('voice_provider').notNull().default('xai'),
-  voice_id: text('voice_id'),
-  voice_settings: jsonb('voice_settings').notNull().default({}),
-  llm_provider: text('llm_provider').notNull().default('anthropic'),
-  llm_model: text('llm_model').notNull().default('claude-sonnet-4-5-20250514'),
-  llm_temperature: numeric('llm_temperature', { precision: 3, scale: 2 }).notNull().default('0.7'),
-  stt_provider: text('stt_provider').notNull().default('deepgram'),
-  system_prompt: text('system_prompt'),
-  greeting_message: text('greeting_message'),
-  voice_vibe: text('voice_vibe'),
-  escalation_rules: jsonb('escalation_rules').notNull().default([]),
-  tool_policies: jsonb('tool_policies').notNull().default({}),
-  supported_goals: text('supported_goals').array().notNull().default(sql`'{}'`),
-  business_mode: text('business_mode'),
-  business_tags: text('business_tags').array().notNull().default(sql`'{}'`),
-  memory_enabled: boolean('memory_enabled').notNull().default(true),
-  memory_lookback_days: integer('memory_lookback_days').notNull().default(90),
-  avatar_url: text('avatar_url'),
-  description: text('description'),
-  is_default: boolean('is_default').notNull().default(false),
-  is_active: boolean('is_active').notNull().default(true),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_agent_profiles_workspace').on(t.workspace_id),
-]);
-
-// ============================================================
 // TELEPHONY CONNECTIONS
 // ============================================================
 export const telephonyConnections = pgTable('telephony_connections', {
@@ -159,7 +121,6 @@ export const telephonyConnections = pgTable('telephony_connections', {
   inbound_enabled: boolean('inbound_enabled').notNull().default(false),
   outbound_enabled: boolean('outbound_enabled').notNull().default(true),
   ai_answering_enabled: boolean('ai_answering_enabled').notNull().default(false),
-  default_agent_profile_id: uuid('default_agent_profile_id').references(() => agentProfiles.id, { onDelete: 'set null' }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -167,125 +128,6 @@ export const telephonyConnections = pgTable('telephony_connections', {
   index('idx_telephony_phone').on(t.phone_number),
 ]);
 
-// ============================================================
-// PROMPT PACKS
-// ============================================================
-export const promptPacks = pgTable('prompt_packs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description'),
-  content: text('content').notNull(),
-  category: text('category'),
-  version: integer('version').notNull().default(1),
-  is_active: boolean('is_active').notNull().default(true),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_prompt_packs_workspace').on(t.workspace_id),
-]);
-
-export const agentPromptPacks = pgTable('agent_prompt_packs', {
-  agent_profile_id: uuid('agent_profile_id').notNull().references(() => agentProfiles.id, { onDelete: 'cascade' }),
-  prompt_pack_id: uuid('prompt_pack_id').notNull().references(() => promptPacks.id, { onDelete: 'cascade' }),
-  priority: integer('priority').notNull().default(0),
-}, (t) => [
-  unique().on(t.agent_profile_id, t.prompt_pack_id),
-]);
-
-// ============================================================
-// SKILL PACKS
-// ============================================================
-export const skillPacks = pgTable('skill_packs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description'),
-  intent: text('intent').notNull(),
-  activation_rules: jsonb('activation_rules').notNull().default({}),
-  required_data: jsonb('required_data').notNull().default([]),
-  tool_sequence: jsonb('tool_sequence').notNull().default([]),
-  allowed_tools: text('allowed_tools').array().notNull().default(sql`'{}'`),
-  escalation_conditions: jsonb('escalation_conditions').notNull().default([]),
-  completion_criteria: jsonb('completion_criteria').notNull().default({}),
-  interruption_rules: jsonb('interruption_rules').notNull().default({}),
-  conversation_rules: text('conversation_rules'),
-  // Human-likeness fields (00028)
-  opening_line: text('opening_line'),
-  talk_listen_ratio: text('talk_listen_ratio'), // numeric(3,2) stored as string by pg driver
-  pause_profile: jsonb('pause_profile').notNull().default({}),
-  backchannel_policy: jsonb('backchannel_policy').notNull().default({}),
-  bridging_phrases: text('bridging_phrases').array().notNull().default(sql`'{}'`),
-  objection_branches: jsonb('objection_branches').notNull().default([]),
-  escalation_tags: text('escalation_tags').array().notNull().default(sql`'{}'`),
-  requires_explicit_confirmation: boolean('requires_explicit_confirmation').notNull().default(false),
-  version: integer('version').notNull().default(1),
-  is_active: boolean('is_active').notNull().default(true),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_skill_packs_workspace').on(t.workspace_id),
-]);
-
-export const agentSkillPacks = pgTable('agent_skill_packs', {
-  agent_profile_id: uuid('agent_profile_id').notNull().references(() => agentProfiles.id, { onDelete: 'cascade' }),
-  skill_pack_id: uuid('skill_pack_id').notNull().references(() => skillPacks.id, { onDelete: 'cascade' }),
-  priority: integer('priority').notNull().default(0),
-}, (t) => [
-  unique().on(t.agent_profile_id, t.skill_pack_id),
-  index('idx_agent_skill_packs_skill_pack').on(t.skill_pack_id),
-]);
-
-// ============================================================
-// KNOWLEDGE BASE
-// ============================================================
-export const knowledgeBases = pgTable('knowledge_bases', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description'),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_knowledge_bases_workspace').on(t.workspace_id),
-]);
-
-export const agentKnowledgeBases = pgTable('agent_knowledge_bases', {
-  agent_profile_id: uuid('agent_profile_id').notNull().references(() => agentProfiles.id, { onDelete: 'cascade' }),
-  knowledge_base_id: uuid('knowledge_base_id').notNull().references(() => knowledgeBases.id, { onDelete: 'cascade' }),
-}, (t) => [
-  unique().on(t.agent_profile_id, t.knowledge_base_id),
-  index('idx_agent_knowledge_bases_kb').on(t.knowledge_base_id),
-]);
-
-export const knowledgeDocuments = pgTable('knowledge_documents', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  knowledge_base_id: uuid('knowledge_base_id').notNull().references(() => knowledgeBases.id, { onDelete: 'cascade' }),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  content: text('content'),
-  doc_type: text('doc_type').notNull().default('document'),
-  source_url: text('source_url'),
-  file_path: text('file_path'),
-  metadata: jsonb('metadata').notNull().default({}),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_knowledge_docs_kb').on(t.knowledge_base_id),
-]);
-
-export const knowledgeEmbeddings = pgTable('knowledge_embeddings', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  document_id: uuid('document_id').notNull().references(() => knowledgeDocuments.id, { onDelete: 'cascade' }),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  chunk_index: integer('chunk_index').notNull(),
-  chunk_text: text('chunk_text').notNull(),
-  embedding: vector('embedding'),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_knowledge_embeddings_doc').on(t.document_id),
-  index('idx_knowledge_embeddings_workspace').on(t.workspace_id),
-]);
 
 // ============================================================
 // CALLER MEMORY
@@ -342,7 +184,6 @@ export const calls = pgTable('calls', {
   external_bootstrap_status: text('external_bootstrap_status').default('not_requested'),
   external_runtime_connected_at: timestamp('external_runtime_connected_at', { withTimezone: true }),
   fallback_reason: text('fallback_reason'),
-  agent_profile_id: uuid('agent_profile_id').references(() => agentProfiles.id),
   goal: text('goal'),
   goal_source: text('goal_source'),
   goal_payload: jsonb('goal_payload'),
@@ -371,7 +212,6 @@ export const aiCallSessions = pgTable('ai_call_sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
   call_id: uuid('call_id').notNull().references(() => calls.id, { onDelete: 'cascade' }),
   workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  agent_profile_id: uuid('agent_profile_id').references(() => agentProfiles.id),
   prompt_snapshot: text('prompt_snapshot'),
   skills_snapshot: jsonb('skills_snapshot'),
   conversation_owner: text('conversation_owner').notNull().default('internal'),
@@ -534,45 +374,6 @@ export interface MissionOutcome {
   [k: string]: unknown;
 }
 
-export const missions = pgTable('missions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  title: text('title'),
-  status: text('status').notNull().default('draft'),
-  agent_profile_id: uuid('agent_profile_id').references(() => agentProfiles.id),
-  target_phone: text('target_phone'),
-  goal: text('goal'),
-  context: jsonb('context').notNull().default({}),
-  briefing: text('briefing'),
-  fallback_action: text('fallback_action').notNull().default('report'),
-  call_id: uuid('call_id').references(() => calls.id),
-  outcome: jsonb('outcome'),
-  created_by: uuid('created_by').notNull(),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  scheduled_at: timestamp('scheduled_at', { withTimezone: true }),
-  started_at: timestamp('started_at', { withTimezone: true }),
-  completed_at: timestamp('completed_at', { withTimezone: true }),
-  retry_count: integer('retry_count').notNull().default(0),
-  max_retries: integer('max_retries').notNull().default(3),
-  retry_at: timestamp('retry_at', { withTimezone: true }),
-  notification_sent: boolean('notification_sent').notNull().default(false),
-}, (t) => [
-  index('idx_missions_workspace').on(t.workspace_id),
-  index('idx_missions_status').on(t.workspace_id, t.status),
-]);
-
-export const missionMessages = pgTable('mission_messages', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  mission_id: uuid('mission_id').notNull().references(() => missions.id, { onDelete: 'cascade' }),
-  sender_type: text('sender_type').notNull(),
-  content: text('content').notNull(),
-  message_type: text('message_type').notNull().default('chat'),
-  metadata: jsonb('metadata').notNull().default({}),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_mission_messages_mission').on(t.mission_id),
-]);
 
 // ─── Call Share Tokens ─────────────────────────────────────────────────────
 

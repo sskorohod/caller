@@ -1,7 +1,7 @@
 import { eq, and, desc, asc, sql, count, gte, lte, inArray, getTableColumns } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import { db } from '../config/db.js';
-import { calls, aiCallSessions, callEvents, callShareTokens, missions, missionMessages } from '../db/schema.js';
+import { calls, aiCallSessions, callEvents, callShareTokens } from '../db/schema.js';
 import { NotFoundError } from '../lib/errors.js';
 import type { Call, AiCallSession, CallEvent, ConversationOwner, CallStatus } from '../models/types.js';
 
@@ -16,7 +16,6 @@ export async function createCall(params: {
   toNumber: string;
   telephonyConnectionId?: string;
   conversationOwnerRequested: ConversationOwner;
-  agentProfileId?: string;
   callerProfileId?: string;
   goal?: string;
   goalSource?: string;
@@ -35,7 +34,6 @@ export async function createCall(params: {
       telephony_connection_id: params.telephonyConnectionId ?? null,
       conversation_owner_requested: params.conversationOwnerRequested,
       conversation_owner_actual: params.conversationOwnerRequested,
-      agent_profile_id: params.agentProfileId ?? null,
       caller_profile_id: params.callerProfileId ?? null,
       goal: params.goal ?? null,
       goal_source: params.goalSource ?? null,
@@ -67,7 +65,7 @@ export async function getCall(workspaceId: string, callId: string): Promise<Call
 
 export async function deleteCall(workspaceId: string, callId: string): Promise<void> {
   // Delete related records in a transaction (order matters for FK constraints)
-  // Mission messages → missions → call events → ai sessions → share tokens → call
+  // call events → ai sessions → share tokens → call
   await db.transaction(async (tx) => {
     // Verify ownership FIRST — otherwise child records of a call belonging to
     // another workspace would be deleted before the workspace-scoped parent
@@ -76,11 +74,6 @@ export async function deleteCall(workspaceId: string, callId: string): Promise<v
       .where(and(eq(calls.id, callId), eq(calls.workspace_id, workspaceId)));
     if (!owned) return;
 
-    const missionRows = await tx.select({ id: missions.id }).from(missions).where(eq(missions.call_id, callId));
-    for (const m of missionRows) {
-      await tx.delete(missionMessages).where(eq(missionMessages.mission_id, m.id));
-    }
-    await tx.delete(missions).where(eq(missions.call_id, callId));
     await tx.delete(callEvents).where(eq(callEvents.call_id, callId));
     await tx.delete(aiCallSessions).where(eq(aiCallSessions.call_id, callId));
     await tx.delete(callShareTokens).where(eq(callShareTokens.call_id, callId));
@@ -102,14 +95,6 @@ export async function bulkDeleteCalls(workspaceId: string, callIds: string[]): P
     const ownedIds = ownedRows.map(r => r.id);
     if (ownedIds.length === 0) return;
 
-    // Get mission IDs for owned calls
-    const missionRows = await tx.select({ id: missions.id })
-      .from(missions).where(inArray(missions.call_id, ownedIds));
-    if (missionRows.length > 0) {
-      const missionIds = missionRows.map(m => m.id);
-      await tx.delete(missionMessages).where(inArray(missionMessages.mission_id, missionIds));
-      await tx.delete(missions).where(inArray(missions.id, missionIds));
-    }
     await tx.delete(callEvents).where(inArray(callEvents.call_id, ownedIds));
     await tx.delete(aiCallSessions).where(inArray(aiCallSessions.call_id, ownedIds));
     await tx.delete(callShareTokens).where(inArray(callShareTokens.call_id, ownedIds));
@@ -153,7 +138,6 @@ export async function listCalls(
     offset?: number;
     from?: string;
     to?: string;
-    agent_profile_id?: string;
     sentiment?: string;
     min_duration?: number;
     max_duration?: number;
@@ -168,7 +152,6 @@ export async function listCalls(
   if (filters?.status) conditions.push(eq(calls.status, filters.status));
   if (filters?.from) conditions.push(gte(calls.created_at, new Date(filters.from)));
   if (filters?.to) conditions.push(lte(calls.created_at, new Date(filters.to)));
-  if (filters?.agent_profile_id) conditions.push(eq(calls.agent_profile_id, filters.agent_profile_id));
   if (filters?.min_duration != null) conditions.push(gte(calls.duration_seconds, filters.min_duration));
   if (filters?.max_duration != null) conditions.push(lte(calls.duration_seconds, filters.max_duration));
 
@@ -226,7 +209,6 @@ export async function listCalls(
 export async function createAiSession(params: {
   callId: string;
   workspaceId: string;
-  agentProfileId?: string;
   promptSnapshot?: string;
   skillsSnapshot?: unknown;
   conversationOwner: ConversationOwner;
@@ -236,7 +218,6 @@ export async function createAiSession(params: {
     .values({
       call_id: params.callId,
       workspace_id: params.workspaceId,
-      agent_profile_id: params.agentProfileId ?? null,
       prompt_snapshot: params.promptSnapshot ?? null,
       skills_snapshot: params.skillsSnapshot ?? null,
       conversation_owner: params.conversationOwner,

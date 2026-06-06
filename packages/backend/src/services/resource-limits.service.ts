@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { agentProfiles, telephonyConnections, workspaces } from '../db/schema.js';
+import { telephonyConnections, workspaces } from '../db/schema.js';
 import { PLANS } from '../config/plans.js';
 import type { WorkspacePlan } from '../models/types.js';
 
@@ -8,17 +8,13 @@ export async function getResourceCounts(workspaceId: string): Promise<{
   agentCount: number;
   connectionCount: number;
 }> {
-  const [[agents], [connections]] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` })
-      .from(agentProfiles)
-      .where(eq(agentProfiles.workspace_id, workspaceId)),
-    db.select({ count: sql<number>`count(*)::int` })
-      .from(telephonyConnections)
-      .where(eq(telephonyConnections.workspace_id, workspaceId)),
-  ]);
+  // Translator-only: no agent profiles. Connections still gate phone numbers.
+  const [connections] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(telephonyConnections)
+    .where(eq(telephonyConnections.workspace_id, workspaceId));
 
   return {
-    agentCount: agents?.count ?? 0,
+    agentCount: 0,
     connectionCount: connections?.count ?? 0,
   };
 }
