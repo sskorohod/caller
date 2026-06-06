@@ -1,257 +1,331 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
-import { api } from '@/lib/api';
-import { useAuth } from '@/lib/auth-context';
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useT, useI18n } from '@/lib/i18n';
-import { useIsMobile } from '@/lib/useBreakpoint';
-import PullToRefreshWrapper from '@/components/PullToRefreshWrapper';
+import { useSocket } from '@/lib/socket';
+import { api } from '@/lib/api';
+import { LANGUAGES, TTS_VOICES as VOICES } from '@/lib/constants';
 
-import type { DashboardStats, RecentCall, Agent, TelConnection } from './_lib/types';
-import { fmtCost, getTimeOfDay } from './_lib/utils';
-import { IconPhone, IconSignal, IconCheck, IconDollar, IconWallet } from './_lib/icons';
+interface TranslatorDefaults {
+  greeting_text?: string;
+  tts_voice_id?: string;
+  tone?: string;
+  personal_context?: string;
+  my_language?: string;
+  target_language?: string;
+  translation_mode?: string;
+}
+interface TranslationEntry { speaker: string; original: string; translated: string; timestamp: string }
+interface UsageResp {
+  totals: { calls: number; minutes: number; cost: number; avgCost: number; words: number };
+  sessions: { id: string; call_id: string | null; created_at: string; duration_seconds: number; cost_usd: number; words: number }[];
+}
 
-import { DashboardSkeleton } from './_components/DashboardSkeleton';
-import { KpiCard } from './_components/KpiCard';
-import { MiniStatStrip } from './_components/MiniStatStrip';
-import { WeeklyChart } from './_components/WeeklyChart';
-import { StatusDonut } from './_components/StatusDonut';
-import { CostBreakdown } from './_components/CostBreakdown';
-import { SentimentStrip } from './_components/SentimentStrip';
-import { SystemHealthStrip } from './_components/SystemHealthStrip';
-import { RecentCallsTable } from './_components/RecentCallsTable';
+const TONES = [
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'business', label: 'Business' },
+  { value: 'friendly', label: 'Friendly' },
+  { value: 'medical', label: 'Medical' },
+  { value: 'legal', label: 'Legal' },
+  { value: 'intelligent', label: 'Intelligent' },
+];
 
-export default function OverviewPage() {
-  const { workspace } = useAuth();
+const card = 'rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]';
+const selectCls = 'w-full px-3 py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] transition-all appearance-none';
+const PRICE_PER_MIN = 0.2;
+
+function fmtDur(secs: number) { const m = Math.floor(secs / 60), s = secs % 60; return `${m}:${String(s).padStart(2, '0')}`; }
+
+export default function DashboardHub() {
   const t = useT();
   const { lang } = useI18n();
-  const isMobile = useIsMobile();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [calls, setCalls] = useState<RecentCall[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [connections, setConnections] = useState<TelConnection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [balanceUsd, setBalanceUsd] = useState<number>(0);
-  const [plan, setPlan] = useState<string>('');
-  const [subStatus, setSubStatus] = useState<string>('none');
-  const [subEnd, setSubEnd] = useState<string | null>(null);
-  const [translatorPhone, setTranslatorPhone] = useState<string | null>(null);
+  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const { socket } = useSocket();
+  const router = useRouter();
 
-  const fetchData = useCallback(async () => {
-    const [s, c, a, conn, billing, phone] = await Promise.all([
-      api.get<DashboardStats>('/calls/stats').catch(() => null),
-      api.get<{ calls: RecentCall[] }>('/calls?limit=5').then(r => r?.calls ?? []).catch(() => []),
-      api.get<{ agents: Agent[] }>('/agents').then(r => (r?.agents ?? []).filter(Boolean)).catch(() => []),
-      api.get<TelConnection[]>('/telephony/connections').catch(() => []),
-      api.get<{ balance_usd: number; plan: string; subscription_status: string; subscription_current_period_end: string | null }>('/billing/balance').catch(() => ({ balance_usd: 0, plan: '', subscription_status: 'none', subscription_current_period_end: null })),
-      api.get<{ phone_number: string | null }>('/translator/phone').catch(() => ({ phone_number: null })),
-    ]);
-    setStats(s);
-    setCalls(c);
-    setAgents(a);
-    setConnections(Array.isArray(conn) ? conn : []);
-    const b = billing as any;
-    setBalanceUsd(b?.balance_usd ?? 0);
-    setPlan(b?.plan ?? '');
-    setSubStatus(b?.subscription_status ?? 'none');
-    setSubEnd(b?.subscription_current_period_end ?? null);
-    setTranslatorPhone((phone as any)?.phone_number ?? null);
+  // ── Data ──────────────────────────────────────────────
+  const [phone, setPhone] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [usage, setUsage] = useState<UsageResp | null>(null);
+  const [defaults, setDefaults] = useState<TranslatorDefaults>({});
+  const [loaded, setLoaded] = useState(false);
+  const [savedTick, setSavedTick] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    api.get<{ phone_number: string | null }>('/translator/phone').then(r => setPhone(r.phone_number)).catch(() => {});
+    api.get<{ balance_usd: number }>('/billing/balance').then(r => setBalance(r.balance_usd)).catch(() => {});
+    api.get<UsageResp>('/translator/usage?period=30d').then(setUsage).catch(() => {});
+    api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', ...d }); setLoaded(true); }).catch(() => setLoaded(true));
+  }, []);
+
+  // Debounced autosave on any setting change.
+  const update = useCallback((patch: Partial<TranslatorDefaults>) => {
+    setDefaults(prev => {
+      const next = { ...prev, ...patch };
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        api.put('/translator/defaults', next).then(() => { setSavedTick(true); setTimeout(() => setSavedTick(false), 1500); }).catch(() => {});
+      }, 700);
+      return next;
+    });
+  }, []);
+
+  // ── Live transcript ───────────────────────────────────
+  const [liveCallId, setLiveCallId] = useState<string | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState<TranslationEntry[]>([]);
+  const [liveInterim, setLiveInterim] = useState<{ original: string; translated: string } | null>(null);
+  const [callEnded, setCallEnded] = useState(false);
+  const liveEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    api.get<{ sessions: { id: string; call_id: string | null }[] }>('/translator/sessions/active').then(r => {
+      if (r.sessions.length > 0 && r.sessions[0].call_id) { setLiveCallId(r.sessions[0].call_id); setCallEnded(false); }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetchData().finally(() => setLoading(false));
-  }, [fetchData]);
+    if (!socket) return;
+    const onNewCall = (d: { call_id: string; status: string }) => {
+      if (d.status === 'in_progress' && d.call_id) { setLiveCallId(d.call_id); setLiveTranscript([]); setLiveInterim(null); setCallEnded(false); }
+    };
+    socket.on('call:status', onNewCall);
+    return () => { socket.off('call:status', onNewCall); };
+  }, [socket]);
 
-  const handleRefresh = useCallback(async () => {
-    await fetchData();
-  }, [fetchData]);
+  useEffect(() => {
+    if (!socket || !liveCallId) return;
+    if (!callEnded) { setLiveTranscript([]); setLiveInterim(null); }
+    socket.emit('call:translate:join', { call_id: liveCallId });
+    const onTr = (d: { call_id: string; speaker: string; original: string; translated: string; timestamp: string }) => {
+      if (d.call_id !== liveCallId) return;
+      setLiveTranscript(prev => [...prev, { speaker: d.speaker, original: d.original, translated: d.translated, timestamp: d.timestamp }]);
+      setLiveInterim(null);
+    };
+    const onInt = (d: { call_id: string; original: string; translated: string }) => {
+      if (d.call_id !== liveCallId) return;
+      setLiveInterim({ original: d.original || '', translated: d.translated || '' });
+    };
+    const onEnd = (d: { call_id: string; status: string }) => {
+      if (d.call_id === liveCallId && (d.status === 'completed' || d.status === 'failed')) { setCallEnded(true); setLiveInterim(null); }
+    };
+    socket.on('call:translation', onTr);
+    socket.on('call:translation:interim', onInt);
+    socket.on('call:status', onEnd);
+    return () => {
+      socket.emit('call:translate:leave', { call_id: liveCallId });
+      socket.off('call:translation', onTr);
+      socket.off('call:translation:interim', onInt);
+      socket.off('call:status', onEnd);
+    };
+  }, [socket, liveCallId, callEnded]);
 
-  if (loading) return <DashboardSkeleton />;
+  useEffect(() => { liveEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [liveTranscript, liveInterim]);
 
-  const s = stats;
-  const avgDur = s ? `${Math.floor(s.avg_duration_seconds / 60)}:${String(Math.round(s.avg_duration_seconds) % 60).padStart(2, '0')}` : '0:00';
-  const isTranslatorOnly = plan === 'translator';
+  const live = liveCallId && !callEnded;
+  const fmtPhone = (p: string) => p.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3');
+  const minutes = balance != null ? Math.floor(balance / PRICE_PER_MIN) : null;
 
-  const kpiCards = [
-    <KpiCard
-      key="calls"
-      label={isTranslatorOnly ? 'Sessions' : t('dashboard.totalCalls')}
-      value={String(s?.total_calls ?? 0)}
-      sub={`${s?.today_calls ?? 0} ${t('dashboard.today')}`}
-      icon={<IconPhone />}
-      gradient="var(--th-gradient-indigo)"
-      accentColor="#6366f1"
-    />,
-    <Link href="/dashboard/translator" key="active" className="block">
-      <KpiCard
-        label={isTranslatorOnly ? 'Active' : t('dashboard.activeNow')}
-        value={String(s?.active_calls ?? 0)}
-        sub={t('dashboard.liveRightNow')}
-        icon={<IconSignal />}
-        gradient="var(--th-gradient-emerald)"
-        accentColor="#22c55e"
-      />
-    </Link>,
-    ...(isTranslatorOnly ? [
-      <KpiCard
-        key="avgdur"
-        label={t('dashboard.avgDuration')}
-        value={avgDur}
-        sub={t('dashboard.last30Days')}
-        icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-        gradient="var(--th-gradient-blue)"
-        accentColor="#3b82f6"
-      />,
-    ] : []),
-    <KpiCard
-      key="cost"
-      label={t('dashboard.costTotal')}
-      value={fmtCost(s?.cost_total_30d ?? 0)}
-      sub={t('dashboard.last30Days')}
-      icon={<IconDollar />}
-      gradient="var(--th-gradient-amber)"
-      accentColor="#eab308"
-    />,
-    <KpiCard
-      key="balance"
-      label={t('dashboard.balance') || 'Balance'}
-      value={
-        balanceUsd > 10000
-          ? (lang === 'ru' ? 'Безлимит' : 'Unlimited')
-          : `$${balanceUsd.toFixed(2)}`
-      }
-      sub={
-        (plan === 'translator' ? 'Translator' : plan === 'agents' ? 'Agents' : plan === 'agents_mcp' ? 'Agents + MCP' : '')
-        + (subStatus === 'active' && subEnd ? ` · until ${new Date(subEnd).toLocaleDateString()}` : '')
-        + (subStatus === 'canceled' ? ' · canceled' : '')
-        + (subStatus === 'past_due' ? ' · past due' : '')
-      }
-      icon={<IconWallet />}
-      gradient="var(--th-gradient-emerald)"
-      accentColor="#10b981"
-    />,
-    ...(!isTranslatorOnly ? [
-      <KpiCard
-        key="success"
-        label={t('dashboard.successRate')}
-        value={`${s?.success_rate ?? 0}%`}
-        sub={t('dashboard.last30Days')}
-        icon={<IconCheck />}
-        gradient="var(--th-gradient-blue)"
-        accentColor="#3b82f6"
-      />,
-    ] : []),
-  ];
-
-  const content = (
-    <div className="flex flex-col gap-2 md:gap-3 md:h-[calc(100vh-4rem)] md:overflow-hidden">
-      {/* Row 1: Greeting + Translator Phone */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-1 md:gap-2 shrink-0">
-        <div>
-          <h2 className="text-base md:text-xl font-bold text-[var(--th-text)]">
-            {t('dashboard.greeting', { timeOfDay: t(`time.${getTimeOfDay()}`), name: workspace?.name ?? '' })}
-          </h2>
-          <p className="text-xs md:text-sm text-[var(--th-text-muted)] mt-0.5">{isTranslatorOnly ? t('dashboard.translatorService') : t('dashboard.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          {translatorPhone && (
-            <div className="md:text-right">
-              <a href={`tel:${translatorPhone}`}
-                className="text-lg md:text-3xl font-extrabold tracking-wide"
-                style={{
-                  background: 'linear-gradient(135deg, #a855f7, #7c3aed, #6d28d9)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.5)) drop-shadow(0 0 24px rgba(139,92,246,0.25))',
-                }}>
-                {translatorPhone.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3')}
-              </a>
-              <p className="text-[11px] text-[var(--th-text-muted)] mt-0.5">{t('dashboard.callToTranslate')}</p>
+  return (
+    <div className="space-y-3 md:space-y-4">
+      {/* ── Hero bar: number · languages · balance ───────────── */}
+      <div className={`${card} relative overflow-hidden p-5 md:p-6`}>
+        <div className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full blur-3xl opacity-30" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%)' }} />
+        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+          {/* Number */}
+          <div className="lg:col-span-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--th-text-muted)] mb-1.5">{tt('Your translator number', 'Ваш номер переводчика')}</div>
+            {phone ? (
+              <a href={`tel:${phone}`} className="text-2xl md:text-3xl font-extrabold tracking-wide" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.4))' }}>{fmtPhone(phone)}</a>
+            ) : <div className="text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
+            <p className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{tt('Save it · call your contact · tap "Merge" to add the translator', 'Сохрани в контакты · позвони собеседнику · нажми «Объединить»')}</p>
+          </div>
+          {/* Languages */}
+          <div className="lg:col-span-4 lg:border-l lg:border-[var(--th-border)] lg:pl-5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1.5 flex items-center gap-2">
+              {tt('Languages', 'Языки')}
+              {savedTick && <span className="text-[10px] font-medium text-[var(--th-success-text)] normal-case tracking-normal">✓ {tt('saved', 'сохранено')}</span>}
             </div>
-          )}
-          {!isTranslatorOnly && !isMobile && <SystemHealthStrip agents={agents} connections={connections} t={t} />}
+            <div className="flex items-center gap-2">
+              <select value={defaults.my_language || 'ru'} onChange={e => update({ my_language: e.target.value })} className={selectCls} disabled={!loaded}>
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+              <span className="material-symbols-outlined text-[var(--th-text-muted)] shrink-0">sync_alt</span>
+              <select value={defaults.target_language || 'en'} onChange={e => update({ target_language: e.target.value })} className={selectCls} disabled={!loaded}>
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Balance */}
+          <div className="lg:col-span-3 lg:border-l lg:border-[var(--th-border)] lg:pl-5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1.5">{tt('Balance', 'Баланс')}</div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-extrabold tabular-nums" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
+              {minutes != null && <span className="text-[11px] text-[var(--th-text-muted)]">≈ {minutes} {tt('min', 'мин')}</span>}
+            </div>
+            <button onClick={() => router.push('/dashboard/billing')} className="mt-1.5 text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('Top up →', 'Пополнить →')}</button>
+          </div>
         </div>
       </div>
 
-      {/* Row 2: Primary KPIs — carousel on mobile, grid on desktop */}
-      {isMobile ? (
-        <div className="snap-carousel gap-3 pb-1 shrink-0 -mx-4 px-4">
-          {kpiCards.map((card, i) => (
-            <div key={i} className="min-w-[140px] flex-1">{card}</div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 shrink-0">
-          {kpiCards}
-        </div>
-      )}
+      {/* ── KPI strip ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { icon: 'call', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
+          { icon: 'schedule', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
+          { icon: 'payments', label: tt('Spent · 30d', 'Потрачено · 30д'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
+        ].map(k => (
+          <div key={k.label} className={`${card} p-4`}>
+            <div className="flex items-center gap-1.5 mb-2 text-[var(--th-text-muted)]">
+              <span className="material-symbols-outlined text-[18px]">{k.icon}</span>
+              <span className="text-[11px] font-medium uppercase tracking-wide truncate">{k.label}</span>
+            </div>
+            <div className="text-[26px] font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
+          </div>
+        ))}
+      </div>
 
-      {/* Row 3: Charts + Right Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-3 shrink-0">
-        <div className={isTranslatorOnly ? 'lg:col-span-12' : 'lg:col-span-7'}>
-          <WeeklyChart dailyCalls={s?.daily_calls ?? []} t={t} />
-        </div>
-        {!isTranslatorOnly && (
-          <>
-            {/* Desktop: combined card. Mobile: separate cards */}
-            {isMobile ? (
-              <div className="flex flex-col gap-2 md:gap-3">
-                <div className="bg-[var(--th-card)] rounded-xl md:rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-                  <StatusDonut data={s?.status_breakdown ?? {}} t={t} />
+      {/* ── Live | Settings ───────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
+        {/* Live panel */}
+        <div className={`${card} lg:col-span-8 flex flex-col min-h-[420px]`}>
+          <div className="px-4 py-3 border-b border-[var(--th-border)] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${live ? 'bg-emerald-400 animate-pulse' : 'bg-[var(--th-text-muted)]'}`} />
+              <span className="text-sm font-bold text-[var(--th-text)]">{live ? t('translator.liveTranslation') : t('translator.translation')}</span>
+            </div>
+            {live && (
+              <button onClick={() => api.post(`/calls/${liveCallId}/hangup`, {}).catch(() => {})}
+                className="p-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-red-400 transition-all" title={tt('End call', 'Завершить')}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414M2.757 18.364a9 9 0 001.414 1.414M3.69 3.69L20.31 20.31" /></svg>
+              </button>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 max-h-[60vh]">
+            {!liveCallId ? (
+              <div className="h-full flex flex-col items-center justify-center text-center py-8">
+                <div className="w-14 h-14 rounded-2xl bg-[var(--th-surface)] flex items-center justify-center mb-3">
+                  <span className="material-symbols-outlined text-3xl text-[var(--th-text-muted)]">graphic_eq</span>
                 </div>
-                <div className="bg-[var(--th-card)] rounded-xl md:rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-                  <CostBreakdown
-                    total={s?.cost_total_30d ?? 0}
-                    llm={s?.cost_llm_30d ?? 0}
-                    tts={s?.cost_tts_30d ?? 0}
-                    stt={s?.cost_stt_30d ?? 0}
-                    telephony={s?.cost_telephony_30d ?? 0}
-                    t={t}
-                  />
-                </div>
-                <div className="bg-[var(--th-card)] rounded-xl md:rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-                  <SentimentStrip data={s?.sentiment_breakdown ?? {}} t={t} />
-                </div>
+                <p className="text-sm font-semibold text-[var(--th-text)]">{tt('Ready to translate', 'Готов к переводу')}</p>
+                <p className="text-[12px] text-[var(--th-text-muted)] mt-1 max-w-xs leading-relaxed">
+                  {tt('Call your contact, ask them to hold, add a call to the number above, then tap "Merge". The live transcript appears here.',
+                      'Позвони собеседнику, попроси подождать, добавь звонок на номер выше и нажми «Объединить». Перевод появится здесь.')}
+                </p>
               </div>
             ) : (
-              <div className="lg:col-span-5 bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)] divide-y divide-[var(--th-border-light)]">
-                <StatusDonut data={s?.status_breakdown ?? {}} t={t} />
-                <CostBreakdown
-                  total={s?.cost_total_30d ?? 0}
-                  llm={s?.cost_llm_30d ?? 0}
-                  tts={s?.cost_tts_30d ?? 0}
-                  stt={s?.cost_stt_30d ?? 0}
-                  telephony={s?.cost_telephony_30d ?? 0}
-                  t={t}
-                />
-                <SentimentStrip data={s?.sentiment_breakdown ?? {}} t={t} />
-              </div>
+              <>
+                {liveTranscript.map((e, i) => {
+                  const you = e.speaker === 'subscriber';
+                  return (
+                    <div key={i} className={`flex ${you ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${you ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/10 border border-indigo-500/20' : 'bg-[var(--th-surface)] border border-[var(--th-border)]'}`}>
+                        <p className="text-[15px] font-semibold leading-relaxed text-[var(--th-text)]">{e.translated}</p>
+                        <p className="text-[12px] mt-1.5 text-[var(--th-text-muted)] leading-snug">{e.original}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {liveInterim && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-[var(--th-surface)] border border-amber-500/20">
+                      {liveInterim.translated
+                        ? <p className="text-[15px] font-semibold text-[var(--th-text)]">{liveInterim.translated}<span className="inline-block w-0.5 h-4 bg-amber-400 ml-0.5 animate-pulse" /></p>
+                        : <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse [animation-delay:150ms]" /><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse [animation-delay:300ms]" /></div>}
+                    </div>
+                  </div>
+                )}
+                <div ref={liveEndRef} />
+              </>
             )}
-          </>
-        )}
+          </div>
+        </div>
+
+        {/* Settings panel (compact, all visible, autosave) */}
+        <div className={`${card} lg:col-span-4 p-4 md:p-5 space-y-4`}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-[var(--th-text)]">{t('translator.settings') || tt('Settings', 'Настройки')}</h3>
+            {savedTick && <span className="text-[11px] font-medium text-[var(--th-success-text)]">✓ {tt('Saved', 'Сохранено')}</span>}
+          </div>
+
+          {/* Mode */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.translationMode')}</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[{ v: 'bidirectional', l: t('translator.bidirectional') }, { v: 'unidirectional', l: t('translator.unidirectional') }].map(m => {
+                const on = (defaults.translation_mode || 'bidirectional') === m.v;
+                return (
+                  <button key={m.v} onClick={() => update({ translation_mode: m.v })}
+                    className="px-2 py-2 rounded-xl border text-xs font-medium transition-all"
+                    style={on ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.08)', color: 'var(--th-text)' } : { borderColor: 'var(--th-border)', color: 'var(--th-text-muted)' }}>
+                    {m.l}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Voice */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.voice')}</label>
+            <select value={defaults.tts_voice_id || 'eve'} onChange={e => update({ tts_voice_id: e.target.value })} className={selectCls}>
+              <optgroup label="Female">{VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}</optgroup>
+              <optgroup label="Male">{VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}</optgroup>
+            </select>
+          </div>
+
+          {/* Tone */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.tone')}</label>
+            <select value={defaults.tone || 'neutral'} onChange={e => update({ tone: e.target.value })} className={selectCls}>
+              {TONES.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}
+            </select>
+          </div>
+
+          {/* Greeting */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.greetingText')}</label>
+            <textarea value={defaults.greeting_text || ''} onChange={e => update({ greeting_text: e.target.value })} rows={2}
+              placeholder={t('translator.greetingPlaceholder')} className={selectCls + ' resize-y'} />
+          </div>
+
+          {/* Personal context */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.personalContext')}</label>
+            <textarea value={defaults.personal_context || ''} onChange={e => update({ personal_context: e.target.value })} rows={4}
+              placeholder={tt('Name, DOB, insurance, address… helps pronounce names & numbers', 'Имя, дата рождения, страховка, адрес… для точных имён и цифр')}
+              className={selectCls + ' resize-y font-mono text-xs'} />
+          </div>
+        </div>
       </div>
 
-      {/* Row 4: Secondary Stats */}
-      {!isTranslatorOnly && (
-        <MiniStatStrip items={[
-          { label: t('dashboard.qaScore'), value: String(s?.avg_qa_score ?? 0) },
-          { label: t('dashboard.weekCalls'), value: String(s?.week_calls ?? 0) },
-          { label: t('dashboard.agents'), value: `${agents.filter(a => a.is_active).length}/${agents.length}` },
-          { label: t('dashboard.avgDuration'), value: avgDur },
-        ]} />
-      )}
-
-      {/* Row 5: Recent Calls */}
-      <div className="flex-1 min-h-0 md:overflow-y-auto">
-        <RecentCallsTable calls={calls} agents={agents} t={t} />
+      {/* ── Recent sessions ───────────────────────────────────── */}
+      <div className={`${card} p-4 md:p-5`}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-[var(--th-text)]">{tt('Recent sessions', 'Последние сессии')}</h3>
+          <button onClick={() => router.push('/dashboard/calls')} className="text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('All sessions →', 'Все сессии →')}</button>
+        </div>
+        {usage && usage.sessions.length > 0 ? (
+          <div className="space-y-0.5 -mx-2">
+            {usage.sessions.slice(0, 6).map(s => (
+              <button key={s.id} onClick={() => router.push(s.call_id ? `/dashboard/calls?call=${s.call_id}` : '/dashboard/calls')}
+                className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left hover:bg-[var(--th-surface)] transition-colors group">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--th-surface)' }}>
+                  <span className="material-symbols-outlined text-base text-[var(--th-text-muted)] group-hover:text-[var(--th-primary)] transition-colors">graphic_eq</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-[var(--th-text)]">{new Date(s.created_at).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  <div className="text-[11px] text-[var(--th-text-muted)]">{fmtDur(s.duration_seconds)} · {s.words} {tt('words', 'слов')}</div>
+                </div>
+                <div className="text-sm font-bold tabular-nums text-[var(--th-text)] shrink-0">${s.cost_usd.toFixed(2)}</div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="py-8 text-center text-sm text-[var(--th-text-muted)]">{tt('No sessions yet — make your first translated call.', 'Пока нет сессий — сделай первый перевод.')}</div>
+        )}
       </div>
     </div>
   );
-
-  // Wrap in PullToRefreshWrapper on mobile
-  if (isMobile) {
-    return <PullToRefreshWrapper onRefresh={handleRefresh}>{content}</PullToRefreshWrapper>;
-  }
-
-  return content;
 }

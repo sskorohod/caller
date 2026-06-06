@@ -16,7 +16,7 @@ const ru: Record<string, string> = {
   'common.no': 'Нет',
 
   // Nav
-  'nav.overview': 'Обзор',
+  'nav.overview': 'Главная',
   'nav.calls': 'Звонки',
   'nav.dialer': 'Набиратель',
   'nav.translator': 'Переводчик',

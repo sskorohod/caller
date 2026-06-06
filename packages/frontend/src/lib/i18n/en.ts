@@ -16,7 +16,7 @@ const en: Record<string, string> = {
   'common.no': 'No',
 
   // Nav
-  'nav.overview': 'Overview',
+  'nav.overview': 'Home',
   'nav.calls': 'Calls',
   'nav.dialer': 'Dialer',
   'nav.translator': 'Translator',
