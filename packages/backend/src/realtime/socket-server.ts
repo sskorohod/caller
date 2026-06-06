@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import pino from 'pino';
 import { env } from '../config/env.js';
 import { db } from '../config/db.js';
-import { workspaceMembers, calls as callsTable } from '../db/schema.js';
+import { workspaceMembers, calls as callsTable, missions as missionsTable } from '../db/schema.js';
 import { setIo } from './io.js';
 
 const log = pino({ name: 'socket-server' });
@@ -91,13 +91,15 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     // Join workspace room
     socket.join(`workspace:${workspaceId}`);
 
-    // Live call monitoring: join a call-specific room
-    socket.on('call:join', ({ call_id }: { call_id: string }) => {
+    // Live call monitoring: join a call-specific room (workspace-scoped)
+    socket.on('call:join', async ({ call_id }: { call_id: string }) => {
+      if (!call_id || !await authorizeCallAccess(call_id)) return;
       socket.join(`call:${call_id}`);
     });
 
-    // Live call audio: join/leave audio room for listening
-    socket.on('call:listen:start', ({ call_id, channel }: { call_id: string; channel?: string }) => {
+    // Live call audio: join/leave audio room for listening (workspace-scoped)
+    socket.on('call:listen:start', async ({ call_id, channel }: { call_id: string; channel?: string }) => {
+      if (!call_id || !await authorizeCallAccess(call_id)) return;
       socket.join(`call:${call_id}:audio`);
       socket.data.listenChannel = channel || 'both';
     });
@@ -110,8 +112,9 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       socket.data.listenChannel = channel;
     });
 
-    // Live translation: join/leave translate room
-    socket.on('call:translate:join', ({ call_id }: { call_id: string }) => {
+    // Live translation: join/leave translate room (workspace-scoped)
+    socket.on('call:translate:join', async ({ call_id }: { call_id: string }) => {
+      if (!call_id || !await authorizeCallAccess(call_id)) return;
       socket.join(`call:${call_id}:translate`);
     });
 
@@ -140,7 +143,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     const resolveCallId = (call_id?: string | null): string | null =>
       call_id || (socket.data.shareCallId as string | undefined) || null;
 
-    async function authorizeTranslatorAction(id: string): Promise<boolean> {
+    async function authorizeCallAccess(id: string): Promise<boolean> {
       const role = socket.data.role as string | undefined;
       const wsId = socket.data.workspaceId as string | undefined;
       // Share-token monitors can ONLY touch their own pre-bound share call.
@@ -156,10 +159,23 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       return !!row;
     }
 
+    // Mission rooms carry cross-tenant chat/status — gate joins on ownership.
+    async function authorizeMissionAccess(id: string): Promise<boolean> {
+      const role = socket.data.role as string | undefined;
+      const wsId = socket.data.workspaceId as string | undefined;
+      if (role === 'monitor' || !wsId) return false; // share-token monitors are call-scoped
+      const [row] = await db
+        .select({ id: missionsTable.id })
+        .from(missionsTable)
+        .where(and(eq(missionsTable.id, id), eq(missionsTable.workspace_id, wsId)))
+        .limit(1);
+      return !!row;
+    }
+
     socket.on('translator:set-mode', async ({ call_id, mode }: { call_id?: string; mode: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id || !await authorizeTranslatorAction(id)) return;
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateMode(mode);
@@ -169,7 +185,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:set-languages', async ({ call_id, my_language, target_language }: { call_id?: string; my_language: string; target_language: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id || !await authorizeTranslatorAction(id)) return;
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateLanguages(my_language, target_language);
@@ -179,7 +195,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:set-voice', async ({ call_id, voice }: { call_id?: string; voice: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id || !await authorizeTranslatorAction(id)) return;
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateVoice(voice);
@@ -190,7 +206,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:pause', async ({ call_id }: { call_id?: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id || !await authorizeTranslatorAction(id)) return;
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.pause();
@@ -200,7 +216,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:resume', async ({ call_id }: { call_id?: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id || !await authorizeTranslatorAction(id)) return;
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.resume();
@@ -211,7 +227,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     socket.on('translator:set-tone', async ({ call_id, tone }: { call_id?: string; tone: string }) => {
       try {
         const id = resolveCallId(call_id);
-        if (!id || !await authorizeTranslatorAction(id)) return;
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateTone(tone);
@@ -275,8 +291,9 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       } catch { /* ignore */ }
     });
 
-    // Mission chat: join/leave mission room
-    socket.on('mission:join', ({ mission_id }: { mission_id: string }) => {
+    // Mission chat: join/leave mission room (workspace-scoped)
+    socket.on('mission:join', async ({ mission_id }: { mission_id: string }) => {
+      if (!mission_id || !await authorizeMissionAccess(mission_id)) return;
       socket.join(`mission:${mission_id}`);
     });
 
