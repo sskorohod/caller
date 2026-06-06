@@ -93,7 +93,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {(() => {
           // Translator-only product: single Operations group + System.
-          const operations = ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator', '/dashboard/sandbox'];
+          const operations = ['/dashboard/calls', '/dashboard/translator'];
           const system = ['/dashboard/billing', '/dashboard/settings', '/dashboard/help'];
 
           return [

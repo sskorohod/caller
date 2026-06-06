@@ -21,32 +21,11 @@ export const navItems = [
     ),
   },
   {
-    key: 'nav.dialer',
-    href: '/dashboard/dialer',
-    icon: (
-      <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-        <circle cx="6" cy="5" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="18" cy="5" r="1.5"/>
-        <circle cx="6" cy="11" r="1.5"/><circle cx="12" cy="11" r="1.5"/><circle cx="18" cy="11" r="1.5"/>
-        <circle cx="6" cy="17" r="1.5"/><circle cx="12" cy="17" r="1.5"/><circle cx="18" cy="17" r="1.5"/>
-        <circle cx="12" cy="22" r="1.5"/>
-      </svg>
-    ),
-  },
-  {
     key: 'nav.translator',
     href: '/dashboard/translator',
     icon: (
       <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
-      </svg>
-    ),
-  },
-  {
-    key: 'nav.sandbox',
-    href: '/dashboard/sandbox',
-    icon: (
-      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.636 50.636 0 00-2.658-.813A59.906 59.906 0 0112 3.493a59.903 59.903 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
       </svg>
     ),
   },
@@ -123,8 +102,7 @@ export function getBottomTabs(_plan: string): TabItem[] {
   return [
     { key: 'nav.overview', href: '/dashboard', icon: tabIcons.home },
     { key: 'nav.calls', href: '/dashboard/calls', icon: tabIcons.calls },
-    { key: 'nav.dialer', href: '/dashboard/dialer', icon: tabIcons.dialer, accent: true },
-    { key: 'nav.translator', href: '/dashboard/translator', icon: tabIcons.translator },
+    { key: 'nav.translator', href: '/dashboard/translator', icon: tabIcons.translator, accent: true },
     { key: '__more__', href: '#', icon: tabIcons.more },
   ];
 }
@@ -133,10 +111,6 @@ export function getBottomTabs(_plan: string): TabItem[] {
 export function getMoreItems(_plan: string): MoreItem[] {
   // Translator-only product: translator is the 4th bottom tab; the rest live here.
   return [
-    {
-      section: 'nav.sectionOperations',
-      items: [navItems.find(i => i.key === 'nav.sandbox')!],
-    },
     {
       section: 'nav.sectionSystem',
       items: [
