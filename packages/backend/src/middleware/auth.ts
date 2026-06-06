@@ -161,6 +161,11 @@ export async function authenticateAny(request: FastifyRequest, reply: FastifyRep
 /** Require specific roles */
 export function requireRole(...roles: AuthContext['role'][]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
+    // Guard against requireRole being used without a preceding authenticate*
+    // (request.auth would be undefined → TypeError instead of a clean 401).
+    if (!request.auth) {
+      throw new UnauthorizedError('Authentication required');
+    }
     if (!roles.includes(request.auth.role)) {
       throw new ForbiddenError(`Requires role: ${roles.join(' or ')}`);
     }

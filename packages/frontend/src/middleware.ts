@@ -9,7 +9,7 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('caller_token')?.value;
 
   if (!token) {
-    return NextResponse.redirect(new URL('/login?returnUrl=/admin', request.url));
+    return NextResponse.redirect(new URL('/login?return=/admin', request.url));
   }
 
   // In Docker: frontend calls backend internally via INTERNAL_API_URL
@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.redirect(new URL('/login?returnUrl=/admin', request.url));
+      return NextResponse.redirect(new URL('/login?return=/admin', request.url));
     }
 
     const data = await res.json();
@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   } catch {
     // Backend unreachable — deny access
-    return NextResponse.redirect(new URL('/login?returnUrl=/admin', request.url));
+    return NextResponse.redirect(new URL('/login?return=/admin', request.url));
   }
 }
 

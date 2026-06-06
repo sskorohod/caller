@@ -233,6 +233,7 @@ export const agentSkillPacks = pgTable('agent_skill_packs', {
   priority: integer('priority').notNull().default(0),
 }, (t) => [
   unique().on(t.agent_profile_id, t.skill_pack_id),
+  index('idx_agent_skill_packs_skill_pack').on(t.skill_pack_id),
 ]);
 
 // ============================================================
@@ -254,6 +255,7 @@ export const agentKnowledgeBases = pgTable('agent_knowledge_bases', {
   knowledge_base_id: uuid('knowledge_base_id').notNull().references(() => knowledgeBases.id, { onDelete: 'cascade' }),
 }, (t) => [
   unique().on(t.agent_profile_id, t.knowledge_base_id),
+  index('idx_agent_knowledge_bases_kb').on(t.knowledge_base_id),
 ]);
 
 export const knowledgeDocuments = pgTable('knowledge_documents', {

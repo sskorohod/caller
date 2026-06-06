@@ -112,8 +112,8 @@ export async function sendBootstrapWebhook(params: {
       return { accepted: false, sessionToken };
     }
 
-    const body = await res.json() as any;
-    return { accepted: body.accepted === true, sessionToken };
+    const body = await res.json().catch(() => ({})) as any;
+    return { accepted: body?.accepted === true, sessionToken };
   } catch (err) {
     logger.error({ err, callId: params.callId }, 'Bootstrap webhook failed');
     return { accepted: false, sessionToken };

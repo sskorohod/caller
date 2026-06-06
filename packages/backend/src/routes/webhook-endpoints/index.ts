@@ -113,7 +113,7 @@ const webhookEndpointRoutes: FastifyPluginAsync = async (app) => {
     const endpoint = await webhookService.getEndpoint(request.auth.workspaceId, id);
     if (!endpoint) throw new NotFoundError('WebhookEndpoint', id);
 
-    // Deliver a test event directly to this single endpoint
+    // Deliver a test event directly to THIS single endpoint (not a broadcast)
     await webhookService.deliverWebhookEvent(
       request.auth.workspaceId,
       'call.completed',
@@ -123,6 +123,7 @@ const webhookEndpointRoutes: FastifyPluginAsync = async (app) => {
         endpoint_id: id,
         timestamp: new Date().toISOString(),
       },
+      id,
     );
 
     return { sent: true };

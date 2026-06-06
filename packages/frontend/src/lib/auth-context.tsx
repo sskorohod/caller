@@ -63,8 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('caller_token');
     localStorage.removeItem('caller_user');
     localStorage.removeItem('caller_workspace');
-    // Clear the auth cookie
-    document.cookie = 'caller_token=; path=/; max-age=0';
+    // Clear the auth cookie — must match the attributes it was set with
+    // (Secure/SameSite/path) or the browser keeps the original cookie.
+    document.cookie = 'caller_token=; path=/; max-age=0; SameSite=Lax; Secure';
     setToken(null);
     setUser(null);
     setWorkspaceState(null);

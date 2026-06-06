@@ -78,7 +78,11 @@ export function verifyWebhookSignature(payload: string, signature: string): bool
     .update(`${timestamp}.${payload}`)
     .digest('hex');
 
-  return crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
+  // timingSafeEqual throws if the buffers differ in length, and v1 comes from a
+  // client-controlled header — guard the length first.
+  const v1Buf = Buffer.from(v1);
+  const expectedBuf = Buffer.from(expected);
+  return v1Buf.length === expectedBuf.length && crypto.timingSafeEqual(v1Buf, expectedBuf);
 }
 
 // ============================================================

@@ -87,19 +87,21 @@ export async function deliverWebhookEvent(
   workspaceId: string,
   eventType: WebhookEventType,
   payload: Record<string, unknown>,
+  endpointId?: string,
 ): Promise<void> {
   const endpoints = await db
     .select()
     .from(webhookEndpoints)
     .where(
-      and(
-        eq(webhookEndpoints.workspace_id, workspaceId),
-        eq(webhookEndpoints.is_active, true),
-      ),
+      endpointId
+        // Targeted test delivery: just this endpoint (active or not).
+        ? and(eq(webhookEndpoints.workspace_id, workspaceId), eq(webhookEndpoints.id, endpointId))
+        : and(eq(webhookEndpoints.workspace_id, workspaceId), eq(webhookEndpoints.is_active, true)),
     ) as unknown as WebhookEndpoint[];
 
-  // Filter to endpoints subscribed to this event type
-  const matched = endpoints.filter((ep) => ep.events.includes(eventType));
+  // For broadcasts, filter to endpoints subscribed to this event type.
+  // For a targeted test (endpointId set), deliver regardless of subscription.
+  const matched = endpointId ? endpoints : endpoints.filter((ep) => ep.events.includes(eventType));
 
   if (matched.length === 0) return;
 

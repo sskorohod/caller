@@ -107,7 +107,7 @@ export async function updateAgentProfile(
 }
 
 export async function deleteAgentProfile(workspaceId: string, profileId: string): Promise<void> {
-  const result = await db
+  await db
     .delete(agentProfiles)
     .where(
       and(

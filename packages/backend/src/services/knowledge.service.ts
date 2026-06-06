@@ -387,7 +387,10 @@ export async function searchKnowledge(
       }),
     });
 
-    if (!res.ok) return [];
+    if (!res.ok) {
+      logger.warn({ workspaceId, status: res.status }, 'RAG embedding request failed — returning no results');
+      return [];
+    }
 
     const result = await res.json() as any;
     const queryEmbedding = result.data?.[0]?.embedding;
@@ -410,7 +413,8 @@ export async function searchKnowledge(
     `);
 
     return (rows.rows ?? []) as Array<{ chunk_text: string; similarity: number; document_title: string }>;
-  } catch {
+  } catch (err) {
+    logger.error({ err }, 'RAG search failed — returning no results');
     return [];
   }
 }
@@ -459,7 +463,8 @@ export async function searchKnowledgeForAgent(
     `);
 
     return (rows.rows ?? []) as Array<{ chunk_text: string; similarity: number; document_title: string }>;
-  } catch {
+  } catch (err) {
+    logger.error({ err }, 'RAG search failed — returning no results');
     return [];
   }
 }
