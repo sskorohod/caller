@@ -358,7 +358,7 @@ function LandingContent() {
                     <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: '#4ade80' }} />
                     <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#4ade80' }} />
                   </span>
-                  {t('AI Phone Agents + Live Translator', 'AI-агенты + Живой переводчик')}
+                  {t('AI Live Translator', 'AI Живой переводчик')}
                 </div>
               </AnimatedSection>
 
@@ -454,76 +454,20 @@ function LandingContent() {
             <AnimatedSection className="text-center mb-12 md:mb-16">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4"
                 style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.15)', color: '#818cf8' }}>
-                {t('Two-in-one platform', 'Два в одном')}
+                {t('Live phone interpretation', 'Живой перевод по телефону')}
               </div>
               <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                {t('Two products.', 'Два продукта.')} <span className="gradient-text">{t('One platform.', 'Одна платформа.')}</span>
+                {t('Real-time translation.', 'Перевод в реальном времени.')} <span className="gradient-text">{t('On any call.', 'На любом звонке.')}</span>
               </h2>
               <p className="text-sm sm:text-lg max-w-2xl mx-auto" style={{ color: '#a0a8c0' }}>
                 {t(
-                  'AI agents for your phone lines, or real-time translation on calls.',
-                  'AI-агенты для телефонных линий или перевод звонков в реальном времени.'
+                  'Merge our number into a call and the AI interprets both sides, live.',
+                  'Подключите наш номер к звонку — AI переводит обе стороны вживую.'
                 )}
               </p>
             </AnimatedSection>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
-              {/* AI Agents */}
-              <AnimatedSection delay={100} animation="fade-left">
-                <div className="rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden group bento-card h-full"
-                  style={{ background: 'linear-gradient(135deg, rgba(74,222,128,0.04), rgba(34,211,238,0.02))', border: '1px solid rgba(74,222,128,0.12)' }}>
-                  <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{ background: 'radial-gradient(circle, rgba(74,222,128,0.08), transparent)', filter: 'blur(60px)' }} />
-
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(74,222,128,0.15), rgba(34,211,238,0.15))', border: '1px solid rgba(74,222,128,0.2)' }}>
-                        <span className="material-symbols-outlined text-2xl" style={{ color: '#4ade80' }}>smart_toy</span>
-                      </div>
-                      <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.15)' }}>
-                        {t('From $49/mo', 'От $49/мес')}
-                      </div>
-                    </div>
-
-                    <h3 className="text-xl md:text-2xl font-headline font-extrabold mb-3">
-                      {t('AI Phone', 'AI Телефонные')} <span className="gradient-text-green">{t('Agents', 'Агенты')}</span>
-                    </h3>
-                    <p className="text-sm leading-relaxed mb-6" style={{ color: '#a0a8c0' }}>
-                      {t(
-                        'Intelligent agents that answer inbound calls, make outbound calls, handle appointments, qualify leads, and more.',
-                        'Интеллектуальные агенты, которые отвечают на входящие звонки, совершают исходящие, управляют встречами, квалифицируют лиды и многое другое.'
-                      )}
-                    </p>
-
-                    {/* Mini waveform */}
-                    <div className="mb-6 opacity-40">
-                      <WaveformBars color="#4ade80" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mb-6">
-                      {[
-                        t('Inbound & outbound calls', 'Входящие и исходящие звонки'),
-                        t('Custom voice & persona', 'Настраиваемый голос и персонаж'),
-                        t('Knowledge base RAG', 'База знаний RAG'),
-                        t('Call recording & transcription', 'Запись и транскрипция звонков'),
-                        t('Skill packs & workflows', 'Наборы навыков и сценарии'),
-                        t('MCP API integration', 'Интеграция через MCP API'),
-                      ].map(f => (
-                        <div key={f} className="flex items-start gap-2 text-xs leading-snug">
-                          <span className="material-symbols-outlined text-sm mt-0.5 shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                          <span>{f}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Link href="/login?mode=register" className="inline-flex items-center gap-2 text-sm font-bold group/link transition-all" style={{ color: '#4ade80' }}>
-                      {t('Start building agents', 'Начать создание агентов')}
-                      <span className="material-symbols-outlined text-base group-hover/link:translate-x-1 transition-transform">arrow_forward</span>
-                    </Link>
-                  </div>
-                </div>
-              </AnimatedSection>
-
+            <div className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 max-w-2xl mx-auto">
               {/* Live Translator */}
               <AnimatedSection delay={200} animation="fade-right">
                 <Link href="/translator" className="block rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden group bento-card h-full cursor-pointer"
@@ -812,8 +756,8 @@ function LandingContent() {
                 {
                   q: t('Do I need to install anything?', 'Нужно ли что-то устанавливать?'),
                   a: t(
-                    'No. AI Agents work through your Twilio phone numbers. The Live Translator works by merging our number into any standard phone call. No apps needed.',
-                    'Нет. AI-агенты работают через ваши номера Twilio. Живой переводчик подключается к любому обычному звонку. Приложения не нужны.'
+                    'No. The Live Translator works by merging our number into any standard phone call — it interprets both sides in real time. No apps, works from any phone.',
+                    'Нет. Живой переводчик подключается к любому обычному звонку и переводит обе стороны в реальном времени. Без приложений, с любого телефона.'
                   ),
                 },
                 {
@@ -914,7 +858,6 @@ function LandingContent() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8 md:gap-12">
               {[
                 { title: t('Product', 'Продукт'), links: [
-                  { label: t('AI Agents', 'AI Агенты'), href: '#products' },
                   { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
                   { label: t('Pricing', 'Цены'), href: '/pricing' },
                   { label: t('Features', 'Возможности'), href: '#features' },
