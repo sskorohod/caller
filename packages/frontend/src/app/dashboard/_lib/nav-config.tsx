@@ -21,27 +21,6 @@ export const navItems = [
     ),
   },
   {
-    key: 'nav.dialer',
-    href: '/dashboard/dialer',
-    icon: (
-      <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-        <circle cx="6" cy="5" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="18" cy="5" r="1.5"/>
-        <circle cx="6" cy="11" r="1.5"/><circle cx="12" cy="11" r="1.5"/><circle cx="18" cy="11" r="1.5"/>
-        <circle cx="6" cy="17" r="1.5"/><circle cx="12" cy="17" r="1.5"/><circle cx="18" cy="17" r="1.5"/>
-        <circle cx="12" cy="22" r="1.5"/>
-      </svg>
-    ),
-  },
-  {
-    key: 'nav.translator',
-    href: '/dashboard/translator',
-    icon: (
-      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
-      </svg>
-    ),
-  },
-  {
     key: 'nav.sandbox',
     href: '/dashboard/sandbox',
     icon: (
@@ -110,6 +89,11 @@ const tabIcons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
     </svg>
   ),
+  billing: (
+    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+    </svg>
+  ),
   more: (
     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
@@ -119,28 +103,22 @@ const tabIcons = {
 
 /* ─── Build bottom tabs based on workspace plan ──────────────────────── */
 export function getBottomTabs(_plan: string): TabItem[] {
-  // Translator-only product.
+  // Translator-only product: Home is the translator hub.
   return [
     { key: 'nav.overview', href: '/dashboard', icon: tabIcons.home },
     { key: 'nav.calls', href: '/dashboard/calls', icon: tabIcons.calls },
-    { key: 'nav.dialer', href: '/dashboard/dialer', icon: tabIcons.dialer, accent: true },
-    { key: 'nav.translator', href: '/dashboard/translator', icon: tabIcons.translator },
+    { key: 'nav.sandbox', href: '/dashboard/sandbox', icon: tabIcons.translator, accent: true },
+    { key: 'nav.billing', href: '/dashboard/billing', icon: tabIcons.billing },
     { key: '__more__', href: '#', icon: tabIcons.more },
   ];
 }
 
-/* ─── "More" sheet items based on plan ───────────────────────────────── */
+/* ─── "More" sheet items ─────────────────────────────────────────────── */
 export function getMoreItems(_plan: string): MoreItem[] {
-  // Translator-only product: translator is the 4th bottom tab; the rest live here.
   return [
-    {
-      section: 'nav.sectionOperations',
-      items: [navItems.find(i => i.key === 'nav.sandbox')!],
-    },
     {
       section: 'nav.sectionSystem',
       items: [
-        navItems.find(i => i.key === 'nav.billing')!,
         navItems.find(i => i.key === 'nav.settings')!,
         navItems.find(i => i.key === 'nav.help')!,
       ],

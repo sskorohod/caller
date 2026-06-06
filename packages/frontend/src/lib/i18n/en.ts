@@ -16,8 +16,8 @@ const en: Record<string, string> = {
   'common.no': 'No',
 
   // Nav
-  'nav.overview': 'Overview',
-  'nav.calls': 'Calls',
+  'nav.overview': 'Home',
+  'nav.calls': 'Sessions',
   'nav.dialer': 'Dialer',
   'nav.translator': 'Translator',
   'nav.sandbox': 'Trainer',
@@ -26,7 +26,7 @@ const en: Record<string, string> = {
   'nav.prompts': 'Prompts',
   'nav.skills': 'Skills',
   'nav.connectors': 'Connectors',
-  'nav.billing': 'Subscription',
+  'nav.billing': 'Balance',
   'nav.settings': 'Settings',
   'nav.help': 'Help',
 

@@ -10,6 +10,7 @@ import { SocketProvider, useSocket } from '@/lib/socket';
 import IncomingCallCard from '@/components/IncomingCallCard';
 import BottomTabBar from '@/components/BottomTabBar';
 import { navItems, getBottomTabs, getMoreItems } from './_lib/nav-config';
+import BalanceChip from './_components/BalanceChip';
 
 function ConnectionIndicator() {
   const { connected } = useSocket();
@@ -92,8 +93,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {(() => {
-          // Translator-only product: single Operations group + System.
-          const operations = ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator', '/dashboard/sandbox'];
+          // Translator-only product: Home is the hub. Dialer hidden.
+          const operations = ['/dashboard/calls', '/dashboard/sandbox'];
           const system = ['/dashboard/billing', '/dashboard/settings', '/dashboard/help'];
 
           return [
@@ -173,27 +174,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      {/* Upgrade CTA — translator plan only */}
-      {workspace?.plan === 'translator' && (
-        <div className="px-3 py-2">
-          <Link href="/dashboard/billing"
-            className="block p-3 rounded-xl overflow-hidden relative group transition-shadow hover:shadow-[0_4px_20px_var(--th-shadow-primary)]"
-            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))' }}>
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1.5">
-                <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-                </svg>
-                <span className="text-xs font-bold text-indigo-300">Upgrade to Agents</span>
-              </div>
-              <p className="text-[10px] text-[var(--th-sidebar-label)] leading-relaxed">
-                AI phone agents, call recording, knowledge base & more
-              </p>
-            </div>
-          </Link>
-        </div>
-      )}
+      {/* Balance + one-tap top-up */}
+      <BalanceChip />
 
       {/* User */}
       <div className="px-3 py-4 border-t border-[var(--th-sidebar-border)]">
@@ -237,7 +219,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {workspace?.name ?? 'Caller'}
             </span>
           </div>
-          <ConnectionIndicator />
+          <div className="flex items-center gap-2">
+            <BalanceChip compact />
+            <ConnectionIndicator />
+          </div>
         </div>
 
         {/* Page content — with safe bottom padding on mobile for tab bar */}

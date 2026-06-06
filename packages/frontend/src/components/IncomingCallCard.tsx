@@ -57,7 +57,7 @@ export default function IncomingCallCard() {
       await api.post(`/calls/${call.call_id}/answer`, { mode });
       if (mode === 'manual') {
         dismiss();
-        router.push(`/dashboard/dialer?callId=${call.call_id}`);
+        router.push(`/dashboard/calls/${call.call_id}/live`);
       } else if (mode === 'internal') {
         dismiss();
         router.push(`/dashboard/calls/${call.call_id}/live`);
