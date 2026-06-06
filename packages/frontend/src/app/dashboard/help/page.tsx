@@ -16,6 +16,7 @@ const CAT_COLORS: Record<string, { accent: string; gradient: string }> = {
   'missions':        { accent: '#ec4899', gradient: 'linear-gradient(135deg, rgba(236,72,153,0.12) 0%, rgba(236,72,153,0.02) 100%)' },
   'integrations':    { accent: '#f97316', gradient: 'linear-gradient(135deg, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.02) 100%)' },
   'settings':        { accent: '#64748b', gradient: 'linear-gradient(135deg, rgba(100,116,139,0.12) 0%, rgba(100,116,139,0.02) 100%)' },
+  'faq':             { accent: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.02) 100%)' },
 };
 
 export default function HelpPage() {
