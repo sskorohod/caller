@@ -975,7 +975,6 @@ function TranslatorContent() {
               <h4 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(194,198,214,0.35)' }}>{t('Product', 'Продукт')}</h4>
               <ul className="space-y-3">
                 {[
-                  { label: t('AI Phone Agents', 'AI-телефонные агенты'), href: '/#products' },
                   { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
                   { label: t('Pricing', 'Тарифы'), href: '/pricing' },
                   { label: t('Dashboard', 'Панель управления'), href: '/dashboard' },

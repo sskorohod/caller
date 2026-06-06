@@ -81,12 +81,12 @@ function LoginContent() {
             <span className="text-2xl font-headline font-extrabold tracking-tight">Caller</span>
           </Link>
           <h2 className="text-3xl font-headline font-extrabold tracking-tight leading-tight mb-4">
-            AI Phone Agents
+            AI Live
             <br />
-            <span style={{ color: '#adc6ff' }}>& Live Translator</span>
+            <span style={{ color: '#adc6ff' }}>Translator</span>
           </h2>
           <p className="text-sm leading-relaxed mb-8" style={{ color: '#c2c6d6' }}>
-            Automate your phone calls with AI agents or get real-time translation on any call.
+            Real-time AI interpretation on any phone call. Works from any phone — no apps.
             Start with free credit.
           </p>
           <div className="space-y-3">

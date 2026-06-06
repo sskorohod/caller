@@ -13,25 +13,9 @@ const PLAN_META: Record<string, { tagline: string; highlight: boolean; cta: stri
   translator: {
     tagline: 'Live translation on any call',
     priceNote: 'No monthly fee — pay only for what you use',
-    highlight: false,
-    cta: 'Get Started',
-    features: ['Free credit on signup', 'Live translator (merge to call)', '10+ language pairs', 'Real-time text translation', 'Telegram notifications', 'Pay-as-you-go from deposit'],
-    excluded: ['AI Phone Agents', 'MCP API Access', 'Custom agent profiles'],
-  },
-  agents: {
-    tagline: 'AI phone agents for your business',
-    priceNote: '+ deposit for platform provider usage',
     highlight: true,
-    cta: 'Subscribe',
-    features: ['Everything in Translator', 'AI Phone Agents (up to 10)', 'Up to 5 phone numbers', 'Inbound & outbound calls', 'Call recording & transcription', 'Knowledge base & prompts', 'Missions & workflows', 'Use your own API keys (free)', 'Or use platform providers (from deposit)'],
-    excluded: ['MCP API Access'],
-  },
-  agents_mcp: {
-    tagline: 'Full platform with API access',
-    priceNote: '+ deposit for platform provider usage',
-    highlight: false,
-    cta: 'Subscribe',
-    features: ['Everything in Agents', 'MCP Server API Access', 'Unlimited agent profiles', 'Unlimited phone numbers', 'OAuth 2.0 integration', 'Webhooks & connectors', 'Priority support'],
+    cta: 'Get Started',
+    features: ['Free credit on signup', 'Live translator (merge to call)', '10+ language pairs', 'Real-time text transcript', 'Telegram notifications', 'AI trainer (practice mode)', 'Pay-as-you-go from deposit'],
     excluded: [],
   },
 };
@@ -48,8 +32,6 @@ export default function PricingPage() {
         // Fallback defaults
         setPlans([
           { id: 'translator', name: 'Translator', monthly_price: 0, trial_days: 0 },
-          { id: 'agents', name: 'Agents', monthly_price: 49, trial_days: 15 },
-          { id: 'agents_mcp', name: 'Agents + MCP', monthly_price: 99, trial_days: 15 },
         ]);
       });
   }, []);
@@ -100,7 +82,7 @@ export default function PricingPage() {
           </div>
 
           {/* Plan Cards */}
-          <div className="flex flex-col md:grid md:grid-cols-3 gap-4 sm:gap-6 md:overflow-visible">
+          <div className="max-w-md mx-auto">
             {plans.map(plan => {
               const meta = PLAN_META[plan.id];
               if (!meta) return null;
