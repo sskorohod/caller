@@ -42,11 +42,11 @@ export function UsagePanel() {
 
   const tot = data?.totals;
   const kpis = [
-    { icon: 'call', label: tt('Calls', 'Звонков'), value: tot ? String(tot.calls) : '—', tint: '#6366f1' },
-    { icon: 'schedule', label: tt('Minutes', 'Минут'), value: tot ? String(tot.minutes) : '—', tint: '#06b6d4' },
-    { icon: 'translate', label: tt('Words', 'Слов'), value: tot ? tot.words.toLocaleString() : '—', tint: '#10b981' },
-    { icon: 'payments', label: tt('Spent', 'Потрачено'), value: tot ? `$${tot.cost.toFixed(2)}` : '—', tint: '#f59e0b' },
-    { icon: 'trending_up', label: tt('Avg / call', 'Средняя'), value: tot ? `$${tot.avgCost.toFixed(2)}` : '—', tint: '#ec4899' },
+    { icon: 'call', label: tt('Calls', 'Звонков'), value: tot ? String(tot.calls) : '—' },
+    { icon: 'schedule', label: tt('Minutes', 'Минут'), value: tot ? String(tot.minutes) : '—' },
+    { icon: 'translate', label: tt('Words', 'Слов'), value: tot ? tot.words.toLocaleString() : '—' },
+    { icon: 'payments', label: tt('Spent', 'Потрачено'), value: tot ? `$${tot.cost.toFixed(2)}` : '—' },
+    { icon: 'trending_up', label: tt('Avg / call', 'Средняя'), value: tot ? `$${tot.avgCost.toFixed(2)}` : '—' },
   ];
 
   const maxDaily = data?.daily.length ? Math.max(...data.daily.map(d => d.cost), 0.01) : 1;
@@ -73,11 +73,11 @@ export function UsagePanel() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {kpis.map(k => (
           <div key={k.label} className={`${cardCls} p-4`}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5" style={{ background: `${k.tint}1a` }}>
-              <span className="material-symbols-outlined text-lg" style={{ color: k.tint }}>{k.icon}</span>
+            <div className="flex items-center gap-1.5 mb-3 text-[var(--th-text-muted)]">
+              <span className="material-symbols-outlined text-[18px]">{k.icon}</span>
+              <span className="text-[11px] font-medium uppercase tracking-wide">{k.label}</span>
             </div>
-            <div className="text-2xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{loading ? '…' : k.value}</div>
-            <div className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{k.label}</div>
+            <div className="text-[28px] font-extrabold tabular-nums text-[var(--th-text)] leading-none">{loading ? '…' : k.value}</div>
           </div>
         ))}
       </div>
@@ -88,11 +88,11 @@ export function UsagePanel() {
         <div className={`${cardCls} lg:col-span-7 p-5`}>
           <div className="text-sm font-bold text-[var(--th-text)] mb-4">{tt('Spend by day', 'Траты по дням')}</div>
           {data && data.daily.length > 0 ? (
-            <div className="flex items-end gap-1.5 h-40">
+            <div className="flex items-end gap-1.5 h-40 border-b border-[var(--th-border)] pb-px">
               {data.daily.map(d => (
                 <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full group relative">
                   <div className="w-full rounded-t-md transition-all group-hover:opacity-100"
-                    style={{ height: `${Math.max(3, (d.cost / maxDaily) * 100)}%`, background: 'linear-gradient(to top, var(--th-primary), #818cf8)', opacity: 0.8 }} />
+                    style={{ height: `${Math.max(3, (d.cost / maxDaily) * 100)}%`, background: 'linear-gradient(to top, var(--th-primary), #818cf8)', opacity: 0.75 }} />
                   <div className="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap text-[10px] font-semibold px-2 py-1 rounded-md z-10"
                     style={{ background: 'var(--th-text)', color: 'var(--th-page)' }}>
                     ${d.cost.toFixed(2)}
