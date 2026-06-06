@@ -8,6 +8,7 @@ import * as callService from './call.service.js';
 import * as telephonyService from './telephony.service.js';
 import { env } from '../config/env.js';
 import { getIo } from '../realtime/io.js';
+import { queueMissionScheduledRun } from '../workers/mission-scheduled.worker.js';
 import type { Mission, MissionMessage } from '../models/types.js';
 
 const logger = pino({ name: 'mission' });
@@ -302,11 +303,22 @@ EXAMPLE correct response:
         await updateMission(missionId, { status: 'ready' });
         emitStatus(missionId, 'ready');
       } else if (actionJson.action === 'schedule' && actionJson.at) {
-        await updateMission(missionId, {
-          scheduled_at: actionJson.at,
-          status: 'scheduled',
-        });
-        emitStatus(missionId, 'scheduled');
+        // actionJson.at is an LLM-produced string — validate before it flows
+        // into the timestamp column. Ignore the schedule action if unparseable.
+        const scheduledAt = new Date(actionJson.at);
+        if (isNaN(scheduledAt.getTime())) {
+          logger.warn({ missionId, at: actionJson.at }, 'Schedule action has unparseable date — ignoring');
+        } else {
+          const delayMs = scheduledAt.getTime() - Date.now();
+          await updateMission(missionId, {
+            scheduled_at: scheduledAt,
+            status: 'scheduled',
+          });
+          // Queue the BullMQ job that actually fires the call at the scheduled
+          // time — without this the mission sits in 'scheduled' forever.
+          await queueMissionScheduledRun(workspaceId, missionId, delayMs);
+          emitStatus(missionId, 'scheduled');
+        }
       }
     } catch (e) {
       logger.warn({ missionId, e }, 'Failed to parse action JSON');
