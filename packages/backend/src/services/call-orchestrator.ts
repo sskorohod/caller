@@ -111,8 +111,14 @@ export class CallOrchestrator extends EventEmitter {
       : 'en-US';
     this.config.stt.connect({ language: sttLang });
 
-    // Send greeting if configured
+    // Send greeting if configured.
+    // Must flip isAgentSpeaking BEFORE speakText — otherwise speakText's
+    // Twilio-send gate (`if (... && this.isAgentSpeaking)`) drops the greeting
+    // audio from the phone leg, so the caller hears dead air at call open.
+    // true here is consistent with the post-turn "agent holds the floor until
+    // the caller replies" model (a caller utterance then interrupts as usual).
     if (this.config.agentProfile.greeting_message) {
+      this.isAgentSpeaking = true;
       this.speakText(this.config.agentProfile.greeting_message);
     }
   }
