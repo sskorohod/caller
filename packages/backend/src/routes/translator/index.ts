@@ -1,9 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, gte } from 'drizzle-orm';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import { translatorSessions, workspaces, telephonyConnections } from '../../db/schema.js';
+import { getMarkup } from '../../services/billing.service.js';
 
 const translatorRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
@@ -43,6 +44,78 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
       .offset(query.offset);
 
     return { sessions: rows };
+  });
+
+  // GET /api/translator/usage?period=7d|30d|all — aggregated usage report
+  // Costs are client-facing (provider cost × markup), matching what was charged.
+  app.get('/usage', async (request) => {
+    const { period } = z.object({ period: z.enum(['7d', '30d', 'all']).default('30d') }).parse(request.query);
+    const now = Date.now();
+    const start = period === '7d' ? new Date(now - 7 * 86400000)
+      : period === '30d' ? new Date(now - 30 * 86400000)
+      : null;
+
+    const conds = [
+      eq(translatorSessions.workspace_id, request.auth.workspaceId),
+      eq(translatorSessions.is_training, false),
+      eq(translatorSessions.status, 'completed'),
+    ];
+    if (start) conds.push(gte(translatorSessions.created_at, start));
+
+    const [rows, markup] = await Promise.all([
+      db.select({
+        id: translatorSessions.id,
+        call_id: translatorSessions.call_id,
+        duration_seconds: translatorSessions.duration_seconds,
+        minutes_used: translatorSessions.minutes_used,
+        cost_usd: translatorSessions.cost_usd,
+        transcript: translatorSessions.transcript,
+        created_at: translatorSessions.created_at,
+      }).from(translatorSessions).where(and(...conds)).orderBy(desc(translatorSessions.created_at)),
+      getMarkup().catch(() => 1),
+    ]);
+
+    const countWords = (s: unknown) => typeof s === 'string' && s.trim() ? s.trim().split(/\s+/).length : 0;
+    let totalCost = 0, totalMinutes = 0, totalWords = 0;
+    const dailyMap = new Map<string, { cost: number; calls: number }>();
+
+    const sessions = rows.map(r => {
+      const cost = (Number(r.cost_usd) || 0) * markup;
+      const minutes = Number(r.minutes_used) || (Number(r.duration_seconds) || 0) / 60;
+      let words = 0;
+      const turns = Array.isArray(r.transcript) ? r.transcript as Array<{ translated?: string }> : [];
+      for (const turn of turns) words += countWords(turn?.translated);
+      totalCost += cost; totalMinutes += minutes; totalWords += words;
+      const day = r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '';
+      const d = dailyMap.get(day) || { cost: 0, calls: 0 };
+      d.cost += cost; d.calls += 1; dailyMap.set(day, d);
+      return {
+        id: r.id,
+        call_id: r.call_id,
+        created_at: r.created_at,
+        duration_seconds: r.duration_seconds || 0,
+        cost_usd: Math.round(cost * 10000) / 10000,
+        words,
+      };
+    });
+
+    const calls = sessions.length;
+    const daily = [...dailyMap.entries()]
+      .map(([date, v]) => ({ date, cost: Math.round(v.cost * 100) / 100, calls: v.calls }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      period,
+      totals: {
+        calls,
+        minutes: Math.round(totalMinutes * 10) / 10,
+        cost: Math.round(totalCost * 100) / 100,
+        avgCost: calls ? Math.round((totalCost / calls) * 100) / 100 : 0,
+        words: totalWords,
+      },
+      daily,
+      sessions: sessions.slice(0, 50),
+    };
   });
 
   // GET /api/translator/sessions/active — active sessions for live monitor

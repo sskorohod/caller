@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useToast } from '@/lib/toast';
@@ -397,6 +397,15 @@ export default function CallsPage() {
   }, [router]);
 
   const closeDetail = useCallback(() => { setSelected(null); setDetail(null); }, []);
+
+  // Deep link: /dashboard/calls?call=<id> (e.g. from the Balance usage list) opens that call.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get('call');
+    if (!id || selected) return;
+    const c = calls.find(x => x.id === id);
+    if (c) openDetail(c);
+  }, [searchParams, calls, selected, openDetail]);
 
   const handleBulkDelete = useCallback(async () => {
     if (checkedIds.size === 0) return;
