@@ -129,61 +129,46 @@ export default function DashboardHub() {
 
   return (
     <div className="space-y-3 md:space-y-4">
-      {/* ── Hero bar: number · languages · balance ───────────── */}
+      {/* ── Header: number · balance · 30d stats ──────────────── */}
       <div className={`${card} relative overflow-hidden p-5 md:p-6`}>
         <div className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full blur-3xl opacity-30" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%)' }} />
-        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-          {/* Number */}
-          <div className="lg:col-span-5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--th-text-muted)] mb-1.5">{tt('Your translator number', 'Ваш номер переводчика')}</div>
-            {phone ? (
-              <a href={`tel:${phone}`} className="text-2xl md:text-3xl font-extrabold tracking-wide" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.4))' }}>{fmtPhone(phone)}</a>
-            ) : <div className="text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
-            <p className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{tt('Save it · call your contact · tap "Merge" to add the translator', 'Сохрани в контакты · позвони собеседнику · нажми «Объединить»')}</p>
-          </div>
-          {/* Languages */}
-          <div className="lg:col-span-4 lg:border-l lg:border-[var(--th-border)] lg:pl-5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1.5 flex items-center gap-2">
-              {tt('Languages', 'Языки')}
-              {savedTick && <span className="text-[10px] font-medium text-[var(--th-success-text)] normal-case tracking-normal">✓ {tt('saved', 'сохранено')}</span>}
+        <div className="relative">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Number */}
+            <div className="lg:col-span-7">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--th-text-muted)] mb-1.5">{tt('Your translator number', 'Ваш номер переводчика')}</div>
+              {phone ? (
+                <a href={`tel:${phone}`} className="text-2xl md:text-3xl font-extrabold tracking-wide" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.4))' }}>{fmtPhone(phone)}</a>
+              ) : <div className="text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
+              <p className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{tt('Save it · call your contact · tap "Merge" to add the translator', 'Сохрани в контакты · позвони собеседнику · нажми «Объединить»')}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <select value={defaults.my_language || 'ru'} onChange={e => update({ my_language: e.target.value })} className={selectCls} disabled={!loaded}>
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
-              <span className="material-symbols-outlined text-[var(--th-text-muted)] shrink-0">sync_alt</span>
-              <select value={defaults.target_language || 'en'} onChange={e => update({ target_language: e.target.value })} className={selectCls} disabled={!loaded}>
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
+            {/* Balance */}
+            <div className="lg:col-span-5 lg:text-right">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1.5">{tt('Balance', 'Баланс')}</div>
+              <div className="flex items-baseline gap-2 lg:justify-end">
+                <span className="text-2xl font-extrabold tabular-nums" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
+                {minutes != null && <span className="text-[11px] text-[var(--th-text-muted)]">≈ {minutes} {tt('min', 'мин')}</span>}
+              </div>
+              <button onClick={() => router.push('/dashboard/billing')} className="mt-1.5 text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('Top up →', 'Пополнить →')}</button>
             </div>
           </div>
-          {/* Balance */}
-          <div className="lg:col-span-3 lg:border-l lg:border-[var(--th-border)] lg:pl-5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1.5">{tt('Balance', 'Баланс')}</div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-extrabold tabular-nums" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
-              {minutes != null && <span className="text-[11px] text-[var(--th-text-muted)]">≈ {minutes} {tt('min', 'мин')}</span>}
-            </div>
-            <button onClick={() => router.push('/dashboard/billing')} className="mt-1.5 text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('Top up →', 'Пополнить →')}</button>
+          {/* 30-day stats */}
+          <div className="mt-5 pt-5 border-t border-[var(--th-border)] grid grid-cols-3 gap-4">
+            {[
+              { icon: 'call', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
+              { icon: 'schedule', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
+              { icon: 'payments', label: tt('Spent · 30d', 'Потрачено · 30д'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
+            ].map(k => (
+              <div key={k.label}>
+                <div className="flex items-center gap-1.5 mb-1 text-[var(--th-text-muted)]">
+                  <span className="material-symbols-outlined text-[16px]">{k.icon}</span>
+                  <span className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide truncate">{k.label}</span>
+                </div>
+                <div className="text-xl md:text-2xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-
-      {/* ── KPI strip ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { icon: 'call', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
-          { icon: 'schedule', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
-          { icon: 'payments', label: tt('Spent · 30d', 'Потрачено · 30д'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
-        ].map(k => (
-          <div key={k.label} className={`${card} p-4`}>
-            <div className="flex items-center gap-1.5 mb-2 text-[var(--th-text-muted)]">
-              <span className="material-symbols-outlined text-[18px]">{k.icon}</span>
-              <span className="text-[11px] font-medium uppercase tracking-wide truncate">{k.label}</span>
-            </div>
-            <div className="text-[26px] font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
-          </div>
-        ))}
       </div>
 
       {/* ── Live | Settings ───────────────────────────────────── */}
@@ -247,6 +232,20 @@ export default function DashboardHub() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[var(--th-text)]">{t('translator.settings') || tt('Settings', 'Настройки')}</h3>
             {savedTick && <span className="text-[11px] font-medium text-[var(--th-success-text)]">✓ {tt('Saved', 'Сохранено')}</span>}
+          </div>
+
+          {/* Languages (translation direction) */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{tt('Languages', 'Языки перевода')}</label>
+            <div className="flex items-center gap-2">
+              <select value={defaults.my_language || 'ru'} onChange={e => update({ my_language: e.target.value })} className={selectCls} disabled={!loaded}>
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+              <span className="material-symbols-outlined text-[var(--th-text-muted)] shrink-0">sync_alt</span>
+              <select value={defaults.target_language || 'en'} onChange={e => update({ target_language: e.target.value })} className={selectCls} disabled={!loaded}>
+                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </div>
           </div>
 
           {/* Mode */}
