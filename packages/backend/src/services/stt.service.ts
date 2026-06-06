@@ -45,6 +45,9 @@ export class DeepgramSTT extends EventEmitter {
       res.on('end', () => {
         const errMsg = `Deepgram HTTP ${res.statusCode}: ${body.slice(0, 300)}`;
         this.emit('error', new Error(errMsg));
+        // The upgrade failed — tear down the dangling socket so the connection
+        // doesn't hang half-open.
+        try { this.ws?.terminate(); } catch { /* ignore */ }
       });
     });
 
