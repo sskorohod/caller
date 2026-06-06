@@ -92,24 +92,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {(() => {
-          const isTranslatorOnly = plan === 'translator';
-
-          const translatorOps = ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator', '/dashboard/sandbox'];
-          const fullOps = [...translatorOps, '/dashboard/missions'];
+          // Translator-only product: single Operations group + System.
+          const operations = ['/dashboard/calls', '/dashboard/dialer', '/dashboard/translator', '/dashboard/sandbox'];
+          const system = ['/dashboard/billing', '/dashboard/settings', '/dashboard/help'];
 
           return [
             { label: t('nav.sectionOverview') || 'Overview', items: navItems.filter(i => i.href === '/dashboard') },
-            { label: t('nav.sectionOperations') || 'Operations', items: navItems.filter(i => (isTranslatorOnly ? translatorOps : fullOps).includes(i.href)) },
-            ...(!isTranslatorOnly ? [
-              { label: t('nav.sectionAi') || 'AI Config', items: navItems.filter(i => ['/dashboard/agents', '/dashboard/knowledge', '/dashboard/prompts', '/dashboard/skills'].includes(i.href)) },
-              { label: t('nav.sectionIntegrations') || 'Integrations', items: navItems.filter(i => ['/dashboard/connectors'].includes(i.href)) },
-            ] : []),
-            { label: t('nav.sectionSystem') || 'System', items: navItems.filter(i => {
-              const systemItems = isTranslatorOnly
-                ? ['/dashboard/billing', '/dashboard/settings', '/dashboard/help']
-                : ['/dashboard/audit', '/dashboard/billing', '/dashboard/settings', '/dashboard/help'];
-              return systemItems.includes(i.href);
-            }) },
+            { label: t('nav.sectionOperations') || 'Operations', items: navItems.filter(i => operations.includes(i.href)) },
+            { label: t('nav.sectionSystem') || 'System', items: navItems.filter(i => system.includes(i.href)) },
           ];
         })().filter(section => section.items.length > 0).map((section, si) => (
           <div key={si} className={si > 0 ? 'mt-4' : ''}>
