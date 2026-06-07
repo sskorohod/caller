@@ -9,5 +9,3 @@ export interface Workspace {
   ai_disclosure: boolean;
   inbound_auto_answer_delay_seconds: number;
 }
-
-export type AccentColor = 'indigo' | 'blue' | 'emerald' | 'purple' | 'amber';

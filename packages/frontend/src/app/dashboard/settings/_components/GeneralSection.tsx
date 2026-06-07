@@ -47,15 +47,10 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
 
       {/* Workspace Identity Card */}
       <div className="relative overflow-hidden bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-        <div className="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
-
         <div className="p-4 md:p-6 space-y-4 md:space-y-5">
           {/* Owner name */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide flex items-center gap-2">
-              <svg className="w-3.5 h-3.5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
-              </svg>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">
               {t('settings.ownerName') || 'Your Name'}
             </label>
             <input
@@ -65,18 +60,15 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
               placeholder="Slava"
               className={`${inputCls} !text-base !py-3 font-medium`}
             />
-            <p className="text-[10px] text-[var(--th-text-muted)]">{t('settings.ownerNameHint') || 'Used as client name in mission calls so the agent doesn\'t ask every time.'}</p>
+            <p className="text-[11px] text-[var(--th-text-muted)]">{t('settings.ownerNameHint') || 'Used as client name in mission calls so the agent doesn\'t ask every time.'}</p>
           </div>
 
           {/* Phone numbers */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-[var(--th-text-secondary)] uppercase tracking-wide flex items-center gap-2">
-              <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-              </svg>
+            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">
               {t('settings.phoneNumbers')}
             </label>
-            <p className="text-[10px] text-[var(--th-text-muted)]">{t('settings.phoneNumbersHint')}</p>
+            <p className="text-[11px] text-[var(--th-text-muted)]">{t('settings.phoneNumbersHint')}</p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[0, 1, 2].map(i => {
                 const val = phoneNums[i] || '';
