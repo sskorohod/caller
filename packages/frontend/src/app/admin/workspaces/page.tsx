@@ -1,11 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { useAdminQuery, api } from '../_lib/admin-api';
-import { fmtCurrency, fmtDateTime } from '../_lib/format';
-import { PLAN_BADGES, PLANS, SUBSCRIPTION_STATUS_STYLES } from '../_lib/constants';
+import { fmtCurrency } from '../_lib/format';
 import type { Workspace, Transaction } from '../_lib/types';
 import AdminPageHeader from '../_components/AdminPageHeader';
-import AdminBadge from '../_components/AdminBadge';
 import AdminModal from '../_components/AdminModal';
 import AdminFormField from '../_components/AdminFormField';
 import { adminInputClass, adminSelectClass } from '../_components/AdminFormField';
@@ -13,17 +11,30 @@ import AdminSplitView from '../_components/AdminSplitView';
 import AdminLoadingState from '../_components/AdminLoadingState';
 import AdminErrorState from '../_components/AdminErrorState';
 
-export default function AdminWorkspaces() {
+function fmtPhone(p?: string | null) {
+  if (!p) return '';
+  const d = p.replace(/\D/g, '');
+  if (d.length === 11 && d.startsWith('1')) return `+1 (${d.slice(1,4)}) ${d.slice(4,7)}-${d.slice(7)}`;
+  return p;
+}
+
+export default function AdminSubscribers() {
   const [selected, setSelected] = useState<Workspace | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [search, setSearch] = useState('');
-  const [planFilter, setPlanFilter] = useState('');
 
   // Balance modal
   const [balanceModal, setBalanceModal] = useState(false);
   const [balanceAmount, setBalanceAmount] = useState('');
   const [balanceType, setBalanceType] = useState<'topup' | 'gift' | 'refund'>('topup');
   const [balanceComment, setBalanceComment] = useState('');
+
+  // Stripe refund modal
+  const [refundModal, setRefundModal] = useState<Transaction | null>(null);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState<'requested_by_customer' | 'duplicate' | 'fraudulent'>('requested_by_customer');
+  const [refundComment, setRefundComment] = useState('');
+  const [refundBusy, setRefundBusy] = useState(false);
 
   // Delete confirmation modal
   const [deleteModal, setDeleteModal] = useState(false);
@@ -32,10 +43,9 @@ export default function AdminWorkspaces() {
     () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      if (planFilter) params.set('plan', planFilter);
       return api.get<Workspace[]>(`/admin/workspaces?${params}`);
     },
-    [search, planFilter],
+    [search],
   );
 
   const selectWorkspace = async (ws: Workspace) => {
@@ -67,13 +77,26 @@ export default function AdminWorkspaces() {
     }
   };
 
-  const changePlan = async (id: string, plan: string) => {
+  const issueStripeRefund = async () => {
+    if (!selected || !refundModal) return;
+    setRefundBusy(true);
     try {
-      await api.patch(`/admin/workspaces/${id}/plan`, { plan });
+      const body: any = { transaction_id: refundModal.id, reason: refundReason };
+      const amt = parseFloat(refundAmount || '');
+      if (!isNaN(amt) && amt > 0) body.amount_usd = amt;
+      if (refundComment.trim()) body.comment = refundComment.trim();
+      const res = await api.post<{ refund_id: string; status: string; new_balance: number }>(
+        `/admin/workspaces/${selected.id}/refund-stripe`, body);
+      alert(`Refund ${res.status}: ${res.refund_id}\nNew balance: $${res.new_balance.toFixed(2)}`);
+      setRefundModal(null);
+      setRefundAmount('');
+      setRefundComment('');
+      selectWorkspace(selected);
       refetch();
-      if (selected?.id === id) selectWorkspace({ ...selected, plan });
     } catch (err) {
       alert((err as Error).message);
+    } finally {
+      setRefundBusy(false);
     }
   };
 
@@ -89,22 +112,6 @@ export default function AdminWorkspaces() {
     }
   };
 
-  const toggleTwilio = async () => {
-    if (!selected) return;
-    const current = selected.provider_config?.twilio || 'own';
-    const next = current === 'platform' ? 'own' : 'platform';
-    try {
-      await api.patch(`/admin/workspaces/${selected.id}/provider-config`, { twilio: next });
-      const { twilio: _, ...restConfig } = selected.provider_config || {};
-      const newConfig = next === 'platform' ? { ...restConfig, twilio: next } : restConfig;
-      const updated = { ...selected, provider_config: newConfig };
-      setSelected(updated);
-      refetch();
-    } catch (err) {
-      alert((err as Error).message);
-    }
-  };
-
   if (loading) return <AdminLoadingState />;
   if (error) return <AdminErrorState error={error} onRetry={refetch} />;
 
@@ -113,24 +120,13 @@ export default function AdminWorkspaces() {
   const listContent = (
     <div className="space-y-3">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex gap-2">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name..."
+          placeholder="Search by name, owner, phone…"
           className={`${adminInputClass} flex-1`}
         />
-        <select
-          value={planFilter}
-          onChange={(e) => setPlanFilter(e.target.value)}
-          className={adminSelectClass}
-          style={{ maxWidth: '160px' }}
-        >
-          <option value="">All Plans</option>
-          {PLANS.map((p) => (
-            <option key={p} value={p}>{PLAN_BADGES[p]?.label || p}</option>
-          ))}
-        </select>
       </div>
 
       {/* List */}
@@ -144,14 +140,14 @@ export default function AdminWorkspaces() {
       >
         {list.length === 0 ? (
           <div className="text-center py-12" style={{ color: 'var(--th-text-muted)' }}>
-            <span className="material-symbols-outlined text-3xl mb-2 block">apartment</span>
-            <p className="text-sm">No workspaces found</p>
+            <span className="material-symbols-outlined text-3xl mb-2 block">person_off</span>
+            <p className="text-sm">No subscribers found</p>
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: 'var(--th-table-divider)' }}>
             {list.map((ws) => {
-              const badge = PLAN_BADGES[ws.plan] || PLAN_BADGES.translator;
-              const subStatus = SUBSCRIPTION_STATUS_STYLES[ws.subscription_status];
+              const phone = ws.phone_numbers?.[0];
+              const owner = ws.owner_name || ws.name;
               return (
                 <button
                   key={ws.id}
@@ -164,18 +160,13 @@ export default function AdminWorkspaces() {
                   onMouseLeave={(e) => { if (selected?.id !== ws.id) e.currentTarget.style.background = ''; }}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{ws.name}</div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <AdminBadge bg={badge.bg} color={badge.color}>{badge.label}</AdminBadge>
-                      {subStatus && (
-                        <span className="text-[10px] font-medium" style={{ color: subStatus.color }}>
-                          {subStatus.label}
-                        </span>
-                      )}
+                    <div className="text-sm font-medium truncate">{owner}</div>
+                    <div className="text-[11px] mt-0.5 font-mono tabular-nums" style={{ color: 'var(--th-text-muted)' }}>
+                      {phone ? fmtPhone(phone) : <span className="italic">no phone registered</span>}
                     </div>
                   </div>
                   <span
-                    className="font-mono text-sm font-medium shrink-0"
+                    className="font-mono text-sm font-medium shrink-0 tabular-nums"
                     style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}
                   >
                     {fmtCurrency(ws.balance_usd)}
@@ -200,10 +191,26 @@ export default function AdminWorkspaces() {
     >
       {/* Header */}
       <div>
-        <h3 className="font-headline text-lg">{selected.name}</h3>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--th-text-secondary)' }}>
-          {selected.slug} &middot; {selected.id.slice(0, 8)}
+        <h3 className="font-headline text-lg">{selected.owner_name || selected.name}</h3>
+        <p className="text-xs mt-0.5 font-mono tabular-nums" style={{ color: 'var(--th-text-secondary)' }}>
+          {selected.id.slice(0, 8)}
         </p>
+      </div>
+
+      {/* Contacts */}
+      <div className="space-y-1.5">
+        {(selected.phone_numbers || []).filter(Boolean).map((p, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs">
+            <span className="material-symbols-outlined text-[14px]" style={{ color: 'var(--th-text-muted)' }}>call</span>
+            <a href={`tel:${p}`} className="font-mono tabular-nums hover:underline">{fmtPhone(p)}</a>
+          </div>
+        ))}
+        {selected.email && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="material-symbols-outlined text-[14px]" style={{ color: 'var(--th-text-muted)' }}>mail</span>
+            <a href={`mailto:${selected.email}`} className="hover:underline">{selected.email}</a>
+          </div>
+        )}
       </div>
 
       {/* Balance */}
@@ -218,7 +225,7 @@ export default function AdminWorkspaces() {
           Balance
         </div>
         <div
-          className="text-3xl font-headline"
+          className="text-3xl font-headline tabular-nums"
           style={{ color: selected.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)', lineHeight: 1.1 }}
         >
           {fmtCurrency(selected.balance_usd)}
@@ -231,88 +238,62 @@ export default function AdminWorkspaces() {
         </button>
       </div>
 
-      {/* Plan */}
+      {/* Recent Transactions */}
       <div>
         <div
           className="text-[10px] uppercase tracking-wider font-medium mb-2"
           style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
         >
-          Plan
+          Recent Transactions
         </div>
-        <div className="flex flex-wrap gap-2">
-          {PLANS.map((p) => {
-            const badge = PLAN_BADGES[p];
-            const isActive = selected.plan === p;
+        <div className="space-y-1 max-h-72 overflow-y-auto scrollbar-none">
+          {transactions.map((t) => {
+            const isStripeTopup = t.type === 'topup' && t.reference_type === 'stripe_checkout';
             return (
-              <button
-                key={p}
-                onClick={() => changePlan(selected.id, p)}
-                className="px-3 py-2 min-h-[44px] rounded-lg text-xs font-medium transition"
-                style={
-                  isActive
-                    ? { background: badge.bg, color: badge.color, boxShadow: `${badge.color} 0px 0px 0px 1px` }
-                    : { background: 'var(--th-surface)', border: '1px solid var(--th-border)' }
-                }
+              <div
+                key={t.id}
+                className="flex justify-between items-center gap-2 text-xs py-1.5"
+                style={{ borderBottom: '1px solid var(--th-border)' }}
               >
-                {badge.label}
-              </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium capitalize">{t.type}</span>
+                    {isStripeTopup && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                        style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)', color: 'var(--th-text-muted)' }}>
+                        Stripe
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate" style={{ color: 'var(--th-text-secondary)' }}>
+                    {t.description}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span
+                    className="font-mono tabular-nums"
+                    style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : 'var(--th-error-text)' }}
+                  >
+                    {t.amount_usd >= 0 ? '+' : ''}${Math.abs(t.amount_usd).toFixed(2)}
+                  </span>
+                  {isStripeTopup && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setRefundModal(t); setRefundAmount(String(Math.abs(t.amount_usd).toFixed(2))); }}
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded hover:opacity-80 transition-all"
+                      style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)', border: '1px solid var(--th-error-border)' }}
+                    >
+                      Refund
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
+          {transactions.length === 0 && (
+            <p className="text-xs" style={{ color: 'var(--th-text-muted)' }}>No transactions yet</p>
+          )}
         </div>
       </div>
-
-      {/* Twilio Access */}
-      <div>
-        <div
-          className="text-[10px] uppercase tracking-wider font-medium mb-2"
-          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
-        >
-          Twilio Access
-        </div>
-        <button
-          onClick={toggleTwilio}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition w-full"
-          style={
-            selected.provider_config?.twilio === 'platform'
-              ? { background: 'var(--th-success-bg)', border: '1px solid var(--th-success-border)', color: 'var(--th-success-text)' }
-              : { background: 'var(--th-surface)', border: '1px solid var(--th-border)' }
-          }
-        >
-          <span className="text-base">
-            {selected.provider_config?.twilio === 'platform' ? '✓' : '○'}
-          </span>
-          Share platform Twilio
-        </button>
-        {selected.provider_config?.twilio === 'platform' && (
-          <p className="text-[10px] mt-1.5" style={{ color: 'var(--th-text-secondary)' }}>
-            This workspace uses your Twilio account. Costs are deducted from their balance.
-          </p>
-        )}
-      </div>
-
-      {/* Other Providers */}
-      {Object.keys(selected.provider_config || {}).filter((k) => k !== 'twilio').length > 0 && (
-        <div>
-          <div
-            className="text-[10px] uppercase tracking-wider font-medium mb-2"
-            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
-          >
-            Other Providers
-          </div>
-          <div className="space-y-1">
-            {Object.entries(selected.provider_config)
-              .filter(([k]) => k !== 'twilio')
-              .map(([k, v]) => (
-                <div key={k} className="flex justify-between text-xs">
-                  <span>{k}</span>
-                  <span className="font-mono" style={{ color: v === 'own' ? 'var(--th-primary-text)' : 'var(--th-success-text)' }}>
-                    {v}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
 
       {/* Delete */}
       <button
@@ -324,44 +305,8 @@ export default function AdminWorkspaces() {
           color: 'var(--th-error-text)',
         }}
       >
-        Delete Workspace
+        Delete Subscriber
       </button>
-
-      {/* Recent Transactions */}
-      <div>
-        <div
-          className="text-[10px] uppercase tracking-wider font-medium mb-2"
-          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
-        >
-          Recent Transactions
-        </div>
-        <div className="space-y-1 max-h-60 overflow-y-auto scrollbar-none">
-          {transactions.map((t) => (
-            <div
-              key={t.id}
-              className="flex justify-between items-center text-xs py-1.5"
-              style={{ borderBottom: '1px solid var(--th-border)' }}
-            >
-              <div className="min-w-0 flex-1">
-                <span className="font-medium">{t.type}</span>
-                <span className="ml-2" style={{ color: 'var(--th-text-secondary)' }}>
-                  {t.description}
-                </span>
-              </div>
-              <span
-                className="font-mono shrink-0 ml-2"
-                style={{ color: t.amount_usd >= 0 ? 'var(--th-success-text)' : 'var(--th-error-text)' }}
-              >
-                {t.amount_usd >= 0 ? '+' : ''}
-                {t.amount_usd.toFixed(4)}
-              </span>
-            </div>
-          ))}
-          {transactions.length === 0 && (
-            <p className="text-xs" style={{ color: 'var(--th-text-muted)' }}>No transactions yet</p>
-          )}
-        </div>
-      </div>
     </div>
   ) : (
     <div
@@ -369,8 +314,8 @@ export default function AdminWorkspaces() {
       style={{ background: 'var(--th-card)', border: '1px solid var(--th-card-border-subtle)' }}
     >
       <div>
-        <span className="material-symbols-outlined text-4xl mb-2 block" style={{ color: 'var(--th-text-muted)' }}>apartment</span>
-        <p className="text-sm" style={{ color: 'var(--th-text-muted)' }}>Select a workspace</p>
+        <span className="material-symbols-outlined text-4xl mb-2 block" style={{ color: 'var(--th-text-muted)' }}>person</span>
+        <p className="text-sm" style={{ color: 'var(--th-text-muted)' }}>Select a subscriber</p>
       </div>
     </div>
   );
@@ -378,9 +323,9 @@ export default function AdminWorkspaces() {
   return (
     <div className="py-4 md:py-6 space-y-4">
       <AdminPageHeader
-        title="Workspaces"
-        subtitle="Manage workspace plans and deposits"
-        icon="apartment"
+        title="Subscribers"
+        subtitle="Translator accounts — balance, transactions, refunds"
+        icon="person"
       />
 
       <AdminSplitView
@@ -450,11 +395,57 @@ export default function AdminWorkspaces() {
         </AdminFormField>
       </AdminModal>
 
+      {/* Stripe Refund Modal */}
+      <AdminModal
+        open={!!refundModal && !!selected}
+        onClose={() => { if (!refundBusy) setRefundModal(null); }}
+        title="Refund via Stripe"
+        actions={
+          <>
+            <button onClick={() => setRefundModal(null)} disabled={refundBusy} className="btn-secondary px-4 py-2 text-sm">Cancel</button>
+            <button onClick={issueStripeRefund} disabled={refundBusy}
+              className="px-4 py-2 text-sm font-medium rounded-lg"
+              style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)', border: '1px solid var(--th-error-border)' }}>
+              {refundBusy ? 'Refunding…' : 'Issue refund'}
+            </button>
+          </>
+        }
+      >
+        {refundModal && (
+          <>
+            <p className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>
+              Original topup: <strong>${Math.abs(refundModal.amount_usd).toFixed(2)}</strong> · {refundModal.description}
+            </p>
+            <AdminFormField label="Reason">
+              <select value={refundReason} onChange={(e) => setRefundReason(e.target.value as any)} className={adminSelectClass}>
+                <option value="requested_by_customer">Requested by customer</option>
+                <option value="duplicate">Duplicate</option>
+                <option value="fraudulent">Fraudulent</option>
+              </select>
+            </AdminFormField>
+            <AdminFormField label="Amount (USD) — leave full to refund the whole transaction">
+              <input type="number" step="0.01" min="0.01"
+                max={Math.abs(refundModal.amount_usd)}
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                className={adminInputClass}
+                placeholder={Math.abs(refundModal.amount_usd).toFixed(2)} />
+            </AdminFormField>
+            <AdminFormField label="Internal comment">
+              <input value={refundComment} onChange={(e) => setRefundComment(e.target.value)} className={adminInputClass} placeholder="Optional" />
+            </AdminFormField>
+            <p className="text-[11px]" style={{ color: 'var(--th-warning-text)' }}>
+              ⚠ This will issue a real refund through Stripe and debit the subscriber's balance.
+            </p>
+          </>
+        )}
+      </AdminModal>
+
       {/* Delete Confirmation Modal */}
       <AdminModal
         open={deleteModal && !!selected}
         onClose={() => setDeleteModal(false)}
-        title="Delete Workspace"
+        title="Delete Subscriber"
         actions={
           <>
             <button
@@ -475,8 +466,8 @@ export default function AdminWorkspaces() {
       >
         {selected && (
           <p className="text-sm" style={{ lineHeight: 1.6 }}>
-            Delete workspace <strong>&ldquo;{selected.name}&rdquo;</strong>? This will remove all data
-            including calls, sessions, and billing history. This cannot be undone.
+            Delete subscriber <strong>&ldquo;{selected.owner_name || selected.name}&rdquo;</strong>? This will remove all data
+            including sessions, transactions, and billing history. This cannot be undone.
           </p>
         )}
       </AdminModal>

@@ -99,6 +99,9 @@ export interface Workspace {
   subscription_current_period_end: string | null;
   provider_config: Record<string, string>;
   created_at: string;
+  owner_name?: string | null;
+  phone_numbers?: string[] | null;
+  email?: string | null;
 }
 
 export interface Transaction {
@@ -108,6 +111,8 @@ export interface Transaction {
   balance_after: number;
   description: string;
   created_at: string;
+  reference_type?: string | null;
+  reference_id?: string | null;
 }
 
 // Finance

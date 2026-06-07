@@ -33,62 +33,75 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── Dashboard ────────────────────────────────────────────────────────
 
-  app.get('/dashboard', async (request) => {
-    const wsId = request.auth.workspaceId;
+  app.get('/dashboard', async () => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+    // Platform-wide translator session stats (last 30d)
     const [sessStats] = await db.select({
       count: count(),
       total_minutes: sum(translatorSessions.minutes_used),
       total_cost: sum(translatorSessions.cost_usd),
     }).from(translatorSessions)
-      .where(and(eq(translatorSessions.workspace_id, wsId), gte(translatorSessions.created_at, thirtyDaysAgo)));
+      .where(gte(translatorSessions.created_at, thirtyDaysAgo));
 
-    // Revenue by day (last 30 days)
+    // Revenue by day (last 30d, all workspaces)
     const revenueByDay = await db.execute(sql`
       SELECT DATE(created_at) as date, SUM(cost_usd::numeric) as revenue, SUM(minutes_used::numeric) as minutes, COUNT(*) as sessions
       FROM translator_sessions
-      WHERE workspace_id = ${wsId} AND created_at >= ${thirtyDaysAgo}
+      WHERE created_at >= ${thirtyDaysAgo}
       GROUP BY DATE(created_at) ORDER BY date
     `);
 
-    // Recent sessions
+    // Recent sessions across the platform
     const recentSessions = await db.select().from(translatorSessions)
-      .where(eq(translatorSessions.workspace_id, wsId))
       .orderBy(desc(translatorSessions.created_at)).limit(10);
 
-    // Cost estimate (for margin calculation)
+    // Active subscribers = workspaces with any session in the last 30 days
+    const activeUsersRows = await db.execute(sql`
+      SELECT COUNT(DISTINCT workspace_id)::int AS c
+      FROM translator_sessions
+      WHERE created_at >= ${thirtyDaysAgo}
+    `);
+    const activeUsers = (activeUsersRows.rows[0] as any)?.c ?? 0;
+
+    // Total registered workspaces (subscribers)
+    const [totalWs] = await db.select({ c: count() }).from(workspaces);
+
+    // Low-balance accounts (≤ $2 and > 0)
+    const lowBalance = await db.execute(sql`
+      SELECT id, name, owner_name, balance_usd::float AS balance_usd, phone_numbers
+      FROM workspaces
+      WHERE balance_usd::numeric > 0 AND balance_usd::numeric <= 2
+      ORDER BY balance_usd::numeric ASC LIMIT 10
+    `);
+
     const totalMinutes = parseFloat(sessStats.total_minutes ?? '0');
     const totalRevenue = parseFloat(sessStats.total_cost ?? '0');
-    const estimatedCost = totalMinutes * 0.027; // our cost per minute
+    const estimatedCost = totalMinutes * 0.027;
     const margin = totalRevenue > 0 ? ((totalRevenue - estimatedCost) / totalRevenue * 100) : 0;
 
     return {
       kpi: {
         total_revenue: totalRevenue,
-        active_users: 0, // legacy field
+        active_users: activeUsers,
+        total_subscribers: totalWs.c,
         minutes_used: totalMinutes,
         total_sessions: sessStats.count,
         margin: Math.round(margin),
         estimated_cost: estimatedCost,
       },
       revenue_by_day: revenueByDay.rows,
-      low_balance_alerts: [],
+      low_balance_alerts: lowBalance.rows,
       recent_sessions: recentSessions,
     };
   });
 
-  // ─── Subscribers (removed — merged into workspaces) ─────────────────
-  // Stub endpoints for backward compatibility
-  app.get('/subscribers', async () => ({ subscribers: [], total: 0 }));
-  app.get('/subscribers/:id', async () => { throw { statusCode: 410, message: 'Subscribers merged into user accounts' }; });
-
   // ─── Sessions ─────────────────────────────────────────────────────────
 
   app.get('/sessions', async (request) => {
-    const wsId = request.auth.workspaceId;
     const q = z.object({
+      workspace_id: z.string().uuid().optional(),
       subscriber_id: z.string().uuid().optional(),
       status: z.string().optional(),
       from: z.string().optional(),
@@ -97,23 +110,24 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       offset: z.coerce.number().int().min(0).default(0),
     }).parse(request.query);
 
-    let conditions: any = eq(translatorSessions.workspace_id, wsId);
-    if (q.subscriber_id) conditions = and(conditions, eq(translatorSessions.subscriber_id, q.subscriber_id));
-    if (q.status) conditions = and(conditions, eq(translatorSessions.status, q.status));
-    if (q.from) conditions = and(conditions, gte(translatorSessions.created_at, new Date(q.from)));
-    if (q.to) conditions = and(conditions, lte(translatorSessions.created_at, new Date(q.to)));
+    const conds: any[] = [];
+    if (q.workspace_id) conds.push(eq(translatorSessions.workspace_id, q.workspace_id));
+    if (q.subscriber_id) conds.push(eq(translatorSessions.subscriber_id, q.subscriber_id));
+    if (q.status) conds.push(eq(translatorSessions.status, q.status));
+    if (q.from) conds.push(gte(translatorSessions.created_at, new Date(q.from)));
+    if (q.to) conds.push(lte(translatorSessions.created_at, new Date(q.to)));
+    const where = conds.length ? and(...conds) : undefined;
 
-    const rows = await db.select().from(translatorSessions).where(conditions)
+    const rows = await db.select().from(translatorSessions).where(where)
       .orderBy(desc(translatorSessions.created_at)).limit(q.limit).offset(q.offset);
 
-    const [total] = await db.select({ count: count() }).from(translatorSessions).where(conditions);
+    const [total] = await db.select({ count: count() }).from(translatorSessions).where(where);
 
-    // Stats
     const [stats] = await db.select({
       avg_duration: sql`AVG(duration_seconds)`,
       total_sessions: count(),
       total_minutes: sum(translatorSessions.minutes_used),
-    }).from(translatorSessions).where(conditions);
+    }).from(translatorSessions).where(where);
 
     return { sessions: rows, total: total.count, stats };
   });
@@ -121,7 +135,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   app.get('/sessions/:id', async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const [row] = await db.select().from(translatorSessions)
-      .where(and(eq(translatorSessions.id, id), eq(translatorSessions.workspace_id, request.auth.workspaceId)));
+      .where(eq(translatorSessions.id, id));
     if (!row) throw { statusCode: 404, message: 'Session not found' };
     return row;
   });
@@ -360,7 +374,15 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
 
     const conditions: any[] = [];
     if (q.plan) conditions.push(eq(workspaces.plan, q.plan));
-    if (q.search) conditions.push(like(workspaces.name, `%${q.search}%`));
+    if (q.search) {
+      const s = `%${q.search}%`;
+      conditions.push(or(
+        like(workspaces.name, s),
+        like(workspaces.owner_name, s),
+        // phone search: cast jsonb array to text and ILIKE
+        sql`${workspaces.phone_numbers}::text ILIKE ${s}`,
+      ));
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -431,6 +453,69 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       request.ip);
 
     return { success: true, new_balance: result.newBalance };
+  });
+
+  // ─── POST /workspaces/:id/refund-stripe — issue a real Stripe refund ─
+  app.post('/workspaces/:id/refund-stripe', async (request) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({
+      transaction_id: z.string().uuid('Original topup transaction id is required'),
+      amount_usd: z.number().positive().optional(),
+      reason: z.enum(['duplicate', 'fraudulent', 'requested_by_customer']).optional(),
+      comment: z.string().optional(),
+    }).parse(request.body);
+
+    // 1. Look up the original deposit transaction.
+    const [origTx] = await db.select().from(depositTransactions)
+      .where(and(
+        eq(depositTransactions.id, body.transaction_id),
+        eq(depositTransactions.workspace_id, id),
+      ));
+    if (!origTx) throw { statusCode: 404, message: 'Transaction not found' };
+    if (origTx.reference_type !== 'stripe_checkout' || !origTx.reference_id) {
+      throw { statusCode: 400, message: 'Transaction is not a Stripe checkout payment' };
+    }
+    if (origTx.type !== 'topup') {
+      throw { statusCode: 400, message: 'Only topup transactions can be refunded' };
+    }
+    const origAmount = Math.abs(parseFloat(origTx.amount_usd as string));
+    const refundAmount = body.amount_usd ?? origAmount;
+    if (refundAmount > origAmount) {
+      throw { statusCode: 400, message: `Refund amount $${refundAmount} exceeds original $${origAmount}` };
+    }
+
+    // 2. Issue Stripe refund.
+    const { refundDepositCheckout } = await import('../../services/stripe.service.js');
+    const stripeResult = await refundDepositCheckout({
+      workspaceId: id,
+      checkoutSessionId: origTx.reference_id,
+      amountUsd: refundAmount,
+      reason: body.reason,
+    });
+
+    // 3. Record refund in the ledger as a negative balance adjustment.
+    const { creditDeposit } = await import('../../services/billing.service.js');
+    const result = await creditDeposit({
+      workspaceId: id,
+      amountUsd: -refundAmount,
+      type: 'refund',
+      description: body.comment || `Stripe refund (${stripeResult.refundId})`,
+      referenceType: 'stripe_refund',
+      referenceId: stripeResult.refundId,
+      createdBy: request.auth.userId,
+    });
+
+    await auditLog(request.auth.userId, 'stripe_refund_issued', 'workspace', id,
+      { transaction_id: body.transaction_id, refund_id: stripeResult.refundId, amount_usd: refundAmount,
+        reason: body.reason, status: stripeResult.status, new_balance: result.newBalance },
+      request.ip);
+
+    return {
+      success: true,
+      refund_id: stripeResult.refundId,
+      status: stripeResult.status,
+      new_balance: result.newBalance,
+    };
   });
 
   // ─── DELETE /workspaces/:id ───────────────────────────────────────
@@ -594,8 +679,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── GET /billing-settings ───────────────────────────────────────────
   app.get('/billing-settings', async () => {
-    const keys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd',
-      'billing_agents_monthly_price', 'billing_agents_mcp_monthly_price'];
+    const keys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd'];
 
     const rows = await db.select().from(platformSettings)
       .where(or(...keys.map(k => eq(platformSettings.key, k))));
@@ -611,8 +695,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   app.put('/billing-settings', async (request) => {
     const body = z.record(z.union([z.string(), z.number()])).parse(request.body);
 
-    const allowedKeys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd',
-      'billing_agents_monthly_price', 'billing_agents_mcp_monthly_price'];
+    const allowedKeys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd'];
 
     for (const [key, value] of Object.entries(body)) {
       if (!allowedKeys.includes(key)) continue;

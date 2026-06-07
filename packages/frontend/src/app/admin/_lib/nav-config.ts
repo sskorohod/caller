@@ -6,20 +6,19 @@ export const navSections = [
     ],
   },
   {
-    label: 'Management',
+    label: 'Translator',
     items: [
-      { href: '/admin/tickets', icon: 'support_agent', label: 'Support Tickets' },
-      { href: '/admin/contacts', icon: 'mail', label: 'Contact Messages' },
+      { href: '/admin/workspaces', icon: 'person', label: 'Subscribers' },
       { href: '/admin/sessions', icon: 'history', label: 'Sessions' },
+      { href: '/admin/finance', icon: 'monitoring', label: 'Finance' },
       { href: '/admin/promo', icon: 'confirmation_number', label: 'Promo Codes' },
     ],
   },
   {
-    label: 'Billing',
+    label: 'Support',
     items: [
-      { href: '/admin/workspaces', icon: 'person', label: 'Users' },
-      { href: '/admin/finance', icon: 'monitoring', label: 'Finance' },
-      { href: '/admin/billing', icon: 'tune', label: 'Billing Config' },
+      { href: '/admin/tickets', icon: 'support_agent', label: 'Support Tickets' },
+      { href: '/admin/contacts', icon: 'mail', label: 'Contact Messages' },
     ],
   },
   {
@@ -39,30 +38,29 @@ export const navSections = [
 
 export const adminBottomTabs = [
   { key: 'Dashboard', href: '/admin', icon: 'dashboard' },
-  { key: 'Users', href: '/admin/workspaces', icon: 'person' },
+  { key: 'Subscribers', href: '/admin/workspaces', icon: 'person' },
   { key: 'Finance', href: '/admin/finance', icon: 'monitoring' },
-  { key: 'Providers', href: '/admin/providers', icon: 'hub' },
+  { key: 'Sessions', href: '/admin/sessions', icon: 'history' },
 ];
 
 export const adminMoreSections = [
   {
-    label: 'Management',
+    label: 'Translator',
     items: [
-      { href: '/admin/tickets', icon: 'support_agent', label: 'Support Tickets' },
-      { href: '/admin/contacts', icon: 'mail', label: 'Contact Messages' },
-      { href: '/admin/sessions', icon: 'history', label: 'Sessions' },
       { href: '/admin/promo', icon: 'confirmation_number', label: 'Promo Codes' },
     ],
   },
   {
-    label: 'Billing',
+    label: 'Support',
     items: [
-      { href: '/admin/billing', icon: 'tune', label: 'Billing Config' },
+      { href: '/admin/tickets', icon: 'support_agent', label: 'Support Tickets' },
+      { href: '/admin/contacts', icon: 'mail', label: 'Contact Messages' },
     ],
   },
   {
     label: 'Infrastructure',
     items: [
+      { href: '/admin/providers', icon: 'hub', label: 'Providers' },
       { href: '/admin/settings', icon: 'settings', label: 'Settings' },
     ],
   },

@@ -247,6 +247,34 @@ export async function handleDepositCheckoutCompleted(session: any): Promise<void
   log.info({ workspaceId, amountUsd, sessionId: session.id }, 'Deposit added from Stripe checkout');
 }
 
+/**
+ * Refund a Stripe Checkout deposit. Resolves the underlying payment_intent
+ * from the checkout session, then creates a refund. Amount in USD; omit for
+ * a full refund.
+ */
+export async function refundDepositCheckout(params: {
+  workspaceId: string;
+  checkoutSessionId: string;
+  amountUsd?: number;
+  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer';
+}): Promise<{ refundId: string; amountUsd: number; status: string }> {
+  const key = await getStripeKey(params.workspaceId);
+  const session = await stripeRequest(`/checkout/sessions/${params.checkoutSessionId}`, 'GET', undefined, key);
+  const paymentIntent = session.payment_intent;
+  if (!paymentIntent) throw new Error('Checkout session has no payment_intent (not paid?)');
+
+  const body: Record<string, string> = { payment_intent: String(paymentIntent) };
+  if (params.amountUsd != null) body.amount = String(Math.round(params.amountUsd * 100));
+  if (params.reason) body.reason = params.reason;
+
+  const refund = await stripeRequest('/refunds', 'POST', body, key);
+  return {
+    refundId: refund.id,
+    amountUsd: refund.amount / 100,
+    status: refund.status,
+  };
+}
+
 // ============================================================
 // SUBSCRIPTIONS
 // ============================================================
