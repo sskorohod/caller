@@ -123,6 +123,7 @@ export default function DashboardHub() {
 
   const live = liveCallId && !callEnded;
   const fmtPhone = (p: string) => p.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1) $2-$3');
+  const unlimited = balance != null && balance > 1000;
   const minutes = balance != null ? Math.floor(balance / PRICE_PER_MIN) : null;
 
   return (
@@ -140,7 +141,7 @@ export default function DashboardHub() {
             <p className="text-xs md:text-[13px] text-[var(--th-text-muted)] mt-1.5 leading-snug">{tt('During a call, add this number and tap "Merge" to bring in the translator.', 'Во время разговора добавьте этот номер и нажмите «Объединить», чтобы подключить переводчика.')}</p>
           </div>
           {/* Stats opposite the phone (30d + balance) */}
-          <div className="flex flex-wrap items-end gap-x-6 md:gap-x-8 gap-y-4 lg:shrink-0">
+          <div className="flex flex-wrap items-start gap-x-6 md:gap-x-8 gap-y-4 lg:shrink-0">
             {[
               { icon: 'call', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
               { icon: 'schedule', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
@@ -160,11 +161,23 @@ export default function DashboardHub() {
                 <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
                 <span className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide whitespace-nowrap">{tt('Balance', 'Баланс')}</span>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl md:text-2xl font-extrabold tabular-nums leading-none" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
-                {minutes != null && <span className="text-[11px] text-[var(--th-text-muted)]">≈ {minutes} {tt('min', 'мин')}</span>}
-                <button onClick={() => router.push('/dashboard/billing')} className="text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('Top up →', 'Пополнить →')}</button>
+              <div className="flex items-baseline gap-1.5">
+                {unlimited ? (
+                  <span className="text-xl md:text-2xl font-extrabold leading-none text-[var(--th-text)]">{tt('Unlimited', 'Безлимит')}</span>
+                ) : (
+                  <>
+                    <span className="text-xl md:text-2xl font-extrabold tabular-nums leading-none" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
+                    {minutes != null && (
+                      <span className="text-xl md:text-2xl font-extrabold tabular-nums leading-none text-[var(--th-text-muted)]">/ ≈{minutes}<span className="text-[11px] font-medium ml-1">{tt('min', 'мин')}</span></span>
+                    )}
+                  </>
+                )}
               </div>
+              <button onClick={() => router.push('/dashboard/billing')}
+                className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+                style={{ background: 'var(--th-primary)' }}>
+                {tt('Top up balance', 'Пополнить баланс')} <span aria-hidden>→</span>
+              </button>
             </div>
           </div>
         </div>
@@ -267,10 +280,18 @@ export default function DashboardHub() {
           {/* Voice */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.voice')}</label>
-            <select value={defaults.tts_voice_id || 'eve'} onChange={e => update({ tts_voice_id: e.target.value })} className={selectCls}>
-              <optgroup label="Female">{VOICES.filter(v => v.gender === 'Female').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}</optgroup>
-              <optgroup label="Male">{VOICES.filter(v => v.gender === 'Male').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}</optgroup>
-            </select>
+            <div className="grid grid-cols-3 gap-2">
+              {VOICES.map(v => {
+                const on = (defaults.tts_voice_id || 'eve') === v.value;
+                return (
+                  <button key={v.value} onClick={() => update({ tts_voice_id: v.value })}
+                    className="px-2 py-2 rounded-xl border text-xs font-medium transition-all"
+                    style={on ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.08)', color: 'var(--th-text)' } : { borderColor: 'var(--th-border)', color: 'var(--th-text-muted)' }}>
+                    {v.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Tone */}

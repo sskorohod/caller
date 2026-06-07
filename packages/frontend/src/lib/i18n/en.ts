@@ -17,7 +17,7 @@ const en: Record<string, string> = {
 
   // Nav
   'nav.overview': 'Home',
-  'nav.calls': 'Calls',
+  'nav.calls': 'Call recordings',
   'nav.dialer': 'Dialer',
   'nav.translator': 'Translator',
   'nav.sandbox': 'Trainer',

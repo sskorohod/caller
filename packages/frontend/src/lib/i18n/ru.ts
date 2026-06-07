@@ -17,7 +17,7 @@ const ru: Record<string, string> = {
 
   // Nav
   'nav.overview': 'Главная',
-  'nav.calls': 'Звонки',
+  'nav.calls': 'Записи звонков',
   'nav.dialer': 'Набиратель',
   'nav.translator': 'Переводчик',
   'nav.sandbox': 'Тренажёр',
