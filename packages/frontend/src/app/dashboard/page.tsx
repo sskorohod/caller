@@ -126,9 +126,9 @@ export default function DashboardHub() {
   const minutes = balance != null ? Math.floor(balance / PRICE_PER_MIN) : null;
 
   return (
-    <div className="space-y-3 md:space-y-4">
+    <div className="flex flex-col gap-3 md:gap-4 lg:h-[calc(100vh-2.5rem)]">
       {/* ── Header: number · balance · 30d stats ──────────────── */}
-      <div className={`${card} relative overflow-hidden p-5 md:p-6`}>
+      <div className={`${card} relative overflow-hidden p-5 md:p-6 shrink-0`}>
         <div className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full blur-3xl opacity-30" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%)' }} />
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-6">
           {/* Number (left) */}
@@ -171,9 +171,9 @@ export default function DashboardHub() {
       </div>
 
       {/* ── Live | Settings ───────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4 lg:flex-1 lg:min-h-0">
         {/* Live panel */}
-        <div className={`${card} lg:col-span-6 flex flex-col min-h-[420px]`}>
+        <div className={`${card} lg:col-span-6 flex flex-col min-h-[420px] lg:min-h-0`}>
           <div className="px-4 py-3 border-b border-[var(--th-border)] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${live ? 'bg-emerald-400 animate-pulse' : 'bg-[var(--th-text-muted)]'}`} />
@@ -186,7 +186,7 @@ export default function DashboardHub() {
               </button>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 max-h-[60vh]">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
             {!liveCallId ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-8">
                 <div className="w-14 h-14 rounded-2xl bg-[var(--th-surface)] flex items-center justify-center mb-3">
@@ -227,7 +227,7 @@ export default function DashboardHub() {
         </div>
 
         {/* Settings panel (compact, all visible, autosave) */}
-        <div className={`${card} lg:col-span-6 p-4 md:p-5 space-y-4`}>
+        <div className={`${card} lg:col-span-6 p-4 md:p-5 space-y-4 lg:overflow-y-auto lg:min-h-0`}>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[var(--th-text)]">{t('translator.settings') || tt('Settings', 'Настройки')}</h3>
             {savedTick && <span className="text-[11px] font-medium text-[var(--th-success-text)]">✓ {tt('Saved', 'Сохранено')}</span>}
