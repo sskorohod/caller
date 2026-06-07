@@ -167,6 +167,10 @@ function Landing() {
 
       {/* ─── Why ─────────────────────────────────────────────── */}
       <section className="lp-wrap section">
+        <div className="section-head" data-reveal>
+          <p className="eyebrow"><span className="dot" />{t('Why Caller', 'Почему Caller')}</p>
+          <h2 className="display section-h">{t('Accurate, simple, honest', 'Точно, просто, честно')}</h2>
+        </div>
         <div className="why">
           {[
             {
@@ -198,8 +202,11 @@ function Landing() {
         </div>
       </section>
 
+      {/* ─── Greetings marquee ───────────────────────────────── */}
+      <GreetingsMarquee />
+
       {/* ─── Languages ───────────────────────────────────────── */}
-      <section className="lp-wrap section">
+      <section className="lp-wrap section section-flush-top">
         <div className="section-head" data-reveal>
           <p className="eyebrow"><span className="dot" />{t('Languages', 'Языки')}</p>
           <h2 className="display section-h">{t('Twelve languages, any direction', 'Двенадцать языков, в любую сторону')}</h2>
@@ -363,6 +370,22 @@ function LangToggle() {
   );
 }
 
+function GreetingsMarquee() {
+  // "Hello" across the 12 supported languages — an animated multilingual band.
+  const greetings = ['Hello', 'Hola', 'Привет', '你好', 'مرحبا', 'Bonjour', 'Olá', 'こんにちは', '안녕하세요', 'Hallo', 'Ciao', 'नमस्ते'];
+  const loop = [...greetings, ...greetings];
+  return (
+    <div className="marquee-band" aria-hidden>
+      <div className="marquee-row">
+        {loop.map((g, i) => <span key={i} className={i % 3 === 0 ? 'accent' : ''}>{g}</span>)}
+      </div>
+      <div className="marquee-row rev">
+        {loop.map((g, i) => <span key={i} className={i % 3 === 1 ? 'accent' : ''}>{g}</span>)}
+      </div>
+    </div>
+  );
+}
+
 function FAQ(t: (en: string, ru: string) => string) {
   return [
     { q: t('Do I need to install an app?', 'Нужно ли устанавливать приложение?'), a: t('No. Caller is a phone number you merge into a normal call. Nothing to download, and the other person needs nothing at all.', 'Нет. Caller — это номер, который вы подключаете в обычный звонок. Ничего скачивать не нужно, а собеседнику — тем более.') },
@@ -436,7 +459,8 @@ const LP_CSS = `
 .eyebrow { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 16px; }
 .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
 .lead { color: var(--ink-2); }
-.section { padding-top: 104px; }
+.section { padding-top: 88px; }
+.section-flush-top { padding-top: 44px; }
 .section-head { max-width: 640px; margin-bottom: 44px; }
 .section-h { font-size: clamp(28px, 4vw, 42px); line-height: 1.08; margin: 0; }
 
@@ -499,6 +523,13 @@ const LP_CSS = `
 .why-h { font-size: 21px; line-height: 1.2; margin: 8px 0 12px; font-weight: 700; }
 .why-body { color: var(--ink-2); font-size: 15px; margin: 0; }
 
+/* Greetings marquee */
+.marquee-band { margin-top: 80px; padding: 24px 0; border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.marquee-row { display: flex; gap: 44px; width: max-content; will-change: transform; animation: marquee 42s linear infinite; }
+.marquee-row.rev { animation-direction: reverse; animation-duration: 54s; margin-top: 12px; }
+.marquee-row span { font-family: 'Manrope', system-ui, sans-serif; font-weight: 700; font-size: clamp(20px, 2.6vw, 30px); letter-spacing: -0.01em; color: var(--ink); opacity: 0.42; }
+.marquee-row span.accent { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; opacity: 0.95; }
+
 /* Languages */
 .langs { display: flex; flex-wrap: wrap; gap: 10px 30px; }
 .lang { font-size: clamp(26px, 3.6vw, 40px); color: var(--ink); line-height: 1.2; font-weight: 700; opacity: .9; transition: color .2s, opacity .2s; }
@@ -553,6 +584,7 @@ const LP_CSS = `
 @keyframes tx-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes tx-pulse { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); } 70% { box-shadow: 0 0 0 8px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
 @keyframes tx-bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 40px; }
@@ -560,14 +592,15 @@ const LP_CSS = `
   .steps, .why { grid-template-columns: 1fr; gap: 16px; }
   .pricing { grid-template-columns: 1fr; gap: 28px; }
   .lp-nav-links { display: none; }
-  .section { padding-top: 80px; }
+  .section { padding-top: 64px; }
+  .marquee-band { margin-top: 56px; }
 }
 @media (max-width: 520px) {
   .lp-wrap { padding-left: 18px; padding-right: 18px; }
   .nav-login { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal], .tx-row, .tx-typing, .tx-float, .hero-glow, .gradient-text, .lang:nth-child(3n+1) { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
+  [data-reveal], .tx-row, .tx-typing, .tx-float, .hero-glow, .gradient-text, .lang:nth-child(3n+1), .marquee-row { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
   .tx-dot { animation: none !important; }
 }
 `;
