@@ -186,7 +186,26 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       await db.insert(providerCredentials).values({ workspace_id: wsId, provider: name, credential_data: encrypted });
     }
 
+    // Mark this workspace as the platform Stripe account — all client payments
+    // route through whoever the admin connected here.
+    if (name === 'stripe') {
+      await db.insert(platformSettings)
+        .values({ key: 'platform_stripe_workspace_id', value: wsId as any, updated_at: new Date() })
+        .onConflictDoUpdate({ target: platformSettings.key, set: { value: wsId as any, updated_at: new Date() } });
+    }
+
     await auditLog(request.auth.userId, 'provider_updated', 'provider', name, { provider: name }, request.ip);
+    return { ok: true };
+  });
+
+  // DELETE /providers/:name — remove a manually-entered provider credential.
+  app.delete('/providers/:name', async (request) => {
+    const { name } = z.object({ name: z.string() }).parse(request.params);
+    await deleteProviderCredential(request.auth.workspaceId, name as any);
+    if (name === 'stripe') {
+      await db.delete(platformSettings).where(eq(platformSettings.key, 'platform_stripe_workspace_id'));
+    }
+    await auditLog(request.auth.userId, 'provider_deleted', 'provider', name, { provider: name }, request.ip);
     return { ok: true };
   });
 
@@ -311,6 +330,9 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       },
     });
     await markProviderVerified(request.auth.workspaceId, 'stripe');
+    await db.insert(platformSettings)
+      .values({ key: 'platform_stripe_workspace_id', value: request.auth.workspaceId as any, updated_at: new Date() })
+      .onConflictDoUpdate({ target: platformSettings.key, set: { value: request.auth.workspaceId as any, updated_at: new Date() } });
 
     await auditLog(request.auth.userId, 'stripe_connected', 'provider', 'stripe',
       { stripe_user_id: tokens.stripe_user_id, livemode: tokens.livemode }, request.ip);
@@ -319,15 +341,27 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/stripe/status', async (request) => {
+    const oauth_available = isStripeConnectConfigured();
     try {
       const creds = await getProviderCredential(request.auth.workspaceId, 'stripe');
-      if (creds.access_token) {
-        const info = await fetchAccountInfo(creds.access_token);
-        return { connected: true, stripe_user_id: creds.stripe_user_id, business_name: info.business_name, email: info.email, livemode: creds.livemode === 'true' };
+      const apiKey = creds.access_token || creds.secret_key;
+      if (apiKey) {
+        let business_name: string | null | undefined;
+        let email: string | null | undefined;
+        try {
+          const info = await fetchAccountInfo(apiKey);
+          business_name = info.business_name;
+          email = info.email;
+        } catch { /* account fetch failed — still connected */ }
+        const mode = creds.access_token ? 'oauth' : 'manual';
+        const livemode = creds.access_token
+          ? creds.livemode === 'true'
+          : (creds.secret_key?.includes('_live_') ?? false);
+        return { connected: true, mode, stripe_user_id: creds.stripe_user_id ?? null, business_name, email, livemode, oauth_available };
       }
-      return { connected: true, stripe_user_id: creds.stripe_user_id ?? null, livemode: false };
+      return { connected: false, oauth_available };
     } catch {
-      return { connected: false };
+      return { connected: false, oauth_available };
     }
   });
 
@@ -338,6 +372,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     } catch { /* not connected — ok */ }
 
     await deleteProviderCredential(request.auth.workspaceId, 'stripe');
+    await db.delete(platformSettings).where(eq(platformSettings.key, 'platform_stripe_workspace_id'));
     await auditLog(request.auth.userId, 'stripe_disconnected', 'provider', 'stripe', {}, request.ip);
     return { ok: true };
   });

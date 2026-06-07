@@ -117,12 +117,28 @@ export default function ProvidersPage() {
     setStripeLoading(false);
   };
 
+  const handleStripeRemove = async () => {
+    if (!confirm('Remove the saved Stripe keys? New client payments will stop until you add a key again.')) return;
+    setStripeLoading(true);
+    try {
+      await api.delete('/admin/providers/stripe');
+      setStripeStatus({ connected: false });
+      await load();
+      await loadStripeStatus();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to remove Stripe key');
+    }
+    setStripeLoading(false);
+  };
+
   if (loading) return <AdminLoadingState rows={5} />;
 
   const renderStripeCard = () => {
     const cfg = PROVIDER_CONFIG.stripe;
     const p = providers.stripe;
-    const isOAuth = stripeStatus?.connected && stripeStatus?.stripe_user_id;
+    const isOAuth = stripeStatus?.mode === 'oauth';
+    const connected = !!(stripeStatus?.connected || p?.connected);
+    const oauthAvailable = !!stripeStatus?.oauth_available;
 
     return (
       <div key="stripe" className="glass-panel rounded-2xl p-4 md:p-6">
@@ -136,30 +152,28 @@ export default function ProvidersPage() {
             </div>
             <div>
               <div className="font-bold text-sm">{cfg.label}</div>
-              {isOAuth && stripeStatus.business_name && (
+              {stripeStatus?.business_name ? (
                 <div className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>{stripeStatus.business_name}</div>
-              )}
-              {isOAuth && !stripeStatus.business_name && stripeStatus.stripe_user_id && (
+              ) : stripeStatus?.stripe_user_id ? (
                 <div className="text-xs font-mono" style={{ color: 'var(--th-text-secondary)' }}>{stripeStatus.stripe_user_id}</div>
-              )}
-              {!isOAuth && p?.masked_key && (
+              ) : p?.masked_key ? (
                 <div className="text-xs font-mono" style={{ color: 'var(--th-text-secondary)' }}>{p.masked_key}</div>
-              )}
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isOAuth && stripeStatus.livemode !== undefined && (
+            {connected && stripeStatus?.livemode !== undefined && (
               <AdminBadge variant={stripeStatus.livemode ? 'success' : 'warning'}>
                 {stripeStatus.livemode ? 'Live' : 'Test'}
               </AdminBadge>
             )}
-            <AdminBadge variant={(isOAuth || p?.connected) ? 'success' : 'neutral'}>
-              {isOAuth ? 'OAuth Connected' : p?.connected ? 'Connected' : 'Not Connected'}
+            <AdminBadge variant={connected ? 'success' : 'neutral'}>
+              {connected ? (isOAuth ? 'OAuth Connected' : 'Connected') : 'Not Connected'}
             </AdminBadge>
           </div>
         </div>
 
-        {isOAuth && stripeStatus.email && (
+        {stripeStatus?.email && (
           <div className="text-xs mb-3" style={{ color: 'var(--th-text-secondary)' }}>{stripeStatus.email}</div>
         )}
 
@@ -182,42 +196,63 @@ export default function ProvidersPage() {
         )}
 
         <div className="flex flex-wrap gap-2">
-          {isOAuth ? (
+          {!connected && (
             <button
-              onClick={handleStripeDisconnect}
+              onClick={() => { setEditing('stripe'); setForm({}); setSaveError(null); }}
+              className="btn-primary px-4 py-1.5 rounded-lg text-xs font-bold"
+            >
+              Add Stripe key
+            </button>
+          )}
+          {!connected && oauthAvailable && (
+            <button
+              onClick={handleStripeConnect}
               disabled={stripeLoading}
               className="px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+              style={{ background: 'var(--th-surface)', color: 'var(--th-text-secondary)' }}
             >
-              {stripeLoading ? 'Disconnecting...' : 'Disconnect'}
+              {stripeLoading ? 'Redirecting...' : 'Connect with Stripe (OAuth)'}
             </button>
-          ) : (
+          )}
+          {connected && (
             <>
               <button
-                onClick={handleStripeConnect}
-                disabled={stripeLoading}
-                className="btn-primary px-4 py-1.5 rounded-lg text-xs font-bold"
-              >
-                {stripeLoading ? 'Redirecting...' : 'Connect with Stripe'}
-              </button>
-              <button
-                onClick={() => { setEditing('stripe'); setForm({}); setSaveError(null); }}
+                onClick={() => handleTest('stripe')}
+                disabled={testing === 'stripe'}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                style={{ background: 'var(--th-surface)', color: 'var(--th-text-secondary)' }}
+                style={{ background: 'var(--th-primary-bg)', color: 'var(--th-primary-text)' }}
               >
-                Enter keys manually
+                {testing === 'stripe' ? 'Testing...' : 'Test'}
               </button>
+              {isOAuth ? (
+                <button
+                  onClick={handleStripeDisconnect}
+                  disabled={stripeLoading}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+                >
+                  {stripeLoading ? 'Disconnecting...' : 'Disconnect'}
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setEditing('stripe'); setForm({}); setSaveError(null); }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: 'var(--th-surface)', color: 'var(--th-text-secondary)' }}
+                  >
+                    Update keys
+                  </button>
+                  <button
+                    onClick={handleStripeRemove}
+                    disabled={stripeLoading}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+                  >
+                    {stripeLoading ? 'Removing...' : 'Remove'}
+                  </button>
+                </>
+              )}
             </>
-          )}
-          {(isOAuth || p?.connected) && (
-            <button
-              onClick={() => handleTest('stripe')}
-              disabled={testing === 'stripe'}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ background: 'var(--th-primary-bg)', color: 'var(--th-primary-text)' }}
-            >
-              {testing === 'stripe' ? 'Testing...' : 'Test'}
-            </button>
           )}
         </div>
       </div>

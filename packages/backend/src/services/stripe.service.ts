@@ -2,7 +2,7 @@ import pino from 'pino';
 import crypto from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { translatorSubscribers, workspaces } from '../db/schema.js';
+import { translatorSubscribers, workspaces, platformSettings } from '../db/schema.js';
 import { getProviderCredential } from './provider.service.js';
 import type { WorkspacePlan } from '../models/types.js';
 
@@ -25,6 +25,64 @@ async function getStripeKey(workspaceId?: string): Promise<string> {
   }
   if (STRIPE_SECRET_KEY) return STRIPE_SECRET_KEY;
   throw new Error('Stripe not configured');
+}
+
+/**
+ * The workspace that holds the platform's Stripe credentials (set by the admin
+ * when they enter Stripe keys in the admin panel). All client payments flow
+ * into this ONE business account.
+ */
+async function getPlatformStripeWorkspaceId(): Promise<string | null> {
+  try {
+    const [row] = await db.select({ value: platformSettings.value })
+      .from(platformSettings)
+      .where(eq(platformSettings.key, 'platform_stripe_workspace_id'))
+      .limit(1);
+    if (!row || row.value == null) return null;
+    return typeof row.value === 'string' ? row.value : String(row.value);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the PLATFORM Stripe secret key — the single business account that
+ * receives all client payments. Admin-entered key (platform workspace's
+ * provider_credentials) takes priority; falls back to env STRIPE_SECRET_KEY.
+ */
+export async function getPlatformStripeKey(): Promise<string> {
+  const wsId = await getPlatformStripeWorkspaceId();
+  if (wsId) {
+    try {
+      const creds = await getProviderCredential(wsId, 'stripe');
+      if (creds.secret_key) return creds.secret_key;
+      if (creds.access_token) return creds.access_token;
+    } catch { /* fall through to env */ }
+  }
+  if (STRIPE_SECRET_KEY) return STRIPE_SECRET_KEY;
+  throw new Error('Stripe not configured');
+}
+
+/** Resolve the platform webhook signing secret (panel-entered, else env). */
+export async function getPlatformWebhookSecret(): Promise<string> {
+  const wsId = await getPlatformStripeWorkspaceId();
+  if (wsId) {
+    try {
+      const creds = await getProviderCredential(wsId, 'stripe');
+      if (creds.webhook_secret) return creds.webhook_secret;
+    } catch { /* fall through to env */ }
+  }
+  return STRIPE_WEBHOOK_SECRET;
+}
+
+/** True if a platform Stripe account (panel or env) is configured. */
+export async function isPlatformStripeConfigured(): Promise<boolean> {
+  try {
+    await getPlatformStripeKey();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function stripeRequest(path: string, method: string, body?: Record<string, string>, secretKey?: string): Promise<any> {
@@ -54,8 +112,9 @@ export function isStripeConfigured(): boolean {
 /**
  * Verify Stripe webhook signature with replay protection.
  */
-export function verifyWebhookSignature(payload: string, signature: string): boolean {
-  if (!STRIPE_WEBHOOK_SECRET) return false;
+export function verifyWebhookSignature(payload: string, signature: string, secret?: string): boolean {
+  const webhookSecret = secret || STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) return false;
   const parts = signature.split(',').reduce((acc, part) => {
     const [k, v] = part.split('=');
     acc[k] = v;
@@ -74,7 +133,7 @@ export function verifyWebhookSignature(payload: string, signature: string): bool
   }
 
   const expected = crypto
-    .createHmac('sha256', STRIPE_WEBHOOK_SECRET)
+    .createHmac('sha256', webhookSecret)
     .update(`${timestamp}.${payload}`)
     .digest('hex');
 
@@ -184,28 +243,28 @@ export async function createDepositCheckout(params: {
   successUrl: string;
   cancelUrl: string;
 }): Promise<{ url: string; sessionId: string }> {
-  const key = await getStripeKey(params.workspaceId);
+  // All client payments flow into the ONE platform Stripe account.
+  const key = await getPlatformStripeKey();
 
   const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, params.workspaceId));
   if (!ws) throw new Error('Workspace not found');
 
-  // Create or reuse Stripe customer for workspace
-  let customerId = ws.stripe_customer_id;
-  if (!customerId) {
+  const createCustomer = async (): Promise<string> => {
     const customer = await stripeRequest('/customers', 'POST', {
       name: ws.name,
       'metadata[workspace_id]': ws.id,
     }, key);
-    customerId = customer.id;
     await db.update(workspaces)
-      .set({ stripe_customer_id: customerId })
+      .set({ stripe_customer_id: customer.id })
       .where(eq(workspaces.id, ws.id));
-  }
+    return customer.id as string;
+  };
 
+  let customerId = ws.stripe_customer_id || (await createCustomer());
   const amountCents = Math.round(params.amountUsd * 100);
 
-  const session = await stripeRequest('/checkout/sessions', 'POST', {
-    customer: customerId!,
+  const buildBody = (customer: string): Record<string, string> => ({
+    customer,
     mode: 'payment',
     'line_items[0][price_data][currency]': 'usd',
     'line_items[0][price_data][unit_amount]': String(amountCents),
@@ -217,7 +276,20 @@ export async function createDepositCheckout(params: {
     'metadata[amount_usd]': String(params.amountUsd),
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
-  }, key);
+  });
+
+  let session;
+  try {
+    session = await stripeRequest('/checkout/sessions', 'POST', buildBody(customerId), key);
+  } catch (err) {
+    // Stale stripe_customer_id (created against a different account) — recreate once.
+    if (String((err as Error).message).toLowerCase().includes('no such customer')) {
+      customerId = await createCustomer();
+      session = await stripeRequest('/checkout/sessions', 'POST', buildBody(customerId), key);
+    } else {
+      throw err;
+    }
+  }
 
   return { url: session.url, sessionId: session.id };
 }
@@ -258,7 +330,8 @@ export async function refundDepositCheckout(params: {
   amountUsd?: number;
   reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer';
 }): Promise<{ refundId: string; amountUsd: number; status: string }> {
-  const key = await getStripeKey(params.workspaceId);
+  // Refund must run against the platform account that processed the charge.
+  const key = await getPlatformStripeKey();
   const session = await stripeRequest(`/checkout/sessions/${params.checkoutSessionId}`, 'GET', undefined, key);
   const paymentIntent = session.payment_intent;
   if (!paymentIntent) throw new Error('Checkout session has no payment_intent (not paid?)');

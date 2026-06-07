@@ -9,7 +9,8 @@ import {
   handleSubscriptionEvent,
   handleInvoiceEvent,
   verifyWebhookSignature,
-  isStripeConfigured,
+  getPlatformWebhookSecret,
+  isPlatformStripeConfigured,
 } from '../../services/stripe.service.js';
 import { env } from '../../config/env.js';
 import { db } from '../../config/db.js';
@@ -24,16 +25,8 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
   app.post('/checkout', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request, reply) => {
-    // Check if Stripe is available either via env or OAuth credentials
-    let stripeAvailable = isStripeConfigured();
-    if (!stripeAvailable) {
-      try {
-        const { getProviderCredential } = await import('../../services/provider.service.js');
-        const creds = await getProviderCredential(request.auth.workspaceId, 'stripe');
-        stripeAvailable = !!(creds.access_token || creds.secret_key);
-      } catch { /* not configured */ }
-    }
-    if (!stripeAvailable) {
+    // Stripe is available if the platform account (panel key or env) is set up.
+    if (!(await isPlatformStripeConfigured())) {
       reply.status(503).send({ error: 'Stripe not configured' });
       return;
     }
@@ -80,7 +73,8 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
     const signature = request.headers['stripe-signature'] as string;
     const rawBody = (request as any).rawBody || JSON.stringify(request.body);
 
-    if (!verifyWebhookSignature(rawBody, signature ?? '')) {
+    const webhookSecret = await getPlatformWebhookSecret();
+    if (!verifyWebhookSignature(rawBody, signature ?? '', webhookSecret)) {
       reply.status(400).send({ error: 'Invalid signature' });
       return;
     }

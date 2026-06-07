@@ -160,10 +160,12 @@ export interface BillingSettings {
 // Providers
 export interface StripeStatus {
   connected: boolean;
-  stripe_user_id?: string;
-  business_name?: string;
-  email?: string;
+  mode?: 'oauth' | 'manual';
+  stripe_user_id?: string | null;
+  business_name?: string | null;
+  email?: string | null;
   livemode?: boolean;
+  oauth_available?: boolean;
 }
 
 export interface ProviderConfig {
