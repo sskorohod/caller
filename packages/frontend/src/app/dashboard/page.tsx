@@ -35,8 +35,6 @@ const card = 'rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(-
 const selectCls = 'w-full px-3 py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] transition-all appearance-none';
 const PRICE_PER_MIN = 0.2;
 
-function fmtDur(secs: number) { const m = Math.floor(secs / 60), s = secs % 60; return `${m}:${String(s).padStart(2, '0')}`; }
-
 export default function DashboardHub() {
   const t = useT();
   const { lang } = useI18n();
@@ -174,7 +172,7 @@ export default function DashboardHub() {
       {/* ── Live | Settings ───────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
         {/* Live panel */}
-        <div className={`${card} lg:col-span-8 flex flex-col min-h-[420px]`}>
+        <div className={`${card} lg:col-span-6 flex flex-col min-h-[420px]`}>
           <div className="px-4 py-3 border-b border-[var(--th-border)] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${live ? 'bg-emerald-400 animate-pulse' : 'bg-[var(--th-text-muted)]'}`} />
@@ -228,7 +226,7 @@ export default function DashboardHub() {
         </div>
 
         {/* Settings panel (compact, all visible, autosave) */}
-        <div className={`${card} lg:col-span-4 p-4 md:p-5 space-y-4`}>
+        <div className={`${card} lg:col-span-6 p-4 md:p-5 space-y-4`}>
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[var(--th-text)]">{t('translator.settings') || tt('Settings', 'Настройки')}</h3>
             {savedTick && <span className="text-[11px] font-medium text-[var(--th-success-text)]">✓ {tt('Saved', 'Сохранено')}</span>}
@@ -297,33 +295,6 @@ export default function DashboardHub() {
               className={selectCls + ' resize-y font-mono text-xs'} />
           </div>
         </div>
-      </div>
-
-      {/* ── Recent sessions ───────────────────────────────────── */}
-      <div className={`${card} p-4 md:p-5`}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-[var(--th-text)]">{tt('Recent sessions', 'Последние сессии')}</h3>
-          <button onClick={() => router.push('/dashboard/calls')} className="text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('All sessions →', 'Все сессии →')}</button>
-        </div>
-        {usage && usage.sessions.length > 0 ? (
-          <div className="space-y-0.5 -mx-2">
-            {usage.sessions.slice(0, 6).map(s => (
-              <button key={s.id} onClick={() => router.push(s.call_id ? `/dashboard/calls?call=${s.call_id}` : '/dashboard/calls')}
-                className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left hover:bg-[var(--th-surface)] transition-colors group">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--th-surface)' }}>
-                  <span className="material-symbols-outlined text-base text-[var(--th-text-muted)] group-hover:text-[var(--th-primary)] transition-colors">graphic_eq</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-[var(--th-text)]">{new Date(s.created_at).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                  <div className="text-[11px] text-[var(--th-text-muted)]">{fmtDur(s.duration_seconds)} · {s.words} {tt('words', 'слов')}</div>
-                </div>
-                <div className="text-sm font-bold tabular-nums text-[var(--th-text)] shrink-0">${s.cost_usd.toFixed(2)}</div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="py-8 text-center text-sm text-[var(--th-text-muted)]">{tt('No sessions yet — make your first translated call.', 'Пока нет сессий — сделай первый перевод.')}</div>
-        )}
       </div>
     </div>
   );
