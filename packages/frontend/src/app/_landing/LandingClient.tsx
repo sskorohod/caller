@@ -1,912 +1,557 @@
 'use client';
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { useState } from 'react';
-import AnimatedSection from './AnimatedSection';
-import AnimatedCounter from './AnimatedCounter';
-import FaqAccordion from './FaqAccordion';
-import ContactPopup from './ContactPopup';
-import { useLang, LangSwitcher, LangProvider } from './useLang';
+import { LangProvider, useLang } from './useLang';
 
-/* ── Inline styles tag ───────────────────────────────────────────────── */
-function LandingStyles() {
-  return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
-      .font-headline { font-family: 'Manrope', sans-serif; }
-      .glass-panel { background: rgba(26, 32, 44, 0.55); backdrop-filter: blur(24px); border: 0.5px solid rgba(140, 144, 159, 0.12); }
-
-      .gradient-text { background: linear-gradient(135deg, #adc6ff 0%, #818cf8 50%, #d0bcff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% 200%; animation: gradient-shift 6s ease infinite; }
-      .gradient-text-green { background: linear-gradient(135deg, #4ade80 0%, #22d3ee 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-      .gradient-text-amber { background: linear-gradient(135deg, #fbbf24 0%, #fb923c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-
-      @keyframes gradient-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-      @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
-      @keyframes float-slow { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(3deg); } }
-      @keyframes float-delayed { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-      @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(2.5); opacity: 0; } }
-      @keyframes pulse-glow { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
-      @keyframes orbit { 0% { transform: rotate(0deg) translateX(60px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(60px) rotate(-360deg); } }
-      @keyframes orbit-reverse { 0% { transform: rotate(0deg) translateX(45px) rotate(0deg); } 100% { transform: rotate(-360deg) translateX(45px) rotate(360deg); } }
-      @media (min-width: 640px) {
-        @keyframes orbit { 0% { transform: rotate(0deg) translateX(120px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(120px) rotate(-360deg); } }
-        @keyframes orbit-reverse { 0% { transform: rotate(0deg) translateX(90px) rotate(0deg); } 100% { transform: rotate(-360deg) translateX(90px) rotate(360deg); } }
-      }
-      @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-      @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-      @keyframes wave-flow { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-
-      .animate-float { animation: float 6s ease-in-out infinite; }
-      .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
-      .animate-float-delayed { animation: float-delayed 7s ease-in-out infinite 1s; }
-      .animate-orbit { animation: orbit 20s linear infinite; }
-      .animate-orbit-reverse { animation: orbit-reverse 15s linear infinite; }
-
-      .hero-glow { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
-
-      .bento-card { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-      .bento-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 40px rgba(173,198,255,0.05); }
-
-      .shimmer-border { background: linear-gradient(90deg, transparent, rgba(173,198,255,0.15), transparent); background-size: 200% 100%; animation: shimmer 3s ease infinite; }
-
-      .cta-glow { box-shadow: 0 4px 32px rgba(77,142,255,0.3), 0 0 80px rgba(77,142,255,0.1); transition: all 0.3s ease; }
-      .cta-glow:hover { box-shadow: 0 6px 40px rgba(77,142,255,0.45), 0 0 100px rgba(77,142,255,0.15); transform: translateY(-2px); }
-
-      @media (prefers-reduced-motion: reduce) {
-        .animate-float, .animate-float-slow, .animate-float-delayed, .animate-orbit, .animate-orbit-reverse { animation: none; }
-        .gradient-text { animation: none; }
-      }
-    `}</style>
-  );
-}
-
-/* ── Orb component for hero background ───────────────────────────────── */
-function HeroOrbs() {
-  return (
-    <>
-      <div className="hero-glow max-w-[80vw] sm:max-w-none" style={{ top: '-10%', left: '15%', width: '600px', height: '600px', background: 'rgba(99,102,241,0.08)' }} />
-      <div className="hero-glow max-w-[70vw] sm:max-w-none" style={{ top: '10%', right: '10%', width: '500px', height: '500px', background: 'rgba(139,92,246,0.06)' }} />
-      <div className="hero-glow max-w-[60vw] sm:max-w-none animate-float-slow" style={{ bottom: '0', left: '40%', width: '400px', height: '400px', background: 'rgba(34,211,238,0.04)' }} />
-      {/* Grid pattern */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{
-        backgroundImage: `linear-gradient(rgba(173,198,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(173,198,255,0.3) 1px, transparent 1px)`,
-        backgroundSize: '64px 64px',
-        maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 70%)',
-        WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 70%)',
-      }} />
-    </>
-  );
-}
-
-/* ── Phone illustration for hero ─────────────────────────────────────── */
-function HeroVisual() {
-  return (
-    <div className="relative w-full max-w-5xl mx-auto mt-16 md:mt-20 overflow-hidden">
-      {/* Orbiting elements */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="animate-orbit">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.2)', backdropFilter: 'blur(8px)' }}>
-            <span className="material-symbols-outlined text-base" style={{ color: '#4ade80' }}>mic</span>
-          </div>
-        </div>
-      </div>
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="animate-orbit-reverse">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(173,198,255,0.12)', border: '1px solid rgba(173,198,255,0.2)', backdropFilter: 'blur(8px)' }}>
-            <span className="material-symbols-outlined text-base" style={{ color: '#adc6ff' }}>translate</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main dashboard mockup */}
-      <div className="glass-panel rounded-2xl md:rounded-3xl p-1 md:p-1.5 relative" style={{ boxShadow: '0 32px 100px rgba(0,0,0,0.5), 0 0 60px rgba(99,102,241,0.08)' }}>
-        {/* Shimmer top border */}
-        <div className="absolute top-0 left-0 right-0 h-px shimmer-border" />
-
-        {/* Browser chrome */}
-        <div className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-t-xl md:rounded-t-2xl" style={{ background: 'rgba(14,19,31,0.9)' }}>
-          <div className="flex gap-1.5">
-            <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ background: '#ff5f57' }} />
-            <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ background: '#febc2e' }} />
-            <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full" style={{ background: '#28c840' }} />
-          </div>
-          <div className="flex-1 mx-4 py-1 px-3 rounded-md text-[9px] md:text-[10px] font-mono text-center" style={{ background: 'rgba(255,255,255,0.04)', color: '#c2c6d6' }}>
-            caller.n8nskorx.top/dashboard
-          </div>
-        </div>
-
-        {/* Dashboard content */}
-        <div className="rounded-b-xl md:rounded-b-2xl overflow-hidden" style={{ background: '#111318' }}>
-          <div className="flex">
-            {/* Sidebar */}
-            <div className="hidden md:block w-44 p-3 space-y-0.5" style={{ background: '#0a0e16', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
-              {[
-                { label: 'Dashboard', icon: 'dashboard', active: true },
-                { label: 'Calls', icon: 'call', active: false },
-                { label: 'Agents', icon: 'smart_toy', active: false },
-                { label: 'Translator', icon: 'translate', active: false },
-                { label: 'Knowledge', icon: 'auto_stories', active: false },
-                { label: 'Settings', icon: 'settings', active: false },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium"
-                  style={item.active ? { background: 'rgba(173,198,255,0.08)', color: '#adc6ff' } : { color: 'rgba(194,198,214,0.35)' }}>
-                  <span className="material-symbols-outlined text-sm">{item.icon}</span>
-                  {item.label}
-                </div>
-              ))}
-            </div>
-
-            {/* Main content */}
-            <div className="flex-1 p-4 md:p-5">
-              {/* KPIs */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4">
-                {[
-                  { label: 'Total Calls', value: '1,247', change: '+12%', icon: 'call', color: '#adc6ff', glow: 'rgba(173,198,255,0.06)' },
-                  { label: 'Active Now', value: '3', change: 'live', icon: 'sensors', color: '#4ade80', glow: 'rgba(74,222,128,0.06)' },
-                  { label: 'Success Rate', value: '94%', change: '+3%', icon: 'check_circle', color: '#818cf8', glow: 'rgba(129,140,248,0.06)' },
-                  { label: 'Cost (30d)', value: '$142', change: '-8%', icon: 'savings', color: '#fbbf24', glow: 'rgba(251,191,36,0.06)' },
-                ].map(kpi => (
-                  <div key={kpi.label} className="p-3 rounded-xl relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div className="absolute top-0 right-0 w-16 h-16 rounded-full" style={{ background: kpi.glow, filter: 'blur(20px)' }} />
-                    <div className="relative">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] sm:text-[10px] md:text-[11px] uppercase tracking-wider font-medium" style={{ color: 'rgba(194,198,214,0.4)' }}>{kpi.label}</span>
-                        <span className="material-symbols-outlined text-xs md:text-sm" style={{ color: kpi.color, opacity: 0.6 }}>{kpi.icon}</span>
-                      </div>
-                      <div className="text-base md:text-lg font-headline font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
-                      <div className="text-[8px] font-medium mt-0.5" style={{ color: kpi.change === 'live' ? '#4ade80' : kpi.change.startsWith('+') ? '#4ade80' : '#22d3ee' }}>
-                        {kpi.change === 'live' ? (
-                          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#4ade80' }} /> Live</span>
-                        ) : kpi.change}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Chart + Recent calls */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                <div className="md:col-span-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="text-[10px] sm:text-[11px] uppercase tracking-wider font-medium mb-3" style={{ color: 'rgba(194,198,214,0.4)' }}>Calls This Week</div>
-                  <div className="flex items-end gap-1.5 h-20 md:h-24">
-                    {[35, 52, 41, 68, 55, 78, 62].map((h, i) => (
-                      <div key={i} className="flex-1 rounded-t transition-all" style={{
-                        height: `${h}%`,
-                        background: i === 5 ? 'linear-gradient(to top, #4d8eff, #adc6ff)' : 'rgba(173,198,255,0.12)',
-                        boxShadow: i === 5 ? '0 0 12px rgba(77,142,255,0.3)' : 'none',
-                      }} />
-                    ))}
-                  </div>
-                </div>
-                <div className="md:col-span-2 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="text-[9px] uppercase tracking-wider font-medium mb-3" style={{ color: 'rgba(194,198,214,0.4)' }}>Recent</div>
-                  <div className="space-y-2">
-                    {[
-                      { phone: '+1 (818) 277-****', status: 'completed', dur: '2:34' },
-                      { phone: '+1 (415) 923-****', status: 'completed', dur: '1:12' },
-                      { phone: '+1 (212) 555-****', status: 'in_progress', dur: 'live' },
-                    ].map((c, i) => (
-                      <div key={i} className="flex items-center gap-2 py-1.5">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{
-                          background: c.status === 'in_progress' ? 'rgba(99,102,241,0.15)' : 'rgba(74,222,128,0.15)',
-                        }}>
-                          <span className="material-symbols-outlined text-[10px]" style={{
-                            color: c.status === 'in_progress' ? '#818cf8' : '#4ade80',
-                          }}>call</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[11px] sm:text-[12px] font-medium truncate">{c.phone}</div>
-                        </div>
-                        <span className="text-[9px] tabular-nums" style={{ color: c.dur === 'live' ? '#818cf8' : 'rgba(194,198,214,0.4)' }}>{c.dur}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Floating badges around dashboard */}
-      <div className="absolute -top-4 -right-2 md:-right-8 animate-float hidden sm:block">
-        <div className="glass-panel rounded-xl px-3 py-2 flex items-center gap-2" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-          <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(74,222,128,0.15)' }}>
-            <span className="material-symbols-outlined text-xs" style={{ color: '#4ade80' }}>check</span>
-          </div>
-          <span className="text-[10px] font-semibold">Call completed</span>
-        </div>
-      </div>
-      <div className="absolute -bottom-2 -left-2 md:-left-6 animate-float-delayed hidden sm:block">
-        <div className="glass-panel rounded-xl px-3 py-2 flex items-center gap-2" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-          <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(173,198,255,0.15)' }}>
-            <span className="material-symbols-outlined text-xs" style={{ color: '#adc6ff' }}>translate</span>
-          </div>
-          <span className="text-[10px] font-semibold">EN ↔ ES translating...</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Scrolling logos ─────────────────────────────────────────────────── */
-function LogoStrip() {
-  const logos = ['Twilio', 'Anthropic', 'OpenAI', 'xAI', 'Deepgram', 'ElevenLabs', 'Twilio', 'Anthropic', 'OpenAI', 'xAI', 'Deepgram', 'ElevenLabs'];
-  return (
-    <div className="overflow-hidden relative py-6" style={{ maskImage: 'linear-gradient(90deg, transparent, black 15%, black 85%, transparent)', WebkitMaskImage: 'linear-gradient(90deg, transparent, black 15%, black 85%, transparent)' }}>
-      <div className="flex gap-6 sm:gap-8 md:gap-12 items-center whitespace-nowrap" style={{ animation: 'marquee 30s linear infinite' }}>
-        {logos.map((name, i) => (
-          <span key={i} className="font-headline font-bold text-sm md:text-base opacity-30 hover:opacity-60 transition-opacity cursor-default select-none">{name}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ── Waveform animation ──────────────────────────────────────────────── */
-function WaveformBars({ color = '#adc6ff', count = 24 }: { color?: string; count?: number }) {
-  return (
-    <div className="flex items-center gap-[2px] h-8">
-      {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="w-[2px] rounded-full"
-          style={{
-            height: `${20 + Math.sin(i * 0.8) * 60 + Math.random() * 20}%`,
-            background: color,
-            opacity: 0.4 + Math.sin(i * 0.5) * 0.3,
-            animation: `float ${2 + (i % 3) * 0.5}s ease-in-out ${i * 0.1}s infinite`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════ */
-/* ── MAIN LANDING CONTENT (bilingual) ────────────────────────────────── */
-/* ══════════════════════════════════════════════════════════════════════ */
-
-function LandingContent() {
-  const { t } = useLang();
-  const [mobileNav, setMobileNav] = useState(false);
-
-  return (
-    <div className="min-h-screen overflow-x-hidden" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <LandingStyles />
-
-      {/* ═══ Navigation ═══════════════════════════════════════════════ */}
-      <header className="fixed top-0 w-full z-50" style={{ background: 'rgba(14, 19, 31, 0.7)', backdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(221,226,243,0.06)' }}>
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)' }}>
-              <span className="material-symbols-outlined text-base" style={{ color: '#fff', fontVariationSettings: "'FILL' 1" }}>call</span>
-            </div>
-            <span className="text-lg font-headline font-extrabold tracking-tight">Caller</span>
-          </Link>
-
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-            {[
-              { label: t('Products', 'Продукты'), href: '#products' },
-              { label: t('Translator', 'Переводчик'), href: '/translator' },
-              { label: t('Features', 'Возможности'), href: '#features' },
-              { label: t('Pricing', 'Цены'), href: '/pricing' },
-              { label: t('Blog', 'Блог'), href: '/blog' },
-              { label: 'FAQ', href: '#faq' },
-            ].map(l => (
-              <a key={l.label} href={l.href} className="transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>
-                {l.label}
-              </a>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <LangSwitcher />
-            <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>{t('Log in', 'Войти')}</Link>
-            <Link href="/login?mode=register" className="px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 cta-glow hidden sm:inline-flex"
-              style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-              {t('Get Started', 'Начать')}
-            </Link>
-            {/* Mobile hamburger */}
-            <button className="md:hidden w-10 h-10 flex items-center justify-center" onClick={() => setMobileNav(!mobileNav)}>
-              <span className="material-symbols-outlined">{mobileNav ? 'close' : 'menu'}</span>
-            </button>
-          </div>
-        </nav>
-
-        {/* Mobile dropdown */}
-        {mobileNav && (
-          <div className="md:hidden px-4 pb-4 space-y-1" style={{ background: 'rgba(14, 19, 31, 0.95)', backdropFilter: 'blur(24px)' }}>
-            {[
-              { label: t('Products', 'Продукты'), href: '#products' },
-              { label: t('Translator', 'Переводчик'), href: '/translator' },
-              { label: t('Features', 'Возможности'), href: '#features' },
-              { label: t('Pricing', 'Цены'), href: '/pricing' },
-              { label: t('Blog', 'Блог'), href: '/blog' },
-              { label: 'FAQ', href: '#faq' },
-            ].map(item => (
-              <a key={item.label} href={item.href}
-                onClick={() => setMobileNav(false)}
-                className="block py-3 text-sm font-medium" style={{ color: '#a0a8c0' }}>
-                {item.label}
-              </a>
-            ))}
-            <div className="pt-3 mt-2 flex flex-col gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <LangSwitcher className="w-full justify-center" />
-              <Link href="/login?mode=register" onClick={() => setMobileNav(false)}
-                className="w-full py-3 rounded-xl text-sm font-bold text-center cta-glow"
-                style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                {t('Get Started Free', 'Начать бесплатно')}
-              </Link>
-            </div>
-          </div>
-        )}
-      </header>
-
-      <main>
-        {/* ═══ Hero ═══════════════════════════════════════════════════ */}
-        <section className="pt-24 pb-12 sm:pt-32 sm:pb-16 md:pt-40 md:pb-24 px-4 sm:px-6 relative overflow-hidden">
-          <HeroOrbs />
-
-          <div className="max-w-7xl mx-auto relative z-10">
-            <div className="max-w-3xl mx-auto text-center">
-              {/* Animated badge */}
-              <AnimatedSection animation="fade-in">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-6 md:mb-8"
-                  style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.2)', color: '#818cf8' }}>
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: '#4ade80' }} />
-                    <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#4ade80' }} />
-                  </span>
-                  {t('AI Live Translator', 'AI Живой переводчик')}
-                </div>
-              </AnimatedSection>
-
-              <AnimatedSection delay={100}>
-                <h1 className="text-3xl sm:text-5xl md:text-7xl font-headline font-extrabold tracking-tight leading-[1.08] mb-6">
-                  Your phone calls,{' '}
-                  <span className="gradient-text">powered by AI</span>
-                </h1>
-              </AnimatedSection>
-
-              <AnimatedSection delay={200}>
-                <p className="text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto mb-8 md:mb-10" style={{ color: '#a0a8c0' }}>
-                  {t(
-                    'Deploy intelligent voice agents that handle calls 24/7, or merge a live translator into any conversation. One platform, zero complexity.',
-                    'Разворачивайте интеллектуальных голосовых агентов для обработки звонков 24/7 или подключайте живого переводчика к любому разговору. Одна платформа, никакой сложности.'
-                  )}
-                </p>
-              </AnimatedSection>
-
-              <AnimatedSection delay={300}>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
-                  <Link href="/login?mode=register"
-                    className="w-full sm:w-auto px-5 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base font-bold transition-all active:scale-[.97] flex items-center justify-center gap-3 group cta-glow"
-                    style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                    {t('Get Started Free', 'Начать бесплатно')}
-                    <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                  </Link>
-                  <Link href="/pricing"
-                    className="w-full sm:w-auto px-5 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm sm:text-base font-medium transition-all active:scale-[.97] text-center flex items-center justify-center gap-2"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <span className="material-symbols-outlined text-lg" style={{ color: '#818cf8' }}>play_circle</span>
-                    {t('View Pricing', 'Тарифы')}
-                  </Link>
-                </div>
-                <p className="text-xs mt-4 font-medium" style={{ color: 'rgba(160,168,192,0.5)' }}>
-                  {t('Free credit included • No credit card required', 'Бесплатный кредит • Без банковской карты')}
-                </p>
-              </AnimatedSection>
-            </div>
-
-            {/* Hero Visual */}
-            <AnimatedSection delay={500} animation="scale-in">
-              <HeroVisual />
-            </AnimatedSection>
-          </div>
-        </section>
-
-        {/* ═══ Logo Strip + Stats ═══════════════════════════════════ */}
-        <section className="border-y" style={{ borderColor: 'rgba(255,255,255,0.04)', background: 'rgba(22,28,40,0.5)' }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-3">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] shrink-0" style={{ color: 'rgba(194,198,214,0.35)' }}>Powered by</span>
-              <div className="flex-1 overflow-hidden">
-                <LogoStrip />
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-lg shrink-0" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)' }}>
-                <span className="material-symbols-outlined text-sm" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>verified_user</span>
-                <span className="text-xs font-medium" style={{ color: '#4ade80' }}>E2E Encrypted</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ Stats Counters ═══════════════════════════════════════ */}
-        <section className="py-14 md:py-20 px-4 sm:px-6">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
-              {[
-                { value: 10000, suffix: '+', label: t('Calls Processed', 'Обработано звонков'), icon: 'call', color: '#adc6ff' },
-                { value: 15, suffix: '+', label: t('Languages', 'Языков'), icon: 'translate', color: '#4ade80' },
-                { value: 99, suffix: '%', label: t('Uptime', 'Аптайм'), icon: 'speed', color: '#818cf8' },
-                { value: 300, suffix: 'ms', label: t('Avg Latency', 'Ср. задержка'), icon: 'bolt', color: '#fbbf24' },
-              ].map((stat, i) => (
-                <AnimatedSection key={stat.label} delay={i * 100}>
-                  <div className="text-center">
-                    <div className="w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-3" style={{ background: `${stat.color}10`, border: `1px solid ${stat.color}20` }}>
-                      <span className="material-symbols-outlined text-xl" style={{ color: stat.color }}>{stat.icon}</span>
-                    </div>
-                    <div className="text-2xl sm:text-3xl md:text-4xl font-headline font-extrabold" style={{ color: stat.color }}>
-                      <AnimatedCounter end={stat.value} suffix={stat.suffix} />
-                    </div>
-                    <div className="text-xs mt-1 font-medium" style={{ color: 'rgba(194,198,214,0.5)' }}>{stat.label}</div>
-                  </div>
-                </AnimatedSection>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ Two Products ═══════════════════════════════════════ */}
-        <section id="products" className="py-16 sm:py-24 md:py-32 px-4 sm:px-6">
-          <div className="max-w-7xl mx-auto">
-            <AnimatedSection className="text-center mb-12 md:mb-16">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4"
-                style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.15)', color: '#818cf8' }}>
-                {t('Live phone interpretation', 'Живой перевод по телефону')}
-              </div>
-              <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                {t('Real-time translation.', 'Перевод в реальном времени.')} <span className="gradient-text">{t('On any call.', 'На любом звонке.')}</span>
-              </h2>
-              <p className="text-sm sm:text-lg max-w-2xl mx-auto" style={{ color: '#a0a8c0' }}>
-                {t(
-                  'Merge our number into a call and the AI interprets both sides, live.',
-                  'Подключите наш номер к звонку — AI переводит обе стороны вживую.'
-                )}
-              </p>
-            </AnimatedSection>
-
-            <div className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 max-w-2xl mx-auto">
-              {/* Live Translator */}
-              <AnimatedSection delay={200} animation="fade-right">
-                <Link href="/translator" className="block rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden group bento-card h-full cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, rgba(173,198,255,0.04), rgba(139,92,246,0.02))', border: '1px solid rgba(173,198,255,0.12)' }}>
-                  <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{ background: 'radial-gradient(circle, rgba(173,198,255,0.08), transparent)', filter: 'blur(60px)' }} />
-
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(173,198,255,0.15), rgba(139,92,246,0.15))', border: '1px solid rgba(173,198,255,0.2)' }}>
-                        <span className="material-symbols-outlined text-2xl" style={{ color: '#adc6ff' }}>translate</span>
-                      </div>
-                      <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: 'rgba(173,198,255,0.08)', color: '#adc6ff', border: '1px solid rgba(173,198,255,0.15)' }}>
-                        {t('Pay as you go', 'Оплата по факту')}
-                      </div>
-                    </div>
-
-                    <h3 className="text-xl md:text-2xl font-headline font-extrabold mb-3">
-                      {t('Live', 'Живой')} <span className="gradient-text">{t('Translator', 'Переводчик')}</span>
-                    </h3>
-                    <p className="text-sm leading-relaxed mb-6" style={{ color: '#a0a8c0' }}>
-                      {t(
-                        'Merge our number into any phone call — AI translates both sides in real-time. No apps, no setup. Works with any phone.',
-                        'Подключите наш номер к любому звонку — AI переводит обе стороны в реальном времени. Без приложений, без настройки. Работает с любым телефоном.'
-                      )}
-                    </p>
-
-                    {/* Mini waveform */}
-                    <div className="mb-6 opacity-40">
-                      <WaveformBars color="#adc6ff" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mb-6">
-                      {[
-                        t('Real-time voice translation', 'Голосовой перевод в реальном времени'),
-                        t('15+ language pairs', '15+ языковых пар'),
-                        t('Live text transcript', 'Текстовая расшифровка онлайн'),
-                        t('Telegram alerts', 'Уведомления в Telegram'),
-                        t('Pay-as-you-go pricing', 'Оплата по использованию'),
-                        t('Free credit to start', 'Бесплатный кредит на старте'),
-                      ].map(f => (
-                        <div key={f} className="flex items-start gap-2 text-xs leading-snug">
-                          <span className="material-symbols-outlined text-sm mt-0.5 shrink-0" style={{ color: '#adc6ff', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                          <span>{f}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <span className="inline-flex items-center gap-2 text-sm font-bold group/link transition-all" style={{ color: '#adc6ff' }}>
-                      {t('Learn more', 'Подробнее')}
-                      <span className="material-symbols-outlined text-base group-hover/link:translate-x-1 transition-transform">arrow_forward</span>
-                    </span>
-                  </div>
-                </Link>
-              </AnimatedSection>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ How It Works ═══════════════════════════════════════ */}
-        <section id="how-it-works" className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 relative" style={{ background: 'rgba(22,28,40,0.4)' }}>
-          <div className="max-w-7xl mx-auto">
-            <AnimatedSection className="text-center mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                {t('Up and running in', 'Запуск за')} <span className="gradient-text">{t('minutes', 'минуты')}</span>
-              </h2>
-              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#a0a8c0' }}>
-                {t('No complex setup. Sign up, choose your plan, and start.', 'Никаких сложных настроек. Зарегистрируйтесь, выберите план и начните.')}
-              </p>
-            </AnimatedSection>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-5 relative">
-              {/* Connector line (desktop only) */}
-              <div className="absolute top-1/3 left-[12%] right-[12%] h-px hidden md:block" style={{ background: 'linear-gradient(90deg, transparent, rgba(129,140,248,0.2), rgba(129,140,248,0.2), transparent)' }} />
-
-              {[
-                {
-                  num: '01', icon: 'person_add',
-                  title: t('Create an Agent', 'Создайте агента'),
-                  desc: t('Define personality, voice, skills, and knowledge base. Your agent is ready in under two minutes.', 'Задайте личность, голос, навыки и базу знаний. Ваш агент готов менее чем за две минуты.'),
-                  color: '#adc6ff',
-                },
-                {
-                  num: '02', icon: 'tune',
-                  title: t('Connect a Number', 'Подключите номер'),
-                  desc: t('Assign your Twilio number or get a new one. Inbound calls are routed automatically.', 'Назначьте свой номер Twilio или получите новый. Входящие звонки маршрутизируются автоматически.'),
-                  color: '#4ade80',
-                },
-                {
-                  num: '03', icon: 'settings',
-                  title: t('Go Live', 'Запуск'),
-                  desc: t('Your agent handles calls 24/7. Monitor in real-time, review transcripts, iterate prompts.', 'Ваш агент обрабатывает звонки 24/7. Мониторинг в реальном времени, просмотр транскрипций, улучшение промптов.'),
-                  color: '#d0bcff',
-                },
-                {
-                  num: '04', icon: 'rocket_launch',
-                  title: t('Scale & Optimize', 'Масштабируйте'),
-                  desc: t('Deploy more agents, connect knowledge bases, integrate via MCP, and analyze call data.', 'Разворачивайте больше агентов, подключайте базы знаний, интегрируйтесь через MCP и анализируйте данные звонков.'),
-                  color: '#67e8f9',
-                },
-              ].map((step, i) => (
-                <AnimatedSection key={step.num} delay={i * 120}>
-                  <div className="rounded-2xl p-5 md:p-6 relative group bento-card"
-                    style={{ background: 'rgba(26,32,44,0.6)', border: '1px solid rgba(140,144,159,0.08)' }}>
-                    <div className="absolute top-3 right-3 text-4xl md:text-5xl font-headline font-extrabold opacity-[0.04] group-hover:opacity-[0.1] transition-opacity"
-                      style={{ color: step.color }}>{step.num}</div>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 relative" style={{ background: `${step.color}12`, border: `1px solid ${step.color}25` }}>
-                      <span className="material-symbols-outlined text-xl" style={{ color: step.color }}>{step.icon}</span>
-                    </div>
-                    <h3 className="text-sm md:text-base font-headline font-bold mb-2">{step.title}</h3>
-                    <p className="text-[11px] md:text-xs leading-relaxed" style={{ color: '#a0a8c0' }}>{step.desc}</p>
-                  </div>
-                </AnimatedSection>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ Features Bento Grid ═══════════════════════════════ */}
-        <section id="features" className="py-16 sm:py-24 md:py-32 px-4 sm:px-6">
-          <div className="max-w-7xl mx-auto">
-            <AnimatedSection className="text-center mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                {t('Everything you need', 'Всё что нужно')} {t('to scale phone operations', 'для масштабирования телефонных операций')}
-              </h2>
-              <p className="text-sm sm:text-lg max-w-xl mx-auto" style={{ color: '#a0a8c0' }}>
-                {t('Enterprise-grade features, startup-friendly pricing.', 'Возможности уровня enterprise, цены для стартапов.')}
-              </p>
-            </AnimatedSection>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-              {[
-                {
-                  icon: 'mic',
-                  title: t('Custom Voices', 'Настраиваемые голоса'),
-                  desc: t(
-                    'Choose from xAI Grok, OpenAI, or ElevenLabs. Each agent can have its own unique voice identity.',
-                    'Выбирайте из xAI Grok, OpenAI или ElevenLabs. Каждый агент может иметь свой уникальный голос.'
-                  ),
-                  color: '#adc6ff', accent: 'rgba(173,198,255,0.05)',
-                },
-                {
-                  icon: 'psychology',
-                  title: t('Knowledge Base', 'База знаний'),
-                  desc: t(
-                    'Upload PDFs, docs, and text. Agents use RAG to answer questions with your company\'s actual data.',
-                    'Загружайте PDF, документы и текст. Агенты используют RAG для ответов на основе данных вашей компании.'
-                  ),
-                  color: '#d0bcff', accent: 'rgba(208,188,255,0.05)',
-                },
-                {
-                  icon: 'key',
-                  title: t('Real-time Monitoring', 'Мониторинг в реальном времени'),
-                  desc: t(
-                    'Watch live calls, view transcripts as they happen, and intervene when needed.',
-                    'Наблюдайте за звонками в реальном времени, просматривайте транскрипции и вмешивайтесь при необходимости.'
-                  ),
-                  color: '#4ade80', accent: 'rgba(74,222,128,0.05)',
-                },
-                {
-                  icon: 'auto_stories',
-                  title: t('MCP Integration', 'Интеграция MCP'),
-                  desc: t(
-                    'Connect Caller as a tool for Claude, GPT, or any MCP-compatible AI assistant.',
-                    'Подключите Caller как инструмент для Claude, GPT или любого MCP-совместимого AI-ассистента.'
-                  ),
-                  color: '#67e8f9', accent: 'rgba(103,232,249,0.05)',
-                },
-                {
-                  icon: 'record_voice_over',
-                  title: t('Multi-Provider', 'Мультипровайдер'),
-                  desc: t(
-                    'Bring your own API keys or use ours. Support for Twilio, Deepgram, Anthropic, OpenAI, xAI, ElevenLabs.',
-                    'Используйте свои API-ключи или наши. Поддержка Twilio, Deepgram, Anthropic, OpenAI, xAI, ElevenLabs.'
-                  ),
-                  color: '#fbbf24', accent: 'rgba(251,191,36,0.05)',
-                },
-                {
-                  icon: 'api',
-                  title: t('Live Translation', 'Живой перевод'),
-                  desc: t(
-                    'Merge AI translator into any call. 15+ languages, 6 tones of voice, live transcript shared via link.',
-                    'Подключите AI-переводчика к любому звонку. 15+ языков, 6 тонов голоса, расшифровка онлайн по ссылке.'
-                  ),
-                  color: '#f87171', accent: 'rgba(248,113,113,0.05)',
-                },
-              ].map((f, i) => (
-                <AnimatedSection key={f.title} delay={i * 80}>
-                  <div className="glass-panel rounded-2xl p-6 bento-card h-full relative overflow-hidden group">
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: f.accent }} />
-                    <div className="relative z-10">
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: `${f.color}12`, border: `1px solid ${f.color}20` }}>
-                        <span className="material-symbols-outlined text-xl" style={{ color: f.color }}>{f.icon}</span>
-                      </div>
-                      <h3 className="text-base font-headline font-bold mb-2">{f.title}</h3>
-                      <p className="text-xs leading-relaxed" style={{ color: '#a0a8c0' }}>{f.desc}</p>
-                    </div>
-                  </div>
-                </AnimatedSection>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ Provider Toggle Explainer ═════════════════════════ */}
-        <section className="py-16 sm:py-24 md:py-32 px-4 sm:px-6" style={{ background: 'rgba(22,28,40,0.4)' }}>
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-16 items-center">
-              <AnimatedSection animation="fade-left">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-6"
-                  style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.15)', color: '#4ade80' }}>
-                  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>swap_horiz</span>
-                  {t('Built for your stack', 'Создано для вашего стека')}
-                </div>
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-headline font-extrabold tracking-tight mb-4 leading-tight">
-                  Your keys or ours.{' '}
-                  <span className="gradient-text-green">You choose.</span>
-                </h2>
-                <p className="text-base leading-relaxed mb-8" style={{ color: '#a0a8c0' }}>
-                  {t(
-                    'Bring your own keys from any provider, or use platform credentials with deposit billing.',
-                    'Используйте свои ключи от любого провайдера или платформенные с депозитной оплатой.'
-                  )}
-                </p>
-                <div className="space-y-3">
-                  {[
-                    { icon: 'key', text: t('Your Keys (BYOK) = $0 platform fees', 'Свои ключи (BYOK) = $0 комиссий платформы'), color: '#4ade80' },
-                    { icon: 'savings', text: t('Our providers = transparent deposit billing', 'Наши провайдеры = прозрачная депозитная оплата'), color: '#adc6ff' },
-                    { icon: 'shuffle', text: t('Mix: your Twilio + our Claude + your xAI TTS', 'Микс: ваш Twilio + наш Claude + ваш xAI TTS'), color: '#d0bcff' },
-                    { icon: 'swap_horiz', text: t('Switch between modes in one click', 'Переключение между режимами в один клик'), color: '#67e8f9' },
-                  ].map(item => (
-                    <div key={item.text} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${item.color}10` }}>
-                        <span className="material-symbols-outlined text-base" style={{ color: item.color }}>{item.icon}</span>
-                      </div>
-                      <span className="text-sm">{item.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </AnimatedSection>
-
-              <AnimatedSection animation="fade-right" delay={200}>
-                <div className="glass-panel rounded-2xl md:rounded-3xl p-5 md:p-6">
-                  <div className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>Provider Configuration</div>
-                  <div className="space-y-2.5">
-                    {[
-                      { name: 'Twilio', icon: 'call', mode: 'own', color: '#adc6ff' },
-                      { name: 'Anthropic', icon: 'psychology', mode: 'platform', color: '#d0bcff' },
-                      { name: 'xAI (Grok)', icon: 'record_voice_over', mode: 'own', color: '#4ade80' },
-                      { name: 'Deepgram', icon: 'mic', mode: 'platform', color: '#67e8f9' },
-                      { name: 'OpenAI', icon: 'auto_awesome', mode: 'platform', color: '#fbbf24' },
-                    ].map(p => (
-                      <div key={p.name} className="flex items-center justify-between p-3.5 rounded-xl transition-all group/provider hover:scale-[1.01]" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${p.color}10` }}>
-                            <span className="material-symbols-outlined text-base" style={{ color: p.color }}>{p.icon}</span>
-                          </div>
-                          <span className="text-sm font-medium">{p.name}</span>
-                        </div>
-                        <div className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                          style={p.mode === 'own'
-                            ? { background: 'rgba(173,198,255,0.1)', color: '#adc6ff' }
-                            : { background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
-                          {p.mode === 'own' ? t('Own Key', 'Свой ключ') : t('Platform', 'Платформа')}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </AnimatedSection>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══ FAQ ═══════════════════════════════════════════════ */}
-        <section id="faq" className="py-16 sm:py-24 md:py-32 px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto">
-            <AnimatedSection className="text-center mb-12 md:mb-16">
-              <h2 className="text-2xl sm:text-4xl font-headline font-extrabold mb-4">
-                {t('Frequently asked', 'Часто задаваемые')} <span className="gradient-text">{t('questions', 'вопросы')}</span>
-              </h2>
-            </AnimatedSection>
-
-            <AnimatedSection delay={100}>
-              <FaqAccordion items={[
-                {
-                  q: t('Do I need to install anything?', 'Нужно ли что-то устанавливать?'),
-                  a: t(
-                    'No. The Live Translator works by merging our number into any standard phone call — it interprets both sides in real time. No apps, works from any phone.',
-                    'Нет. Живой переводчик подключается к любому обычному звонку и переводит обе стороны в реальном времени. Без приложений, с любого телефона.'
-                  ),
-                },
-                {
-                  q: t('What happens when my deposit runs out?', 'Что происходит при исчерпании депозита?'),
-                  a: t(
-                    'Calls using platform providers will pause. If you use your own API keys, everything keeps working. Top up your deposit instantly via Stripe.',
-                    'Звонки через платформенных провайдеров приостановятся. Если используете собственные API-ключи — всё продолжает работать. Пополните депозит мгновенно через Stripe.'
-                  ),
-                },
-                {
-                  q: t('Can I switch between my own keys and platform providers?', 'Можно ли переключаться между своими ключами и платформенными провайдерами?'),
-                  a: t(
-                    'Yes. Per-provider toggle in the dashboard. Use your own Twilio but our Claude, for example. Switch anytime with one click.',
-                    'Да. Переключатель для каждого провайдера в панели управления. Используйте свой Twilio, но нашего Claude, например. Переключайтесь в любой момент одним кликом.'
-                  ),
-                },
-                {
-                  q: t('How many languages does the translator support?', 'Сколько языков поддерживает переводчик?'),
-                  a: t(
-                    'We support 15+ language pairs with real-time voice translation and live text transcription. Language auto-detection is included.',
-                    'Мы поддерживаем 15+ языковых пар с голосовым переводом в реальном времени и живой текстовой транскрипцией. Автоопределение языка включено.'
-                  ),
-                },
-                {
-                  q: t('Is there a free trial?', 'Есть ли бесплатный пробный период?'),
-                  a: t(
-                    'Every new account gets free deposit credit. No credit card required to start. Use it for AI agent calls or live translation.',
-                    'Каждый новый аккаунт получает бесплатный кредит на депозите. Для старта банковская карта не нужна. Используйте его для звонков AI-агентов или живого перевода.'
-                  ),
-                },
-                {
-                  q: t('What AI models are available?', 'Какие AI-модели доступны?'),
-                  a: t(
-                    'Claude Sonnet by Anthropic, GPT-4o by OpenAI, and Grok by xAI. For voice: xAI Grok TTS (primary), OpenAI TTS, and ElevenLabs. For transcription: Deepgram Nova-2.',
-                    'Claude Sonnet от Anthropic, GPT-4o от OpenAI и Grok от xAI. Для голоса: xAI Grok TTS (основной), OpenAI TTS и ElevenLabs. Для транскрипции: Deepgram Nova-2.'
-                  ),
-                },
-              ]} />
-            </AnimatedSection>
-          </div>
-        </section>
-
-        {/* ═══ Final CTA ═══════════════════════════════════════ */}
-        <section className="py-16 sm:py-24 px-4 sm:px-6">
-          <div className="max-w-4xl mx-auto relative">
-            {/* Background glow */}
-            <div className="absolute inset-0 rounded-3xl" style={{ background: 'radial-gradient(circle at center, rgba(129,140,248,0.08), transparent 70%)' }} />
-
-            <AnimatedSection>
-              <div className="relative glass-panel rounded-3xl p-8 sm:p-12 md:p-16 text-center overflow-hidden">
-                {/* Animated gradient border */}
-                <div className="absolute top-0 left-0 right-0 h-px shimmer-border" />
-
-                <h2 className="text-2xl sm:text-3xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-                  {t('Ready to', 'Готовы')} <span className="gradient-text">{t('automate', 'автоматизировать')}</span> {t('your calls?', 'ваши звонки?')}
-                </h2>
-                <p className="text-base mb-8 max-w-lg mx-auto" style={{ color: '#a0a8c0' }}>
-                  {t(
-                    'Create your account in 30 seconds. Free credit included, no credit card.',
-                    'Создайте аккаунт за 30 секунд. Бесплатный кредит, без банковской карты.'
-                  )}
-                </p>
-                <Link href="/login?mode=register"
-                  className="inline-flex items-center gap-3 px-8 py-4 rounded-xl text-base font-bold transition-all active:scale-[.97] group cta-glow"
-                  style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }}>
-                  {t('Get Started Free', 'Начать бесплатно')}
-                  <span className="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                </Link>
-              </div>
-            </AnimatedSection>
-          </div>
-        </section>
-      </main>
-
-      {/* ═══ Footer ═══════════════════════════════════════════════ */}
-      <footer className="border-t" style={{ background: '#080b14', borderColor: 'rgba(255,255,255,0.04)' }}>
-        <div className="max-w-7xl mx-auto px-6 py-12 md:py-16">
-          <div className="flex flex-col md:flex-row justify-between gap-10">
-            <div className="max-w-xs">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)' }}>
-                  <span className="material-symbols-outlined text-base" style={{ color: '#fff', fontVariationSettings: "'FILL' 1" }}>call</span>
-                </div>
-                <span className="font-headline font-extrabold text-lg">Caller</span>
-              </div>
-              <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
-                {t(
-                  'AI phone agents and live translation for the globally connected business. One platform, zero complexity.',
-                  'AI-телефонные агенты и живой перевод для глобального бизнеса. Одна платформа, никакой сложности.'
-                )}
-              </p>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.12)' }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80' }} />
-                <span className="text-[10px] font-medium" style={{ color: '#4ade80' }}>{t('All systems operational', 'Все системы работают')}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8 md:gap-12">
-              {[
-                { title: t('Product', 'Продукт'), links: [
-                  { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
-                  { label: t('Pricing', 'Цены'), href: '/pricing' },
-                  { label: t('Features', 'Возможности'), href: '#features' },
-                ] },
-                { title: t('Resources', 'Ресурсы'), links: [
-                  { label: t('Documentation', 'Документация'), href: '/docs' },
-                  { label: 'API Reference', href: '/docs?section=api' },
-                  { label: t('Help Center', 'Центр помощи'), href: '/help' },
-                  { label: t('Blog', 'Блог'), href: '/blog' },
-                ] },
-                { title: t('Legal', 'Правовая информация'), links: [
-                  { label: t('Privacy Policy', 'Политика конфиденциальности'), href: '/privacy' },
-                  { label: t('Terms of Service', 'Условия использования'), href: '/terms' },
-                  { label: t('Acceptable Use', 'Допустимое использование'), href: '/acceptable-use' },
-                ] },
-              ].map(col => (
-                <div key={col.title}>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-3" style={{ color: 'rgba(194,198,214,0.3)' }}>{col.title}</div>
-                  <div className="space-y-2.5">
-                    {col.links.map(link => (
-                      <Link key={link.label} href={link.href} className="block text-xs transition-colors hover:text-white" style={{ color: 'rgba(194,198,214,0.5)' }}>
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-            <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>&copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}</p>
-          </div>
-        </div>
-      </footer>
-
-      <ContactPopup />
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════ */
-/* ── DEFAULT EXPORT — wraps content in LangProvider ──────────────────── */
-/* ══════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   Caller — Live phone translation for expats.
+   Light editorial / "international" aesthetic. Fraunces + Hanken Grotesk,
+   warm paper + ink + a single deep-green accent, grain texture, and a
+   signature "live bilingual call transcript" hero. CSS-only motion.
+   ═══════════════════════════════════════════════════════════════════ */
 
 export default function LandingClient() {
   return (
     <LangProvider>
-      <LandingContent />
+      <Landing />
     </LangProvider>
   );
 }
+
+const REGISTER = '/login?mode=register';
+
+function Landing() {
+  const { t, lang } = useLang();
+
+  // Tasteful scroll-reveal (respects reduced-motion). One mechanism, no deps.
+  useEffect(() => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const els = Array.from(document.querySelectorAll('[data-reveal]'));
+    if (reduce) { els.forEach(e => e.classList.add('in')); return; }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    els.forEach(e => io.observe(e));
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div className="lp">
+      <style>{LP_CSS}</style>
+      <div className="grain" aria-hidden />
+
+      {/* ─── Nav ─────────────────────────────────────────────── */}
+      <header className="lp-nav">
+        <div className="lp-wrap lp-nav-inner">
+          <Link href="/" className="wordmark" aria-label="Caller — home">
+            <span className="wordmark-dot" />Caller
+          </Link>
+          <nav className="lp-nav-links">
+            <a href="#how">{t('How it works', 'Как это работает')}</a>
+            <a href="#pricing">{t('Pricing', 'Цены')}</a>
+            <a href="#faq">{t('FAQ', 'Вопросы')}</a>
+          </nav>
+          <div className="lp-nav-right">
+            <LangToggle />
+            <Link href="/login" className="nav-login">{t('Log in', 'Войти')}</Link>
+            <Link href={REGISTER} className="btn-accent btn-sm">{t('Start free', 'Начать бесплатно')}</Link>
+          </div>
+        </div>
+      </header>
+
+      {/* ─── Hero ────────────────────────────────────────────── */}
+      <section className="lp-wrap hero">
+        <div className="hero-copy">
+          <p className="eyebrow" data-reveal>{t('Live phone translation for expats', 'Живой перевод звонков для экспатов')}</p>
+          <h1 className="display hero-h" data-reveal style={{ transitionDelay: '60ms' }}>
+            {t('Make the call.', 'Звоните.')}<br />
+            <em>{t('In any language.', 'На любом языке.')}</em>
+          </h1>
+          <p className="lead hero-lead" data-reveal style={{ transitionDelay: '120ms' }}>
+            {t(
+              'Caller joins your phone call and interprets both sides in real time — so you can talk to clinics, landlords and government offices without the language barrier, and without clunky apps.',
+              'Caller подключается к вашему звонку и переводит обе стороны в реальном времени — говорите с клиниками, арендодателями и госучреждениями без языкового барьера и неудобных приложений.',
+            )}
+          </p>
+          <div className="hero-cta" data-reveal style={{ transitionDelay: '180ms' }}>
+            <Link href={REGISTER} className="btn-accent">
+              {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+              <span className="material-symbols-outlined">arrow_forward</span>
+            </Link>
+            <a href="#how" className="btn-ghost">{t('See how it works', 'Как это работает')}</a>
+          </div>
+          <p className="hero-micro" data-reveal style={{ transitionDelay: '240ms' }}>
+            {t('No subscription · about $0.20 / minute · works from any phone', 'Без подписки · около $0.20 / мин · с любого телефона')}
+          </p>
+        </div>
+
+        <div className="hero-visual" data-reveal style={{ transitionDelay: '160ms' }}>
+          <Transcript lang={lang} t={t} />
+        </div>
+      </section>
+
+      {/* ─── Trust strip ─────────────────────────────────────── */}
+      <div className="lp-wrap">
+        <ul className="trust">
+          {[
+            t('Any phone', 'Любой телефон'),
+            t('No app to install', 'Без приложения'),
+            t('12 languages', '12 языков'),
+            t('Pay per minute', 'Оплата за минуты'),
+            t('$2 free to try', '$2 бесплатно на пробу'),
+          ].map((item, i) => (
+            <li key={i}><span className="material-symbols-outlined">check</span>{item}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* ─── Problem ─────────────────────────────────────────── */}
+      <section className="lp-wrap section problem" data-reveal>
+        <p className="eyebrow">{t('The problem', 'Проблема')}</p>
+        <h2 className="display problem-h">{t('You know the feeling.', 'Знакомое чувство.')}</h2>
+        <p className="lead problem-lead">
+          {t(
+            'A call to the doctor. The leasing office. The tax line. You rehearse the words, you dread the moment they start speaking too fast — and you hang up having understood half of it.',
+            'Звонок врачу. В офис аренды. На налоговую линию. Вы репетируете фразы и боитесь момента, когда заговорят слишком быстро — и кладёте трубку, поняв половину.',
+          )}
+        </p>
+        <p className="problem-turn">
+          {t(
+            'Caller takes that wall down. You speak your language, they speak theirs, and everyone is understood — live, on the very same call.',
+            'Caller убирает эту стену. Вы говорите на своём языке, они на своём — и все друг друга понимают, прямо во время звонка.',
+          )}
+        </p>
+      </section>
+
+      {/* ─── How it works ────────────────────────────────────── */}
+      <section id="how" className="lp-wrap section">
+        <div className="section-head" data-reveal>
+          <p className="eyebrow">{t('How it works', 'Как это работает')}</p>
+          <h2 className="display section-h">{t('Three steps. A minute to set up.', 'Три шага. Минута на настройку.')}</h2>
+        </div>
+        <ol className="steps">
+          {[
+            {
+              n: '01',
+              title: t('Save your Caller number', 'Сохраните номер Caller'),
+              body: t('After signup you get a personal number. Save it in your contacts as “Translator”.', 'После регистрации вы получаете персональный номер. Сохраните его в контактах как «Переводчик».'),
+            },
+            {
+              n: '02',
+              title: t('On the call, add it and merge', 'Во время звонка добавьте и объедините'),
+              body: t('Call the person as usual. Say “one moment, I’ll add an interpreter,” tap Add call, dial Caller, then tap Merge.', 'Позвоните человеку как обычно. Скажите «секунду, добавлю переводчика», нажмите «Добавить вызов», наберите Caller и нажмите «Объединить».'),
+            },
+            {
+              n: '03',
+              title: t('Speak naturally', 'Говорите естественно'),
+              body: t('Take turns and pause briefly. Caller speaks the translation out loud — both directions, detected automatically.', 'Говорите по очереди с короткой паузой. Caller озвучивает перевод в обе стороны, направление определяется само.'),
+            },
+          ].map((s, i) => (
+            <li key={s.n} className="step" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
+              <span className="step-n display">{s.n}</span>
+              <h3 className="step-title">{s.title}</h3>
+              <p className="step-body">{s.body}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="step-note" data-reveal>
+          <span className="material-symbols-outlined">group</span>
+          {t('In the same room? Just call Caller and put it on speaker.', 'Рядом друг с другом? Просто позвоните Caller и включите громкую связь.')}
+        </p>
+      </section>
+
+      {/* ─── Why ─────────────────────────────────────────────── */}
+      <section className="lp-wrap section">
+        <div className="rule" />
+        <div className="why">
+          {[
+            {
+              k: t('Accuracy', 'Точность'),
+              title: t('Accurate — and it sounds human', 'Точно — и звучит по-человечески'),
+              body: t('Premium AI voices, not robotic text-to-speech. Two-way translation with the language detected automatically — no fiddling with settings mid-call.', 'Премиальные AI-голоса, а не роботный синтез. Двусторонний перевод с авто-определением языка — без настроек посреди разговора.'),
+            },
+            {
+              k: t('Simplicity', 'Простота'),
+              title: t('Nothing to install', 'Нечего устанавливать'),
+              body: t('No app, no headset, no account for the other person. It works on any phone — mobile or landline — because it’s just a phone call.', 'Без приложения, гарнитуры и аккаунта для собеседника. Работает на любом телефоне — мобильном или стационарном — это обычный звонок.'),
+            },
+            {
+              k: t('Honesty', 'Честность'),
+              title: t('Just top up. No subscription.', 'Просто пополняйте. Без подписки.'),
+              body: t('Add credit and pay about $0.20 a minute, only while you’re talking. No plans, no monthly fee, no surprises. New accounts start with $2 free.', 'Пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без тарифов и абонплаты. Новым аккаунтам — $2 бесплатно.'),
+            },
+          ].map((c, i) => (
+            <div key={c.k} className="why-col" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
+              <p className="eyebrow">{c.k}</p>
+              <h3 className="display why-h">{c.title}</h3>
+              <p className="why-body">{c.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Languages ───────────────────────────────────────── */}
+      <section className="lp-wrap section">
+        <div className="section-head" data-reveal>
+          <p className="eyebrow">{t('Languages', 'Языки')}</p>
+          <h2 className="display section-h">{t('Twelve languages, any direction', 'Двенадцать языков, в любую сторону')}</h2>
+        </div>
+        <div className="langs" data-reveal>
+          {['English', 'Русский', 'Español', 'Deutsch', 'Français', '中文', '日本語', '한국어', 'العربية', 'Português', 'Italiano', 'हिन्दी'].map((l) => (
+            <span key={l} className="lang display">{l}</span>
+          ))}
+        </div>
+        <p className="langs-note" data-reveal>
+          {t('Direction is detected automatically — just speak, and Caller knows which way to translate.', 'Направление определяется автоматически — просто говорите, и Caller сам поймёт, куда переводить.')}
+        </p>
+      </section>
+
+      {/* ─── Pricing ─────────────────────────────────────────── */}
+      <section id="pricing" className="lp-wrap section">
+        <div className="rule" />
+        <div className="pricing" data-reveal>
+          <div className="pricing-left">
+            <p className="eyebrow">{t('Pricing', 'Цены')}</p>
+            <h2 className="display pricing-h">{t('Pay as you go.', 'Оплата по факту.')}</h2>
+            <p className="lead pricing-lead">
+              {t('No plans to compare, nothing to cancel. You pay for the minutes you actually talk — and nothing when you don’t.', 'Никаких тарифов для сравнения и ничего не нужно отменять. Платите за минуты, которые реально говорите — и ничего, когда молчите.')}
+            </p>
+          </div>
+          <div className="pricing-card">
+            <div className="price-row">
+              <span className="price display">≈&nbsp;$0.20</span>
+              <span className="price-unit">{t('/ minute', '/ минута')}</span>
+            </div>
+            <ul className="price-list">
+              {[
+                t('$2 free to start — about 10 minutes', '$2 бесплатно на старте — около 10 минут'),
+                t('No subscription, ever', 'Никаких подписок'),
+                t('Top up any time; only pay while talking', 'Пополняйте когда угодно; платите только во время разговора'),
+                t('No card required to try', 'Карта для пробы не нужна'),
+              ].map((p, i) => (
+                <li key={i}><span className="material-symbols-outlined">check</span>{p}</li>
+              ))}
+            </ul>
+            <Link href={REGISTER} className="btn-accent btn-block">
+              {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FAQ ─────────────────────────────────────────────── */}
+      <section id="faq" className="lp-wrap section">
+        <div className="section-head" data-reveal>
+          <p className="eyebrow">{t('Questions', 'Вопросы')}</p>
+          <h2 className="display section-h">{t('Good to know', 'Полезно знать')}</h2>
+        </div>
+        <div className="faq" data-reveal>
+          {FAQ(t).map((f, i) => (
+            <details key={i} className="faq-item">
+              <summary>{f.q}<span className="material-symbols-outlined">add</span></summary>
+              <p>{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Final CTA ───────────────────────────────────────── */}
+      <section className="lp-wrap section">
+        <div className="final" data-reveal>
+          <h2 className="display final-h">{t('Make your next call without the fear.', 'Сделайте следующий звонок без страха.')}</h2>
+          <p className="final-lead">
+            {t('Two dollars of free credit is already waiting. No card, no subscription — just try it on a real call.', 'Два доллара бесплатного баланса уже ждут. Без карты и подписки — просто попробуйте на реальном звонке.')}
+          </p>
+          <Link href={REGISTER} className="btn-accent btn-lg">
+            {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+            <span className="material-symbols-outlined">arrow_forward</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* ─── Footer ──────────────────────────────────────────── */}
+      <footer className="lp-footer">
+        <div className="lp-wrap footer-inner">
+          <div className="footer-brand">
+            <Link href="/" className="wordmark"><span className="wordmark-dot" />Caller</Link>
+            <p>{t('Live phone interpretation for people living between languages.', 'Живой перевод звонков для тех, кто живёт между языками.')}</p>
+          </div>
+          <div className="footer-cols">
+            <div>
+              <h4>{t('Product', 'Продукт')}</h4>
+              <a href="#how">{t('How it works', 'Как это работает')}</a>
+              <a href="#pricing">{t('Pricing', 'Цены')}</a>
+              <a href="#faq">{t('FAQ', 'Вопросы')}</a>
+              <Link href="/login">{t('Log in', 'Войти')}</Link>
+            </div>
+            <div>
+              <h4>{t('Legal', 'Правовое')}</h4>
+              <Link href="/privacy">{t('Privacy', 'Конфиденциальность')}</Link>
+              <Link href="/terms">{t('Terms', 'Условия')}</Link>
+              <Link href="/acceptable-use">{t('Acceptable Use', 'Допустимое использование')}</Link>
+            </div>
+          </div>
+        </div>
+        <div className="lp-wrap footer-bottom">
+          <span>© {new Date().getFullYear()} Caller</span>
+          <LangToggle />
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/* ─── Live transcript hero visual ───────────────────────────── */
+function Transcript({ lang, t }: { lang: 'en' | 'ru'; t: (en: string, ru: string) => string }) {
+  // Believable expat scenario: calling a clinic. Localized speaker side.
+  const rows = lang === 'ru'
+    ? [
+        { who: 'Clinic', sideClass: 'them', src: 'Vida Clinic, how can I help you?', dst: 'Клиника «Вида», чем могу помочь?' },
+        { who: t('You', 'Вы'), sideClass: 'you', src: 'Здравствуйте, хочу записаться на приём.', dst: 'Hello, I’d like to book an appointment.' },
+        { who: 'Clinic', sideClass: 'them', src: 'Of course — what day works for you?', dst: 'Конечно — какой день вам удобен?' },
+      ]
+    : [
+        { who: 'Clínica', sideClass: 'them', src: 'Clínica Vida, ¿en qué puedo ayudarle?', dst: 'Vida Clinic, how can I help you?' },
+        { who: t('You', 'Вы'), sideClass: 'you', src: 'Hello, I’d like to book an appointment.', dst: 'Hola, quisiera reservar una cita.' },
+        { who: 'Clínica', sideClass: 'them', src: '¿Para qué día le viene bien?', dst: 'What day works for you?' },
+      ];
+
+  return (
+    <div className="tx" role="img" aria-label={t('Example of a live translated call', 'Пример звонка с живым переводом')}>
+      <div className="tx-head">
+        <span className="tx-live"><span className="tx-dot" />{t('Live', 'В эфире')}</span>
+        <span className="tx-meta">{t('auto-detected · both ways', 'авто-определение · в обе стороны')}</span>
+      </div>
+      <div className="tx-body">
+        {rows.map((r, i) => (
+          <div key={i} className={`tx-row ${r.sideClass}`} style={{ animationDelay: `${0.5 + i * 0.55}s` }}>
+            <span className="tx-who">{r.who}</span>
+            <p className="tx-dst">{r.dst}</p>
+            <p className="tx-src">“{r.src}”</p>
+          </div>
+        ))}
+        <div className="tx-typing" style={{ animationDelay: `${0.5 + rows.length * 0.55}s` }}>
+          <span /><span /><span />
+        </div>
+      </div>
+      <div className="tx-foot">
+        <span className="material-symbols-outlined">graphic_eq</span>
+        {t('Translating in real time', 'Перевод в реальном времени')}
+      </div>
+    </div>
+  );
+}
+
+function LangToggle() {
+  const { lang, setLang } = useLang();
+  return (
+    <button className="lang-toggle" onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
+      title={lang === 'en' ? 'Переключить на русский' : 'Switch to English'}>
+      <span className="material-symbols-outlined">language</span>{lang === 'en' ? 'RU' : 'EN'}
+    </button>
+  );
+}
+
+function FAQ(t: (en: string, ru: string) => string) {
+  return [
+    { q: t('Do I need to install an app?', 'Нужно ли устанавливать приложение?'), a: t('No. Caller is a phone number you merge into a normal call. Nothing to download, and the other person needs nothing at all.', 'Нет. Caller — это номер, который вы подключаете в обычный звонок. Ничего скачивать не нужно, а собеседнику — тем более.') },
+    { q: t('Which languages are supported?', 'Какие языки поддерживаются?'), a: t('Twelve: English, Russian, Spanish, German, French, Chinese, Japanese, Korean, Arabic, Portuguese, Italian and Hindi — in any direction, detected automatically.', 'Двенадцать: английский, русский, испанский, немецкий, французский, китайский, японский, корейский, арабский, португальский, итальянский и хинди — в любую сторону, с авто-определением.') },
+    { q: t('How accurate and natural is it?', 'Насколько это точно и естественно?'), a: t('It uses premium AI voices and translates both sides of the call out loud. Take turns and pause briefly so each phrase can finish — it sounds like a real interpreter, not a robot.', 'Используются премиальные AI-голоса, перевод озвучивается для обеих сторон. Говорите по очереди с короткой паузой, чтобы фраза успевала завершиться — звучит как живой переводчик, а не робот.') },
+    { q: t('Is it really no subscription?', 'Правда без подписки?'), a: t('Yes. You top up a balance and pay about $0.20 per minute, only while you’re actually talking. No monthly fee, no commitment. New accounts get $2 free to try.', 'Да. Вы пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без абонплаты и обязательств. Новым аккаунтам — $2 бесплатно на пробу.') },
+    { q: t('Does it work on the other person’s landline or mobile?', 'Работает ли с мобильным или стационарным телефоном собеседника?'), a: t('Yes. Because it’s an ordinary phone call, it works whoever you’re calling — a mobile, a landline, a clinic’s switchboard. They just talk normally.', 'Да. Это обычный звонок, поэтому работает с кем угодно — мобильный, стационарный, телефон регистратуры. Собеседник просто говорит как обычно.') },
+    { q: t('How do I pay?', 'Как оплачивать?'), a: t('Top up your balance by card through Stripe whenever you like. Usage is deducted per minute. You don’t need a card to create an account and use your free credit.', 'Пополняйте баланс картой через Stripe в любой момент. Списание идёт по минутам. Карта не нужна, чтобы создать аккаунт и потратить бесплатный баланс.') },
+  ];
+}
+
+/* ─── Scoped styles ─────────────────────────────────────────── */
+const LP_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..560&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+
+.lp {
+  --paper: #f4f1ea;
+  --paper-2: #efeae0;
+  --card: #fbfaf6;
+  --ink: #1b1a17;
+  --ink-2: #4a463e;
+  --ink-3: #6b6459;
+  --line: #e2dccf;
+  --line-2: rgba(27,26,23,0.10);
+  --accent: #1f5d4c;
+  --accent-hover: #174a3c;
+  --accent-soft: rgba(31,93,76,0.08);
+  --clay: #b34a2b;
+  position: relative;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+.lp * { box-sizing: border-box; }
+.lp .display { font-family: 'Fraunces', Georgia, serif; font-weight: 540; letter-spacing: -0.012em; }
+.lp em { font-style: italic; color: var(--accent); }
+
+.grain {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+.lp > *:not(.grain) { position: relative; z-index: 1; }
+
+.lp-wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+
+/* Nav */
+.lp-nav { position: sticky; top: 0; z-index: 50; background: rgba(244,241,234,0.82); backdrop-filter: saturate(140%) blur(10px); border-bottom: 1px solid var(--line-2); }
+.lp-nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 24px; }
+.wordmark { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+.wordmark-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.lp-nav-links { display: flex; gap: 28px; }
+.lp-nav-links a { color: var(--ink-2); text-decoration: none; font-size: 14.5px; font-weight: 500; transition: color .18s; }
+.lp-nav-links a:hover { color: var(--ink); }
+.lp-nav-right { display: flex; align-items: center; gap: 12px; }
+.nav-login { color: var(--ink); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.lang-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .18s; }
+.lang-toggle:hover { border-color: var(--ink-3); color: var(--ink); }
+.lang-toggle .material-symbols-outlined { font-size: 16px; }
+
+/* Buttons */
+.btn-accent { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fbfaf6; border: 1px solid var(--accent); padding: 13px 22px; border-radius: 11px; font-weight: 600; font-size: 15px; text-decoration: none; transition: transform .15s, background .18s, box-shadow .18s; box-shadow: 0 1px 0 rgba(0,0,0,0.04); }
+.btn-accent:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(31,93,76,0.22); }
+.btn-accent .material-symbols-outlined { font-size: 19px; transition: transform .18s; }
+.btn-accent:hover .material-symbols-outlined { transform: translateX(3px); }
+.btn-sm { padding: 9px 15px; font-size: 14px; border-radius: 10px; }
+.btn-lg { padding: 16px 28px; font-size: 16.5px; }
+.btn-block { width: 100%; justify-content: center; margin-top: 22px; }
+.btn-ghost { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); border: 1px solid var(--line); background: transparent; padding: 13px 20px; border-radius: 11px; font-weight: 600; font-size: 15px; text-decoration: none; transition: all .18s; }
+.btn-ghost:hover { background: var(--card); border-color: var(--ink-3); }
+
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 14px; }
+.lead { color: var(--ink-2); }
+.rule { height: 1px; background: var(--line); margin: 0 0 56px; }
+.section { padding-top: 96px; }
+.section-head { max-width: 640px; margin-bottom: 44px; }
+.section-h { font-size: clamp(28px, 4vw, 40px); line-height: 1.08; margin: 0; }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; padding-top: 72px; padding-bottom: 40px; }
+.hero-h { font-size: clamp(44px, 7vw, 78px); line-height: 0.98; margin: 0 0 22px; letter-spacing: -0.02em; }
+.hero-lead { font-size: clamp(17px, 1.6vw, 19.5px); max-width: 30em; margin: 0 0 30px; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.hero-micro { font-size: 13.5px; color: var(--ink-3); margin: 0; }
+
+/* Trust */
+.trust { display: flex; flex-wrap: wrap; gap: 10px 26px; list-style: none; margin: 28px 0 0; padding: 22px 0 0; border-top: 1px solid var(--line-2); }
+.trust li { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; color: var(--ink-2); }
+.trust .material-symbols-outlined { font-size: 17px; color: var(--accent); }
+
+/* Transcript */
+.tx { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: 0 1px 2px rgba(27,26,23,0.04), 0 30px 60px -28px rgba(27,26,23,0.28); transform: rotate(-0.6deg); }
+.tx-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 14px; border-bottom: 1px solid var(--line-2); }
+.tx-live { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
+.tx-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(31,93,76,0.5); animation: tx-pulse 1.8s infinite; }
+.tx-meta { font-size: 11.5px; color: var(--ink-3); }
+.tx-body { display: flex; flex-direction: column; gap: 16px; padding: 18px 6px 8px; min-height: 230px; }
+.tx-row { opacity: 0; animation: tx-in .5s ease forwards; max-width: 86%; }
+.tx-row.you { align-self: flex-end; text-align: right; }
+.tx-who { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); }
+.tx-dst { font-family: 'Fraunces', Georgia, serif; font-weight: 500; font-size: 18px; line-height: 1.3; color: var(--ink); margin: 4px 0 2px; }
+.tx-row.them .tx-dst { color: var(--accent); }
+.tx-src { font-size: 12.5px; color: var(--ink-3); margin: 0; font-style: italic; }
+.tx-typing { display: inline-flex; gap: 5px; padding: 6px 4px; opacity: 0; animation: tx-in .4s ease forwards; }
+.tx-typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); opacity: .5; animation: tx-bounce 1.2s infinite; }
+.tx-typing span:nth-child(2) { animation-delay: .15s; } .tx-typing span:nth-child(3) { animation-delay: .3s; }
+.tx-foot { display: flex; align-items: center; gap: 8px; padding: 14px 6px 4px; border-top: 1px solid var(--line-2); font-size: 12.5px; color: var(--ink-3); }
+.tx-foot .material-symbols-outlined { font-size: 17px; color: var(--accent); }
+@keyframes tx-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes tx-pulse { 0% { box-shadow: 0 0 0 0 rgba(31,93,76,0.45); } 70% { box-shadow: 0 0 0 8px rgba(31,93,76,0); } 100% { box-shadow: 0 0 0 0 rgba(31,93,76,0); } }
+@keyframes tx-bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+
+/* Problem */
+.problem { max-width: 760px; }
+.problem-h { font-size: clamp(30px, 4.4vw, 46px); line-height: 1.05; margin: 0 0 22px; }
+.problem-lead { font-size: clamp(18px, 1.8vw, 21px); margin: 0 0 18px; }
+.problem-turn { font-size: clamp(18px, 1.8vw, 21px); color: var(--ink); font-weight: 500; margin: 0; }
+
+/* Steps */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.step { border-top: 2px solid var(--ink); padding-top: 18px; }
+.step-n { display: block; font-size: 40px; color: var(--accent); line-height: 1; margin-bottom: 14px; }
+.step-title { font-size: 19px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em; }
+.step-body { color: var(--ink-2); font-size: 15px; margin: 0; }
+.step-note { display: inline-flex; align-items: center; gap: 9px; margin-top: 36px; padding: 12px 18px; background: var(--accent-soft); border-radius: 11px; color: var(--accent); font-size: 14.5px; font-weight: 500; }
+.step-note .material-symbols-outlined { font-size: 19px; }
+
+/* Why */
+.why { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+.why-h { font-size: 22px; line-height: 1.18; margin: 0 0 12px; }
+.why-body { color: var(--ink-2); font-size: 15px; margin: 0; }
+
+/* Languages */
+.langs { display: flex; flex-wrap: wrap; gap: 10px 30px; }
+.lang { font-size: clamp(26px, 3.6vw, 40px); color: var(--ink); line-height: 1.2; }
+.lang:nth-child(3n+1) { color: var(--accent); }
+.langs-note { margin-top: 28px; color: var(--ink-2); max-width: 44em; }
+
+/* Pricing */
+.pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.pricing-h { font-size: clamp(30px, 4.4vw, 46px); margin: 0 0 16px; }
+.pricing-lead { font-size: 17px; max-width: 26em; }
+.pricing-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 32px; box-shadow: 0 1px 2px rgba(27,26,23,0.04), 0 24px 50px -30px rgba(27,26,23,0.25); }
+.price-row { display: flex; align-items: baseline; gap: 10px; padding-bottom: 20px; border-bottom: 1px solid var(--line-2); }
+.price { font-size: 52px; line-height: 1; color: var(--ink); }
+.price-unit { font-size: 16px; color: var(--ink-3); font-weight: 500; }
+.price-list { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.price-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; color: var(--ink-2); }
+.price-list .material-symbols-outlined { font-size: 19px; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+
+/* FAQ */
+.faq { border-top: 1px solid var(--line); max-width: 800px; }
+.faq-item { border-bottom: 1px solid var(--line); }
+.faq-item summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 2px; font-size: 17px; font-weight: 600; color: var(--ink); cursor: pointer; list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary .material-symbols-outlined { color: var(--accent); transition: transform .25s; font-size: 22px; }
+.faq-item[open] summary .material-symbols-outlined { transform: rotate(45deg); }
+.faq-item p { margin: 0; padding: 0 2px 22px; color: var(--ink-2); font-size: 15.5px; max-width: 64em; }
+
+/* Final */
+.final { background: var(--ink); color: var(--paper); border-radius: 24px; padding: clamp(40px, 6vw, 72px); text-align: center; }
+.final-h { font-size: clamp(30px, 4.6vw, 50px); line-height: 1.05; margin: 0 auto 18px; max-width: 16em; color: var(--paper); }
+.final-lead { color: rgba(244,241,234,0.72); font-size: 17px; max-width: 34em; margin: 0 auto 30px; }
+.final .btn-accent { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.final .btn-accent:hover { background: #fff; box-shadow: 0 10px 26px rgba(0,0,0,0.3); }
+
+/* Footer */
+.lp-footer { margin-top: 110px; border-top: 1px solid var(--line); padding: 56px 0 30px; }
+.footer-inner { display: flex; justify-content: space-between; gap: 48px; flex-wrap: wrap; }
+.footer-brand { max-width: 280px; }
+.footer-brand p { color: var(--ink-3); font-size: 14px; margin: 14px 0 0; }
+.footer-cols { display: flex; gap: 64px; flex-wrap: wrap; }
+.footer-cols h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3); margin: 0 0 14px; font-weight: 700; }
+.footer-cols a { display: block; color: var(--ink-2); text-decoration: none; font-size: 14.5px; margin-bottom: 10px; transition: color .18s; }
+.footer-cols a:hover { color: var(--accent); }
+.footer-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line-2); color: var(--ink-3); font-size: 13px; }
+
+/* Reveal */
+[data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+[data-reveal].in { opacity: 1; transform: none; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 40px; }
+  .hero-visual { max-width: 460px; }
+  .steps, .why { grid-template-columns: 1fr; gap: 30px; }
+  .pricing { grid-template-columns: 1fr; gap: 28px; }
+  .lp-nav-links { display: none; }
+  .section { padding-top: 72px; }
+}
+@media (max-width: 520px) {
+  .lp-wrap { padding-left: 18px; padding-right: 18px; }
+  .nav-login { display: none; }
+  .tx { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal], .tx-row, .tx-typing { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
+  .tx-dot { animation: none !important; }
+}
+`;

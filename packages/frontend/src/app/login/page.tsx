@@ -91,9 +91,9 @@ function LoginContent() {
           </p>
           <div className="space-y-3">
             {[
-              { icon: 'smart_toy', text: 'AI agents that answer & make calls' },
-              { icon: 'translate', text: 'Live translation in 15+ languages' },
-              { icon: 'shield', text: 'Your keys or ours — you choose' },
+              { icon: 'translate', text: 'Live translation on any phone call' },
+              { icon: 'sync_alt', text: 'Both directions, detected automatically' },
+              { icon: 'savings', text: 'No subscription — pay per minute' },
             ].map(f => (
               <div key={f.text} className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>{f.icon}</span>
@@ -195,11 +195,21 @@ function LoginContent() {
           ) : (
             /* ─── Register (magic link) ─── */
             <>
-              <div className="mb-8">
+              <div className="mb-6">
                 <h1 className="text-2xl font-headline font-bold tracking-tight">Create account</h1>
                 <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
-                  Enter your email — we&apos;ll send a verification link. Free credit included.
+                  Enter your email — we&apos;ll send a verification link to get started.
                 </p>
+              </div>
+
+              {/* $2 free credit callout */}
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl mb-6"
+                style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
+                <span className="material-symbols-outlined text-xl shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>redeem</span>
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>$2 in free credit included</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>Enough for a real test call (≈10 min). No card required.</div>
+                </div>
               </div>
 
               <form onSubmit={handleMagicLink} className="space-y-4">

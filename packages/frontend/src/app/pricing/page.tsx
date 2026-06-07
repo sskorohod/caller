@@ -76,8 +76,8 @@ export default function PricingPage() {
               Simple, transparent pricing
             </h1>
             <p className="text-sm sm:text-lg max-w-2xl mx-auto" style={{ color: '#c2c6d6' }}>
-              Start free with the Translator plan. Upgrade to Agents when you need AI phone automation.
-              Bring your own API keys or use ours from your deposit.
+              No subscription. Start with $2 in free credit, then pay about $0.20 a minute —
+              only while you&apos;re talking. Top up your balance any time.
             </p>
           </div>
 
@@ -153,26 +153,24 @@ export default function PricingPage() {
             })}
           </div>
 
-          {/* Provider Toggle Explainer */}
+          {/* What you get */}
           <div className="mt-12 sm:mt-16 glass-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto text-center">
-            <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#adc6ff' }}>swap_horiz</span>
-            <h3 className="text-xl font-headline font-bold mb-2">Bring Your Own Keys or Use Ours</h3>
+            <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#adc6ff' }}>translate</span>
+            <h3 className="text-xl font-headline font-bold mb-2">12 languages, any direction</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>
-              With the Agents plan, you can connect your own API keys for Twilio, OpenAI, Anthropic, ElevenLabs, and more.
-              Your keys = no usage charges. Or use our platform providers and pay from your deposit.
-              Mix and match — use your Twilio but our AI, for example.
+              Merge your personal Caller number into any phone call and the AI interprets both sides live,
+              in a natural voice — direction detected automatically. Works from any phone, with no app to install.
             </p>
           </div>
 
           {/* Deposit Explainer */}
           <div className="mt-6 sm:mt-8 glass-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto text-center">
             <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#4ade80' }}>account_balance_wallet</span>
-            <h3 className="text-xl font-headline font-bold mb-2">How the Deposit Works</h3>
+            <h3 className="text-xl font-headline font-bold mb-2">How the balance works</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>
-              Top up your USD deposit via Stripe. When you use our providers (STT, LLM, TTS, telephony),
-              usage costs are deducted from your balance.
-              When your balance runs out, platform provider calls are paused — but your own keys keep working.
-              No surprises, no overcharges.
+              Top up your balance by card via Stripe whenever you like. Each call costs about $0.20 a minute,
+              deducted after you hang up. When the balance runs low, just top up again.
+              No subscription, no monthly fee, no surprises.
             </p>
           </div>
         </div>
