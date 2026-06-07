@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and, desc, gte } from 'drizzle-orm';
+import { eq, and, desc, gte, sql } from 'drizzle-orm';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import { translatorSessions, workspaces, telephonyConnections } from '../../db/schema.js';
@@ -116,6 +116,24 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
       daily,
       sessions: sessions.slice(0, 50),
     };
+  });
+
+  // GET /api/translator/line-status — is the translator line free or busy right now?
+  // The translator dial-in number is a shared resource; an active (non-training)
+  // session anywhere on the platform means the line is occupied.
+  app.get('/line-status', async (request) => {
+    const rows = await db.execute(sql`
+      SELECT COUNT(*)::int AS active,
+             SUM(CASE WHEN workspace_id = ${request.auth.workspaceId} THEN 1 ELSE 0 END)::int AS mine
+      FROM translator_sessions
+      WHERE status = 'active'
+        AND is_training = false
+        AND created_at > now() - interval '2 hours'
+    `);
+    const r = rows.rows[0] as { active: number; mine: number } | undefined;
+    const active = r?.active ?? 0;
+    const mine = (r?.mine ?? 0) > 0;
+    return { busy: active > 0, mine, active_count: active };
   });
 
   // GET /api/translator/sessions/active — active sessions for live monitor

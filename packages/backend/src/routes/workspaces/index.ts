@@ -7,7 +7,8 @@ import { normalizePhone } from '../../lib/phone.js';
 import * as auditService from '../../services/audit.service.js';
 import { isAllowedWebhookUrl } from '../../lib/url-validation.js';
 import { db } from '../../config/db.js';
-import { users } from '../../db/schema.js';
+import { sql } from 'drizzle-orm';
+import { users, workspaces, workspaceMembers, bonusBlockedPhones } from '../../db/schema.js';
 
 const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(100),
@@ -64,6 +65,50 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
     });
 
     return workspace;
+  });
+
+  // DELETE /api/workspaces/current — self-serve account deletion (owner only)
+  // Removes the workspace and all its data (cascades sessions, transactions,
+  // telephony, calls, members). Registered phone numbers are retained in
+  // bonus_blocked_phones so the welcome bonus can't be re-claimed. Orphaned
+  // user rows (members with no other workspace) are deleted too.
+  app.delete('/current', {
+    preHandler: [authenticateUser, requireRole('owner')],
+  }, async (request) => {
+    const workspaceId = request.auth.workspaceId;
+
+    const ws = await workspaceService.getWorkspace(workspaceId);
+    const phones: string[] = Array.isArray((ws as any)?.phone_numbers) ? (ws as any).phone_numbers : [];
+
+    // 1. Block the phones from future welcome bonuses (retained after deletion).
+    for (const raw of phones) {
+      const phone = normalizePhone(raw);
+      if (!phone) continue;
+      await db.insert(bonusBlockedPhones)
+        .values({ phone_number: phone, reason: 'account_deleted' })
+        .onConflictDoNothing();
+    }
+
+    // 2. Collect member user ids before the cascade removes membership rows.
+    const members = await db.select({ user_id: workspaceMembers.user_id })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.workspace_id, workspaceId));
+    const memberIds = members.map(m => m.user_id);
+
+    // 3. Delete the workspace — cascades members, sessions, transactions, telephony, calls.
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+
+    // 4. Delete users who no longer belong to any workspace.
+    for (const uid of memberIds) {
+      const [remaining] = await db.select({ c: sql<number>`count(*)::int` })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.user_id, uid));
+      if ((remaining?.c ?? 0) === 0) {
+        await db.delete(users).where(eq(users.id, uid));
+      }
+    }
+
+    return { success: true, blocked_phones: phones.length };
   });
 
   // GET /api/workspaces/members — list members with email

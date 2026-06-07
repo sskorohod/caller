@@ -49,6 +49,7 @@ export default function DashboardHub() {
   const [defaults, setDefaults] = useState<TranslatorDefaults>({});
   const [loaded, setLoaded] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
+  const [lineBusy, setLineBusy] = useState<boolean | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -56,6 +57,16 @@ export default function DashboardHub() {
     api.get<{ balance_usd: number }>('/billing/balance').then(r => setBalance(r.balance_usd)).catch(() => {});
     api.get<UsageResp>('/translator/usage?period=30d').then(setUsage).catch(() => {});
     api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', ...d }); setLoaded(true); }).catch(() => setLoaded(true));
+  }, []);
+
+  // Poll the shared translator line status (free / busy).
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => api.get<{ busy: boolean }>('/translator/line-status')
+      .then(r => { if (!cancelled) setLineBusy(r.busy); }).catch(() => {});
+    poll();
+    const iv = setInterval(poll, 8000);
+    return () => { cancelled = true; clearInterval(iv); };
   }, []);
 
   // Debounced autosave on any setting change.
@@ -135,9 +146,25 @@ export default function DashboardHub() {
           {/* Number (left) */}
           <div className="min-w-0">
             <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{tt('Your phone number', 'Ваш номер телефона')}</div>
-            {phone ? (
-              <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
-            ) : <div className="text-xl md:text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
+            <div className="flex items-center gap-3 flex-wrap">
+              {phone ? (
+                <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
+              ) : <div className="text-xl md:text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
+              {(() => {
+                const busy = lineBusy === true || !!liveCallId;
+                const loading = lineBusy === null && !liveCallId;
+                const color = loading ? 'var(--th-text-muted)' : busy ? '#ef4444' : '#22c55e';
+                const bg = loading ? 'var(--th-surface)' : busy ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
+                const label = loading ? tt('Checking…', 'Проверка…') : busy ? tt('Line busy', 'Линия занята') : tt('Line free', 'Линия свободна');
+                return (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap"
+                    style={{ background: bg, color }} title={busy ? tt('The translator line is in use right now', 'Линия переводчика сейчас занята') : tt('You can use the translator now', 'Можно пользоваться переводчиком')}>
+                    <span className={`w-2 h-2 rounded-full ${busy ? 'animate-pulse' : ''}`} style={{ background: color, boxShadow: loading ? 'none' : `0 0 6px ${color}` }} />
+                    {label}
+                  </span>
+                );
+              })()}
+            </div>
             <p className="text-xs md:text-[13px] text-[var(--th-text-muted)] mt-1.5 leading-snug">{tt('During a call, add this number and tap "Merge" to bring in the translator.', 'Во время разговора добавьте этот номер и нажмите «Объединить», чтобы подключить переводчика.')}</p>
           </div>
           {/* Stats opposite the phone (30d + balance) */}

@@ -536,6 +536,18 @@ export const depositTransactions = pgTable('deposit_transactions', {
 ]);
 
 // ============================================================
+// BONUS-BLOCKED PHONES
+// Phones that already consumed their welcome bonus (e.g. via account
+// deletion). On re-registration with the same phone the signup bonus is
+// skipped. The phone is retained even after the workspace is deleted.
+// ============================================================
+export const bonusBlockedPhones = pgTable('bonus_blocked_phones', {
+  phone_number: text('phone_number').primaryKey(),
+  reason: text('reason'), // 'account_deleted' | 'manual'
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================================
 // MAGIC LINKS (passwordless auth)
 // ============================================================
 export const magicLinks = pgTable('magic_links', {
