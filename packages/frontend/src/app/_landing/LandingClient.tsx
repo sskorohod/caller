@@ -1,5 +1,4 @@
 'use client';
-import { useEffect } from 'react';
 import Link from 'next/link';
 import { LangProvider, useLang } from './useLang';
 
@@ -22,18 +21,6 @@ const REGISTER = '/login?mode=register';
 
 function Landing() {
   const { t, lang } = useLang();
-
-  // Tasteful scroll-reveal (respects reduced-motion). One mechanism, no deps.
-  useEffect(() => {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const els = Array.from(document.querySelectorAll('[data-reveal]'));
-    if (reduce) { els.forEach(e => e.classList.add('in')); return; }
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
-    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
-    els.forEach(e => io.observe(e));
-    return () => io.disconnect();
-  }, []);
 
   return (
     <div className="lp">
@@ -574,9 +561,8 @@ const LP_CSS = `
 .footer-cols a:hover { color: var(--accent); }
 .footer-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line-2); color: var(--ink-3); font-size: 13px; }
 
-/* Reveal + keyframes */
-[data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
-[data-reveal].in { opacity: 1; transform: none; }
+/* Content is always visible (no opacity-gated entrance) so it can never be
+   hidden by paused/throttled animations or a failed observer. */
 @keyframes gradient-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes float-slow { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(3deg); } }
@@ -600,7 +586,7 @@ const LP_CSS = `
   .nav-login { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal], .tx-row, .tx-typing, .tx-float, .hero-glow, .gradient-text, .lang:nth-child(3n+1), .marquee-row { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
+  [data-reveal], .tx-row, .tx-typing, .tx-float, .hero-glow, .gradient-text, .lang:nth-child(3n+1), .marquee-row { animation: none !important; opacity: 1 !important; transform: none !important; }
   .tx-dot { animation: none !important; }
 }
 `;
