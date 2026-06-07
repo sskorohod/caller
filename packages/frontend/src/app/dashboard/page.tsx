@@ -151,8 +151,8 @@ export default function DashboardHub() {
                 <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
               ) : <div className="text-xl md:text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
               {(() => {
-                const busy = lineBusy === true || !!liveCallId;
-                const loading = lineBusy === null && !liveCallId;
+                const busy = lineBusy === true || !!live;
+                const loading = lineBusy === null && !live;
                 const color = loading ? 'var(--th-text-muted)' : busy ? '#ef4444' : '#22c55e';
                 const bg = loading ? 'var(--th-surface)' : busy ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
                 const label = loading ? tt('Checking…', 'Проверка…') : busy ? tt('Line busy', 'Линия занята') : tt('Line free', 'Линия свободна');
