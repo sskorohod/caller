@@ -23,12 +23,12 @@ interface UsageResp {
 }
 
 const TONES = [
-  { value: 'neutral', label: 'Neutral' },
-  { value: 'business', label: 'Business' },
-  { value: 'friendly', label: 'Friendly' },
-  { value: 'medical', label: 'Medical' },
-  { value: 'legal', label: 'Legal' },
-  { value: 'intelligent', label: 'Intelligent' },
+  { value: 'neutral',     label: { en: 'Neutral',     ru: 'Нейтральный' },      desc: { en: 'Natural translation, preserves original tone.',           ru: 'Естественный перевод, сохраняет исходный тон.' } },
+  { value: 'business',    label: { en: 'Business',    ru: 'Деловой' },          desc: { en: 'Formal, professional. Removes filler words (um, uh).',     ru: 'Формально и профессионально. Убирает слова-паразиты.' } },
+  { value: 'friendly',    label: { en: 'Friendly',    ru: 'Дружеский' },        desc: { en: 'Warm, casual, conversational.',                            ru: 'Тёплый, непринуждённый, разговорный.' } },
+  { value: 'medical',     label: { en: 'Medical',     ru: 'Медицинский' },      desc: { en: 'Precise medical terminology.',                             ru: 'Точная медицинская терминология.' } },
+  { value: 'legal',       label: { en: 'Legal',       ru: 'Юридический' },       desc: { en: 'Precise legal terminology, formal tone.',                  ru: 'Точная юридическая терминология, формальный тон.' } },
+  { value: 'intelligent', label: { en: 'Intelligent', ru: 'Интеллектуальный' }, desc: { en: 'Rephrases speech to sound eloquent, polite, and well-spoken.', ru: 'Перефразирует речь, чтобы звучала красноречиво и вежливо.' } },
 ];
 
 const card = 'rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]';
@@ -276,9 +276,21 @@ export default function DashboardHub() {
           {/* Tone */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.tone')}</label>
-            <select value={defaults.tone || 'neutral'} onChange={e => update({ tone: e.target.value })} className={selectCls}>
-              {TONES.map(x => <option key={x.value} value={x.value}>{x.label}</option>)}
-            </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {TONES.map(x => {
+                const on = (defaults.tone || 'neutral') === x.value;
+                return (
+                  <button key={x.value} onClick={() => update({ tone: x.value })}
+                    className="p-2.5 rounded-xl border text-left transition-all"
+                    style={on
+                      ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.08)' }
+                      : { borderColor: 'var(--th-border)' }}>
+                    <div className="text-sm font-medium text-[var(--th-text)]">{tt(x.label.en, x.label.ru)}</div>
+                    <div className="text-[10px] mt-0.5 leading-snug text-[var(--th-text-muted)]">{tt(x.desc.en, x.desc.ru)}</div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Greeting */}
