@@ -133,11 +133,11 @@ export default function DashboardHub() {
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-6">
           {/* Number (left) */}
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--th-text-muted)] mb-1.5">{tt('Your translator number', 'Ваш номер переводчика')}</div>
+            <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{tt('Your phone number', 'Ваш номер телефона')}</div>
             {phone ? (
-              <a href={`tel:${phone}`} className="text-2xl md:text-3xl font-extrabold tracking-wide" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.4))' }}>{fmtPhone(phone)}</a>
-            ) : <div className="text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
-            <p className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{tt('Save it · call your contact · tap "Merge" to add the translator', 'Сохрани в контакты · позвони собеседнику · нажми «Объединить»')}</p>
+              <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
+            ) : <div className="text-xl md:text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
+            <p className="text-xs md:text-[13px] text-[var(--th-text-muted)] mt-1.5 leading-snug">{tt('During a call, add this number and tap "Merge" to bring in the translator.', 'Во время разговора добавьте этот номер и нажмите «Объединить», чтобы подключить переводчика.')}</p>
           </div>
           {/* Stats opposite the phone (30d + balance) */}
           <div className="flex flex-wrap items-end gap-x-6 md:gap-x-8 gap-y-4 lg:shrink-0">
