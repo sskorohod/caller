@@ -130,28 +130,17 @@ export default function DashboardHub() {
       {/* ── Header: number · balance · 30d stats ──────────────── */}
       <div className={`${card} relative overflow-hidden p-5 md:p-6`}>
         <div className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full blur-3xl opacity-30" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%)' }} />
-        <div className="relative">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-            {/* Number */}
-            <div className="lg:col-span-7">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--th-text-muted)] mb-1.5">{tt('Your translator number', 'Ваш номер переводчика')}</div>
-              {phone ? (
-                <a href={`tel:${phone}`} className="text-2xl md:text-3xl font-extrabold tracking-wide" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.4))' }}>{fmtPhone(phone)}</a>
-              ) : <div className="text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
-              <p className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{tt('Save it · call your contact · tap "Merge" to add the translator', 'Сохрани в контакты · позвони собеседнику · нажми «Объединить»')}</p>
-            </div>
-            {/* Balance */}
-            <div className="lg:col-span-5 lg:text-right">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1.5">{tt('Balance', 'Баланс')}</div>
-              <div className="flex items-baseline gap-2 lg:justify-end">
-                <span className="text-2xl font-extrabold tabular-nums" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
-                {minutes != null && <span className="text-[11px] text-[var(--th-text-muted)]">≈ {minutes} {tt('min', 'мин')}</span>}
-              </div>
-              <button onClick={() => router.push('/dashboard/billing')} className="mt-1.5 text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('Top up →', 'Пополнить →')}</button>
-            </div>
+        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-6">
+          {/* Number (left) */}
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--th-text-muted)] mb-1.5">{tt('Your translator number', 'Ваш номер переводчика')}</div>
+            {phone ? (
+              <a href={`tel:${phone}`} className="text-2xl md:text-3xl font-extrabold tracking-wide" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.4))' }}>{fmtPhone(phone)}</a>
+            ) : <div className="text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
+            <p className="text-[11px] text-[var(--th-text-muted)] mt-1.5">{tt('Save it · call your contact · tap "Merge" to add the translator', 'Сохрани в контакты · позвони собеседнику · нажми «Объединить»')}</p>
           </div>
-          {/* 30-day stats */}
-          <div className="mt-5 pt-5 border-t border-[var(--th-border)] grid grid-cols-3 gap-4">
+          {/* Stats opposite the phone (30d + balance) */}
+          <div className="flex flex-wrap items-end gap-x-6 md:gap-x-8 gap-y-4 lg:shrink-0">
             {[
               { icon: 'call', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
               { icon: 'schedule', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
@@ -160,11 +149,23 @@ export default function DashboardHub() {
               <div key={k.label}>
                 <div className="flex items-center gap-1.5 mb-1 text-[var(--th-text-muted)]">
                   <span className="material-symbols-outlined text-[16px]">{k.icon}</span>
-                  <span className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide truncate">{k.label}</span>
+                  <span className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide whitespace-nowrap">{k.label}</span>
                 </div>
                 <div className="text-xl md:text-2xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
               </div>
             ))}
+            {/* Balance */}
+            <div className="lg:pl-6 lg:border-l lg:border-[var(--th-border)]">
+              <div className="flex items-center gap-1.5 mb-1 text-[var(--th-text-muted)]">
+                <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+                <span className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide whitespace-nowrap">{tt('Balance', 'Баланс')}</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl md:text-2xl font-extrabold tabular-nums leading-none" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
+                {minutes != null && <span className="text-[11px] text-[var(--th-text-muted)]">≈ {minutes} {tt('min', 'мин')}</span>}
+                <button onClick={() => router.push('/dashboard/billing')} className="text-xs font-semibold text-[var(--th-primary)] hover:underline">{tt('Top up →', 'Пополнить →')}</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
