@@ -59,15 +59,20 @@ export default function DashboardHub() {
     api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', ...d }); setLoaded(true); }).catch(() => setLoaded(true));
   }, []);
 
-  // Poll the shared translator line status (free / busy).
-  useEffect(() => {
-    let cancelled = false;
-    const poll = () => api.get<{ busy: boolean }>('/translator/line-status')
-      .then(r => { if (!cancelled) setLineBusy(r.busy); }).catch(() => {});
-    poll();
-    const iv = setInterval(poll, 8000);
-    return () => { cancelled = true; clearInterval(iv); };
+  // Shared translator line status (free / busy). `/translator/line-status`
+  // counts active sessions platform-wide (incl. our own), so it is the single
+  // source of truth for the badge.
+  const refreshLineStatus = useCallback(() => {
+    return api.get<{ busy: boolean }>('/translator/line-status')
+      .then(r => setLineBusy(r.busy)).catch(() => {});
   }, []);
+
+  // Fallback poll (covers other accounts + any missed socket event).
+  useEffect(() => {
+    refreshLineStatus();
+    const iv = setInterval(refreshLineStatus, 8000);
+    return () => clearInterval(iv);
+  }, [refreshLineStatus]);
 
   // Debounced autosave on any setting change.
   const update = useCallback((patch: Partial<TranslatorDefaults>) => {
@@ -102,6 +107,15 @@ export default function DashboardHub() {
     socket.on('call:status', onNewCall);
     return () => { socket.off('call:status', onNewCall); };
   }, [socket]);
+
+  // Real-time line-status: refresh the badge the moment any call starts/ends.
+  // (1.5s second pass guards against the DB finalize lagging the socket event.)
+  useEffect(() => {
+    if (!socket) return;
+    const onStatus = () => { refreshLineStatus(); setTimeout(refreshLineStatus, 1500); };
+    socket.on('call:status', onStatus);
+    return () => { socket.off('call:status', onStatus); };
+  }, [socket, refreshLineStatus]);
 
   useEffect(() => {
     if (!socket || !liveCallId) return;
@@ -151,8 +165,8 @@ export default function DashboardHub() {
                 <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
               ) : <div className="text-xl md:text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
               {(() => {
-                const busy = lineBusy === true || !!live;
-                const loading = lineBusy === null && !live;
+                const busy = lineBusy === true;
+                const loading = lineBusy === null;
                 const color = loading ? 'var(--th-text-muted)' : busy ? '#ef4444' : '#22c55e';
                 const bg = loading ? 'var(--th-surface)' : busy ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
                 const label = loading ? tt('Checking…', 'Проверка…') : busy ? tt('Line busy', 'Линия занята') : tt('Line free', 'Линия свободна');
