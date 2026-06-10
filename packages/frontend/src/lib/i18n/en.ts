@@ -204,6 +204,7 @@ const en: Record<string, string> = {
 
   // Translator page
   'translator.title': 'Translator',
+  'translator.settings': 'Settings',
   'translator.tabSettings': 'Settings',
   'translator.tabSessions': 'Sessions',
   'translator.tabLive': 'Live',

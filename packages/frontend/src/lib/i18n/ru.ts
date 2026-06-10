@@ -204,6 +204,7 @@ const ru: Record<string, string> = {
 
   // Translator page
   'translator.title': 'Переводчик',
+  'translator.settings': 'Настройки',
   'translator.tabSettings': 'Настройки',
   'translator.tabSessions': 'Сессии',
   'translator.tabLive': 'Живой',

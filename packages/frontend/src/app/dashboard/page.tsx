@@ -290,14 +290,20 @@ export default function DashboardHub() {
           {/* Languages (translation direction) */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{tt('Languages', 'Языки перевода')}</label>
-            <div className="flex items-center gap-2">
-              <select value={defaults.my_language || 'ru'} onChange={e => update({ my_language: e.target.value })} className={selectCls} disabled={!loaded}>
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
-              <span className="material-symbols-outlined text-[var(--th-text-muted)] shrink-0">sync_alt</span>
-              <select value={defaults.target_language || 'en'} onChange={e => update({ target_language: e.target.value })} className={selectCls} disabled={!loaded}>
-                {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
+            <div className="flex items-end gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-medium text-[var(--th-text-muted)] mb-1">{t('translator.myLanguage')}</div>
+                <select value={defaults.my_language || 'ru'} onChange={e => update({ my_language: e.target.value })} className={selectCls} disabled={!loaded}>
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
+              <span className="material-symbols-outlined text-[var(--th-text-muted)] shrink-0 pb-2.5">sync_alt</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-medium text-[var(--th-text-muted)] mb-1">{t('translator.targetLanguage')}</div>
+                <select value={defaults.target_language || 'en'} onChange={e => update({ target_language: e.target.value })} className={selectCls} disabled={!loaded}>
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -318,20 +324,33 @@ export default function DashboardHub() {
             </div>
           </div>
 
-          {/* Voice */}
+          {/* Voice — female voices outlined pink, male voices blue */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.voice')}</label>
             <div className="grid grid-cols-3 gap-2">
               {VOICES.map(v => {
                 const on = (defaults.tts_voice_id || 'eve') === v.value;
+                const accent = v.gender === 'Female' ? '244,114,182' : '96,165,250'; // pink-400 / blue-400
                 return (
                   <button key={v.value} onClick={() => update({ tts_voice_id: v.value })}
                     className="px-2 py-2 rounded-xl border text-xs font-medium transition-all"
-                    style={on ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.08)', color: 'var(--th-text)' } : { borderColor: 'var(--th-border)', color: 'var(--th-text-muted)' }}>
+                    style={on
+                      ? { borderColor: `rgb(${accent})`, background: `rgba(${accent},0.12)`, color: 'var(--th-text)', boxShadow: `0 0 0 1px rgb(${accent})` }
+                      : { borderColor: `rgba(${accent},0.4)`, color: 'var(--th-text-muted)' }}>
                     {v.label}
                   </button>
                 );
               })}
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="flex items-center gap-1.5 text-[10px] text-[var(--th-text-muted)]">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'rgb(96,165,250)' }} />
+                {tt('Male voices', 'Мужские голоса')}
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] text-[var(--th-text-muted)]">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'rgb(244,114,182)' }} />
+                {tt('Female voices', 'Женские голоса')}
+              </span>
             </div>
           </div>
 
