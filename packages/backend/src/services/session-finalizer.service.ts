@@ -113,7 +113,13 @@ export async function finalizeSession(params: FinalizeSessionParams): Promise<vo
     log.error({ err, callId }, 'Failed to update call status');
   }
 
-  // 4. Notify frontend
+  // 4. Post-call analysis (summary, title, sentiment) — fire-and-forget so
+  // finalization never waits on an LLM call.
+  import('./post-call.service.js')
+    .then(m => m.runPostCallAnalysis({ callId, sessionId, workspaceId }))
+    .catch(err => log.error({ err, callId }, 'Post-call analysis failed'));
+
+  // 5. Notify frontend
   const io = getIo();
   if (io) {
     io.to(`call:${callId}`).emit('call:status', { call_id: callId, status: 'completed' });
