@@ -235,6 +235,13 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
           return { ok, message: ok ? 'Telegram bot connected' : 'Telegram test failed' };
         }
       }
+      if (name === 'twilio') {
+        const creds = await getProviderCredential(wsId, 'twilio');
+        const twilio = (await import('twilio')).default;
+        const client = twilio(creds.account_sid, creds.auth_token);
+        await client.api.v2010.accounts(creds.account_sid).fetch();
+        return { ok: true, message: 'Twilio connection successful' };
+      }
       return { ok: true, message: 'Provider exists' };
     } catch (err) {
       return { ok: false, message: (err as Error).message };
