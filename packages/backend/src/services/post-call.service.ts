@@ -147,6 +147,101 @@ Respond in JSON format:
 }
 
 /**
+ * Recover a missing transcript from the stored call recording (MinIO) via the
+ * Deepgram pre-recorded API. Used when live transcription produced nothing but
+ * the recording exists (e.g. the STT/Grok session died mid-call).
+ *
+ * Not billed: live STT for the call was already billed at finalization; this
+ * is recovery from a platform-side failure.
+ *
+ * Returns true if a transcript was recovered and saved.
+ */
+export async function transcribeFromRecording(params: {
+  callId: string;
+  sessionId: string;
+  workspaceId: string;
+}): Promise<boolean> {
+  const { callId, sessionId, workspaceId } = params;
+
+  const session = await callService.getAiSession(callId);
+  if (!session) return false;
+  const existing = (session.transcript ?? []) as unknown[];
+  if (existing.length > 0) return false; // live transcript exists — nothing to recover
+  const url = session.recording_url;
+  if (!url || !url.startsWith('minio://')) {
+    log.info({ callId, url }, 'No MinIO recording to transcribe');
+    return false;
+  }
+
+  const { getRecordingBuffer } = await import('./recording-storage.service.js');
+  const audio = await getRecordingBuffer(url.replace('minio://', ''));
+
+  const { resolveCredentials } = await import('./credential-resolver.service.js');
+  const { api_key } = await resolveCredentials<{ api_key: string }>(workspaceId, 'deepgram');
+
+  // multichannel: Twilio dual-channel recordings put each leg on its own channel
+  const dgUrl = 'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&utterances=true&multichannel=true&detect_language=true';
+  const res = await fetch(dgUrl, {
+    method: 'POST',
+    headers: { Authorization: `Token ${api_key}`, 'Content-Type': 'audio/mpeg' },
+    body: new Uint8Array(audio),
+  });
+  if (!res.ok) {
+    log.error({ callId, status: res.status, body: (await res.text()).slice(0, 200) }, 'Deepgram prerecorded request failed');
+    return false;
+  }
+  const data = await res.json() as {
+    results?: {
+      utterances?: Array<{ start: number; channel: number; transcript: string }>;
+      channels?: Array<{ alternatives?: Array<{ transcript?: string }> }>;
+    };
+  };
+
+  const startedAt = session.created_at ? new Date(session.created_at as unknown as string).getTime() : Date.now();
+  let turns: Array<{ speaker: string; text: string; timestamp: string }> = [];
+
+  const utterances = data.results?.utterances ?? [];
+  if (utterances.length > 0) {
+    turns = utterances
+      .filter(u => u.transcript.trim())
+      .map(u => ({
+        speaker: u.channel === 0 ? 'caller' : 'operator',
+        text: u.transcript.trim(),
+        timestamp: new Date(startedAt + u.start * 1000).toISOString(),
+      }));
+  } else {
+    // Mono / no utterances — fall back to the full channel transcript
+    const full = data.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim();
+    if (full) turns = [{ speaker: 'caller', text: full, timestamp: new Date(startedAt).toISOString() }];
+  }
+
+  if (turns.length === 0) {
+    log.info({ callId }, 'Recording transcription returned no speech');
+    return false;
+  }
+
+  await callService.updateAiSession(sessionId, {
+    transcript: turns as any,
+    total_turns: turns.length,
+  } as any);
+  log.info({ callId, turns: turns.length }, 'Transcript recovered from recording');
+  return true;
+}
+
+/**
+ * If a session has a recording but no transcript, recover the transcript from
+ * the recording and run the summary analysis. Fire-and-forget safe.
+ */
+export async function recoverTranscriptIfMissing(params: {
+  callId: string;
+  sessionId: string;
+  workspaceId: string;
+}): Promise<void> {
+  const recovered = await transcribeFromRecording(params);
+  if (recovered) await runPostCallAnalysis(params);
+}
+
+/**
  * Backfill summaries for completed sessions that have a transcript but no
  * summary (calls finalized while the post-call step was missing).
  */
@@ -167,6 +262,38 @@ export async function backfillMissingSummaries(limit = 20): Promise<number> {
       done++;
     } catch (err) {
       log.error({ err, callId: row.call_id }, 'Backfill analysis failed');
+    }
+  }
+  return done;
+}
+
+/**
+ * Backfill transcripts for sessions whose live transcription produced nothing
+ * but a MinIO recording exists (≥5s). Recovers the transcript from the
+ * recording, then generates the summary.
+ */
+export async function backfillMissingTranscripts(limit = 20): Promise<number> {
+  const rows = await db.select({
+    call_id: aiCallSessions.call_id,
+    id: aiCallSessions.id,
+    workspace_id: aiCallSessions.workspace_id,
+  })
+    .from(aiCallSessions)
+    .where(sql`jsonb_array_length(coalesce(${aiCallSessions.transcript}, '[]'::jsonb)) = 0
+      AND ${aiCallSessions.recording_url} LIKE 'minio://%'
+      AND coalesce(${aiCallSessions.recording_duration_seconds}, 0) >= 5`)
+    .limit(limit);
+
+  let done = 0;
+  for (const row of rows) {
+    try {
+      const recovered = await transcribeFromRecording({ callId: row.call_id, sessionId: row.id, workspaceId: row.workspace_id });
+      if (recovered) {
+        await runPostCallAnalysis({ callId: row.call_id, sessionId: row.id, workspaceId: row.workspace_id });
+        done++;
+      }
+    } catch (err) {
+      log.error({ err, callId: row.call_id }, 'Transcript backfill failed');
     }
   }
   return done;

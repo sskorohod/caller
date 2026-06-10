@@ -369,6 +369,14 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       .set({ recording_url: recordingUrl, recording_duration_seconds: durationSeconds })
       .where(eq(aiCallSessions.id, session.id));
 
+    // Recording arrives after finalization — if live transcription produced
+    // nothing, recover the transcript from the recording (fire-and-forget).
+    if ((durationSeconds ?? 0) >= 5) {
+      import('../../services/post-call.service.js')
+        .then(m => m.recoverTranscriptIfMissing({ callId: call.id, sessionId: session.id, workspaceId: call.workspace_id }))
+        .catch(err => app.log.error({ err, callId: call.id }, 'Transcript recovery failed'));
+    }
+
     await callService.addCallEvent({
       callId: call.id,
       workspaceId: call.workspace_id,
