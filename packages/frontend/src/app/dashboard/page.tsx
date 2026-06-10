@@ -287,6 +287,31 @@ export default function DashboardHub() {
             {savedTick && <span className="text-[11px] font-medium text-[var(--th-success-text)]">✓ {tt('Saved', 'Сохранено')}</span>}
           </div>
 
+          {/* How-to instruction */}
+          <div className="rounded-xl border border-[var(--th-border)] bg-[var(--th-surface)] p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="material-symbols-outlined text-[16px] text-[var(--th-primary)]">info</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--th-text-muted)]">{tt('How to use', 'Как пользоваться')}</span>
+            </div>
+            <ol className="space-y-1.5">
+              {[
+                tt('Save the translator number to your phone contacts.',
+                   'Сохраните номер переводчика в контакты телефона.'),
+                tt('During a call, say: "Hold on, I’ll connect my interpreter" — and add a call to the translator number.',
+                   'Во время разговора скажите: «Подождите, я подключу переводчика» — и добавьте звонок на номер переводчика.'),
+                tt('Tap "Merge calls" on your phone screen — the calls will join.',
+                   'Нажмите «Объединить» на экране телефона — звонки соединятся.'),
+                tt('A moment later the AI interpreter introduces itself and starts translating. When you finish, just hang up.',
+                   'Через секунду AI-переводчик представится и начнёт переводить. По окончании просто завершите звонок.'),
+              ].map((step, i) => (
+                <li key={i} className="flex gap-2 text-[12px] leading-snug text-[var(--th-text-secondary)]">
+                  <span className="shrink-0 w-4 h-4 rounded-full bg-[var(--th-primary-bg)] text-[var(--th-primary)] text-[10px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
           {/* Languages (translation direction) */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{tt('Languages', 'Языки перевода')}</label>
@@ -385,13 +410,16 @@ export default function DashboardHub() {
               placeholder={t('translator.greetingPlaceholder')} className={selectCls + ' resize-y'} />
           </div>
 
-          {/* Personal context */}
+          {/* Personal context — temporarily hidden (owner request 2026-06-10);
+              the backend field and autosave still work, restore by uncommenting. */}
+          {false && (
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.personalContext')}</label>
             <textarea value={defaults.personal_context || ''} onChange={e => update({ personal_context: e.target.value })} rows={4}
               placeholder={tt('Name, DOB, insurance, address… helps pronounce names & numbers', 'Имя, дата рождения, страховка, адрес… для точных имён и цифр')}
               className={selectCls + ' resize-y font-mono text-xs'} />
           </div>
+          )}
         </div>
       </div>
     </div>
