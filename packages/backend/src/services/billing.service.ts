@@ -2,7 +2,7 @@ import { db } from '../config/db.js';
 import { workspaces, depositTransactions, platformSettings } from '../db/schema.js';
 import { eq, sql } from 'drizzle-orm';
 import { DEFAULT_PLATFORM_MARKUP, calculateClientCost } from '../config/pricing.js';
-import type { ProviderConfig, ProviderName } from '../models/types.js';
+import type { ProviderConfig } from '../models/types.js';
 
 // ─── Markup ───────────────────────────────────────────────────────────────
 
@@ -49,40 +49,31 @@ export interface DeductResult {
   clientCostTotal: number;
 }
 
-/** Map provider name from service to ProviderName key in config */
-function resolveProviderKey(service: string): ProviderName | null {
-  const map: Record<string, ProviderName> = {
-    deepgram: 'deepgram',
-    openai: 'openai',
-    anthropic: 'anthropic',
-    elevenlabs: 'elevenlabs',
-    xai: 'xai',
-    twilio: 'twilio',
-  };
-  return map[service] ?? null;
-}
-
 /**
- * Deduct usage cost from workspace deposit.
- * Only charges for providers set to "platform" in providerConfig.
- * Applies markup (default x3).
+ * Deduct usage cost from a workspace deposit. All providers are platform-managed,
+ * so every usage type is charged (markup default x3). The platform admin's own
+ * workspace is exempt — its usage is internal.
  *
  * Creates a separate deposit_transaction per cost type (stt/llm/tts/telephony)
  * so the dashboard query can split costs by ILIKE pattern matching.
  */
 export async function deductUsageCost(params: DeductUsageCostParams): Promise<DeductResult> {
-  const { workspaceId, providerCosts, providerConfig, referenceType, referenceId } = params;
+  const { workspaceId, providerCosts, referenceType, referenceId } = params;
+
+  // The platform admin owns the providers — never bill the admin's own usage.
+  const { getAdminWorkspaceId } = await import('./credential-resolver.service.js');
+  const adminWs = await getAdminWorkspaceId().catch(() => null);
+  if (adminWs && workspaceId === adminWs) {
+    return { success: true, newBalance: -1, providerCostTotal: 0, clientCostTotal: 0 };
+  }
+
   const markup = await getMarkup();
 
-  const sttKey = resolveProviderKey(providerCosts.sttProvider || 'deepgram');
-  const llmKey = resolveProviderKey(providerCosts.llmProvider || 'anthropic');
-  const ttsKey = resolveProviderKey(providerCosts.ttsProvider || 'elevenlabs');
-
-  // Calculate per-type provider cost (zero when workspace uses own key)
-  const sttCost      = (!sttKey || providerConfig[sttKey] !== 'own') ? providerCosts.stt       : 0;
-  const llmCost      = (!llmKey || providerConfig[llmKey] !== 'own') ? providerCosts.llm       : 0;
-  const ttsCost      = (!ttsKey || providerConfig[ttsKey] !== 'own') ? providerCosts.tts       : 0;
-  const telephonyCost = (providerConfig.twilio !== 'own')             ? providerCosts.telephony : 0;
+  // All providers are platform-managed now — every usage type is charged.
+  const sttCost       = providerCosts.stt;
+  const llmCost       = providerCosts.llm;
+  const ttsCost       = providerCosts.tts;
+  const telephonyCost = providerCosts.telephony;
 
   const providerCostTotal = sttCost + llmCost + ttsCost + telephonyCost;
   if (providerCostTotal === 0) {
@@ -159,15 +150,11 @@ export async function creditDeposit(params: {
 }
 
 /**
- * Check if workspace has sufficient balance for platform providers.
- * Returns true if balance > 0 or workspace uses only own keys.
+ * Check if workspace has sufficient balance. All providers are platform-managed,
+ * so any usage requires a positive balance. (providerConfig is retained in the
+ * signature for call-site compatibility but no longer consulted.)
  */
-export function hasSufficientBalance(balanceUsd: number, providerConfig: ProviderConfig): boolean {
-  // If all providers are "own", no balance needed
-  const usePlatform = Object.values(providerConfig).some(v => v !== 'own');
-  if (!usePlatform) return true;
-  // If providerConfig is empty, default is "platform" — need balance
-  if (Object.keys(providerConfig).length === 0) return balanceUsd > 0;
+export function hasSufficientBalance(balanceUsd: number, _providerConfig: ProviderConfig): boolean {
   return balanceUsd > 0;
 }
 

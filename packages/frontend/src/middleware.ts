@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * Server-side guard for /admin routes.
- * Reads caller_token from cookie, verifies role=owner via backend API.
- * Non-owners are redirected to /dashboard.
+ * Reads caller_token from cookie, verifies is_admin via backend API.
+ * Non-admins are redirected to /dashboard.
  */
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get('caller_token')?.value;
@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const data = await res.json();
-    if (data.role !== 'owner') {
+    if (data.is_admin !== true) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 

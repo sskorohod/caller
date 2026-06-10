@@ -11,7 +11,6 @@ import { createSTTProvider } from '../../services/stt.service.js';
 import { createTTSProvider } from '../../services/tts.service.js';
 import { createLLMProvider } from '../../services/llm.service.js';
 import { decrypt } from '../../lib/crypto.js';
-import { getProviderCredential } from '../../services/provider.service.js';
 import { env } from '../../config/env.js';
 import { registerSession, unregisterSession } from '../../services/active-sessions.service.js';
 import { calculateLLMCost, calculateTTSCost, calculateSTTCost, calculateTelephonyCost } from '../../config/pricing.js';
@@ -601,19 +600,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               const transcript: ManualSession['transcript'] = [];
               const aiSession = await callService.getAiSession(callId);
 
-              // Get xAI API key — own workspace first, fallback to platform
-              const { providerCredentials: pcTable } = await import('../../db/schema.js');
-              let [xaiRow] = await db.select({ credential_data: pcTable.credential_data })
-                .from(pcTable)
-                .where(and(eq(pcTable.workspace_id, call.workspace_id), eq(pcTable.provider, 'xai')));
-              if (!xaiRow) {
-                [xaiRow] = await db.select({ credential_data: pcTable.credential_data })
-                  .from(pcTable)
-                  .where(eq(pcTable.provider, 'xai'))
-                  .limit(1);
-              }
-              if (!xaiRow) throw new Error('xAI credentials not configured');
-              const xaiApiKey = JSON.parse(decrypt(xaiRow.credential_data)).api_key;
+              // xAI is managed centrally by the platform admin.
+              const { resolveCredentials } = await import('../../services/credential-resolver.service.js');
+              const xaiApiKey = (await resolveCredentials<{ api_key: string }>(call.workspace_id, 'xai')).api_key;
 
               const { getLangName } = await import('../../config/languages.js');
               const opLangName = getLangName(operatorLang);

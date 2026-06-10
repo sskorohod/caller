@@ -324,16 +324,16 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       target: z.string().min(1),
     }).parse(request.body);
 
-    const { getProviderCredential } = await import('../../services/provider.service.js');
+    const { resolveCredentials } = await import('../../services/credential-resolver.service.js');
 
-    // Try xAI first, fall back to openai
+    // Try xAI first, fall back to openai (both from the platform admin's credentials)
     let apiKey: string;
     let provider: 'xai' | 'openai' = 'xai';
     try {
-      const creds = await getProviderCredential(request.auth.workspaceId, 'xai');
+      const creds = await resolveCredentials<{ api_key: string }>(request.auth.workspaceId, 'xai');
       apiKey = creds.api_key;
     } catch {
-      const creds = await getProviderCredential(request.auth.workspaceId, 'openai');
+      const creds = await resolveCredentials<{ api_key: string }>(request.auth.workspaceId, 'openai');
       apiKey = creds.api_key;
       provider = 'openai';
     }

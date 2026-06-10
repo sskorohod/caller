@@ -1,14 +1,11 @@
-import { eq, and } from 'drizzle-orm';
-import { db } from '../config/db.js';
-import { providerCredentials } from '../db/schema.js';
-import { decrypt } from '../lib/crypto.js';
+import { resolveCredentialsOrNull } from './credential-resolver.service.js';
 import pino from 'pino';
 
 const log = pino({ name: 'sms' });
 
 /**
- * Send SMS via Twilio.
- * Uses workspace Twilio credentials from provider_credentials table.
+ * Send SMS via Twilio. Uses the platform admin's Twilio credentials (provider
+ * management is centralized — see credential-resolver.service).
  */
 export async function sendSms(
   workspaceId: string,
@@ -17,23 +14,16 @@ export async function sendSms(
   from?: string,
 ): Promise<boolean> {
   try {
-    const [row] = await db.select()
-      .from(providerCredentials)
-      .where(and(
-        eq(providerCredentials.workspace_id, workspaceId),
-        eq(providerCredentials.provider, 'twilio'),
-      ));
-
-    if (!row) {
-      log.warn({ workspaceId }, 'No Twilio credentials for SMS');
-      return false;
-    }
-
-    const creds = JSON.parse(decrypt(row.credential_data)) as {
+    const creds = await resolveCredentialsOrNull<{
       account_sid: string;
       auth_token: string;
       phone_number?: string;
-    };
+    }>(workspaceId, 'twilio');
+
+    if (!creds) {
+      log.warn({ workspaceId }, 'No Twilio credentials for SMS');
+      return false;
+    }
 
     const fromNumber = from ?? creds.phone_number;
     if (!fromNumber) {

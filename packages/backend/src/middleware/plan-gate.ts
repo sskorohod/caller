@@ -31,27 +31,15 @@ export function requireMcpAccess() {
 }
 
 /**
- * Require Twilio credentials for outbound dialer.
- * - translator plan: allowed if admin shared platform Twilio (provider_config.twilio === 'platform') or own creds
- * - agents / agents_mcp: must have own Twilio credentials (no platform fallback)
+ * Require Twilio for the outbound dialer. Twilio is now managed centrally by the
+ * platform admin, so the dialer is available whenever the admin has configured
+ * Twilio credentials.
  */
 export function requireDialerAccess() {
   return async (request: FastifyRequest, _reply: FastifyReply) => {
-    const plan = request.auth.plan;
-    const providerConfig = request.auth.providerConfig as any;
-
-    // Translator plan: admin can share platform Twilio
-    if (plan === 'translator' && providerConfig?.twilio === 'platform') return;
-
-    // All plans: check for own Twilio credentials in workspace
     const { hasOwnCredentials } = await import('../services/credential-resolver.service.js');
     if (await hasOwnCredentials(request.auth.workspaceId, 'twilio')) return;
-
-    // No access
-    const msg = plan === 'translator'
-      ? 'Outbound dialer requires Twilio credentials. Contact admin to enable.'
-      : 'Outbound dialer requires your own Twilio credentials. Configure them in Settings → Providers.';
-    throw new ForbiddenError(msg);
+    throw new ForbiddenError('Outbound dialer is unavailable — the platform admin has not configured Twilio.');
   };
 }
 
@@ -76,15 +64,15 @@ export function requireResourceLimit(resource: 'agent' | 'connection') {
 }
 
 /**
- * Require workspace to have positive deposit balance (for platform provider usage).
- * Skips check if workspace uses only own keys.
+ * Require workspace to have positive deposit balance. All providers are now
+ * platform-managed, so every workspace draws down balance — except the platform
+ * admin, whose own usage is internal.
  */
 export function requireBalance() {
   return async (request: FastifyRequest, _reply: FastifyReply) => {
-    // Owner (admin) has unlimited balance
-    if (request.auth.role === 'owner') return;
+    if (request.auth.isAdmin) return;
     if (!hasSufficientBalance(request.auth.balanceUsd, request.auth.providerConfig)) {
-      throw new ForbiddenError('Insufficient deposit balance. Please top up to continue using platform providers.');
+      throw new ForbiddenError('Insufficient deposit balance. Please top up to continue.');
     }
   };
 }

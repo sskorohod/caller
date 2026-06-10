@@ -1,66 +1,56 @@
 /**
- * Centralized credential resolution with workspace fallback logic.
+ * Centralized credential resolution.
  *
- * Replaces duplicated credential fetching in:
- *   - stt.service.ts
- *   - tts.service.ts
- *   - llm.service.ts
- *   - telephony.service.ts
- *   - conference-translator.ts
+ * Provider credentials are managed exclusively by the platform admin (the single
+ * users.is_admin account). All consumers resolve against the admin's workspace,
+ * regardless of which workspace is making the request — there is no per-workspace
+ * BYOK anymore.
+ *
+ * Telegram is NOT resolved here: its credential carries a per-user chat_id
+ * (notification recipient), so it stays workspace-scoped and is fetched via
+ * direct queries in telegram.service.
+ *
+ * The `workspaceId` argument on each function is retained for call-site
+ * compatibility but no longer affects which credentials are used.
  */
 import { eq, and } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { providerCredentials, workspaceMembers } from '../db/schema.js';
+import { providerCredentials, workspaceMembers, users } from '../db/schema.js';
 import { decrypt } from '../lib/crypto.js';
 import type { ProviderName } from '../models/types.js';
 
 /**
- * Resolve credentials for a given provider in a workspace.
- *
- * Resolution order:
- * 1. Workspace's own credentials (providerCredentials where workspace_id matches)
- * 2. If workspace is on translator plan → fallback to platform owner's credentials
- * 3. Throw if nothing found
- *
- * @param workspaceId - The workspace requesting credentials
- * @param provider    - Provider name (twilio, xai, deepgram, etc.)
- * @returns Decrypted credential data as a parsed object
+ * Resolve the platform admin's workspace id — the single workspace that holds
+ * all provider credentials. Throws if no admin is configured.
+ */
+export async function getAdminWorkspaceId(): Promise<string> {
+  const [row] = await db
+    .select({ workspace_id: workspaceMembers.workspace_id })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.user_id))
+    .where(and(eq(users.is_admin, true), eq(workspaceMembers.role, 'owner')))
+    .limit(1);
+  if (!row) throw new Error('No platform admin configured');
+  return row.workspace_id;
+}
+
+/**
+ * Resolve decrypted credentials for a provider from the admin workspace.
  */
 export async function resolveCredentials<T = Record<string, string>>(
-  workspaceId: string,
+  _workspaceId: string,
   provider: ProviderName | string,
 ): Promise<T> {
-  // 1. Try own workspace credentials
-  const [own] = await db
+  const adminWs = await getAdminWorkspaceId();
+  const [row] = await db
     .select({ credential_data: providerCredentials.credential_data })
     .from(providerCredentials)
     .where(and(
-      eq(providerCredentials.workspace_id, workspaceId),
+      eq(providerCredentials.workspace_id, adminWs),
       eq(providerCredentials.provider, provider),
     ));
-
-  if (own) {
-    return JSON.parse(decrypt(own.credential_data)) as T;
-  }
-
-  // 2. Fallback: platform owner credentials (translator plan only)
-  if (await allowsPlatformFallback(workspaceId)) {
-    const [ownerRow] = await db
-      .select({ credential_data: providerCredentials.credential_data })
-      .from(providerCredentials)
-      .innerJoin(workspaceMembers, and(
-        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-        eq(workspaceMembers.role, 'owner'),
-      ))
-      .where(eq(providerCredentials.provider, provider))
-      .limit(1);
-
-    if (ownerRow) {
-      return JSON.parse(decrypt(ownerRow.credential_data)) as T;
-    }
-  }
-
-  throw new Error(`${provider} credentials not configured`);
+  if (!row) throw new Error(`${provider} credentials not configured`);
+  return JSON.parse(decrypt(row.credential_data)) as T;
 }
 
 /**
@@ -78,104 +68,52 @@ export async function resolveCredentialsOrNull<T = Record<string, string>>(
 }
 
 /**
- * Resolve credentials with unconditional platform fallback.
- * Used for translator-specific features (xAI for conference translator)
- * that should work on ALL plans regardless.
+ * Retained for compatibility — identical to resolveCredentials now that all
+ * credentials are admin-owned. (Previously did an unconditional global fallback.)
  */
 export async function resolveCredentialsWithGlobalFallback<T = Record<string, string>>(
   workspaceId: string,
   provider: ProviderName | string,
 ): Promise<T> {
-  // 1. Try own workspace credentials
-  const [own] = await db
-    .select({ credential_data: providerCredentials.credential_data })
-    .from(providerCredentials)
-    .where(and(
-      eq(providerCredentials.workspace_id, workspaceId),
-      eq(providerCredentials.provider, provider),
-    ));
-
-  if (own) {
-    return JSON.parse(decrypt(own.credential_data)) as T;
-  }
-
-  // 2. Fallback: any available credentials (no plan check)
-  const [fallback] = await db
-    .select({ credential_data: providerCredentials.credential_data })
-    .from(providerCredentials)
-    .where(eq(providerCredentials.provider, provider))
-    .limit(1);
-
-  if (fallback) {
-    return JSON.parse(decrypt(fallback.credential_data)) as T;
-  }
-
-  throw new Error(`${provider} credentials not configured`);
+  return resolveCredentials<T>(workspaceId, provider);
 }
 
 /**
- * Check if workspace has its own credentials for a given provider.
- * Used by requireDialerAccess middleware and similar checks.
+ * Whether the platform admin has credentials configured for a provider.
+ * (Formerly "does this workspace have its own creds"; now platform-scoped.)
  */
 export async function hasOwnCredentials(
-  workspaceId: string,
+  _workspaceId: string,
   provider: ProviderName | string,
 ): Promise<boolean> {
-  const [own] = await db
+  const adminWs = await getAdminWorkspaceId().catch(() => null);
+  if (!adminWs) return false;
+  const [row] = await db
     .select({ id: providerCredentials.id })
     .from(providerCredentials)
     .where(and(
-      eq(providerCredentials.workspace_id, workspaceId),
+      eq(providerCredentials.workspace_id, adminWs),
       eq(providerCredentials.provider, provider),
     ));
-  return !!own;
+  return !!row;
 }
 
 /**
- * Resolve which workspace holds credentials for a given provider.
- * Returns the workspace's own ID if it has credentials, or the
- * platform owner's workspace ID if fallback is allowed.
- *
- * Used by telephony.service for Twilio workspace resolution.
+ * Resolve which workspace holds credentials for a provider — always the admin
+ * workspace now. Used by telephony.service for Twilio client routing.
  */
 export async function resolveCredentialWorkspaceId(
-  workspaceId: string,
+  _workspaceId: string,
   provider: ProviderName | string,
 ): Promise<string> {
-  // Check own
-  const [own] = await db
+  const adminWs = await getAdminWorkspaceId();
+  const [row] = await db
     .select({ id: providerCredentials.id })
     .from(providerCredentials)
     .where(and(
-      eq(providerCredentials.workspace_id, workspaceId),
+      eq(providerCredentials.workspace_id, adminWs),
       eq(providerCredentials.provider, provider),
     ));
-  if (own) return workspaceId;
-
-  // Fallback
-  if (await allowsPlatformFallback(workspaceId)) {
-    const [ownerRow] = await db
-      .select({ workspace_id: providerCredentials.workspace_id })
-      .from(providerCredentials)
-      .innerJoin(workspaceMembers, and(
-        eq(workspaceMembers.workspace_id, providerCredentials.workspace_id),
-        eq(workspaceMembers.role, 'owner'),
-      ))
-      .where(eq(providerCredentials.provider, provider))
-      .limit(1);
-    if (ownerRow) return ownerRow.workspace_id;
-  }
-
-  throw new Error(`${provider} credentials not configured`);
-}
-
-// --- Internal ---
-
-import { workspaces } from '../db/schema.js';
-
-async function allowsPlatformFallback(workspaceId: string): Promise<boolean> {
-  const [ws] = await db.select({ plan: workspaces.plan })
-    .from(workspaces)
-    .where(eq(workspaces.id, workspaceId));
-  return ws?.plan === 'translator';
+  if (!row) throw new Error(`${provider} credentials not configured`);
+  return adminWs;
 }

@@ -4,15 +4,24 @@ import twilio from 'twilio';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { requireResourceLimit } from '../../middleware/plan-gate.js';
 import * as telephonyService from '../../services/telephony.service.js';
-import * as providerService from '../../services/provider.service.js';
 
 const telephonyRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
 
-  // GET /api/telephony/numbers — fetch available numbers from Twilio account
+  // GET /api/telephony/availability — whether the platform admin has configured
+  // Twilio (drives the dialer's "configured" UX without exposing credentials).
+  app.get('/availability', async () => {
+    const { hasOwnCredentials } = await import('../../services/credential-resolver.service.js');
+    const twilioReady = await hasOwnCredentials('', 'twilio');
+    return { twilio: twilioReady };
+  });
+
+  // GET /api/telephony/numbers — fetch available numbers from the platform
+  // admin's Twilio account (provider management is centralized).
   app.get('/numbers', async (request, reply) => {
     try {
-      const creds = await providerService.getProviderCredential(
+      const { resolveCredentials } = await import('../../services/credential-resolver.service.js');
+      const creds = await resolveCredentials<{ account_sid: string; auth_token: string }>(
         request.auth.workspaceId, 'twilio',
       );
       const client = twilio(creds.account_sid, creds.auth_token);

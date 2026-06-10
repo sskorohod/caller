@@ -182,35 +182,8 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     return { success: true };
   });
 
-  // ─── GET /provider-config ──────────────────────────────────────────
-  app.get('/provider-config', { preHandler: [authenticateAny] }, async (request) => {
-    const [ws] = await db.select({ provider_config: workspaces.provider_config })
-      .from(workspaces)
-      .where(eq(workspaces.id, request.auth.workspaceId));
-    return ws?.provider_config || {};
-  });
-
-  // ─── PATCH /provider-config ────────────────────────────────────────
-  app.patch('/provider-config', {
-    preHandler: [authenticateUser, requireRole('owner', 'admin')],
-  }, async (request) => {
-    const body = z.record(z.enum(['platform', 'own'])).parse(request.body);
-
-    // Merge with existing config
-    const [ws] = await db.select({ provider_config: workspaces.provider_config })
-      .from(workspaces)
-      .where(eq(workspaces.id, request.auth.workspaceId));
-
-    const current = (ws?.provider_config as Record<string, string>) || {};
-    const updated = { ...current, ...body };
-
-    await db.update(workspaces).set({
-      provider_config: updated,
-      updated_at: new Date(),
-    }).where(eq(workspaces.id, request.auth.workspaceId));
-
-    return updated;
-  });
+  // Provider mode (platform|own) endpoints were removed: all providers are now
+  // centrally managed by the platform admin, so there is no per-workspace mode.
 
   // ─── POST /downgrade ───────────────────────────────────────────────
   app.post('/downgrade', {

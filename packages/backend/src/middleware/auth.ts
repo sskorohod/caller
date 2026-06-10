@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { workspaceMembers, apiKeys, workspaces } from '../db/schema.js';
+import { workspaceMembers, apiKeys, workspaces, users } from '../db/schema.js';
 import { verifyJWT } from '../lib/jwt.js';
 import { UnauthorizedError, ForbiddenError } from '../lib/errors.js';
 import { verifyApiKey } from '../lib/crypto.js';
@@ -26,6 +26,8 @@ export interface AuthContext {
   userId: string;
   workspaceId: string;
   role: 'owner' | 'admin' | 'operator' | 'analyst';
+  /** Platform admin — the single account that manages providers + /admin. */
+  isAdmin: boolean;
   authMethod: 'session' | 'api_key';
   plan: WorkspacePlan;
   balanceUsd: number;
@@ -54,6 +56,7 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
   const rows = await db.select({
     workspace_id: workspaceMembers.workspace_id,
     role: workspaceMembers.role,
+    is_admin: users.is_admin,
     plan: workspaces.plan,
     balance_usd: workspaces.balance_usd,
     provider_config: workspaces.provider_config,
@@ -62,6 +65,7 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
   })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspace_id))
+    .innerJoin(users, eq(users.id, workspaceMembers.user_id))
     .where(eq(workspaceMembers.user_id, userId))
     .limit(1);
 
@@ -80,6 +84,7 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
     userId,
     workspaceId: row.workspace_id,
     role: row.role as AuthContext['role'],
+    isAdmin: row.is_admin === true,
     authMethod: 'session',
     plan: downgraded || (row.plan as WorkspacePlan) || 'translator',
     balanceUsd: parseFloat(row.balance_usd as string) || 0,
@@ -142,6 +147,7 @@ export async function authenticateApiKey(request: FastifyRequest, reply: Fastify
     userId: 'api_key',
     workspaceId: matched.workspace_id,
     role: 'operator',
+    isAdmin: false,
     authMethod: 'api_key',
     plan: downgraded || (ws?.plan as WorkspacePlan) || 'translator',
     balanceUsd: ws ? parseFloat(ws.balance_usd as string) || 0 : 0,
@@ -170,4 +176,18 @@ export function requireRole(...roles: AuthContext['role'][]) {
       throw new ForbiddenError(`Requires role: ${roles.join(' or ')}`);
     }
   };
+}
+
+/**
+ * Require the platform admin. Distinct from requireRole('owner') — every signup
+ * is the 'owner' of their own workspace, but only the single is_admin account
+ * may reach the /admin panel and manage platform provider credentials.
+ */
+export async function requireAdmin(request: FastifyRequest, _reply: FastifyReply) {
+  if (!request.auth) {
+    throw new UnauthorizedError('Authentication required');
+  }
+  if (!request.auth.isAdmin) {
+    throw new ForbiddenError('Platform admin access required');
+  }
 }

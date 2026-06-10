@@ -1,12 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import twilio from 'twilio';
 import { authenticateUser } from '../../middleware/auth.js';
 import * as apiKeyService from '../../services/api-key.service.js';
-import * as providerService from '../../services/provider.service.js';
 import * as auditService from '../../services/audit.service.js';
 import { requireRole } from '../../middleware/auth.js';
-import { env } from '../../config/env.js';
 
 const authRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
@@ -78,107 +75,9 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     return { id: key.id, revoked_at: key.revoked_at };
   });
 
-  // ============================================================
-  // Provider Credentials
-  // ============================================================
-
-  // GET /api/auth/providers
-  app.get('/providers', async (request) => {
-    const rows = await providerService.listProviderCredentials(request.auth.workspaceId);
-    // Add updated_at from provider_credentials table
-    const { db } = await import('../../config/db.js');
-    const { providerCredentials } = await import('../../db/schema.js');
-    const { eq } = await import('drizzle-orm');
-    const full = await db
-      .select({ provider: providerCredentials.provider, updated_at: providerCredentials.updated_at })
-      .from(providerCredentials)
-      .where(eq(providerCredentials.workspace_id, request.auth.workspaceId));
-    const updatedMap = Object.fromEntries(full.map(r => [r.provider, r.updated_at]));
-    return rows.map(r => ({ ...r, updated_at: updatedMap[r.provider] ?? null }));
-  });
-
-  // PUT /api/auth/providers/:provider
-  app.put('/providers/:provider', {
-    preHandler: [requireRole('owner', 'admin')],
-  }, async (request) => {
-    const { provider } = z.object({
-      provider: z.enum(['twilio', 'openai', 'anthropic', 'elevenlabs', 'deepgram', 'xai', 'telegram']),
-    }).parse(request.params);
-
-    const body = z.object({
-      credentials: z.record(z.string()),
-    }).parse(request.body);
-
-    const credential = await providerService.saveProviderCredential({
-      workspaceId: request.auth.workspaceId,
-      provider,
-      credentials: body.credentials,
-    });
-
-    await auditService.writeAuditLog({
-      workspaceId: request.auth.workspaceId,
-      userId: request.auth.userId,
-      action: 'provider_credential.updated',
-      resourceType: 'provider_credential',
-      resourceId: credential.id,
-      changes: { provider },
-    });
-
-    // For Twilio: verify credentials immediately by fetching account info
-    let twilioNumbers: Array<{ sid: string; phone_number: string; friendly_name: string }> = [];
-    let verifyError: string | null = null;
-    if (provider === 'twilio' && body.credentials.account_sid && body.credentials.auth_token) {
-      try {
-        const client = twilio(body.credentials.account_sid, body.credentials.auth_token);
-        const numbers = await client.incomingPhoneNumbers.list({ limit: 50 });
-        twilioNumbers = numbers.map(n => ({
-          sid: n.sid,
-          phone_number: n.phoneNumber,
-          friendly_name: n.friendlyName || n.phoneNumber,
-        }));
-        await providerService.markProviderVerified(request.auth.workspaceId, 'twilio');
-      } catch (e: any) {
-        verifyError = e.message || 'Invalid Twilio credentials';
-      }
-    }
-
-    // For Telegram: setup webhook so bot can receive /start for pairing
-    if (provider === 'telegram' && body.credentials.bot_token) {
-      try {
-        const { setupTelegramWebhook, setupTelegramBotCommands } = await import('../../routes/webhooks/telegram.js');
-        await setupTelegramWebhook(body.credentials.bot_token, `https://${env.API_DOMAIN}/webhooks/telegram`);
-        await setupTelegramBotCommands(body.credentials.bot_token);
-      } catch { /* non-critical */ }
-    }
-
-    return {
-      provider: credential.provider,
-      is_verified: provider === 'twilio' ? !verifyError : credential.is_verified,
-      updated_at: credential.updated_at,
-      ...(provider === 'twilio' ? { phone_numbers: twilioNumbers, verify_error: verifyError } : {}),
-    };
-  });
-
-  // DELETE /api/auth/providers/:provider
-  app.delete('/providers/:provider', {
-    preHandler: [requireRole('owner', 'admin')],
-  }, async (request) => {
-    const { provider } = z.object({
-      provider: z.enum(['twilio', 'openai', 'anthropic', 'elevenlabs', 'deepgram', 'xai', 'telegram']),
-    }).parse(request.params);
-
-    await providerService.deleteProviderCredential(request.auth.workspaceId, provider);
-
-    await auditService.writeAuditLog({
-      workspaceId: request.auth.workspaceId,
-      userId: request.auth.userId,
-      action: 'provider_credential.deleted',
-      resourceType: 'provider_credential',
-      changes: { provider },
-    });
-
-    return { deleted: true };
-  });
+  // Provider credentials are managed exclusively by the platform admin via the
+  // /admin/providers routes. The former user-facing BYOK endpoints
+  // (GET/PUT/DELETE /api/auth/providers) were removed during centralization.
 };
 
 export default authRoutes;

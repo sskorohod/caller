@@ -72,7 +72,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const [user] = await db.select({ id: users.id, email: users.email })
+    const [user] = await db.select({ id: users.id, email: users.email, is_admin: users.is_admin })
       .from(users).where(eq(users.id, userId)).limit(1);
     if (!user) return reply.status(401).send({ error: 'User not found' });
 
@@ -85,6 +85,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({
       user: { id: user.id, email: user.email },
       role: membership?.role ?? null,
+      is_admin: user.is_admin === true,
       workspaceId: membership?.workspace_id ?? null,
     });
   });
@@ -156,6 +157,14 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       user_id: user.id,
       role: 'owner',
     });
+
+    // First-ever user becomes the platform admin (covers fresh installs;
+    // existing installs designate the admin via migration 00048).
+    const [existingAdmin] = await db.select({ id: users.id })
+      .from(users).where(eq(users.is_admin, true)).limit(1);
+    if (!existingAdmin) {
+      await db.update(users).set({ is_admin: true }).where(eq(users.id, user.id));
+    }
 
     // Credit signup bonus from platform settings — unless the phone already
     // consumed a welcome bonus (e.g. a previously deleted account).

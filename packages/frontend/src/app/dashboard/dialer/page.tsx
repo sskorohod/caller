@@ -90,16 +90,11 @@ export default function DialerPage() {
     }).catch(() => {});
   }, []);
 
-  // Check if Twilio is available (own credentials OR platform sharing)
+  // Check if Twilio is available (configured centrally by the platform admin)
   useEffect(() => {
-    Promise.all([
-      api.get<Array<{ provider: string }>>('/auth/providers'),
-      api.get<Record<string, string>>('/billing/provider-config'),
-    ]).then(([providers, config]) => {
-      const hasOwn = providers.some(p => p.provider === 'twilio');
-      const usesPlatform = config.twilio === 'platform';
-      setTwilioConfigured(hasOwn || usesPlatform);
-    }).catch(() => setTwilioConfigured(false));
+    api.get<{ twilio: boolean }>('/telephony/availability')
+      .then(({ twilio }) => setTwilioConfigured(!!twilio))
+      .catch(() => setTwilioConfigured(false));
   }, []);
 
   // Auto-scroll transcript
@@ -454,12 +449,8 @@ export default function DialerPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
           <span style={{ color: '#fbbf24' }}>
-            <strong>Twilio not configured</strong> — To make and receive calls, connect your Twilio account in Settings → Providers.
+            <strong>Calling unavailable</strong> — telephony hasn’t been enabled yet. Please contact the platform administrator.
           </span>
-          <a href="/dashboard/settings?section=providers" className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0"
-            style={{ background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>
-            Configure
-          </a>
         </div>
       )}
       <div className={`flex-1 flex flex-col lg:flex-row lg:items-start gap-3 md:gap-5 ${isMobile && isInCall ? '' : 'overflow-y-auto'}`}>

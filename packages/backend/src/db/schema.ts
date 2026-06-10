@@ -17,6 +17,10 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   password_hash: text('password_hash').notNull(),
+  // Platform admin: the single account that manages all provider credentials
+  // and the /admin panel. Distinct from workspace 'owner' role (every signup
+  // owns their own workspace; only is_admin reaches the platform admin surface).
+  is_admin: boolean('is_admin').notNull().default(false),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

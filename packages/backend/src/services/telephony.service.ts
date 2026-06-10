@@ -1,7 +1,7 @@
 import twilio from 'twilio';
 import { eq, and, asc } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { providerCredentials, telephonyConnections, workspaces, workspaceMembers } from '../db/schema.js';
+import { providerCredentials, telephonyConnections, workspaces } from '../db/schema.js';
 import { decrypt, encrypt } from '../lib/crypto.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { env } from '../config/env.js';
@@ -60,29 +60,18 @@ export async function getOutboundConnection(workspaceId: string): Promise<Teleph
 
   if (row) return row as unknown as TelephonyConnection;
 
-  // Fallback — use owner workspace connections (platform shared Twilio)
-  // Always try fallback if no own connection found
-  {
-    const [ownerRow] = await db
-      .select({ workspace_id: workspaceMembers.workspace_id })
-      .from(workspaceMembers)
-      .innerJoin(providerCredentials, and(
-        eq(providerCredentials.workspace_id, workspaceMembers.workspace_id),
-        eq(providerCredentials.provider, 'twilio'),
+  // Fallback — the platform admin's outbound connection (Twilio is centralized).
+  const { getAdminWorkspaceId } = await import('./credential-resolver.service.js');
+  const adminWs = await getAdminWorkspaceId().catch(() => null);
+  if (adminWs) {
+    const [platformConn] = await db.select()
+      .from(telephonyConnections)
+      .where(and(
+        eq(telephonyConnections.workspace_id, adminWs),
+        eq(telephonyConnections.outbound_enabled, true),
       ))
-      .where(eq(workspaceMembers.role, 'owner'))
       .limit(1);
-
-    if (ownerRow) {
-      const [platformConn] = await db.select()
-        .from(telephonyConnections)
-        .where(and(
-          eq(telephonyConnections.workspace_id, ownerRow.workspace_id),
-          eq(telephonyConnections.outbound_enabled, true),
-        ))
-        .limit(1);
-      if (platformConn) return platformConn as unknown as TelephonyConnection;
-    }
+    if (platformConn) return platformConn as unknown as TelephonyConnection;
   }
 
   throw new ValidationError('No outbound telephony connection configured');

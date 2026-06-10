@@ -9,23 +9,20 @@ import { getMarkup } from '../../services/billing.service.js';
 const translatorRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
 
-  // GET /api/translator/phone — get the phone number to call for translator
-  app.get('/phone', async (request) => {
-    const [own] = await db.select({ phone_number: telephonyConnections.phone_number })
+  // GET /api/translator/phone — the platform number to call for the translator.
+  // Telephony is centralized under the admin, so this is the admin's connection.
+  app.get('/phone', async () => {
+    const { getAdminWorkspaceId } = await import('../../services/credential-resolver.service.js');
+    const adminWs = await getAdminWorkspaceId().catch(() => null);
+    if (!adminWs) return { phone_number: null };
+    const [conn] = await db.select({ phone_number: telephonyConnections.phone_number })
       .from(telephonyConnections)
       .where(and(
-        eq(telephonyConnections.workspace_id, request.auth.workspaceId),
+        eq(telephonyConnections.workspace_id, adminWs),
         eq(telephonyConnections.ai_answering_enabled, true),
       ))
       .limit(1);
-    if (own) return { phone_number: own.phone_number };
-
-    // Fallback: platform connection
-    const [platform] = await db.select({ phone_number: telephonyConnections.phone_number })
-      .from(telephonyConnections)
-      .where(eq(telephonyConnections.ai_answering_enabled, true))
-      .limit(1);
-    return { phone_number: platform?.phone_number || null };
+    return { phone_number: conn?.phone_number || null };
   });
 
   // GET /api/translator/sessions — history for workspace

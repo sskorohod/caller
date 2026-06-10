@@ -21,7 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     })
       .then(r => r.json())
       .then(data => {
-        if (data.role === 'owner') {
+        if (data.is_admin === true) {
           setReady(true);
         } else {
           setDenied(true);

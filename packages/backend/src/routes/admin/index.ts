@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq, and, desc, sql, gte, lte, like, or, count, sum } from 'drizzle-orm';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, requireAdmin } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import {
   translatorSubscribers, translatorSessions, promoCodes, promoRedemptions,
@@ -29,7 +29,7 @@ function maskKey(key: string): string {
 
 const adminRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
-  app.addHook('onRequest', requireRole('owner'));
+  app.addHook('onRequest', requireAdmin);
 
   // ─── Dashboard ────────────────────────────────────────────────────────
 
@@ -568,27 +568,9 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     return { success: true };
   });
 
-  // ─── PATCH /workspaces/:id/provider-config ──────────────────────────
-  app.patch('/workspaces/:id/provider-config', async (request) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
-    const body = z.record(z.enum(['platform', 'own'])).parse(request.body);
-
-    const [ws] = await db.select({ provider_config: workspaces.provider_config }).from(workspaces).where(eq(workspaces.id, id));
-    if (!ws) return { error: 'Not found' };
-
-    const current = (ws.provider_config as Record<string, string>) || {};
-    const updated = { ...current, ...body };
-
-    // Remove keys set to 'own' (own is the default, no need to store)
-    for (const [k, v] of Object.entries(updated)) {
-      if (v === 'own') delete updated[k];
-    }
-
-    await db.update(workspaces).set({ provider_config: updated, updated_at: new Date() }).where(eq(workspaces.id, id));
-    await auditLog(request.auth.userId, 'provider_config_changed', 'workspace', id, { provider_config: updated }, request.ip);
-
-    return { success: true, provider_config: updated };
-  });
+  // Per-workspace provider-config (platform|own) was removed when provider
+  // management was centralized under the platform admin — all workspaces use
+  // the admin's credentials, so there is no per-workspace mode to set.
 
   // ─── GET /finance/overview ───────────────────────────────────────────
   app.get('/finance/overview', async (request) => {
