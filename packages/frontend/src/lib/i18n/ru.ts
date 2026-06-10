@@ -26,7 +26,7 @@ const ru: Record<string, string> = {
   'nav.prompts': 'Промпты',
   'nav.skills': 'Навыки',
   'nav.connectors': 'Коннекторы',
-  'nav.billing': 'Подписка',
+  'nav.billing': 'Баланс',
   'nav.settings': 'Настройки',
   'nav.help': 'Справка',
 

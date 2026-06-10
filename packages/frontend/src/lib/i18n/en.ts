@@ -26,7 +26,7 @@ const en: Record<string, string> = {
   'nav.prompts': 'Prompts',
   'nav.skills': 'Skills',
   'nav.connectors': 'Connectors',
-  'nav.billing': 'Subscription',
+  'nav.billing': 'Balance',
   'nav.settings': 'Settings',
   'nav.help': 'Help',
 
