@@ -117,6 +117,17 @@ export default function ProvidersPage() {
     setStripeLoading(false);
   };
 
+  const handleRemove = async (name: string) => {
+    const label = PROVIDER_CONFIG[name]?.label || name;
+    if (!confirm(`Remove ${label} credentials? The service will stop working until you add keys again.`)) return;
+    try {
+      await api.delete(`/admin/providers/${name}`);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to remove');
+    }
+  };
+
   const handleStripeRemove = async () => {
     if (!confirm('Remove the saved Stripe keys? New client payments will stop until you add a key again.')) return;
     setStripeLoading(true);
@@ -319,6 +330,15 @@ export default function ProvidersPage() {
                     style={{ background: 'var(--th-primary-bg)', color: 'var(--th-primary-text)' }}
                   >
                     {testing === name ? 'Testing...' : 'Test'}
+                  </button>
+                )}
+                {p?.connected && (
+                  <button
+                    onClick={() => handleRemove(name)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: 'var(--th-error-bg)', color: 'var(--th-error-text)' }}
+                  >
+                    Remove
                   </button>
                 )}
               </div>
