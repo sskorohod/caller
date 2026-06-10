@@ -311,13 +311,17 @@ export default function DashboardHub() {
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.translationMode')}</label>
             <div className="grid grid-cols-2 gap-2">
-              {[{ v: 'bidirectional', l: t('translator.bidirectional') }, { v: 'unidirectional', l: t('translator.unidirectional') }].map(m => {
+              {[
+                { v: 'bidirectional', l: t('translator.bidirectional'), d: t('translator.bidirectionalDesc') },
+                { v: 'unidirectional', l: t('translator.unidirectional'), d: t('translator.unidirectionalDesc') },
+              ].map(m => {
                 const on = (defaults.translation_mode || 'bidirectional') === m.v;
                 return (
                   <button key={m.v} onClick={() => update({ translation_mode: m.v })}
-                    className="px-2 py-2 rounded-xl border text-xs font-medium transition-all"
-                    style={on ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.08)', color: 'var(--th-text)' } : { borderColor: 'var(--th-border)', color: 'var(--th-text-muted)' }}>
-                    {m.l}
+                    className="p-2.5 rounded-xl border text-left transition-all"
+                    style={on ? { borderColor: 'var(--th-primary)', background: 'rgba(99,102,241,0.08)' } : { borderColor: 'var(--th-border)' }}>
+                    <div className="text-xs font-medium" style={{ color: on ? 'var(--th-text)' : 'var(--th-text-muted)' }}>{m.l}</div>
+                    <div className="text-[10px] mt-1 leading-snug text-[var(--th-text-muted)]">{m.d}</div>
                   </button>
                 );
               })}
