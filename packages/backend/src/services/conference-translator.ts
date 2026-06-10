@@ -179,7 +179,7 @@ export class ConferenceTranslator extends EventEmitter {
       const io = getIo();
       if (io) {
         const secs = Math.floor((Date.now() - this.startTime) / 1000);
-        io.to(`call:${this.callId}`).volatile.emit('translator:stats', {
+        io.to(`call:${this.callId}`).emit('translator:stats', {
           call_id: this.callId,
           duration_seconds: secs,
           cost_usd: (secs / 60) * 0.05,
@@ -377,7 +377,10 @@ ${this.personalContext}` : ''}`;
       // Auto-reconnect if session is still active (skip if intentional reconnect — handled by caller)
       if (!this.saved && !this.intentionalReconnect) {
         if (this.reconnectAttempts >= 10) {
-          log.error({ callId: this.callId, attempts: this.reconnectAttempts }, 'Max reconnect attempts reached, giving up');
+          log.error({ callId: this.callId, attempts: this.reconnectAttempts }, 'Max reconnect attempts reached, finalizing call');
+          // Don't leave a zombie translator that silently drops all audio —
+          // end the session so it's billed and the UI gets a status update.
+          this.finalize().catch(() => {});
           return;
         }
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);

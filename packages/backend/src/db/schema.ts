@@ -235,6 +235,7 @@ export const aiCallSessions = pgTable('ai_call_sessions', {
   cost_tts: numeric('cost_tts', { precision: 10, scale: 6 }).notNull().default('0'),
   cost_telephony: numeric('cost_telephony', { precision: 10, scale: 6 }).notNull().default('0'),
   cost_total: numeric('cost_total', { precision: 10, scale: 6 }).notNull().default('0'),
+  is_finalized: boolean('is_finalized').notNull().default(false),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -252,21 +253,6 @@ export const callEvents = pgTable('call_events', {
 }, (t) => [
   index('idx_call_events_call').on(t.call_id, t.created_at),
 ]);
-
-// ============================================================
-// DATA CONNECTORS
-// ============================================================
-export const dataConnectors = pgTable('data_connectors', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  connector_type: text('connector_type').notNull(),
-  config: jsonb('config').notNull().default({}),
-  is_active: boolean('is_active').notNull().default(true),
-  last_synced_at: timestamp('last_synced_at', { withTimezone: true }),
-  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
 
 // ============================================================
 // WEBHOOK ENDPOINTS

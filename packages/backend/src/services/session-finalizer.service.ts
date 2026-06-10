@@ -8,9 +8,9 @@
  * Handles: cost calculation → update AI session → deduct balance → update call status → post-call processing → frontend notification.
  */
 import pino from 'pino';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { calls as callsTable, workspaces as workspacesTable } from '../db/schema.js';
+import { aiCallSessions, calls as callsTable, workspaces as workspacesTable } from '../db/schema.js';
 import * as callService from './call.service.js';
 import { deductUsageCost } from './billing.service.js';
 import { getIo } from '../realtime/io.js';
@@ -43,6 +43,18 @@ export interface FinalizeSessionParams {
 export async function finalizeSession(params: FinalizeSessionParams): Promise<void> {
   const { callId, workspaceId, sessionId, transcript, costs } = params;
   const costTotal = costs.stt + costs.llm + costs.tts + costs.telephony;
+
+  // Idempotency guard: atomically claim the session. If another finalize
+  // (duplicate event, retry after a crash) already claimed it, skip — this
+  // prevents the balance from being deducted twice.
+  const claimed = await db.update(aiCallSessions)
+    .set({ is_finalized: true })
+    .where(and(eq(aiCallSessions.id, sessionId), eq(aiCallSessions.is_finalized, false)))
+    .returning({ id: aiCallSessions.id });
+  if (claimed.length === 0) {
+    log.info({ callId, sessionId }, 'Session already finalized, skipping');
+    return;
+  }
 
   // Resolve duration
   let durationSecs = params.durationSecs;

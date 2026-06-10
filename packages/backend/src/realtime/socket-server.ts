@@ -129,7 +129,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
           socket.join(`call:${row.call_id}`);
           socket.join(`call:${row.call_id}:translate`);
         }
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err }, 'call:translate:join:token failed'); }
     });
 
     // Translator controls — change mode/voice on the fly.
@@ -166,7 +166,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateMode(mode);
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     socket.on('translator:set-languages', async ({ call_id, my_language, target_language }: { call_id?: string; my_language: string; target_language: string }) => {
@@ -176,7 +176,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateLanguages(my_language, target_language);
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     socket.on('translator:set-voice', async ({ call_id, voice }: { call_id?: string; voice: string }) => {
@@ -186,7 +186,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateVoice(voice);
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     // Translator pause/resume
@@ -197,7 +197,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.pause();
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     socket.on('translator:resume', async ({ call_id }: { call_id?: string }) => {
@@ -207,7 +207,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.resume();
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     // Translator set tone
@@ -218,7 +218,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
         const ct = getActiveConferenceTranslators().get(id);
         if (ct) ct.updateTone(tone);
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     socket.on('call:translate:leave', ({ call_id }: { call_id: string }) => {
@@ -254,7 +254,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
             if (result instanceof Promise) await result;
           }
         }
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     // Toggle sequential mode mid-call
@@ -263,7 +263,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
         const session = getActiveVoiceTranslateSessions().get(call_id);
         if (session) session.sequentialMode = sequential;
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     // Toggle translation on/off mid-call
@@ -275,7 +275,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
           session.translationEnabled = enabled;
           log.info({ call_id, enabled }, 'Translation toggled');
         }
-      } catch { /* ignore */ }
+      } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 
     // Live call monitoring: operator sends a free-text instruction to an

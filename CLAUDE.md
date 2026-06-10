@@ -89,7 +89,7 @@ Don't conflate Translator (#2) and Dialer voice-translate (#3) — same Russian 
 | Group | Modules |
 |---|---|
 | Calls | `call.service`, `call-orchestrator`, `session-finalizer.service` |
-| Translator | `conference-translator`, `live-translate.service`, `grok-realtime.service` |
+| Translator | `conference-translator`, `live-translate.service` |
 | Voice providers | `stt.service` (Deepgram, Whisper), `tts.service` (xAI Grok, OpenAI, Twilio), `llm.service` (Anthropic, OpenAI, xAI) |
 | Telephony | `telephony.service` (Twilio client, outbound dial, AMD), `prompt-builder.service` |
 | Missions | `mission.service`, `mission-failure.service` |
@@ -100,9 +100,10 @@ Don't conflate Translator (#2) and Dialer voice-translate (#3) — same Russian 
 | Admin / ops | `audit.service`, `recording-storage.service` (MinIO), `upload.service`, `resource-limits.service`, `active-sessions.service` |
 
 **Routes (`src/routes/`)** — Fastify plugins, mounted under `/api/<resource>`.
-20 groups: `admin`, `agents`, `audit`, `auth`, `billing`, `calls`, `connectors`,
-`contact`, `knowledge`, `memory`, `missions`, `oauth`, `prompt-packs`, `skill-packs`,
+14 groups: `admin`, `audit`, `auth`, `billing`, `calls`, `contact`, `memory`, `oauth`,
 `support`, `telephony`, `translator`, `webhook-endpoints`, `webhooks`, `workspaces`.
+(The agent-platform groups — `agents`, `connectors`, `knowledge`, `missions`,
+`prompt-packs`, `skill-packs` — were removed in the translator-only split.)
 
 The `/webhooks/*` group is special: receives Twilio + Telegram callbacks, no
 auth middleware (signed by source).
@@ -178,8 +179,8 @@ model, not a 3-way conference bridge:
 - The class name `ConferenceTranslator` is historical, not literal. The original
   product spec called for a 3-way merge but it was never built that way.
 
-Single Grok WebSocket session does STT + LLM + TTS together (`services/grok-realtime.service.ts`
-helpers; main loop in `services/conference-translator.ts`).
+Single Grok WebSocket session does STT + LLM + TTS together (all in
+`services/conference-translator.ts`; there is no separate `grok-realtime.service.ts`).
 
 **Known upstream issue (May 2026):** xAI's Grok Voice Agent realtime endpoint may
 return `response.done` with `status_details: "unimplemented"` and zero output

@@ -8,8 +8,14 @@ import { UnauthorizedError } from '../lib/errors.js';
  * Uses Twilio's X-Twilio-Signature header and the webhook auth token.
  */
 export async function validateTwilioSignature(request: FastifyRequest, reply: FastifyReply) {
-  // When TWILIO_WEBHOOK_SECRET is not set, skip validation
-  if (!env.TWILIO_WEBHOOK_SECRET) return;
+  // When TWILIO_WEBHOOK_SECRET is not set: skip in non-production (local dev),
+  // but fail closed in production so unsigned webhooks can't be forged.
+  if (!env.TWILIO_WEBHOOK_SECRET) {
+    if (env.NODE_ENV === 'production') {
+      throw new UnauthorizedError('Twilio webhook validation not configured');
+    }
+    return;
+  }
 
   // Skip validation for voice-client (called by Twilio Client SDK from browser, not Twilio servers)
   if (request.url.includes('/voice-client')) return;

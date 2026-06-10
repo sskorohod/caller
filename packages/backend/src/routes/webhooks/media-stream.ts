@@ -753,33 +753,18 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               grokWs.on('error', (err: Error) => logger.error({ err, callId }, 'Grok VT WebSocket error'));
               grokWs.on('close', () => logger.info({ callId }, 'Grok VT WebSocket closed'));
 
-              // Initiate callee call via Twilio REST API
-              const calleeStreamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}-callee`;
-              const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
-
-              const twilioCallSid = await telephonyService.initiateOutboundCall({
-                workspaceId: call.workspace_id,
-                to: call.to_number,
-                from: call.from_number,
-                callId,
-                statusCallbackUrl,
-                streamUrl: calleeStreamUrl,
-              });
-
-              await callService.updateCallStatus(callId, 'in_progress', {
-                twilio_call_sid: twilioCallSid,
-              } as any);
-
-              // Store session
-              registerSession(callId, { callId, workspaceId: call.workspace_id, type: 'voice_translate', startedAt: new Date().toISOString() }).catch(() => {});
-              activeVoiceTranslateSessions.set(callId, {
+              // Pre-allocate the session BEFORE dialing the callee. Twilio can
+              // connect the callee leg before initiateOutboundCall returns; if the
+              // session isn't registered yet, the callee 'start' handler reads null
+              // and silently drops all callee audio (no STT, no transcript).
+              const vtSession: VoiceTranslateSession = {
                 operatorSocket: socket as any,
                 operatorStreamSid: streamSid!,
                 grokWs,
                 calleeSocket: null,
                 calleeStreamSid: null,
                 calleeStt: null,
-                calleeCallSid: twilioCallSid,
+                calleeCallSid: null,
                 workspaceId: call.workspace_id,
                 transcript,
                 sessionId: aiSession?.id,
@@ -794,7 +779,28 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                   logger.warn({ callId }, 'VT safety timer fired — force-finalizing session');
                   finalizeVTSession(callId).catch(() => {});
                 }, 4 * 60 * 60 * 1000),
+              };
+              activeVoiceTranslateSessions.set(callId, vtSession);
+
+              // Initiate callee call via Twilio REST API
+              const calleeStreamUrl = `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId}-callee`;
+              const statusCallbackUrl = `https://${env.API_DOMAIN}/webhooks/twilio/status`;
+
+              const twilioCallSid = await telephonyService.initiateOutboundCall({
+                workspaceId: call.workspace_id,
+                to: call.to_number,
+                from: call.from_number,
+                callId,
+                statusCallbackUrl,
+                streamUrl: calleeStreamUrl,
               });
+              vtSession.calleeCallSid = twilioCallSid;
+
+              await callService.updateCallStatus(callId, 'in_progress', {
+                twilio_call_sid: twilioCallSid,
+              } as any);
+
+              registerSession(callId, { callId, workspaceId: call.workspace_id, type: 'voice_translate', startedAt: new Date().toISOString() }).catch(() => {});
 
             } catch (err) {
               logger.error({ err, callId }, 'Failed to start Grok Voice Translate');

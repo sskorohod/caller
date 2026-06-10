@@ -4,6 +4,7 @@ import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import * as webhookService from '../../services/webhook.service.js';
 import * as auditService from '../../services/audit.service.js';
 import { NotFoundError } from '../../lib/errors.js';
+import { isAllowedWebhookUrl } from '../../lib/url-validation.js';
 import type { WebhookEventType } from '../../services/webhook.service.js';
 
 const VALID_EVENTS: WebhookEventType[] = [
@@ -14,7 +15,7 @@ const VALID_EVENTS: WebhookEventType[] = [
 ];
 
 const createSchema = z.object({
-  url: z.string().url(),
+  url: z.string().url().refine(isAllowedWebhookUrl, 'Webhook URL must use HTTPS and point to a public address'),
   events: z.array(z.enum([
     'call.started',
     'call.completed',
@@ -25,7 +26,7 @@ const createSchema = z.object({
 });
 
 const updateSchema = z.object({
-  url: z.string().url().optional(),
+  url: z.string().url().refine(isAllowedWebhookUrl, 'Webhook URL must use HTTPS and point to a public address').optional(),
   events: z.array(z.enum([
     'call.started',
     'call.completed',
