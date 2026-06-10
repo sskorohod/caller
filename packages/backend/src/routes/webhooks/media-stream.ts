@@ -547,6 +547,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 tone: wsDefs.tone || 'business',
                 personalContext: wsDefs.personal_context || '',
                 greetingText: callMeta.greeting_text || wsDefs.greeting_text || '',
+                greetingDelaySeconds: Number(wsDefs.greeting_delay_seconds ?? 3),
                 socket: socket as any,
                 streamSid: streamSid!,
               });

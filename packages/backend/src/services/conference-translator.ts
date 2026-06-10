@@ -28,6 +28,8 @@ interface ConferenceTranslatorOptions {
   tone?: string;
   personalContext?: string;
   greetingText?: string;
+  /** Seconds to wait after connecting before speaking the greeting (default 3). */
+  greetingDelaySeconds?: number;
   socket: WebSocket;        // Twilio media stream WebSocket
   streamSid: string;        // Twilio stream SID
 }
@@ -74,6 +76,7 @@ export class ConferenceTranslator extends EventEmitter {
   private tone: string;
   private personalContext: string;
   private greetingText: string;
+  private greetingDelaySeconds: number;
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string; untranslated?: boolean }> = [];
   private sessionId: string | null = null;
@@ -146,6 +149,8 @@ export class ConferenceTranslator extends EventEmitter {
     this.tone = options.tone || 'business';
     this.personalContext = options.personalContext || '';
     this.greetingText = options.greetingText || DEFAULT_GREETING;
+    const delay = options.greetingDelaySeconds;
+    this.greetingDelaySeconds = Number.isFinite(delay) ? Math.min(30, Math.max(0, delay as number)) : 3;
   }
 
   async start(): Promise<void> {
@@ -743,9 +748,17 @@ ${this.personalContext}` : ''}`;
     const voice = (this.ttsVoiceId || 'ara').toLowerCase();
     const tts = new XaiTTS(this.xaiApiKey, voice, this.targetLang || 'en');
 
+    // The greeting is spoken to the OTHER party, so it must sound in their
+    // language no matter what language it was written in. Translate it in
+    // parallel with the configured delay so the delay isn't extended.
+    const [, greetingForOtherParty] = await Promise.all([
+      new Promise(resolve => setTimeout(resolve, this.greetingDelaySeconds * 1000)),
+      this.translateGreetingToTargetLang(),
+    ]);
+
     let audio: Buffer;
     try {
-      audio = await tts.synthesize(this.greetingText);
+      audio = await tts.synthesize(greetingForOtherParty);
     } catch (err) {
       log.error({ err, callId: this.callId }, 'XaiTTS greeting synthesis failed — enabling translation anyway');
       this.greetingPlayed = true;
@@ -766,6 +779,40 @@ ${this.personalContext}` : ''}`;
     log.info({ callId: this.callId, audioBytes: audio.length }, 'Pre-rendered greeting played — enabling translation');
     this.greetingPlayed = true;
     this.flushPreOpenAudio();
+  }
+
+  /**
+   * Translate the configured greeting into the other party's language
+   * (targetLang). The greeting may be written in any language; falls back to
+   * the original text on any error/timeout so the greeting always plays.
+   */
+  private async translateGreetingToTargetLang(): Promise<string> {
+    const langName = LANG_NAMES[this.targetLang] || this.targetLang || 'English';
+    try {
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.xaiApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'grok-3-mini',
+          temperature: 0.2,
+          messages: [
+            { role: 'system', content: `Translate the user's message into ${langName}. If it is already in ${langName}, return it unchanged. Output ONLY the translation — no quotes, no commentary.` },
+            { role: 'user', content: this.greetingText },
+          ],
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) throw new Error(`xAI translate greeting: HTTP ${res.status}`);
+      const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+      const translated = data.choices?.[0]?.message?.content?.trim();
+      if (translated) {
+        log.info({ callId: this.callId, targetLang: this.targetLang }, 'Greeting translated to other party language');
+        return translated;
+      }
+    } catch (err) {
+      log.warn({ err, callId: this.callId }, 'Greeting translation failed — playing original text');
+    }
+    return this.greetingText;
   }
 
   /** Reset per-turn streaming state (called on speech_started and after response.done). */

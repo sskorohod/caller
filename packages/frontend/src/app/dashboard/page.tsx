@@ -9,6 +9,7 @@ import { LANGUAGES, TTS_VOICES as VOICES } from '@/lib/constants';
 
 interface TranslatorDefaults {
   greeting_text?: string;
+  greeting_delay_seconds?: number;
   tts_voice_id?: string;
   tone?: string;
   personal_context?: string;
@@ -405,9 +406,23 @@ export default function DashboardHub() {
 
           {/* Greeting */}
           <div>
-            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.greetingText')}</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">{t('translator.greetingText')}</label>
+              <span className="flex items-center gap-1.5 text-[11px] text-[var(--th-text-muted)]">
+                {tt('Speak after', 'Прозвучит через')}
+                <input type="number" min={0} max={30} disabled={!loaded}
+                  value={defaults.greeting_delay_seconds ?? 3}
+                  onChange={e => update({ greeting_delay_seconds: Math.min(30, Math.max(0, parseInt(e.target.value, 10) || 0)) })}
+                  className="w-14 px-2 py-1 rounded-lg border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-xs text-center focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)]" />
+                {tt('sec', 'сек')}
+              </span>
+            </div>
             <textarea value={defaults.greeting_text || ''} onChange={e => update({ greeting_text: e.target.value })} rows={2}
               placeholder={t('translator.greetingPlaceholder')} className={selectCls + ' resize-y'} />
+            <p className="text-[10px] mt-1 leading-snug text-[var(--th-text-muted)]">
+              {tt('Write it in any language — it is automatically translated into the other party’s language and spoken after the chosen delay. Translation starts right after.',
+                  'Пишите на любом языке — приветствие автоматически переведётся на язык собеседника и прозвучит через указанное время после подключения. Сразу после него начнётся перевод.')}
+            </p>
           </div>
 
           {/* Personal context — temporarily hidden (owner request 2026-06-10);
