@@ -161,8 +161,19 @@ PostgreSQL 16 with `pgvector` (image: `pgvector/pgvector:pg16`).
 - **Provider credentials** are AES-256-GCM encrypted at rest (`lib/crypto.ts`).
 - **Input validation:** every route body/params/query goes through Zod.
 - **No raw secrets in code.** Twilio / xAI / OpenAI / Anthropic / Telegram credentials
-  live in `provider_credentials` (encrypted) and are fetched via `provider.service.ts`
-  or `credential-resolver.service.ts`.
+  live in `provider_credentials` (encrypted).
+- **Provider management is centralized under one platform admin** (`users.is_admin`):
+  - The admin is the single account that manages all infrastructure providers via the
+    `/admin/providers` panel. Distinct from workspace `role='owner'` (every signup owns
+    their own workspace). `requireAdmin` middleware gates `/api/admin/*`.
+  - All infra-provider creds (twilio, xai, openai, anthropic, deepgram, elevenlabs) live
+    in the admin's workspace and are resolved via `credential-resolver.service.ts` →
+    `getAdminWorkspaceId()`. Consumers keep a `workspaceId` arg but it's ignored.
+  - **Telegram is the carve-out** — per-workspace (its cred carries a per-user `chat_id`),
+    fetched via direct queries, never the resolver. Stripe is platform-level via
+    `platform_settings.platform_stripe_workspace_id`.
+  - There is no per-workspace BYOK or `platform|own` mode anymore; billing always charges
+    (admin's own usage exempt). The `provider_config` column is retained but unused.
 
 ## Translator Architecture (important — easy to get wrong)
 

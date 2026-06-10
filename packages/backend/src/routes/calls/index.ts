@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { authenticateUser, authenticateApiKey, authenticateAny, requireRole } from '../../middleware/auth.js';
-import { requireMcpAccess, requireDialerAccess } from '../../middleware/plan-gate.js';
+import { requireMcpAccess, requireDialerAccess, requireBalance } from '../../middleware/plan-gate.js';
 import * as callService from '../../services/call.service.js';
 import * as telephonyService from '../../services/telephony.service.js';
 import * as memoryService from '../../services/memory.service.js';
@@ -317,7 +317,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/calls/translate — translate text using workspace LLM provider
   app.post('/translate', {
-    preHandler: [authenticateUser],
+    preHandler: [authenticateUser, requireBalance()],
   }, async (request) => {
     const { text, target } = z.object({
       text: z.string().min(1),
@@ -369,7 +369,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/calls/dial — manual call from browser (no AI agent)
   app.post('/dial', {
-    preHandler: [authenticateUser, requireDialerAccess()],
+    preHandler: [authenticateUser, requireDialerAccess(), requireBalance()],
   }, async (request, reply) => {
     const body = z.object({
       to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
@@ -462,7 +462,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/calls/:id/takeover — stop AI and connect operator
   app.post('/:id/takeover', {
-    preHandler: [authenticateUser],
+    preHandler: [authenticateUser, requireBalance()],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
@@ -513,7 +513,7 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/calls/:id/translate/start — start live translation
   app.post('/:id/translate/start', {
-    preHandler: [authenticateUser],
+    preHandler: [authenticateUser, requireBalance()],
   }, async (request) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
