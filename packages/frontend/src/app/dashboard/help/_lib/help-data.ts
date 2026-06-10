@@ -514,6 +514,62 @@ Your balance is credited **instantly** after payment, and you can make calls.
     icon: 'settings',
     articles: [
       {
+        id: 'telegram-notifications',
+        titleKey: 'help.art.telegramNotifs',
+        content: {
+          ru: `# Уведомления в Telegram
+
+Подключите своего Telegram-бота — и о каждом звонке вам будет приходить сообщение:
+
+- **в начале звонка** — уведомление со ссылкой на **живой перевод** (расшифровку можно
+  открыть в браузере и читать в реальном времени);
+- **после звонка** — итог: длительность и стоимость.
+
+## Как подключить (3 шага)
+
+1. В Telegram откройте **@BotFather** и создайте бота командой **/newbot** — он выдаст
+   токен (длинная строка с двоеточием).
+2. Откройте **Настройки → Уведомления в Telegram**, вставьте токен и нажмите
+   **«Подключить»**.
+3. Откройте своего бота в Telegram и нажмите **Start** — чат привяжется автоматически
+   (статус в настройках сменится на «Подключено»).
+
+Проверьте связь кнопкой **«Отправить тест»** — в чат придёт тестовое сообщение.
+
+## Команды бота во время звонка
+
+- \`/live\` — ссылка на живой перевод
+- \`/pause\` и \`/resume\` — пауза / продолжение перевода
+- \`/hangup\` — завершить звонок
+- \`/summary\` — краткий итог разговора`,
+          en: `# Telegram notifications
+
+Connect your Telegram bot and get a message about every call:
+
+- **when a call starts** — a notification with a **live translation** link (open the
+  transcript in the browser and read it in real time);
+- **after the call** — a summary: duration and cost.
+
+## How to connect (3 steps)
+
+1. In Telegram, open **@BotFather** and create a bot with **/newbot** — it gives you
+   a token (a long string with a colon).
+2. Open **Settings → Telegram notifications**, paste the token, and press
+   **"Connect"**.
+3. Open your bot in Telegram and press **Start** — the chat pairs automatically
+   (the status in Settings changes to "Connected").
+
+Check the connection with **"Send test"** — a test message arrives in the chat.
+
+## Bot commands during a call
+
+- \`/live\` — live translation link
+- \`/pause\` and \`/resume\` — pause / resume translation
+- \`/hangup\` — end the call
+- \`/summary\` — a short summary of the conversation`,
+        },
+      },
+      {
         id: 'account',
         titleKey: 'help.art.account',
         content: {

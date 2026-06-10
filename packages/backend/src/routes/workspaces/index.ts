@@ -204,6 +204,85 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
+  // ─── Telegram notifications (self-service, workspace-scoped) ────────
+  // Telegram is the ONE provider users manage themselves: its credential
+  // carries a personal chat_id (the notification recipient), so it is not
+  // part of the admin-managed provider set.
+
+  // GET /api/workspaces/telegram — connection status
+  app.get('/telegram', {
+    preHandler: [authenticateUser],
+  }, async (request) => {
+    const { getProviderCredential } = await import('../../services/provider.service.js');
+    try {
+      const creds = await getProviderCredential(request.auth.workspaceId, 'telegram');
+      return {
+        connected: true,
+        paired: !!creds.chat_id,
+        masked_token: creds.bot_token
+          ? creds.bot_token.slice(0, 6) + '••••' + creds.bot_token.slice(-4)
+          : null,
+      };
+    } catch {
+      return { connected: false, paired: false, masked_token: null };
+    }
+  });
+
+  // PUT /api/workspaces/telegram — connect (or replace) the user's bot
+  app.put('/telegram', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request) => {
+    const body = z.object({ bot_token: z.string().min(20).max(200) }).parse(request.body);
+    const { getProviderCredential, saveProviderCredential } = await import('../../services/provider.service.js');
+
+    // Keep the existing chat pairing when re-saving the same token.
+    let chatId = '';
+    try {
+      const prev = await getProviderCredential(request.auth.workspaceId, 'telegram');
+      if (prev.bot_token === body.bot_token && prev.chat_id) chatId = prev.chat_id;
+    } catch { /* not connected yet */ }
+
+    await saveProviderCredential({
+      workspaceId: request.auth.workspaceId,
+      provider: 'telegram',
+      credentials: { bot_token: body.bot_token, chat_id: chatId },
+    });
+
+    // Register the webhook so the bot receives /start (pairing) and commands.
+    try {
+      const { setupTelegramWebhook, setupTelegramBotCommands } = await import('../webhooks/telegram.js');
+      const { env } = await import('../../config/env.js');
+      await setupTelegramWebhook(body.bot_token, `https://${env.API_DOMAIN}/webhooks/telegram`);
+      await setupTelegramBotCommands(body.bot_token);
+    } catch { /* non-critical — pairing still possible after webhook retry */ }
+
+    await auditService.writeAuditLog({
+      workspaceId: request.auth.workspaceId,
+      userId: request.auth.userId,
+      action: 'provider_credential.updated',
+      resourceType: 'provider_credential',
+      changes: { provider: 'telegram' },
+    });
+
+    return { connected: true, paired: !!chatId };
+  });
+
+  // DELETE /api/workspaces/telegram — disconnect the bot
+  app.delete('/telegram', {
+    preHandler: [authenticateUser, requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { deleteProviderCredential } = await import('../../services/provider.service.js');
+    await deleteProviderCredential(request.auth.workspaceId, 'telegram');
+    await auditService.writeAuditLog({
+      workspaceId: request.auth.workspaceId,
+      userId: request.auth.userId,
+      action: 'provider_credential.deleted',
+      resourceType: 'provider_credential',
+      changes: { provider: 'telegram' },
+    });
+    return { ok: true };
+  });
+
   // POST /api/workspaces/test-telegram — send test message via Telegram bot
   app.post('/test-telegram', {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
