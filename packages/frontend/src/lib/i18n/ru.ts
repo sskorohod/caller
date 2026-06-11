@@ -680,6 +680,13 @@ const ru: Record<string, string> = {
 
   // Settings
   'settings.title': 'Настройки',
+  'settings.subtitle': 'Управляйте аккаунтом, уведомлениями и настройками интерфейса.',
+  'settings.generalDesc': 'Ваше имя и номера телефонов, привязанные к аккаунту.',
+  'settings.notifications': 'Уведомления',
+  'settings.appearanceDesc': 'Тема и язык интерфейса.',
+  'settings.dangerZone': 'Опасная зона',
+  'settings.unsavedChanges': 'Есть несохранённые изменения',
+  'settings.telegram.awaitingShort': 'Ожидает привязки',
   'settings.appearance': 'Внешний вид',
   'settings.theme': 'Тема',
   'settings.telegram.title': 'Уведомления в Telegram',

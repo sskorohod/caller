@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Workspace } from '../_lib/types';
-import { IconCheck } from '../_lib/icons';
+import { SectionCard } from './SectionCard';
+
+const E164 = /^\+[1-9]\d{1,14}$/;
+const normalize = (v: string) => v.replace(/[\s\-\(\)\.]/g, '');
 
 export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null; onUpdated: (w: Workspace) => void }) {
   const t = useT();
@@ -20,12 +23,16 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
     }
   }, [workspace]);
 
+  const initialName = (workspace as any)?.owner_name ?? '';
+  const initialPhones = JSON.stringify(((workspace as any)?.phone_numbers ?? []).filter(Boolean));
+  const dirty = ownerName !== initialName || JSON.stringify(phoneNums.filter(Boolean)) !== initialPhones;
+
   async function save() {
     setSaving(true); setError(''); setSaved(false);
     try {
       const updated = await api.patch<Workspace>('/workspaces/current', {
         owner_name: ownerName.trim() || null,
-        phone_numbers: phoneNums.map(n => n.replace(/[\s\-\(\)\.]/g, '')).filter(n => n && /^\+[1-9]\d{1,14}$/.test(n)),
+        phone_numbers: phoneNums.map(normalize).filter(n => n && E164.test(n)),
       });
       onUpdated(updated);
       setSaved(true);
@@ -37,91 +44,107 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
     }
   }
 
-  const inputCls = "w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-card-border-subtle)] text-sm text-[var(--th-text)] bg-[var(--th-card)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all";
+  const inputCls = "w-full px-3.5 py-2.5 rounded-xl border border-[var(--th-input-border)] text-sm text-[var(--th-text)] bg-[var(--th-input)] placeholder:text-[var(--th-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/20 focus:border-[var(--th-primary)] transition-all";
 
   return (
-    <div className="space-y-3 md:space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-[var(--th-text)]">{t('settings.general') || 'Settings'}</h2>
-      </div>
-
-      {/* Workspace Identity Card */}
-      <div className="relative overflow-hidden bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-        <div className="p-4 md:p-6 space-y-4 md:space-y-5">
-          {/* Owner name */}
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">
-              {t('settings.ownerName') || 'Your Name'}
-            </label>
-            <input
-              type="text"
-              value={ownerName}
-              onChange={e => setOwnerName(e.target.value)}
-              placeholder="Slava"
-              className={`${inputCls} !text-base !py-3 font-medium`}
-            />
-            <p className="text-[11px] text-[var(--th-text-muted)]">{t('settings.ownerNameHint') || 'Used as client name in mission calls so the agent doesn\'t ask every time.'}</p>
-          </div>
-
-          {/* Phone numbers */}
-          <div className="space-y-2">
-            <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide">
-              {t('settings.phoneNumbers')}
-            </label>
-            <p className="text-[11px] text-[var(--th-text-muted)]">{t('settings.phoneNumbersHint')}</p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {[0, 1, 2].map(i => {
-                const val = phoneNums[i] || '';
-                const normalized = val.replace(/[\s\-\(\)\.]/g, '');
-                const isValid = !val || /^\+[1-9]\d{1,14}$/.test(normalized);
-                return (
-                  <div key={i}>
-                    <input
-                      type="tel"
-                      value={val}
-                      placeholder={i === 0 ? '+14155551234' : `Phone ${i + 1} (optional)`}
-                      onChange={e => {
-                        let v = e.target.value;
-                        if (v && !v.startsWith('+') && /^\d/.test(v)) v = '+' + v;
-                        const updated = [...phoneNums];
-                        updated[i] = v;
-                        setPhoneNums(updated.slice(0, 3));
-                      }}
-                      onBlur={() => {
-                        if (!val) return;
-                        const clean = val.replace(/[\s\-\(\)\.]/g, '');
-                        if (clean !== val) {
-                          const updated = [...phoneNums];
-                          updated[i] = clean;
-                          setPhoneNums(updated.slice(0, 3));
-                        }
-                      }}
-                      className={`${inputCls} ${!isValid ? '!border-red-500/50 !focus:ring-red-500/20' : ''}`}
-                    />
-                    {val && !isValid && (
-                      <p className="text-[10px] text-red-400 mt-0.5">E.164: +14155551234</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Save bar */}
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-t border-[var(--th-card-border-subtle)] bg-[var(--th-surface)]/50 rounded-b-2xl">
-          <span className="text-xs text-[var(--th-text-muted)]">
-            {error ? <span className="text-[var(--th-error-text)]">{error}</span> : saved ? <span className="text-[var(--th-success-text)] flex items-center gap-1"><IconCheck className="w-3.5 h-3.5" />{t('settings.saved')}</span> : null}
+    <SectionCard
+      id="general"
+      icon="person"
+      tint="indigo"
+      title={t('settings.general') || 'General'}
+      description={t('settings.generalDesc')}
+      footer={
+        <>
+          <span className="text-xs min-w-0 truncate">
+            {error ? (
+              <span className="font-medium text-[var(--th-error-text)]">{error}</span>
+            ) : saved ? (
+              <span className="inline-flex items-center gap-1 font-medium text-[var(--th-success-text)]">
+                <span className="material-symbols-outlined text-[15px] leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                {t('settings.saved')}
+              </span>
+            ) : dirty ? (
+              <span className="inline-flex items-center gap-1.5 text-[var(--th-text-muted)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                {t('settings.unsavedChanges')}
+              </span>
+            ) : null}
           </span>
           <button
             onClick={save}
-            disabled={saving}
-            className="px-5 py-2.5 min-h-[44px] w-full sm:w-auto btn-primary shadow-sm"
+            disabled={saving || !dirty}
+            className="btn-primary shrink-0 px-5 py-2 min-h-[38px] text-sm"
           >
             {saving ? t('settings.saving') : t('settings.saveChanges')}
           </button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {/* Owner name */}
+        <div className="space-y-1.5">
+          <label htmlFor="settings-owner-name" className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
+            {t('settings.ownerName') || 'Your Name'}
+          </label>
+          <input
+            id="settings-owner-name"
+            type="text"
+            value={ownerName}
+            onChange={e => setOwnerName(e.target.value)}
+            placeholder="Slava"
+            className={`${inputCls} max-w-sm font-medium`}
+          />
+          <p className="text-[11px] leading-relaxed text-[var(--th-text-muted)]">
+            {t('settings.ownerNameHint') || 'Used as the account holder name on billing and system notifications.'}
+          </p>
+        </div>
+
+        <div className="h-px bg-[var(--th-border-light)]" />
+
+        {/* Phone numbers */}
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">
+            {t('settings.phoneNumbers')}
+          </label>
+          <p className="text-[11px] leading-relaxed text-[var(--th-text-muted)]">{t('settings.phoneNumbersHint')}</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 pt-1">
+            {[0, 1, 2].map(i => {
+              const val = phoneNums[i] || '';
+              const isValid = !val || E164.test(normalize(val));
+              return (
+                <div key={i}>
+                  <input
+                    type="tel"
+                    value={val}
+                    aria-label={`${t('settings.phoneNumbers')} ${i + 1}`}
+                    placeholder={i === 0 ? '+14155551234' : `Phone ${i + 1} (optional)`}
+                    onChange={e => {
+                      let v = e.target.value;
+                      if (v && !v.startsWith('+') && /^\d/.test(v)) v = '+' + v;
+                      const updated = [...phoneNums];
+                      updated[i] = v;
+                      setPhoneNums(updated.slice(0, 3));
+                    }}
+                    onBlur={() => {
+                      if (!val) return;
+                      const clean = normalize(val);
+                      if (clean !== val) {
+                        const updated = [...phoneNums];
+                        updated[i] = clean;
+                        setPhoneNums(updated.slice(0, 3));
+                      }
+                    }}
+                    className={`${inputCls} tabular-nums ${!isValid ? '!border-red-500/50' : ''}`}
+                  />
+                  {val && !isValid && (
+                    <p className="text-[10px] text-red-400 mt-1">E.164: +14155551234</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
+    </SectionCard>
   );
 }

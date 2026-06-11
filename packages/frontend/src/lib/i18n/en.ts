@@ -680,6 +680,13 @@ const en: Record<string, string> = {
 
   // Settings
   'settings.title': 'Settings',
+  'settings.subtitle': 'Manage your account, notifications and preferences.',
+  'settings.generalDesc': 'Your name and the phone numbers linked to this account.',
+  'settings.notifications': 'Notifications',
+  'settings.appearanceDesc': 'Theme and interface language.',
+  'settings.dangerZone': 'Danger zone',
+  'settings.unsavedChanges': 'Unsaved changes',
+  'settings.telegram.awaitingShort': 'Awaiting pairing',
   'settings.appearance': 'Appearance',
   'settings.theme': 'Theme',
   'settings.telegram.title': 'Telegram notifications',

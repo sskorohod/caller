@@ -1,11 +1,12 @@
 'use client';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
+import { SectionCard } from './SectionCard';
 
 function Segmented<T extends string>({ value, onChange, options }: {
   value: T;
   onChange: (v: T) => void;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; icon?: string }[];
 }) {
   return (
     <div className="inline-flex rounded-xl p-1 gap-1" style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}>
@@ -15,11 +16,13 @@ function Segmented<T extends string>({ value, onChange, options }: {
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
+            aria-pressed={on}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all"
             style={on
               ? { background: 'var(--th-card)', color: 'var(--th-text)', boxShadow: '0 1px 2px var(--th-shadow)' }
               : { background: 'transparent', color: 'var(--th-text-muted)' }}
           >
+            {o.icon && <span className="material-symbols-outlined text-[16px] leading-none">{o.icon}</span>}
             {o.label}
           </button>
         );
@@ -33,40 +36,43 @@ export function AppearanceSection() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="space-y-3 md:space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-[var(--th-text)]">{t('settings.appearance')}</h2>
-      </div>
-
-      <div className="bg-[var(--th-card)] rounded-2xl border border-[var(--th-card-border-subtle)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]">
-        <div className="p-4 md:p-6 divide-y" style={{ borderColor: 'var(--th-card-border-subtle)' }}>
-          {/* Theme */}
-          <div className="flex items-center justify-between gap-4 pb-4 md:pb-5">
+    <SectionCard
+      id="appearance"
+      icon="palette"
+      tint="violet"
+      title={t('settings.appearance')}
+      description={t('settings.appearanceDesc')}
+    >
+      <div className="divide-y" style={{ borderColor: 'var(--th-border-light)' }}>
+        {/* Theme */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+          <div>
             <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.theme')}</div>
-            <Segmented
-              value={theme}
-              onChange={setTheme}
-              options={[
-                { value: 'light', label: t('settings.themeLight') },
-                { value: 'dark', label: t('settings.themeDark') },
-              ]}
-            />
+            <div className="text-[11px] text-[var(--th-text-muted)] mt-0.5">{t('settings.themeDesc')}</div>
           </div>
+          <Segmented
+            value={theme}
+            onChange={setTheme}
+            options={[
+              { value: 'light', label: t('settings.themeLight'), icon: 'light_mode' },
+              { value: 'dark', label: t('settings.themeDark'), icon: 'dark_mode' },
+            ]}
+          />
+        </div>
 
-          {/* Language */}
-          <div className="flex items-center justify-between gap-4 pt-4 md:pt-5">
-            <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.language')}</div>
-            <Segmented
-              value={lang}
-              onChange={setLang}
-              options={[
-                { value: 'en', label: 'English' },
-                { value: 'ru', label: 'Русский' },
-              ]}
-            />
-          </div>
+        {/* Language */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+          <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.language')}</div>
+          <Segmented
+            value={lang}
+            onChange={setLang}
+            options={[
+              { value: 'en', label: 'English' },
+              { value: 'ru', label: 'Русский' },
+            ]}
+          />
         </div>
       </div>
-    </div>
+    </SectionCard>
   );
 }
