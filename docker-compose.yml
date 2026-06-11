@@ -85,6 +85,9 @@ services:
       # flagship elaborates with helper phrases. Overridable via .env to A/B
       # slugs without a rebuild.
       GROK_VOICE_MODEL: ${GROK_VOICE_MODEL:-grok-voice-fast-1.0}
+      # Browser sandbox trial (set the workspace id in .env to enable)
+      SANDBOX_WORKSPACE_ID: ${SANDBOX_WORKSPACE_ID:-}
+      SANDBOX_MAX_SECONDS: ${SANDBOX_MAX_SECONDS:-300}
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-caller}
@@ -137,7 +140,9 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/health || exit 1"]
+      # 127.0.0.1, not localhost: alpine wget resolves localhost to ::1 first,
+      # and nginx only listens on IPv4 — the check would always be "refused".
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
