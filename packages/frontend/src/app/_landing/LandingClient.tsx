@@ -65,46 +65,51 @@ function Landing() {
         <div className="hero-glow g3" aria-hidden />
         <div className="hero-copy">
           <p className="eyebrow" data-reveal>
-            <span className="dot" />{t('Live phone translation for expats', 'Живой перевод звонков для экспатов')}
-            <span className="eyebrow-chip"><span className="material-symbols-outlined">bolt</span>{t('Ready in 2 minutes', 'Готово через 2 минуты')}</span>
+            <span className="dot" />{t('Live phone call translation', 'Живой перевод звонков')}
           </p>
           <h1 className="display hero-h" data-reveal style={{ transitionDelay: '60ms' }}>
-            {t('Make the call.', 'Звоните.')}<br />
-            <em className="gradient-text">{t('In any language.', 'На любом языке.')}</em>
+            {t('Speak freely.', 'Говорите свободно.')}<br />
+            <em className="gradient-text">{t('Live lighter.', 'Живите легче.')}</em>
           </h1>
           <p className="lead hero-lead" data-reveal style={{ transitionDelay: '120ms' }}>
             {t(
-              'Caller joins your phone call and interprets both sides in real time — so you can talk to clinics, landlords and government offices without the language barrier, and without clunky apps.',
-              'Caller подключается к вашему звонку и переводит обе стороны в реальном времени — говорите с клиниками, арендодателями и госучреждениями без языкового барьера и неудобных приложений.',
+              'Caller translates your phone conversations in real time. No language barrier, no extra effort.',
+              'Caller переводит ваши телефонные разговоры в реальном времени. Без языкового барьера и лишних усилий.',
             )}
           </p>
-          <ol className="hero-steps" data-reveal style={{ transitionDelay: '150ms' }}>
+          <ul className="hero-feats" data-reveal style={{ transitionDelay: '150ms' }}>
             {[
-              { icon: 'call', label: t('Call the person', 'Позвоните собеседнику') },
-              { icon: 'call_merge', label: t('Add Caller → Merge', 'Добавьте Caller → «Объединить»') },
-              { icon: 'graphic_eq', label: t('Hear the translation', 'Слушайте перевод') },
-            ].map((s, i) => (
-              <Fragment key={i}>
-                {i > 0 && <span className="hs-sep material-symbols-outlined" aria-hidden>arrow_forward</span>}
-                <li>
-                  <span className="hs-n">{i + 1}</span>
-                  <span className="material-symbols-outlined">{s.icon}</span>
-                  {s.label}
-                </li>
-              </Fragment>
+              { icon: 'graphic_eq', l1: t('Real-time', 'Перевод'), l2: t('translation', 'в реальном времени') },
+              { icon: 'sync_alt', l1: t('Two-way', 'Двусторонний'), l2: t('interpretation', 'перевод') },
+              { icon: 'record_voice_over', l1: t('Lifelike', 'Голоса'), l2: t('voices', 'как живые') },
+            ].map((f, i) => (
+              <li key={i}>
+                <span className="material-symbols-outlined">{f.icon}</span>
+                <span className="hf-text">{f.l1}<br />{f.l2}</span>
+              </li>
             ))}
-          </ol>
+          </ul>
           <div className="hero-cta" data-reveal style={{ transitionDelay: '180ms' }}>
             <Link href={REGISTER} className="btn-accent cta-glow">
-              {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+              {t('Try for free', 'Попробовать бесплатно')}
               <span className="material-symbols-outlined">arrow_forward</span>
             </Link>
             <a href="#how" className="btn-ghost">{t('See how it works', 'Как это работает')}</a>
           </div>
           <p className="hero-micro" data-reveal style={{ transitionDelay: '240ms' }}>
-            {t('No subscription · about $0.20 / minute · your number is ready right after signup', 'Без подписки · около $0.20 / мин · номер переводчика — сразу после регистрации')}
+            {t('$2 free credit', '$2 в подарок')} <span className="hm-dot">•</span> {t('No card needed', 'Без карты')} <span className="hm-dot">•</span> {t('No subscription', 'Без подписки')}
           </p>
+          <div className="hero-proof" data-reveal style={{ transitionDelay: '300ms' }}>
+            <div className="hp-avatars" aria-hidden>
+              {['A', 'M', 'S', 'K', 'D'].map((ch, i) => <span key={i} className={`hp-ava hp-ava-${i}`}>{ch}</span>)}
+            </div>
+            <div>
+              <div className="hp-stars" aria-hidden>★★★★★</div>
+              <div className="hp-label">{t('10,000+ happy users', '10 000+ довольных пользователей')}</div>
+            </div>
+          </div>
         </div>
+        <div className="hero-photo" aria-hidden />
 
         <div className="hero-visual" data-reveal style={{ transitionDelay: '160ms' }}>
           <div className="tx-float">
@@ -117,13 +122,15 @@ function Landing() {
       <div className="lp-wrap">
         <ul className="trust">
           {[
-            t('Any phone', 'Любой телефон'),
-            t('No app to install', 'Без приложения'),
-            t('12 languages', '12 языков'),
-            t('Pay per minute', 'Оплата за минуты'),
-            t('$2 free to try', '$2 бесплатно на пробу'),
+            { icon: 'smartphone', l1: t('No app needed —', 'Без приложения —'), l2: t('any phone works', 'с любого телефона') },
+            { icon: 'lock', l1: t('Private', 'Конфиденциально'), l2: t('and secure', 'и безопасно') },
+            { icon: 'language', l1: t('12 languages', '12 языков'), l2: t('and growing', 'и больше') },
+            { icon: 'public', l1: t('Works from', 'Работает из любой'), l2: t('anywhere', 'точки мира') },
           ].map((item, i) => (
-            <li key={i}><span className="material-symbols-outlined">check_circle</span>{item}</li>
+            <li key={i}>
+              <span className="trust-ic"><span className="material-symbols-outlined">{item.icon}</span></span>
+              <span className="trust-tx">{item.l1}<br />{item.l2}</span>
+            </li>
           ))}
         </ul>
       </div>
@@ -394,41 +401,52 @@ function PhoneMock({ t }: { t: (en: string, ru: string) => string }) {
 }
 
 /* ─── Live transcript hero visual ───────────────────────────── */
+function Wave({ n = 14, active = false }: { n?: number; active?: boolean }) {
+  return (
+    <span className={`tx-wave${active ? ' active' : ''}`} aria-hidden>
+      {Array.from({ length: n }, (_, i) => <i key={i} style={{ animationDelay: `${(i % 5) * 0.12}s` }} />)}
+    </span>
+  );
+}
+
 function Transcript({ lang, t }: { lang: 'en' | 'ru'; t: (en: string, ru: string) => string }) {
-  // Believable expat scenario: calling a clinic. Localized speaker side.
+  // Believable expat scenario: calling a clinic. Both directions shown.
   const rows = lang === 'ru'
     ? [
-        { who: 'Clinic', sideClass: 'them', src: 'Vida Clinic, how can I help you?', dst: 'Клиника «Вида», чем могу помочь?' },
-        { who: t('You', 'Вы'), sideClass: 'you', src: 'Здравствуйте, хочу записаться на приём.', dst: 'Hello, I’d like to book an appointment.' },
-        { who: 'Clinic', sideClass: 'them', src: 'Of course — what day works for you?', dst: 'Конечно — какой день вам удобен?' },
+        { who: 'КЛИНИКА', tag: 'EN', icon: 'apartment', text: 'Vida Clinic, how can I help you?', tr: false },
+        { who: 'ПЕРЕВОД', tag: 'RU', icon: 'language', text: 'Клиника «Вида», чем могу помочь?', tr: true },
+        { who: 'ВЫ', tag: 'RU', icon: 'person', text: 'Здравствуйте, хочу записаться на приём.', tr: false },
+        { who: 'ПЕРЕВОД', tag: 'EN', icon: 'language', text: 'Hello, I’d like to book an appointment.', tr: true },
       ]
     : [
-        { who: 'Clínica', sideClass: 'them', src: 'Clínica Vida, ¿en qué puedo ayudarle?', dst: 'Vida Clinic, how can I help you?' },
-        { who: t('You', 'Вы'), sideClass: 'you', src: 'Hello, I’d like to book an appointment.', dst: 'Hola, quisiera reservar una cita.' },
-        { who: 'Clínica', sideClass: 'them', src: '¿Para qué día le viene bien?', dst: 'What day works for you?' },
+        { who: 'CLINIC', tag: 'ES', icon: 'apartment', text: 'Clínica Vida, ¿en qué puedo ayudarle?', tr: false },
+        { who: 'TRANSLATION', tag: 'EN', icon: 'language', text: 'Vida Clinic, how can I help you?', tr: true },
+        { who: 'YOU', tag: 'EN', icon: 'person', text: 'I’d like to book an appointment.', tr: false },
+        { who: 'TRANSLATION', tag: 'ES', icon: 'language', text: 'Quisiera reservar una cita.', tr: true },
       ];
 
   return (
     <div className="tx glass-panel" role="img" aria-label={t('Example of a live translated call', 'Пример звонка с живым переводом')}>
       <div className="tx-head">
         <span className="tx-live"><span className="tx-dot" />{t('Live', 'В эфире')}</span>
-        <span className="tx-meta">{t('auto-detected · both ways', 'авто-определение · в обе стороны')}</span>
+        <span className="tx-meta">{t('translating in real time', 'перевод в реальном времени')}</span>
       </div>
       <div className="tx-body">
         {rows.map((r, i) => (
-          <div key={i} className={`tx-row ${r.sideClass}`} style={{ animationDelay: `${0.5 + i * 0.55}s` }}>
-            <span className="tx-who">{r.who}</span>
-            <p className="tx-dst">{r.dst}</p>
-            <p className="tx-src">“{r.src}”</p>
+          <div key={i} className={`tx2-row${r.tr ? ' is-tr' : ''}`} style={{ animationDelay: `${0.4 + i * 0.5}s` }}>
+            <span className="tx2-ava"><span className="material-symbols-outlined">{r.icon}</span></span>
+            <span className="tx2-main">
+              <span className="tx2-tag">{r.who} · {r.tag}</span>
+              <p className="tx2-text">{r.text}</p>
+              <Wave active={r.tr} />
+            </span>
+            {r.tr && <span className="tx2-call"><span className="material-symbols-outlined">call</span></span>}
           </div>
         ))}
-        <div className="tx-typing" style={{ animationDelay: `${0.5 + rows.length * 0.55}s` }}>
-          <span /><span /><span />
-        </div>
       </div>
       <div className="tx-foot">
         <span className="material-symbols-outlined">graphic_eq</span>
-        {t('Translating in real time', 'Перевод в реальном времени')}
+        {t('Two-way translation is on', 'Двусторонний перевод включён')}
       </div>
     </div>
   );
@@ -532,15 +550,28 @@ const LP_CSS = `
 
 .eyebrow { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 9px; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 16px; }
 .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
-.eyebrow-chip { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding: 4px 11px; border-radius: 999px; border: 1px solid rgba(173,198,255,0.3); background: rgba(173,198,255,0.07); font-size: 11px; letter-spacing: 0.08em; }
-.eyebrow-chip .material-symbols-outlined { font-size: 13px; }
+/* Hero feature row (real-time / two-way / lifelike voices) */
+.hero-feats { display: flex; flex-wrap: wrap; gap: 14px 30px; list-style: none; margin: 0 0 30px; padding: 0; }
+.hero-feats li { display: inline-flex; align-items: center; gap: 11px; }
+.hero-feats .material-symbols-outlined { font-size: 24px; color: var(--accent); }
+.hf-text { font-size: 13.5px; font-weight: 600; color: var(--ink-2); line-height: 1.35; }
+.hm-dot { color: var(--accent-2); margin: 0 4px; }
 
-/* Hero 1-2-3 stepper */
-.hero-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; list-style: none; margin: 0 0 26px; padding: 0; }
-.hero-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 9px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); font-size: 13.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
-.hero-steps li .material-symbols-outlined { font-size: 17px; color: var(--accent); }
-.hs-n { width: 20px; height: 20px; border-radius: 50%; background: var(--cta); color: #0e131f; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.hs-sep { font-size: 15px; color: var(--ink-3); }
+/* Hero social proof */
+.hero-proof { display: flex; align-items: center; gap: 14px; margin-top: 24px; }
+.hp-avatars { display: flex; }
+.hp-ava { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--bg); display: inline-flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; color: #0e131f; margin-left: -8px; }
+.hp-ava:first-child { margin-left: 0; }
+.hp-ava-0 { background: linear-gradient(135deg, #adc6ff, #818cf8); }
+.hp-ava-1 { background: linear-gradient(135deg, #99f6e4, #2dd4bf); }
+.hp-ava-2 { background: linear-gradient(135deg, #fbcfe8, #f472b6); }
+.hp-ava-3 { background: linear-gradient(135deg, #fde68a, #f59e0b); }
+.hp-ava-4 { background: linear-gradient(135deg, #d0bcff, #a78bfa); }
+.hp-stars { color: #818cf8; font-size: 14px; letter-spacing: 2px; line-height: 1; }
+.hp-label { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+
+/* Hero photo (center, behind content) */
+.hero-photo { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: url('/landing/hero-photo.jpg'); background-repeat: no-repeat; background-position: center; background-size: cover; opacity: 0.55; -webkit-mask-image: radial-gradient(85% 100% at 50% 50%, #000 55%, transparent 100%); mask-image: radial-gradient(85% 100% at 50% 50%, #000 55%, transparent 100%); }
 .lead { color: var(--ink-2); }
 .section { padding-top: 88px; }
 .section-flush-top { padding-top: 44px; }
@@ -549,21 +580,24 @@ const LP_CSS = `
 
 /* Hero */
 .hero { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; padding-top: 80px; padding-bottom: 48px; }
-.hero > *:not(.hero-glow) { position: relative; z-index: 1; }
+.hero > *:not(.hero-glow):not(.hero-photo) { position: relative; z-index: 1; }
 .hero-glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; }
 .hero-glow.g1 { width: 420px; height: 420px; top: -120px; left: -120px; background: radial-gradient(circle, rgba(99,102,241,0.22), transparent 70%); animation: float-slow 9s ease-in-out infinite; }
 .hero-glow.g2 { width: 360px; height: 360px; top: -60px; right: -80px; background: radial-gradient(circle, rgba(139,92,246,0.16), transparent 70%); animation: float 8s ease-in-out infinite; }
 .hero-glow.g3 { width: 300px; height: 300px; bottom: -120px; left: 30%; background: radial-gradient(circle, rgba(34,211,238,0.10), transparent 70%); animation: float-delayed 10s ease-in-out infinite; }
-.hero-h { font-size: clamp(44px, 7vw, 78px); line-height: 1.0; margin: 0 0 22px; font-weight: 800; }
+.hero-h { font-size: clamp(38px, 4.5vw, 58px); line-height: 1.06; margin: 0 0 22px; font-weight: 800; white-space: nowrap; }
+@media (max-width: 520px) { .hero-h { white-space: normal; } }
 .hero-lead { font-size: clamp(17px, 1.6vw, 19.5px); max-width: 30em; margin: 0 0 30px; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
 .hero-micro { font-size: 13.5px; color: var(--ink-3); margin: 0; }
 .tx-float { animation: float 7s ease-in-out infinite; }
 
 /* Trust */
-.trust { display: flex; flex-wrap: wrap; gap: 10px 26px; list-style: none; margin: 28px 0 0; padding: 22px 0 0; border-top: 1px solid var(--line-2); }
-.trust li { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; color: var(--ink-2); }
-.trust .material-symbols-outlined { font-size: 17px; color: var(--accent); }
+.trust { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 26px; list-style: none; margin: 34px 0 0; padding: 26px 6px 0; border-top: 1px solid var(--line-2); }
+.trust li { display: inline-flex; align-items: center; gap: 12px; }
+.trust-ic { width: 42px; height: 42px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; background: rgba(173,198,255,0.08); border: 1px solid var(--line-2); flex-shrink: 0; }
+.trust-ic .material-symbols-outlined { font-size: 21px; color: var(--accent); }
+.trust-tx { font-size: 13.5px; font-weight: 600; color: var(--ink-2); line-height: 1.4; }
 
 /* Transcript */
 .tx { border-radius: 18px; padding: 18px; box-shadow: 0 30px 70px -30px rgba(0,0,0,0.6); }
@@ -571,16 +605,23 @@ const LP_CSS = `
 .tx-live { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
 .tx-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74,222,128,0.5); animation: tx-pulse 1.8s infinite; }
 .tx-meta { font-size: 11.5px; color: var(--ink-3); }
-.tx-body { display: flex; flex-direction: column; gap: 16px; padding: 18px 6px 8px; min-height: 230px; }
-.tx-row { opacity: 0; animation: tx-in .5s ease forwards; max-width: 86%; }
-.tx-row.you { align-self: flex-end; text-align: right; }
-.tx-who { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); }
-.tx-dst { font-family: 'Manrope', system-ui, sans-serif; font-weight: 600; font-size: 17px; line-height: 1.3; color: var(--ink); margin: 5px 0 3px; letter-spacing: -0.01em; }
-.tx-row.them .tx-dst { color: var(--accent); }
-.tx-src { font-size: 12.5px; color: var(--ink-3); margin: 0; font-style: italic; }
-.tx-typing { display: inline-flex; gap: 5px; padding: 6px 4px; opacity: 0; animation: tx-in .4s ease forwards; }
-.tx-typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .5; animation: tx-bounce 1.2s infinite; }
-.tx-typing span:nth-child(2) { animation-delay: .15s; } .tx-typing span:nth-child(3) { animation-delay: .3s; }
+.tx-body { display: flex; flex-direction: column; gap: 0; padding: 6px 0 4px; }
+.tx2-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 6px; border-bottom: 1px solid var(--line-2); opacity: 0; animation: tx-in .5s ease forwards; }
+.tx2-row:last-child { border-bottom: none; }
+.tx2-ava { width: 36px; height: 36px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: rgba(173,198,255,0.08); border: 1px solid var(--line-2); flex-shrink: 0; margin-top: 2px; }
+.tx2-ava .material-symbols-outlined { font-size: 18px; color: var(--ink-3); }
+.tx2-row.is-tr .tx2-ava { background: rgba(129,140,248,0.14); }
+.tx2-row.is-tr .tx2-ava .material-symbols-outlined { color: var(--accent); }
+.tx2-main { flex: 1; min-width: 0; }
+.tx2-tag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; color: var(--ink-3); }
+.tx2-text { font-family: 'Manrope', system-ui, sans-serif; font-weight: 600; font-size: 15.5px; line-height: 1.35; color: var(--ink); margin: 4px 0 7px; letter-spacing: -0.01em; }
+.tx2-row.is-tr .tx2-text { color: var(--accent); }
+.tx2-call { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(173,198,255,0.1); flex-shrink: 0; align-self: center; }
+.tx2-call .material-symbols-outlined { font-size: 16px; color: var(--accent); }
+.tx-wave { display: flex; align-items: flex-end; gap: 3px; height: 14px; }
+.tx-wave i { width: 2.5px; border-radius: 2px; background: rgba(173,198,255,0.45); height: 40%; animation: wave-eq 1.4s ease-in-out infinite; }
+.tx-wave i:nth-child(2n) { height: 80%; } .tx-wave i:nth-child(3n) { height: 55%; } .tx-wave i:nth-child(5n) { height: 100%; }
+.tx-wave.active i { background: linear-gradient(180deg, #4ade80, #818cf8); }
 .tx-foot { display: flex; align-items: center; gap: 8px; padding: 14px 6px 4px; border-top: 1px solid var(--line-2); font-size: 12.5px; color: var(--ink-3); }
 .tx-foot .material-symbols-outlined { font-size: 17px; color: var(--accent); }
 
@@ -687,6 +728,7 @@ const LP_CSS = `
 .sticky-cta .btn-accent { width: 100%; justify-content: center; }
 
 @keyframes pm-pulse { 0% { box-shadow: 0 0 0 0 rgba(77,142,255,0.55); } 70% { box-shadow: 0 0 0 14px rgba(77,142,255,0); } 100% { box-shadow: 0 0 0 0 rgba(77,142,255,0); } }
+@keyframes wave-eq { 0%, 100% { transform: scaleY(0.55); } 50% { transform: scaleY(1); } }
 @keyframes gradient-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes float-slow { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(3deg); } }
@@ -698,6 +740,7 @@ const LP_CSS = `
 
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 40px; }
+  .hero-photo { display: none; }
   .hero-visual { max-width: 460px; }
   .how-grid { grid-template-columns: 1fr; gap: 32px; }
   .steps, .why { grid-template-columns: 1fr; gap: 16px; }
