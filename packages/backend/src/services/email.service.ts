@@ -3,7 +3,7 @@ import pino from 'pino';
 const log = pino({ name: 'email' });
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? '';
-const FROM_EMAIL = process.env.EMAIL_FROM ?? 'Caller <onboarding@resend.dev>';
+const FROM_EMAIL = process.env.EMAIL_FROM ?? 'LingoLine <onboarding@resend.dev>';
 
 interface SendEmailParams {
   to: string;
@@ -48,7 +48,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
 
 export function buildMagicLinkEmail(magicLink: string): { subject: string; html: string } {
   return {
-    subject: 'Sign in to Caller',
+    subject: 'Sign in to LingoLine',
     html: `
 <!DOCTYPE html>
 <html>
@@ -60,12 +60,12 @@ export function buildMagicLinkEmail(magicLink: string): { subject: string; html:
         <!-- Header -->
         <tr><td style="padding:32px 32px 0;">
           <div style="font-size:20px;font-weight:800;color:#dde2f3;letter-spacing:-0.5px;">
-            <span style="color:#adc6ff;">&#9679;</span> Caller
+            <span style="color:#adc6ff;">&#9679;</span> LingoLine
           </div>
         </td></tr>
         <!-- Content -->
         <tr><td style="padding:24px 32px;">
-          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#dde2f3;">Sign in to Caller</h1>
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#dde2f3;">Sign in to LingoLine</h1>
           <p style="margin:0 0 24px;font-size:14px;color:#c2c6d6;line-height:1.6;">
             Click the button below to sign in. This link expires in 15 minutes.
           </p>
@@ -80,7 +80,7 @@ export function buildMagicLinkEmail(magicLink: string): { subject: string; html:
         <!-- Footer -->
         <tr><td style="padding:16px 32px 24px;border-top:1px solid rgba(140,144,159,0.1);">
           <p style="margin:0;font-size:11px;color:rgba(194,198,214,0.3);">
-            Caller &mdash; AI Phone Agents & Live Translator
+            LingoLine &mdash; Live Translator
           </p>
         </td></tr>
       </table>

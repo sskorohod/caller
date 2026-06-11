@@ -258,7 +258,7 @@ async function getOrCreateApiKey(workspaceId: string): Promise<{ accountSid: str
 
   // Create new API Key
   const client = twilio(creds.account_sid, creds.auth_token);
-  const key = await client.newKeys.create({ friendlyName: 'Caller Browser Voice' });
+  const key = await client.newKeys.create({ friendlyName: 'LingoLine Browser Voice' });
 
   creds.api_key_sid = key.sid;
   creds.api_key_secret = key.secret;
@@ -282,7 +282,7 @@ async function getOrCreateTwimlApp(workspaceId: string): Promise<string> {
   const app = await client.applications.create({
     voiceUrl: `https://${env.API_DOMAIN}/webhooks/twilio/voice-client`,
     voiceMethod: 'POST',
-    friendlyName: 'Caller Browser Voice',
+    friendlyName: 'LingoLine Browser Voice',
   });
 
   creds.twiml_app_sid = app.sid;

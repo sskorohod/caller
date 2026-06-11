@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — Caller',
-  description: 'Caller platform privacy policy. How we collect, use, and protect your data.',
+  title: 'Privacy Policy — LingoLine',
+  description: 'LingoLine platform privacy policy. How we collect, use, and protect your data.',
 };
 
 export default function PrivacyPage() {
@@ -16,7 +16,7 @@ export default function PrivacyPage() {
 
       <header className="border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
         <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link href="/" className="font-headline font-bold text-lg">Caller</Link>
+          <Link href="/" className="font-headline font-bold text-lg">LingoLine</Link>
           <div className="flex gap-4 text-xs" style={{ color: 'rgba(194,198,214,0.5)' }}>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/acceptable-use" className="hover:text-white transition-colors">Acceptable Use</Link>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">1. Introduction</h2>
-            <p>Caller (&quot;Company,&quot; &quot;we,&quot; &quot;us&quot;) respects your privacy and is committed to protecting the personal information you share with us. This Privacy Policy describes how we collect, use, disclose, and safeguard information when you use our AI phone calling platform (&quot;Service&quot;).</p>
+            <p>LingoLine (&quot;Company,&quot; &quot;we,&quot; &quot;us&quot;) respects your privacy and is committed to protecting the personal information you share with us. This Privacy Policy describes how we collect, use, disclose, and safeguard information when you use our AI phone calling platform (&quot;Service&quot;).</p>
             <p className="mt-2">This policy applies to all users of the Service, including business customers (&quot;Customers&quot;) and individuals who are called through the Service (&quot;Called Parties&quot;). If you are a California resident, please see Section 10 for your specific rights under the CCPA/CPRA.</p>
           </section>
 
@@ -179,7 +179,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">13. Contact Us</h2>
             <p>For privacy-related questions or to exercise your rights:</p>
-            <p className="mt-2 text-white">Caller<br />Email: privacy@caller.com</p>
+            <p className="mt-2 text-white">LingoLine<br />Email: privacy@caller.com</p>
           </section>
         </div>
       </main>

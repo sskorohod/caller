@@ -3,8 +3,8 @@ import { BlogLangWrapper } from '@/app/blog/_components/BlogLangWrapper';
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Caller Blog',
-    default: 'Blog — Caller',
+    template: '%s | LingoLine Blog',
+    default: 'Blog — LingoLine',
   },
 };
 

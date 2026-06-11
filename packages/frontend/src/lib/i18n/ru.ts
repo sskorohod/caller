@@ -73,7 +73,7 @@ const ru: Record<string, string> = {
   'help.art.telegramNotifs': 'Уведомления в Telegram',
   'help.art.account': 'Аккаунт',
   'help.art.faq': 'Частые вопросы',
-  'help.art.whatIsCaller': 'Что такое Caller',
+  'help.art.whatIsCaller': 'Что такое LingoLine',
   'help.art.registration': 'Регистрация и первые шаги',
   'help.art.choosingPlan': 'Выбор тарифа',
   'help.art.trialPeriod': 'Пробный период',
@@ -826,7 +826,7 @@ const ru: Record<string, string> = {
   'oauth.deny': 'Отклонить',
   'oauth.allowAccess': 'Разрешить доступ',
   'oauth.authorizing': 'Авторизация...',
-  'oauth.consentNotice': 'Нажимая "Разрешить доступ", вы предоставляете {{appName}} доступ к вашему рабочему пространству Caller от вашего имени.',
+  'oauth.consentNotice': 'Нажимая "Разрешить доступ", вы предоставляете {{appName}} доступ к вашему рабочему пространству LingoLine от вашего имени.',
   'oauth.authFailed': 'Ошибка авторизации',
 
   // Onboarding
@@ -835,7 +835,7 @@ const ru: Record<string, string> = {
   'onboarding.next': 'Далее',
   'onboarding.skip': 'Пропустить',
   'onboarding.finish': 'Завершить',
-  'onboarding.welcomeTitle': 'Добро пожаловать в Caller!',
+  'onboarding.welcomeTitle': 'Добро пожаловать в LingoLine!',
   'onboarding.welcomeDesc': 'Настроим ваше рабочее пространство за несколько шагов.',
   'onboarding.workspaceName': 'Название рабочего пространства',
   'onboarding.connectTelephony': 'Подключение телефонии',

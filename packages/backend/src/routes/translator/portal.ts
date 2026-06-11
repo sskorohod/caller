@@ -193,7 +193,7 @@ function buildPortalEmail(portalUrl: string, name: string): string {
       <table width="480" cellpadding="0" cellspacing="0" style="background:#1a202c;border-radius:16px;border:1px solid rgba(140,144,159,0.15);overflow:hidden;">
         <tr><td style="padding:32px 32px 0;">
           <div style="font-size:20px;font-weight:800;color:#dde2f3;letter-spacing:-0.5px;">
-            <span style="color:#adc6ff;">&#9679;</span> Caller Translator
+            <span style="color:#adc6ff;">&#9679;</span> LingoLine Translator
           </div>
         </td></tr>
         <tr><td style="padding:24px 32px;">
@@ -210,7 +210,7 @@ function buildPortalEmail(portalUrl: string, name: string): string {
         </td></tr>
         <tr><td style="padding:16px 32px 24px;border-top:1px solid rgba(140,144,159,0.1);">
           <p style="margin:0;font-size:11px;color:rgba(194,198,214,0.3);">
-            Caller &mdash; Live Translator Service
+            LingoLine &mdash; Live Translator Service
           </p>
         </td></tr>
       </table>

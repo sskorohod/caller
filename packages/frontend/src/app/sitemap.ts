@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const BASE_URL = 'https://caller.n8nskorx.top';
+const BASE_URL = 'https://lingoline.net';
 
 const articles = [
   'languageline-alternative',

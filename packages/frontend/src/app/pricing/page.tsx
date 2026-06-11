@@ -57,7 +57,7 @@ export default function PricingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           <Link href="/" className="text-xl font-bold tracking-tighter flex items-center gap-2 font-headline">
             <span className="material-symbols-outlined" style={{ color: '#adc6ff', fontVariationSettings: "'FILL' 1" }}>call</span>
-            Caller
+            LingoLine
           </Link>
           <div className="flex items-center gap-4 font-headline font-bold text-sm">
             <Link href="/login" className="opacity-70 hover:opacity-100 transition">Log In</Link>
@@ -158,7 +158,7 @@ export default function PricingPage() {
             <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#adc6ff' }}>translate</span>
             <h3 className="text-xl font-headline font-bold mb-2">12 languages, any direction</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>
-              Merge your personal Caller number into any phone call and the AI interprets both sides live,
+              Merge your personal LingoLine number into any phone call and the AI interprets both sides live,
               in a natural voice — direction detected automatically. Works from any phone, with no app to install.
             </p>
           </div>

@@ -13,10 +13,10 @@ const log = pino({ name: 'socket-server' });
 export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, typeof ServerResponse>) {
   const io = new Server(httpServer, {
     cors: {
-      // Production: only allow the configured API_DOMAIN. The previously
-      // hardcoded "caller.n8nskorx.top" fallback was a security hazard if the
-      // domain ever changed — left CORS open to a foreign origin. Operators
-      // who need extra origins for testing should set API_DOMAIN explicitly.
+      // Production: only allow the configured API_DOMAIN. A previously
+      // hardcoded domain fallback was a security hazard if the domain ever
+      // changed — left CORS open to a foreign origin. Operators who need
+      // extra origins for testing should set API_DOMAIN explicitly.
       origin: env.NODE_ENV === 'development'
         ? true
         : [`https://${env.API_DOMAIN}`],

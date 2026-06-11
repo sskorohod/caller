@@ -78,7 +78,7 @@ function LoginContent() {
               style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)' }}>
               <span className="material-symbols-outlined text-2xl" style={{ color: '#0e131f', fontVariationSettings: "'FILL' 1" }}>call</span>
             </div>
-            <span className="text-2xl font-headline font-extrabold tracking-tight">Caller</span>
+            <span className="text-2xl font-headline font-extrabold tracking-tight">LingoLine</span>
           </Link>
           <h2 className="text-3xl font-headline font-extrabold tracking-tight leading-tight mb-4">
             AI Live
@@ -113,7 +113,7 @@ function LoginContent() {
               style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)' }}>
               <span className="material-symbols-outlined text-xl" style={{ color: '#0e131f', fontVariationSettings: "'FILL' 1" }}>call</span>
             </div>
-            <span className="text-xl font-headline font-extrabold tracking-tight">Caller</span>
+            <span className="text-xl font-headline font-extrabold tracking-tight">LingoLine</span>
           </Link>
 
           {/* Magic Link Sent State */}
@@ -283,7 +283,7 @@ function LoginContent() {
           )}
 
           <p className="text-center text-[10px] mt-8" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>
-            Caller Platform &copy; {new Date().getFullYear()}
+            LingoLine Platform &copy; {new Date().getFullYear()}
           </p>
         </div>
       </div>

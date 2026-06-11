@@ -42,7 +42,7 @@ async function sendWithRetry(
 ): Promise<boolean> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'User-Agent': 'Caller-Webhook/1.0',
+    'User-Agent': 'LingoLine-Webhook/1.0',
   };
   if (signature) {
     headers['X-Webhook-Signature'] = signature;

@@ -73,7 +73,7 @@ const en: Record<string, string> = {
   'help.art.telegramNotifs': 'Telegram notifications',
   'help.art.account': 'Account & workspace',
   'help.art.faq': 'Frequently asked questions',
-  'help.art.whatIsCaller': 'What is Caller',
+  'help.art.whatIsCaller': 'What is LingoLine',
   'help.art.registration': 'Registration & first steps',
   'help.art.choosingPlan': 'Choosing a plan',
   'help.art.trialPeriod': 'Trial period',
@@ -826,7 +826,7 @@ const en: Record<string, string> = {
   'oauth.deny': 'Deny',
   'oauth.allowAccess': 'Allow Access',
   'oauth.authorizing': 'Authorizing...',
-  'oauth.consentNotice': 'By clicking Allow Access, you grant {{appName}} permission to access your Caller workspace on your behalf.',
+  'oauth.consentNotice': 'By clicking Allow Access, you grant {{appName}} permission to access your LingoLine workspace on your behalf.',
   'oauth.authFailed': 'Authorization failed',
 
   // Onboarding
@@ -835,7 +835,7 @@ const en: Record<string, string> = {
   'onboarding.next': 'Next',
   'onboarding.skip': 'Skip',
   'onboarding.finish': 'Finish',
-  'onboarding.welcomeTitle': 'Welcome to Caller!',
+  'onboarding.welcomeTitle': 'Welcome to LingoLine!',
   'onboarding.welcomeDesc': 'Let\'s get your workspace set up in a few quick steps.',
   'onboarding.workspaceName': 'Workspace Name',
   'onboarding.connectTelephony': 'Connect Telephony',

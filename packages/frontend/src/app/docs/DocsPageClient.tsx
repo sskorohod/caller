@@ -205,7 +205,7 @@ function DocsPageInner() {
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)' }}>
               <span className="material-symbols-outlined text-sm" style={{ color: '#fff', fontVariationSettings: "'FILL' 1" }}>call</span>
             </div>
-            <span className="font-headline font-extrabold text-base">Caller</span>
+            <span className="font-headline font-extrabold text-base">LingoLine</span>
           </Link>
 
           {/* Desktop nav */}
@@ -268,7 +268,7 @@ function DocsPageInner() {
                   <span className="gradient-text">{t('Documentation', 'Документация')}</span>
                 </h1>
                 <p className="text-sm max-w-lg" style={{ color: '#a0a8c0' }}>
-                  {t('Everything you need to build with Caller — guides, API reference, and architecture deep dives.', 'Всё для работы с Caller — руководства, справочник API и обзор архитектуры.')}
+                  {t('Everything you need to build with LingoLine — guides, API reference, and architecture deep dives.', 'Всё для работы с LingoLine — руководства, справочник API и обзор архитектуры.')}
                 </p>
               </div>
 
@@ -511,7 +511,7 @@ function DocsPageInner() {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)' }}>
                   <span className="material-symbols-outlined text-base" style={{ color: '#fff', fontVariationSettings: "'FILL' 1" }}>call</span>
                 </div>
-                <span className="font-headline font-extrabold text-lg">Caller</span>
+                <span className="font-headline font-extrabold text-lg">LingoLine</span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
                 {t('AI phone agents and live translation for the globally connected business.', 'AI-телефонные агенты и живой перевод для глобального бизнеса.')}
@@ -556,7 +556,7 @@ function DocsPageInner() {
 
           <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
             <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>
-              &copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}
+              &copy; {new Date().getFullYear()} LingoLine. {t('All rights reserved.', 'Все права защищены.')}
             </p>
           </div>
         </div>

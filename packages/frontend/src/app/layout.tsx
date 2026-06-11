@@ -14,28 +14,28 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://caller.n8nskorx.top'),
+  metadataBase: new URL('https://lingoline.net'),
   title: {
-    default: 'Caller — AI Phone Agent Platform',
-    template: '%s | Caller',
+    default: 'LingoLine — AI Phone Agent Platform',
+    template: '%s | LingoLine',
   },
   description: 'Deploy AI phone agents that handle calls 24/7, or merge a live translator into any conversation. One platform, zero complexity.',
   keywords: ['AI phone agent', 'live translator', 'phone translation', 'over the phone interpreter', 'voice AI'],
-  authors: [{ name: 'Caller' }],
-  creator: 'Caller',
-  publisher: 'Caller',
+  authors: [{ name: 'LingoLine' }],
+  creator: 'LingoLine',
+  publisher: 'LingoLine',
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://caller.n8nskorx.top',
-    siteName: 'Caller',
-    title: 'Caller — AI Phone Agent Platform',
+    url: 'https://lingoline.net',
+    siteName: 'LingoLine',
+    title: 'LingoLine — AI Phone Agent Platform',
     description: 'Deploy AI phone agents that handle calls 24/7, or merge a live translator into any conversation.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Caller — AI Phone Agent Platform' }],
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'LingoLine — AI Phone Agent Platform' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Caller — AI Phone Agent Platform',
+    title: 'LingoLine — AI Phone Agent Platform',
     description: 'Deploy AI phone agents that handle calls 24/7, or merge a live translator into any conversation.',
     images: ['/og-image.png'],
   },
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Caller',
+    title: 'LingoLine',
   },
 };
 

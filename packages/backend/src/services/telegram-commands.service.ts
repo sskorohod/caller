@@ -46,7 +46,7 @@ async function sendReply(botToken: string, chatId: string, text: string) {
 }
 
 const HELP_TEXT =
-  '🌐 <b>Caller</b>\n\n' +
+  '🌐 <b>LingoLine</b>\n\n' +
   'Commands:\n' +
   '/live — Live translation link\n' +
   '/hangup — End current call\n' +

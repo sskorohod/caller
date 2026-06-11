@@ -68,7 +68,7 @@
 
 | Действие | Канал | Усилие |
 |----------|-------|--------|
-| Landing page с waitlist-формой (email + phone) | caller.n8nskorx.top/translator | 1 день |
+| Landing page с waitlist-формой (email + phone) | lingoline.net/translator | 1 день |
 | Записать 60-сек демо-видео (реальный звонок с переводом) — АУДИО важнее UI | YouTube, TikTok, Instagram Reels | 1 день |
 | Пост на ProductHunt (Upcoming) | ProductHunt | 30 мин |
 | 5+ постов в русскоязычных **Facebook Groups** от первого лица: "Я сделал штуку, которой самому не хватало" | Facebook | 3 часа |
@@ -586,7 +586,7 @@ Gross margin: $0.68/call (~57%)
 
 **Scope**:
 - Генерация уникального referral-кода при регистрации подписчика
-- Referral-ссылка формата: `caller.n8nskorx.top/translator?ref=XXXX`
+- Referral-ссылка формата: `lingoline.net/translator?ref=XXXX`
 - При регистрации нового подписчика по ссылке: оба получают $2 credit
 - Лимит: максимум 10 referrals на пользователя (предотвращение abuse)
 - Tracking: таблица `referrals` (referrer_id, referred_id, status, credited_at)

@@ -1,9 +1,10 @@
-# Caller — AI Phone Agent MCP Platform
+# LingoLine (repo `caller`) — Live Phone Translator SaaS
 
-B2B SaaS for deploying configurable AI phone agents over Twilio, with two sibling products
-running on the same infra: a translator service (live phone interpretation) and an MCP
-server that lets external AI agents place calls. Deployed as a Docker Compose stack on a
-self-hosted UGREEN NAS, fronted by Cloudflare Tunnel.
+LingoLine (lingoline.net, formerly branded "Caller") is a B2C SaaS: an AI interpreter
+that joins phone calls and translates both sides live. Deployed as a Docker Compose
+stack on a Mac mini (`ssh macmini`), fronted by Cloudflare Tunnel. The repo, DB, and
+container names still use the historical `caller` identifiers — only the user-facing
+brand is LingoLine.
 
 ## Project Structure
 
@@ -202,10 +203,10 @@ debugging code.
 
 ## Operations
 
-**Deploy:** `git push` → `ssh ugreen` → `cd ~/caller && git pull && docker compose build <service> && docker compose up -d`. 
+**Deploy:** `git push` → `ssh macmini` → `cd ~/caller && git pull && docker compose build <service> && docker compose up -d`. 
 New migrations: `docker compose exec -T backend node dist/migrate.js`.
 
-**Gotcha:** UGREEN may be checked out on a feature branch. Verify
+**Gotcha:** the server may be checked out on a feature branch. Verify
 `git rev-parse HEAD` on the server matches `origin/main` before assuming a deploy is
 current. If wrong: `git checkout main && git pull` first.
 
@@ -234,12 +235,14 @@ ssh ugreen 'cd ~/caller && docker compose exec -T postgres psql -U caller -d cal
 - `grok_event` (when verbose logging enabled) — every event Grok sends, useful for
   diagnosing upstream API changes
 
-**Infra layout (UGREEN NAS):**
-- Containers: `postgres` (pgvector), `redis`, `minio`, `backend`, `frontend`, `nginx`
-- Cloudflare Tunnel `n8n-tunnel` routes `caller.n8nskorx.top` → `localhost:8880` → nginx → backend/frontend
-- Ports 80, 8080, 8082 are taken on the NAS — Caller binds to 8880
-- **Do not edit** Caddy or Cloudflare Tunnel configs — they're shared across all
-  projects on the NAS. Only `docker-compose.yml` and code changes belong to Caller.
+**Infra layout (Mac mini, `ssh macmini`):**
+- Containers (Colima): `postgres` (pgvector), `redis`, `minio`, `backend`, `frontend`, `nginx`
+- Cloudflare Tunnel `fixarcrm-macmini` routes `lingoline.net` (+ `www`) → `localhost:8880` → nginx → backend/frontend
+- The tunnel and Homebrew nginx (:8080) are SHARED with FixarCRM (skorx.space) —
+  edit `~/.cloudflared/config.yml` carefully; restarting cloudflared blips both products.
+- Port 8080 belongs to FixarCRM's Homebrew nginx — LingoLine's containerized nginx binds 8880.
+- Old host (UGREEN NAS, `ssh ugreen`, caller.n8nskorx.top) is warm-standby after the
+  2026-06-11 migration; volumes kept ~2 weeks for rollback.
 
 ## Commands
 

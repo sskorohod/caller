@@ -63,7 +63,7 @@ const CAT_TITLES: Record<string, { en: string; ru: string }> = {
 };
 
 const ART_TITLES: Record<string, { en: string; ru: string }> = {
-  'help.art.whatIsCaller':           { en: 'What is Caller', ru: 'Что такое Caller' },
+  'help.art.whatIsCaller':           { en: 'What is LingoLine', ru: 'Что такое LingoLine' },
   'help.art.registration':           { en: 'Registration & First Steps', ru: 'Регистрация и первые шаги' },
   'help.art.choosingPlan':           { en: 'Choosing a Plan', ru: 'Выбор тарифа' },
   'help.art.trialPeriod':            { en: 'Trial Period', ru: 'Пробный период' },
@@ -161,7 +161,7 @@ function HelpPageInner() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)' }}>
               <span className="material-symbols-outlined text-base" style={{ color: '#fff', fontVariationSettings: "'FILL' 1" }}>call</span>
             </div>
-            <span className="text-lg font-headline font-extrabold tracking-tight">Caller</span>
+            <span className="text-lg font-headline font-extrabold tracking-tight">LingoLine</span>
           </Link>
 
           {/* Desktop nav */}
@@ -222,7 +222,7 @@ function HelpPageInner() {
                 <span className="gradient-text">{t('Help Center', 'Центр помощи')}</span>
               </h1>
               <p className="text-base sm:text-lg mb-8" style={{ color: '#a0a8c0' }}>
-                {t('Find answers to everything about Caller', 'Найдите ответы на все вопросы о Caller')}
+                {t('Find answers to everything about LingoLine', 'Найдите ответы на все вопросы о LingoLine')}
               </p>
 
               {/* Search */}
@@ -559,7 +559,7 @@ function HelpPageInner() {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)' }}>
                   <span className="material-symbols-outlined text-base" style={{ color: '#fff', fontVariationSettings: "'FILL' 1" }}>call</span>
                 </div>
-                <span className="font-headline font-extrabold text-lg">Caller</span>
+                <span className="font-headline font-extrabold text-lg">LingoLine</span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
                 {t('AI phone agents and live translation for the globally connected business. One platform, zero complexity.', 'AI-телефонные агенты и живой перевод для глобального бизнеса. Одна платформа, никакой сложности.')}
@@ -604,7 +604,7 @@ function HelpPageInner() {
           </div>
 
           <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-            <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>&copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}</p>
+            <p className="text-[11px]" style={{ color: 'rgba(194,198,214,0.25)' }}>&copy; {new Date().getFullYear()} LingoLine. {t('All rights reserved.', 'Все права защищены.')}</p>
           </div>
         </div>
       </footer>

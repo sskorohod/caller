@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </svg>
         </div>
         <div>
-          <div className="text-white font-bold text-sm leading-tight">Caller</div>
+          <div className="text-white font-bold text-sm leading-tight">LingoLine</div>
           <div className="text-[var(--th-sidebar-label)] text-[10px] truncate max-w-[140px]">{workspace?.name ?? 'Workspace'}</div>
         </div>
         <div className="ml-auto">
@@ -234,7 +234,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </svg>
             </div>
             <span className="text-sm font-semibold truncate" style={{ color: 'var(--th-text)' }}>
-              {workspace?.name ?? 'Caller'}
+              {workspace?.name ?? 'LingoLine'}
             </span>
           </div>
           <ConnectionIndicator />

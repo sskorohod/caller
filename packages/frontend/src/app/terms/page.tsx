@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — Caller',
-  description: 'Caller platform terms of service and conditions of use.',
+  title: 'Terms of Service — LingoLine',
+  description: 'LingoLine platform terms of service and conditions of use.',
 };
 
 export default function TermsPage() {
@@ -16,7 +16,7 @@ export default function TermsPage() {
 
       <header className="border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
         <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link href="/" className="font-headline font-bold text-lg">Caller</Link>
+          <Link href="/" className="font-headline font-bold text-lg">LingoLine</Link>
           <div className="flex gap-4 text-xs" style={{ color: 'rgba(194,198,214,0.5)' }}>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
             <Link href="/acceptable-use" className="hover:text-white transition-colors">Acceptable Use</Link>
@@ -32,13 +32,13 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">1. Agreement to Terms</h2>
-            <p>By accessing or using the Caller platform (&quot;Service&quot;), operated by Caller (&quot;Company,&quot; &quot;we,&quot; &quot;us&quot;), you (&quot;Customer,&quot; &quot;you&quot;) agree to be bound by these Terms of Service (&quot;Terms&quot;), our <Link href="/privacy" className="underline text-blue-400">Privacy Policy</Link>, and our <Link href="/acceptable-use" className="underline text-blue-400">Acceptable Use Policy</Link>. If you do not agree, do not use the Service.</p>
+            <p>By accessing or using the LingoLine platform (&quot;Service&quot;), operated by LingoLine (&quot;Company,&quot; &quot;we,&quot; &quot;us&quot;), you (&quot;Customer,&quot; &quot;you&quot;) agree to be bound by these Terms of Service (&quot;Terms&quot;), our <Link href="/privacy" className="underline text-blue-400">Privacy Policy</Link>, and our <Link href="/acceptable-use" className="underline text-blue-400">Acceptable Use Policy</Link>. If you do not agree, do not use the Service.</p>
             <p className="mt-2">You represent that you have the legal authority to bind the entity on whose behalf you are using the Service. The Service is intended for business use (B2B) and is not directed at consumers under 18 years of age.</p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">2. Description of Service</h2>
-            <p>Caller provides an AI-powered phone calling platform that enables businesses to:</p>
+            <p>LingoLine provides an AI-powered phone calling platform that enables businesses to:</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
               <li>Make and receive phone calls using AI agents</li>
               <li>Record phone calls and generate transcripts</li>
@@ -58,7 +58,7 @@ export default function TermsPage() {
               <li><strong>Prior Express Written Consent:</strong> You must obtain prior express written consent from each individual before making any outbound AI call to their phone number, as required by the TCPA (47 U.S.C. &sect; 227). You must maintain records of all consents obtained.</li>
               <li><strong>Do Not Call Compliance:</strong> You must scrub your call lists against the National Do Not Call Registry and maintain your own internal do-not-call list. You must honor all opt-out requests immediately.</li>
               <li><strong>Calling Hours:</strong> You must not initiate calls before 8:00 AM or after 9:00 PM in the called party&apos;s local time zone.</li>
-              <li><strong>Caller ID:</strong> You must provide accurate caller ID information. Spoofing caller ID is prohibited under the Truth in Caller ID Act.</li>
+              <li><strong>LingoLine ID:</strong> You must provide accurate caller ID information. Spoofing caller ID is prohibited under the Truth in LingoLine ID Act.</li>
               <li><strong>AI Disclosure:</strong> You must ensure that all AI-generated calls clearly disclose the use of AI at the beginning of each call, as required by California Civil Code &sect; 17941 (SB 1001) and FCC regulations.</li>
               <li><strong>Recording Consent:</strong> You must comply with all applicable call recording laws, including two-party consent states such as California (Penal Code &sect; 632). The Service provides configurable disclosure messages; you are responsible for ensuring they are enabled and adequate for your jurisdiction.</li>
             </ul>
@@ -175,7 +175,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">15. Contact</h2>
             <p>For questions about these Terms, contact us at:</p>
-            <p className="mt-2 text-white">Caller<br />Email: legal@caller.com</p>
+            <p className="mt-2 text-white">LingoLine<br />Email: legal@caller.com</p>
           </section>
         </div>
       </main>

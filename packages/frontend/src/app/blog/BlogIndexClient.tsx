@@ -104,7 +104,7 @@ export default function BlogIndexClient() {
       <footer style={{ borderTop: '1px solid rgba(221,226,243,0.06)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
           <p className="text-xs" style={{ color: 'rgba(160,168,192,0.4)' }}>
-            &copy; {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}
+            &copy; {new Date().getFullYear()} LingoLine. {t('All rights reserved.', 'Все права защищены.')}
           </p>
         </div>
       </footer>

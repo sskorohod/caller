@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { LangProvider, useLang } from './useLang';
 
 /* ════════════════════════════════════════════════════════════════════
-   Caller — Live phone translation for expats.
+   LingoLine — Live phone translation for expats.
    Dark, app-consistent aesthetic: Manrope + Inter, deep navy, animated
    indigo→purple gradient accents, glass panels, hero glow + float, and a
    signature "live bilingual call transcript" hero. CSS + reveal motion.
@@ -41,9 +41,9 @@ function Landing() {
       {/* ─── Nav ─────────────────────────────────────────────── */}
       <header className="lp-nav">
         <div className="lp-wrap lp-nav-inner">
-          <Link href="/" className="wordmark" aria-label="Caller — home">
+          <Link href="/" className="wordmark" aria-label="LingoLine — home">
             <span className="wordmark-badge"><span className="material-symbols-outlined">call</span></span>
-            <span className="font-headline">Caller</span>
+            <span className="font-headline">LingoLine</span>
           </Link>
           <nav className="lp-nav-links">
             <a href="#how">{t('How it works', 'Как это работает')}</a>
@@ -73,8 +73,8 @@ function Landing() {
           </h1>
           <p className="lead hero-lead" data-reveal style={{ transitionDelay: '120ms' }}>
             {t(
-              'Caller translates your phone conversations in real time. No language barrier, no extra effort.',
-              'Caller переводит ваши телефонные разговоры в реальном времени. Без языкового барьера и лишних усилий.',
+              'LingoLine translates your phone conversations in real time. No language barrier, no extra effort.',
+              'LingoLine переводит ваши телефонные разговоры в реальном времени. Без языкового барьера и лишних усилий.',
             )}
           </p>
           <ul className="hero-feats" data-reveal style={{ transitionDelay: '150ms' }}>
@@ -147,8 +147,8 @@ function Landing() {
         </p>
         <p className="problem-turn">
           {t(
-            'Caller takes that wall down. You speak your language, they speak theirs, and everyone is understood — live, on the very same call.',
-            'Caller убирает эту стену. Вы говорите на своём языке, они на своём — и все друг друга понимают, прямо во время звонка.',
+            'LingoLine takes that wall down. You speak your language, they speak theirs, and everyone is understood — live, on the very same call.',
+            'LingoLine убирает эту стену. Вы говорите на своём языке, они на своём — и все друг друга понимают, прямо во время звонка.',
           )}
         </p>
       </section>
@@ -169,13 +169,13 @@ function Landing() {
               },
               {
                 n: '02',
-                title: t('Add Caller and tap “Merge”', 'Добавьте Caller и нажмите «Объединить»'),
-                body: t('Tap Add call, dial your Caller number, then tap Merge — both buttons are already on your phone’s call screen.', 'Нажмите «Добавить вызов», наберите номер Caller и нажмите «Объединить» — эти кнопки уже есть на экране звонка любого телефона.'),
+                title: t('Add LingoLine and tap “Merge”', 'Добавьте LingoLine и нажмите «Объединить»'),
+                body: t('Tap Add call, dial your LingoLine number, then tap Merge — both buttons are already on your phone’s call screen.', 'Нажмите «Добавить вызов», наберите номер LingoLine и нажмите «Объединить» — эти кнопки уже есть на экране звонка любого телефона.'),
               },
               {
                 n: '03',
                 title: t('Enjoy the translation', 'Наслаждайтесь переводом'),
-                body: t('Caller introduces itself and speaks the translation out loud — both directions, language detected automatically.', 'Caller представится и будет озвучивать перевод в обе стороны — язык определяется автоматически.'),
+                body: t('LingoLine introduces itself and speaks the translation out loud — both directions, language detected automatically.', 'LingoLine представится и будет озвучивать перевод в обе стороны — язык определяется автоматически.'),
               },
             ].map((s, i) => (
               <li key={s.n} className="step glass-panel bento-card" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
@@ -192,11 +192,11 @@ function Landing() {
         <div className="step-notes" data-reveal>
           <p className="step-note">
             <span className="material-symbols-outlined">person_add</span>
-            {t('One-time prep: after signup, save your personal Caller number in contacts as “Translator”.', 'Разовая подготовка: после регистрации сохраните свой номер Caller в контактах как «Переводчик».')}
+            {t('One-time prep: after signup, save your personal LingoLine number in contacts as “Translator”.', 'Разовая подготовка: после регистрации сохраните свой номер LingoLine в контактах как «Переводчик».')}
           </p>
           <p className="step-note">
             <span className="material-symbols-outlined">group</span>
-            {t('In the same room? Just call Caller and put it on speaker.', 'Рядом друг с другом? Просто позвоните Caller и включите громкую связь.')}
+            {t('In the same room? Just call LingoLine and put it on speaker.', 'Рядом друг с другом? Просто позвоните LingoLine и включите громкую связь.')}
           </p>
         </div>
       </section>
@@ -204,7 +204,7 @@ function Landing() {
       {/* ─── Why ─────────────────────────────────────────────── */}
       <section className="lp-wrap section">
         <div className="section-head" data-reveal>
-          <p className="eyebrow"><span className="dot" />{t('Why Caller', 'Почему Caller')}</p>
+          <p className="eyebrow"><span className="dot" />{t('Why LingoLine', 'Почему LingoLine')}</p>
           <h2 className="display section-h">{t('Accurate, simple, honest', 'Точно, просто, честно')}</h2>
         </div>
         <div className="why">
@@ -253,7 +253,7 @@ function Landing() {
           ))}
         </div>
         <p className="langs-note" data-reveal>
-          {t('Direction is detected automatically — just speak, and Caller knows which way to translate.', 'Направление определяется автоматически — просто говорите, и Caller сам поймёт, куда переводить.')}
+          {t('Direction is detected automatically — just speak, and LingoLine knows which way to translate.', 'Направление определяется автоматически — просто говорите, и LingoLine сам поймёт, куда переводить.')}
         </p>
       </section>
 
@@ -326,7 +326,7 @@ function Landing() {
           <div className="footer-brand">
             <Link href="/" className="wordmark">
               <span className="wordmark-badge"><span className="material-symbols-outlined">call</span></span>
-              <span className="font-headline">Caller</span>
+              <span className="font-headline">LingoLine</span>
             </Link>
             <p>{t('Live phone interpretation for people living between languages.', 'Живой перевод звонков для тех, кто живёт между языками.')}</p>
           </div>
@@ -347,7 +347,7 @@ function Landing() {
           </div>
         </div>
         <div className="lp-wrap footer-bottom">
-          <span>© {new Date().getFullYear()} Caller</span>
+          <span>© {new Date().getFullYear()} LingoLine</span>
           <LangToggle />
         </div>
       </footer>
@@ -379,7 +379,7 @@ function PhoneMock({ t }: { t: (en: string, ru: string) => string }) {
         aria-label={t('Phone call screen with the Merge button highlighted', 'Экран звонка с подсвеченной кнопкой «Объединить»')}>
         <div className="pm-notch" aria-hidden />
         <div className="pm-caller">
-          <div className="pm-name font-headline">{t('Leasing office + Caller', 'Офис аренды + Caller')}</div>
+          <div className="pm-name font-headline">{t('Leasing office + LingoLine', 'Офис аренды + LingoLine')}</div>
           <div className="pm-status">{t('conference · 01:24', 'конференция · 01:24')}</div>
         </div>
         <div className="pm-grid">
@@ -480,7 +480,7 @@ function GreetingsMarquee() {
 
 function FAQ(t: (en: string, ru: string) => string) {
   return [
-    { q: t('Do I need to install an app?', 'Нужно ли устанавливать приложение?'), a: t('No. Caller is a phone number you merge into a normal call. Nothing to download, and the other person needs nothing at all.', 'Нет. Caller — это номер, который вы подключаете в обычный звонок. Ничего скачивать не нужно, а собеседнику — тем более.') },
+    { q: t('Do I need to install an app?', 'Нужно ли устанавливать приложение?'), a: t('No. LingoLine is a phone number you merge into a normal call. Nothing to download, and the other person needs nothing at all.', 'Нет. LingoLine — это номер, который вы подключаете в обычный звонок. Ничего скачивать не нужно, а собеседнику — тем более.') },
     { q: t('Which languages are supported?', 'Какие языки поддерживаются?'), a: t('Twelve: English, Russian, Spanish, German, French, Chinese, Japanese, Korean, Arabic, Portuguese, Italian and Hindi — in any direction, detected automatically.', 'Двенадцать: английский, русский, испанский, немецкий, французский, китайский, японский, корейский, арабский, португальский, итальянский и хинди — в любую сторону, с авто-определением.') },
     { q: t('How accurate and natural is it?', 'Насколько это точно и естественно?'), a: t('It uses premium AI voices and translates both sides of the call out loud. Take turns and pause briefly so each phrase can finish — it sounds like a real interpreter, not a robot.', 'Используются премиальные AI-голоса, перевод озвучивается для обеих сторон. Говорите по очереди с короткой паузой, чтобы фраза успевала завершиться — звучит как живой переводчик, а не робот.') },
     { q: t('Is it really no subscription?', 'Правда без подписки?'), a: t('Yes. You top up a balance and pay about $0.20 per minute, only while you’re actually talking. No monthly fee, no commitment. New accounts get $2 free to try.', 'Да. Вы пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без абонплаты и обязательств. Новым аккаунтам — $2 бесплатно на пробу.') },

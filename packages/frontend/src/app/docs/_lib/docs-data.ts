@@ -22,18 +22,18 @@ export const DOC_SECTIONS: DocSection[] = [
         title: 'Quick Start',
         content: `# Quick Start
 
-Welcome to **Caller** — the AI phone agent platform built for modern businesses. In minutes you can deploy voice agents that handle inbound and outbound calls, and a live translator that joins any phone conversation to bridge language barriers.
+Welcome to **LingoLine** — the AI phone agent platform built for modern businesses. In minutes you can deploy voice agents that handle inbound and outbound calls, and a live translator that joins any phone conversation to bridge language barriers.
 
-## What Caller Does
+## What LingoLine Does
 
-Caller combines two products in one platform:
+LingoLine combines two products in one platform:
 
 - **AI Phone Agents** — Autonomous voice agents powered by Claude, GPT-4o, or Grok. They answer calls, follow your scripts, access your knowledge base, and hand off to humans when needed.
 - **Live Translator** — A real-time voice translation service that merges into any active phone call and translates speech between language pairs with sub-second latency.
 
 ## Quick Start in 3 Steps
 
-1. **Sign up** — Create your account at caller.n8nskorx.top. You'll receive free trial credit — no credit card required.
+1. **Sign up** — Create your account at lingoline.net. You'll receive free trial credit — no credit card required.
 2. **Create your first agent** — Go to **Agents → New Agent**. Give it a name, write a system prompt, pick a voice, and assign a phone number.
 3. **Make your first call** — Navigate to **Calls → New Call**, select your agent, enter a phone number, and click **Call**. Within seconds your agent is live.
 
@@ -65,11 +65,11 @@ Bridge language gaps on any call:
         title: 'Creating Your Account',
         content: `# Creating Your Account
 
-Getting started with Caller takes less than two minutes.
+Getting started with LingoLine takes less than two minutes.
 
 ## Sign Up Process
 
-1. Go to [caller.n8nskorx.top/login](https://caller.n8nskorx.top/login?mode=register)
+1. Go to [lingoline.net/login](https://lingoline.net/login?mode=register)
 2. Click **Create account**
 3. Enter your email address and choose a secure password
 4. Check your inbox for the verification email and click the link
@@ -77,11 +77,11 @@ Getting started with Caller takes less than two minutes.
 
 ## Email Verification
 
-After registering, you'll receive a verification email from Caller. Click the link within 24 hours to activate your account. If you don't see it, check your spam folder or use the **Resend verification** option on the login screen.
+After registering, you'll receive a verification email from LingoLine. Click the link within 24 hours to activate your account. If you don't see it, check your spam folder or use the **Resend verification** option on the login screen.
 
 ## Choosing a Plan
 
-Caller offers three subscription tiers:
+LingoLine offers three subscription tiers:
 
 | Plan | AI Agents | MCP API | Live Translator | Best For |
 |---|---|---|---|---|
@@ -223,7 +223,7 @@ Transcripts show speaker labels:
 
 \`\`\`
 [Agent]  Hello, thank you for calling Acme Support. How can I help you today?
-[Caller] Hi, I have a question about my order.
+[LingoLine] Hi, I have a question about my order.
 [Agent]  Of course! Could you share your order number?
 \`\`\`
 
@@ -452,14 +452,14 @@ Prompt Packs are curated system prompt templates for common business scenarios. 
         title: 'Phone Numbers',
         content: `# Phone Numbers
 
-Caller uses Twilio for telephony. You can connect your own Twilio account or use platform-managed numbers.
+LingoLine uses Twilio for telephony. You can connect your own Twilio account or use platform-managed numbers.
 
 ## Connecting Your Twilio Account
 
 1. Go to **Settings → Providers**
 2. Under **Telephony**, click **Connect Twilio**
 3. Enter your Twilio **Account SID** and **Auth Token**
-4. Click **Verify** — Caller will test the connection
+4. Click **Verify** — LingoLine will test the connection
 5. Your Twilio numbers will appear in **Settings → Phone Numbers** automatically
 
 > **Security:** Your credentials are encrypted with AES-256-GCM and never stored in plaintext.
@@ -470,14 +470,14 @@ Caller uses Twilio for telephony. You can connect your own Twilio account or use
 2. Select country and area code
 3. Filter by capability: Voice, SMS, or both
 4. Click **Buy** — the number is provisioned instantly via Twilio
-5. Cost is charged to your Twilio account (not your Caller deposit)
+5. Cost is charged to your Twilio account (not your LingoLine deposit)
 
 ## Porting an Existing Number
 
 Number porting is handled through Twilio directly:
 
 1. Submit a port request in your Twilio console
-2. Once the number appears in your Twilio account, it will sync to Caller
+2. Once the number appears in your Twilio account, it will sync to LingoLine
 3. Assign it to an agent from **Settings → Phone Numbers**
 
 ## Assigning Numbers to Agents
@@ -488,15 +488,15 @@ Number porting is handled through Twilio directly:
 4. Assign an **Agent** from the dropdown
 5. Save
 
-For **inbound** numbers, Caller automatically configures the Twilio webhook to route calls to the assigned agent.
+For **inbound** numbers, LingoLine automatically configures the Twilio webhook to route calls to the assigned agent.
 
 ## Inbound Call Routing
 
 When a call comes in to an assigned number:
 
-1. Twilio sends a webhook to Caller
-2. Caller identifies the agent assigned to that number
-3. A WebSocket stream is opened between Twilio and Caller's voice pipeline
+1. Twilio sends a webhook to LingoLine
+2. LingoLine identifies the agent assigned to that number
+3. A WebSocket stream is opened between Twilio and LingoLine's voice pipeline
 4. The agent's greeting plays immediately
 5. The conversation begins
 
@@ -523,16 +523,16 @@ Live Translator merges into an active phone call and translates speech in real t
 ## How It Works
 
 1. You're on a phone call with a caller who speaks a different language
-2. Open the Caller dashboard on your phone or computer
-3. Tap **Start Translation** — Caller creates a conference call bridge
+2. Open the LingoLine dashboard on your phone or computer
+3. Tap **Start Translation** — LingoLine creates a conference call bridge
 4. Both you and the original caller are merged into the conference
-5. Caller's AI translates each speaker's words and plays the translation to the other party in real time
+5. LingoLine's AI translates each speaker's words and plays the translation to the other party in real time
 
 The caller hears your translated words in their language. You hear their words translated into yours. The latency is typically under 1 second.
 
 ## Language Pairs
 
-Caller supports 15+ language pairs including:
+LingoLine supports 15+ language pairs including:
 
 - English ↔ Spanish
 - English ↔ French
@@ -547,7 +547,7 @@ Caller supports 15+ language pairs including:
 - Spanish ↔ French
 - Spanish ↔ Portuguese
 
-Language detection is automatic — Caller identifies the speaker's language and routes to the correct translation model.
+Language detection is automatic — LingoLine identifies the speaker's language and routes to the correct translation model.
 
 ## Tones of Voice
 
@@ -572,7 +572,7 @@ Choose the voice used to speak translations:
 
 ## Telegram Integration
 
-Caller can send translation session summaries to a Telegram bot:
+LingoLine can send translation session summaries to a Telegram bot:
 
 1. Go to **Settings → Integrations → Telegram**
 2. Create a bot via [@BotFather](https://t.me/BotFather) and paste the token
@@ -595,7 +595,7 @@ Live Translator usage is billed per minute of active translation:
         title: 'Billing & Deposits',
         content: `# Billing & Deposits
 
-Caller uses a deposit-based billing model. You pre-load credits that are consumed as you use the platform.
+LingoLine uses a deposit-based billing model. You pre-load credits that are consumed as you use the platform.
 
 ## How Deposits Work
 
@@ -616,7 +616,7 @@ Connect your own API keys for any provider in **Settings → Providers**:
 
 | Provider | Key Used For | Cost Impact |
 |---|---|---|
-| **Twilio** | Phone calls, SMS | Pay Twilio directly, $0 to Caller |
+| **Twilio** | Phone calls, SMS | Pay Twilio directly, $0 to LingoLine |
 | **Anthropic** | Claude LLM | Pay Anthropic directly |
 | **OpenAI** | GPT models, TTS, Whisper | Pay OpenAI directly |
 | **Deepgram** | Speech-to-text | Pay Deepgram directly |
@@ -625,7 +625,7 @@ Connect your own API keys for any provider in **Settings → Providers**:
 
 ### Platform Credentials
 
-If you don't connect your own keys, Caller uses its pooled credentials and bills the usage to your deposit at transparent rates.
+If you don't connect your own keys, LingoLine uses its pooled credentials and bills the usage to your deposit at transparent rates.
 
 You can mix: use your own Twilio but platform Claude, for example.
 
@@ -654,7 +654,7 @@ Enable email alerts when your deposit drops below a threshold:
 
 1. Go to **Settings → Billing → Alerts**
 2. Set a minimum balance threshold (e.g., $10)
-3. Caller sends an email when balance falls below that amount
+3. LingoLine sends an email when balance falls below that amount
 
 > **Tip:** Enable auto-recharge to automatically top up your deposit when it runs low, ensuring uninterrupted service.
 `,
@@ -671,7 +671,7 @@ Enable email alerts when your deposit drops below a threshold:
         title: 'Authentication',
         content: `# Authentication
 
-Caller uses API keys for all API and MCP access. Keys are created per-workspace and scoped to specific permissions.
+LingoLine uses API keys for all API and MCP access. Keys are created per-workspace and scoped to specific permissions.
 
 ## Creating an API Key
 
@@ -694,7 +694,7 @@ Content-Type: application/json
 
 **Example with curl:**
 \`\`\`
-curl https://caller.n8nskorx.top/api/agents \\
+curl https://lingoline.net/api/agents \\
   -H "Authorization: Bearer mcp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "Content-Type: application/json"
 \`\`\`
@@ -900,7 +900,7 @@ POST /api/calls/outbound
     "customer_id": "cust_789",
     "campaign": "Q2-outreach"
   },
-  "context": "Caller is a returning customer who purchased the Pro plan in January."
+  "context": "LingoLine is a returning customer who purchased the Pro plan in January."
 }
 \`\`\`
 
@@ -908,7 +908,7 @@ POST /api/calls/outbound
 |---|---|---|
 | \`agent_id\` | Yes | ID of the agent to handle the call |
 | \`to\` | Yes | Destination phone number (E.164) |
-| \`from\` | No | Caller ID to display (must be a verified Twilio number) |
+| \`from\` | No | LingoLine ID to display (must be a verified Twilio number) |
 | \`metadata\` | No | Arbitrary key-value pairs attached to call record |
 | \`context\` | No | Additional context injected into the agent's prompt |
 
@@ -988,7 +988,7 @@ Returns full call record including transcript:
       "timestamp_ms": 4800
     }
   ],
-  "summary": "Caller expressed interest in upgrading from Starter to Pro plan. Follow-up scheduled for Thursday.",
+  "summary": "LingoLine expressed interest in upgrading from Starter to Pro plan. Follow-up scheduled for Thursday.",
   "recording_url": "https://api.twilio.com/recordings/RE...",
   "metadata": {
     "customer_id": "cust_789",
@@ -1027,7 +1027,7 @@ Content-Type: multipart/form-data
 Use multipart form upload to send the file:
 
 \`\`\`
-curl https://caller.n8nskorx.top/api/knowledge/upload \\
+curl https://lingoline.net/api/knowledge/upload \\
   -H "Authorization: Bearer mcp_xxxx..." \\
   -F "file=@product-manual.pdf" \\
   -F "name=Product Manual v3" \\
@@ -1113,7 +1113,7 @@ Returns the full document record including extracted text preview and chunk coun
         title: 'Webhooks',
         content: `# Webhooks
 
-Caller can send real-time event notifications to your server as calls progress and translator sessions run.
+LingoLine can send real-time event notifications to your server as calls progress and translator sessions run.
 
 ## Setting Up Webhooks
 
@@ -1183,7 +1183,7 @@ All webhook payloads share this envelope:
 Each webhook request includes a signature header for security:
 
 \`\`\`
-Caller-Signature: sha256=a4f2e8c1d9b7...
+LingoLine-Signature: sha256=a4f2e8c1d9b7...
 \`\`\`
 
 Verify it server-side:
@@ -1216,11 +1216,11 @@ If your endpoint returns a non-2xx status or times out (>10s):
         title: 'MCP Server',
         content: `# MCP Server
 
-Caller exposes an MCP (Model Context Protocol) server that lets AI assistants like Claude Desktop control your phone agent platform directly.
+LingoLine exposes an MCP (Model Context Protocol) server that lets AI assistants like Claude Desktop control your phone agent platform directly.
 
 ## What Is MCP?
 
-Model Context Protocol is an open standard from Anthropic that allows AI assistants to connect to external tools and services. When you connect Caller as an MCP server, Claude (or any MCP client) can make calls, manage agents, and retrieve transcripts — all via natural language.
+Model Context Protocol is an open standard from Anthropic that allows AI assistants to connect to external tools and services. When you connect LingoLine as an MCP server, Claude (or any MCP client) can make calls, manage agents, and retrieve transcripts — all via natural language.
 
 ## Connecting to Claude Desktop
 
@@ -1231,7 +1231,7 @@ Model Context Protocol is an open standard from Anthropic that allows AI assista
 **macOS:** \`~/Library/Application Support/Claude/claude_desktop_config.json\`
 **Windows:** \`%APPDATA%\\Claude\\claude_desktop_config.json\`
 
-4. Add the Caller MCP server:
+4. Add the LingoLine MCP server:
 
 \`\`\`
 {
@@ -1241,14 +1241,14 @@ Model Context Protocol is an open standard from Anthropic that allows AI assista
       "args": ["-y", "@caller/mcp-server"],
       "env": {
         "CALLER_API_KEY": "mcp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "CALLER_API_URL": "https://caller.n8nskorx.top"
+        "CALLER_API_URL": "https://lingoline.net"
       }
     }
   }
 }
 \`\`\`
 
-5. Restart Claude Desktop — you'll see Caller in the tools panel
+5. Restart Claude Desktop — you'll see LingoLine in the tools panel
 
 ## Available MCP Tools
 
@@ -1313,7 +1313,7 @@ Once connected, you can ask Claude:
 - *"What did the customer say in call cal_03jy..."*
 - *"Start a Spanish translation session in professional tone"*
 
-Claude will use the Caller MCP tools to execute these actions and report back.
+Claude will use the LingoLine MCP tools to execute these actions and report back.
 
 > **Security:** MCP connections use the same API key authentication as the REST API. Keys can be scoped to Read-only if you want Claude to only retrieve information without making calls.
 `,
@@ -1330,13 +1330,13 @@ Claude will use the Caller MCP tools to execute these actions and report back.
         title: 'Platform Overview',
         content: `# Platform Overview
 
-Caller is a multi-tenant SaaS platform built for low-latency voice AI workloads. This document describes the high-level architecture.
+LingoLine is a multi-tenant SaaS platform built for low-latency voice AI workloads. This document describes the high-level architecture.
 
 ## System Components
 
 \`\`\`
 ┌─────────────────────────────────────────────────────────┐
-│                    Caller Platform                       │
+│                    LingoLine Platform                       │
 │                                                         │
 │  ┌────────────┐    ┌────────────┐    ┌───────────────┐ │
 │  │ Next.js 15 │    │  Fastify 5 │    │  MCP Server   │ │
@@ -1398,7 +1398,7 @@ All persistent data lives in PostgreSQL:
 
 ## Deployment
 
-Caller runs on a self-hosted Docker environment with:
+LingoLine runs on a self-hosted Docker environment with:
 
 - Docker Compose for service orchestration
 - Cloudflare Tunnel for secure ingress (no exposed ports)
@@ -1416,14 +1416,14 @@ Every phone call goes through a real-time voice pipeline designed for minimal la
 ## End-to-End Call Flow
 
 \`\`\`
-Caller dials number
+The caller dials the number
         │
         ▼
     Twilio PSTN
         │
         │  WebSocket stream (raw audio, μ-law 8kHz)
         ▼
-  Caller Backend (Fastify WebSocket handler)
+  LingoLine Backend (Fastify WebSocket handler)
         │
         │  Audio chunks (20ms frames)
         ▼
@@ -1442,7 +1442,7 @@ Caller dials number
   Audio buffer → Twilio WebSocket
         │
         ▼
-    Caller hears response
+    The caller hears the response
 \`\`\`
 
 ## Latency Optimization
@@ -1509,14 +1509,14 @@ Call recording is done at the Twilio layer. Dual-channel recordings (agent audio
         title: 'Provider Model (BYOK)',
         content: `# Provider Model (BYOK)
 
-Caller's Bring Your Own Keys architecture lets users connect their own API credentials for every external service, giving full cost transparency and control.
+LingoLine's Bring Your Own Keys architecture lets users connect their own API credentials for every external service, giving full cost transparency and control.
 
 ## How It Works
 
-Every API call Caller makes to an external provider (Twilio, Anthropic, OpenAI, etc.) can use either:
+Every API call LingoLine makes to an external provider (Twilio, Anthropic, OpenAI, etc.) can use either:
 
 1. **Your credentials** — Fetched from the encrypted credential store and used directly. Billing goes to your accounts.
-2. **Platform credentials** — Caller's pooled accounts, usage deducted from your deposit.
+2. **Platform credentials** — LingoLine's pooled accounts, usage deducted from your deposit.
 
 The choice is per-provider and can be switched at any time.
 
@@ -1569,19 +1569,19 @@ Configure this in **Settings → Providers** by toggling each service between "M
 
 When using your own keys:
 - Costs appear on your provider invoices directly
-- Caller records call metadata but does not track provider costs
+- LingoLine records call metadata but does not track provider costs
 - Your deposit is not charged for BYOK provider usage
 
 When using platform credentials:
 - Costs are calculated based on usage (tokens, minutes, characters)
-- Deducted from your Caller deposit in real time
+- Deducted from your LingoLine deposit in real time
 - Itemized in **Settings → Billing → Usage**
 
 ## Provider Failover
 
 If a provider API returns an error or timeout:
 
-1. Caller retries up to 3 times with exponential backoff
+1. LingoLine retries up to 3 times with exponential backoff
 2. For STT: falls back from Deepgram to OpenAI Whisper
 3. For TTS: falls back to OpenAI TTS if primary provider fails
 4. For LLM: no automatic fallback — the call will fail gracefully
@@ -1594,13 +1594,13 @@ Configure fallback preferences in **Settings → Providers → Failover**.
         title: 'Security',
         content: `# Security
 
-Security is built into every layer of the Caller platform. This document explains the key security mechanisms.
+Security is built into every layer of the LingoLine platform. This document explains the key security mechanisms.
 
 ## API Key Security
 
 ### Hashing
 
-API keys are stored as SHA-256 hashes. The plaintext key is only shown once at creation time and cannot be recovered by Caller staff.
+API keys are stored as SHA-256 hashes. The plaintext key is only shown once at creation time and cannot be recovered by LingoLine staff.
 
 \`\`\`
 User's key:     mcp_a1b2c3d4e5f6g7h8i9j0...
@@ -1620,7 +1620,7 @@ Keys are scoped to Read / Write / Admin permissions. A key cannot exceed the per
 
 ## Provider Credential Encryption
 
-All third-party API keys (Twilio, Anthropic, OpenAI, etc.) stored by Caller are encrypted:
+All third-party API keys (Twilio, Anthropic, OpenAI, etc.) stored by LingoLine are encrypted:
 
 | Mechanism | Detail |
 |---|---|
@@ -1633,7 +1633,7 @@ Decryption only occurs in the backend process at runtime, and decrypted values a
 
 ## Workspace Isolation
 
-Every data model in Caller includes a \`workspace_id\` column. Every database query is scoped:
+Every data model in LingoLine includes a \`workspace_id\` column. Every database query is scoped:
 
 \`\`\`
 -- Every query looks like this:
@@ -1682,7 +1682,7 @@ CREATE POLICY workspace_isolation ON agents
 
 ## Reporting Security Issues
 
-If you discover a security vulnerability in Caller, please email security@caller.ai with a detailed description. We respond to all reports within 48 hours.
+If you discover a security vulnerability in LingoLine, please email security@caller.ai with a detailed description. We respond to all reports within 48 hours.
 `,
       },
     ],

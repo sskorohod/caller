@@ -76,7 +76,7 @@ function Navbar() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)' }}>
               <span className="material-symbols-outlined text-white text-base" style={{ fontSize: '18px' }}>phone_in_talk</span>
             </div>
-            <span className="font-headline font-bold text-white text-lg">Caller</span>
+            <span className="font-headline font-bold text-white text-lg">LingoLine</span>
           </Link>
 
           {/* Desktop nav */}
@@ -963,7 +963,7 @@ function TranslatorContent() {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #22d3ee, #818cf8)' }}>
                   <span className="material-symbols-outlined text-white text-base" style={{ fontSize: '18px' }}>phone_in_talk</span>
                 </div>
-                <span className="font-headline font-bold text-white text-lg">Caller</span>
+                <span className="font-headline font-bold text-white text-lg">LingoLine</span>
               </Link>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(194,198,214,0.45)' }}>
                 {t('AI phone agents and live translation for modern businesses.', 'AI-телефонные агенты и живой перевод для современного бизнеса.')}
@@ -1034,7 +1034,7 @@ function TranslatorContent() {
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8" style={{ borderTop: '1px solid rgba(140,144,159,0.07)' }}>
             <p className="text-xs" style={{ color: 'rgba(194,198,214,0.3)' }}>
-              © {new Date().getFullYear()} Caller. {t('All rights reserved.', 'Все права защищены.')}
+              © {new Date().getFullYear()} LingoLine. {t('All rights reserved.', 'Все права защищены.')}
             </p>
             <p className="text-xs" style={{ color: 'rgba(194,198,214,0.25)' }}>
               {t('Built with AI · Powered by xAI, OpenAI, ElevenLabs', 'Создано с AI · Работает на xAI, OpenAI, ElevenLabs')}

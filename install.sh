@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # =============================================================
-# Caller - One-line installer
+# LingoLine - One-line installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/sskorohod/caller/main/install.sh | bash
 # Supports: Ubuntu 22.04+, Debian 11+
 # =============================================================
@@ -50,7 +50,7 @@ ask_yn() {
 # ----- Header -----
 echo ""
 echo -e "${BOLD}╔══════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║       Caller AI Phone Agent          ║${NC}"
+echo -e "${BOLD}║       LingoLine Live Translator          ║${NC}"
 echo -e "${BOLD}║         Installer v0.3               ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════╝${NC}"
 echo ""
@@ -89,7 +89,7 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
   info "Updating existing installation at $INSTALL_DIR..."
   git -C "$INSTALL_DIR" pull --rebase
 else
-  info "Cloning Caller repository..."
+  info "Cloning LingoLine repository..."
   git clone "$REPO" "$INSTALL_DIR"
 fi
 cd "$INSTALL_DIR"

@@ -70,7 +70,7 @@ export async function sendCallNotification(
 }
 
 export async function testBot(botToken: string, chatId: string): Promise<boolean> {
-  const text = '\u2705 <b>Caller</b> Telegram integration connected successfully!';
+  const text = '\u2705 <b>LingoLine</b> Telegram integration connected successfully!';
   return sendTelegramMessage(botToken, chatId, text);
 }
 

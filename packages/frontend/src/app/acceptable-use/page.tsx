@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Acceptable Use Policy — Caller',
-  description: 'Caller platform acceptable use policy. Rules for using our AI phone calling service.',
+  title: 'Acceptable Use Policy — LingoLine',
+  description: 'LingoLine platform acceptable use policy. Rules for using our AI phone calling service.',
 };
 
 export default function AcceptableUsePage() {
@@ -16,7 +16,7 @@ export default function AcceptableUsePage() {
 
       <header className="border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
         <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link href="/" className="font-headline font-bold text-lg">Caller</Link>
+          <Link href="/" className="font-headline font-bold text-lg">LingoLine</Link>
           <div className="flex gap-4 text-xs" style={{ color: 'rgba(194,198,214,0.5)' }}>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
@@ -32,7 +32,7 @@ export default function AcceptableUsePage() {
 
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">1. Purpose</h2>
-            <p>This Acceptable Use Policy (&quot;AUP&quot;) governs your use of the Caller platform. It is designed to protect our users, called parties, and the integrity of the telecommunications network. This AUP is incorporated into and forms part of our <Link href="/terms" className="underline text-blue-400">Terms of Service</Link>.</p>
+            <p>This Acceptable Use Policy (&quot;AUP&quot;) governs your use of the LingoLine platform. It is designed to protect our users, called parties, and the integrity of the telecommunications network. This AUP is incorporated into and forms part of our <Link href="/terms" className="underline text-blue-400">Terms of Service</Link>.</p>
             <p className="mt-2">Violations of this AUP may result in immediate suspension or termination of your account without notice or refund.</p>
           </section>
 

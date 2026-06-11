@@ -14,20 +14,20 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const article = getArticle(slug);
   if (!article) return {};
 
-  const url = `https://caller.n8nskorx.top/blog/${slug}`;
+  const url = `https://lingoline.net/blog/${slug}`;
 
   return {
     title: article.title,
     description: article.description,
     keywords: article.keywords,
-    authors: [{ name: 'Caller' }],
+    authors: [{ name: 'LingoLine' }],
     openGraph: {
       title: article.title,
       description: article.description,
       type: 'article',
       publishedTime: article.publishedAt,
       url,
-      siteName: 'Caller',
+      siteName: 'LingoLine',
       locale: article.locale === 'ru' ? 'ru_RU' : 'en_US',
     },
     twitter: {
@@ -53,9 +53,9 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
     headline: article.title,
     description: article.description,
     datePublished: article.publishedAt,
-    author: { '@type': 'Organization', name: 'Caller', url: 'https://caller.n8nskorx.top' },
-    publisher: { '@type': 'Organization', name: 'Caller', url: 'https://caller.n8nskorx.top' },
-    mainEntityOfPage: `https://caller.n8nskorx.top/blog/${slug}`,
+    author: { '@type': 'Organization', name: 'LingoLine', url: 'https://lingoline.net' },
+    publisher: { '@type': 'Organization', name: 'LingoLine', url: 'https://lingoline.net' },
+    mainEntityOfPage: `https://lingoline.net/blog/${slug}`,
     inLanguage: article.locale === 'ru' ? 'ru' : 'en',
   };
 

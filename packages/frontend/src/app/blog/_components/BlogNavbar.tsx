@@ -21,7 +21,7 @@ export default function BlogNavbar({ activeBlog = false }: { activeBlog?: boolea
           <div className="w-8 h-8 rounded-lg flex items-center justify-center relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)' }}>
             <span className="material-symbols-outlined text-base" style={{ color: '#fff', fontVariationSettings: "'FILL' 1" }}>call</span>
           </div>
-          <span className="text-lg font-headline font-extrabold tracking-tight">Caller</span>
+          <span className="text-lg font-headline font-extrabold tracking-tight">LingoLine</span>
         </Link>
 
         {/* Desktop nav */}
