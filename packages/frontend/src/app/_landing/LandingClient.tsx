@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { LangProvider, useLang } from './useLang';
 
 /* ════════════════════════════════════════════════════════════════════
@@ -21,6 +22,17 @@ const REGISTER = '/login?mode=register';
 
 function Landing() {
   const { t, lang } = useLang();
+
+  // Mobile sticky CTA: appears once the hero scrolls out of view.
+  const heroRef = useRef<HTMLElement>(null);
+  const [stickyCta, setStickyCta] = useState(false);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setStickyCta(!e.isIntersecting), { threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   return (
     <div className="lp">
@@ -47,12 +59,15 @@ function Landing() {
       </header>
 
       {/* ─── Hero ────────────────────────────────────────────── */}
-      <section className="lp-wrap hero">
+      <section className="lp-wrap hero" ref={heroRef}>
         <div className="hero-glow g1" aria-hidden />
         <div className="hero-glow g2" aria-hidden />
         <div className="hero-glow g3" aria-hidden />
         <div className="hero-copy">
-          <p className="eyebrow" data-reveal><span className="dot" />{t('Live phone translation for expats', 'Живой перевод звонков для экспатов')}</p>
+          <p className="eyebrow" data-reveal>
+            <span className="dot" />{t('Live phone translation for expats', 'Живой перевод звонков для экспатов')}
+            <span className="eyebrow-chip"><span className="material-symbols-outlined">bolt</span>{t('Ready in 2 minutes', 'Готово через 2 минуты')}</span>
+          </p>
           <h1 className="display hero-h" data-reveal style={{ transitionDelay: '60ms' }}>
             {t('Make the call.', 'Звоните.')}<br />
             <em className="gradient-text">{t('In any language.', 'На любом языке.')}</em>
@@ -63,6 +78,22 @@ function Landing() {
               'Caller подключается к вашему звонку и переводит обе стороны в реальном времени — говорите с клиниками, арендодателями и госучреждениями без языкового барьера и неудобных приложений.',
             )}
           </p>
+          <ol className="hero-steps" data-reveal style={{ transitionDelay: '150ms' }}>
+            {[
+              { icon: 'call', label: t('Call the person', 'Позвоните собеседнику') },
+              { icon: 'call_merge', label: t('Add Caller → Merge', 'Добавьте Caller → «Объединить»') },
+              { icon: 'graphic_eq', label: t('Hear the translation', 'Слушайте перевод') },
+            ].map((s, i) => (
+              <Fragment key={i}>
+                {i > 0 && <span className="hs-sep material-symbols-outlined" aria-hidden>arrow_forward</span>}
+                <li>
+                  <span className="hs-n">{i + 1}</span>
+                  <span className="material-symbols-outlined">{s.icon}</span>
+                  {s.label}
+                </li>
+              </Fragment>
+            ))}
+          </ol>
           <div className="hero-cta" data-reveal style={{ transitionDelay: '180ms' }}>
             <Link href={REGISTER} className="btn-accent cta-glow">
               {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
@@ -71,7 +102,7 @@ function Landing() {
             <a href="#how" className="btn-ghost">{t('See how it works', 'Как это работает')}</a>
           </div>
           <p className="hero-micro" data-reveal style={{ transitionDelay: '240ms' }}>
-            {t('No subscription · about $0.20 / minute · works from any phone', 'Без подписки · около $0.20 / мин · с любого телефона')}
+            {t('No subscription · about $0.20 / minute · your number is ready right after signup', 'Без подписки · около $0.20 / мин · номер переводчика — сразу после регистрации')}
           </p>
         </div>
 
@@ -121,35 +152,46 @@ function Landing() {
           <p className="eyebrow"><span className="dot" />{t('How it works', 'Как это работает')}</p>
           <h2 className="display section-h">{t('Three steps. A minute to set up.', 'Три шага. Минута на настройку.')}</h2>
         </div>
-        <ol className="steps">
-          {[
-            {
-              n: '01',
-              title: t('Save your Caller number', 'Сохраните номер Caller'),
-              body: t('After signup you get a personal number. Save it in your contacts as “Translator”.', 'После регистрации вы получаете персональный номер. Сохраните его в контактах как «Переводчик».'),
-            },
-            {
-              n: '02',
-              title: t('On the call, add it and merge', 'Во время звонка добавьте и объедините'),
-              body: t('Call the person as usual. Say “one moment, I’ll add an interpreter,” tap Add call, dial Caller, then tap Merge.', 'Позвоните человеку как обычно. Скажите «секунду, добавлю переводчика», нажмите «Добавить вызов», наберите Caller и нажмите «Объединить».'),
-            },
-            {
-              n: '03',
-              title: t('Speak naturally', 'Говорите естественно'),
-              body: t('Take turns and pause briefly. Caller speaks the translation out loud — both directions, detected automatically.', 'Говорите по очереди с короткой паузой. Caller озвучивает перевод в обе стороны, направление определяется само.'),
-            },
-          ].map((s, i) => (
-            <li key={s.n} className="step glass-panel bento-card" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
-              <span className="step-n display gradient-text">{s.n}</span>
-              <h3 className="step-title font-headline">{s.title}</h3>
-              <p className="step-body">{s.body}</p>
-            </li>
-          ))}
-        </ol>
-        <p className="step-note" data-reveal>
-          <span className="material-symbols-outlined">group</span>
-          {t('In the same room? Just call Caller and put it on speaker.', 'Рядом друг с другом? Просто позвоните Caller и включите громкую связь.')}
-        </p>
+        <div className="how-grid">
+          <ol className="steps">
+            {[
+              {
+                n: '01',
+                title: t('Call the person as usual', 'Позвоните собеседнику как обычно'),
+                body: t('Say “one moment — I’ll add my interpreter.” That’s all the other person needs to know.', 'Скажите «секунду, подключу переводчика» — это всё, что нужно знать собеседнику.'),
+              },
+              {
+                n: '02',
+                title: t('Add Caller and tap “Merge”', 'Добавьте Caller и нажмите «Объединить»'),
+                body: t('Tap Add call, dial your Caller number, then tap Merge — both buttons are already on your phone’s call screen.', 'Нажмите «Добавить вызов», наберите номер Caller и нажмите «Объединить» — эти кнопки уже есть на экране звонка любого телефона.'),
+              },
+              {
+                n: '03',
+                title: t('Enjoy the translation', 'Наслаждайтесь переводом'),
+                body: t('Caller introduces itself and speaks the translation out loud — both directions, language detected automatically.', 'Caller представится и будет озвучивать перевод в обе стороны — язык определяется автоматически.'),
+              },
+            ].map((s, i) => (
+              <li key={s.n} className="step glass-panel bento-card" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
+                <span className="step-n display gradient-text">{s.n}</span>
+                <div>
+                  <h3 className="step-title font-headline">{s.title}</h3>
+                  <p className="step-body">{s.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <PhoneMock t={t} />
+        </div>
+        <div className="step-notes" data-reveal>
+          <p className="step-note">
+            <span className="material-symbols-outlined">person_add</span>
+            {t('One-time prep: after signup, save your personal Caller number in contacts as “Translator”.', 'Разовая подготовка: после регистрации сохраните свой номер Caller в контактах как «Переводчик».')}
+          </p>
+          <p className="step-note">
+            <span className="material-symbols-outlined">group</span>
+            {t('In the same room? Just call Caller and put it on speaker.', 'Рядом друг с другом? Просто позвоните Caller и включите громкую связь.')}
+          </p>
+        </div>
       </section>
 
       {/* ─── Why ─────────────────────────────────────────────── */}
@@ -302,6 +344,51 @@ function Landing() {
           <LangToggle />
         </div>
       </footer>
+
+      {/* Mobile sticky CTA — slides in once the hero scrolls away */}
+      <div className={`sticky-cta${stickyCta ? ' on' : ''}`} aria-hidden={!stickyCta}>
+        <Link href={REGISTER} className="btn-accent cta-glow" tabIndex={stickyCta ? 0 : -1}>
+          {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+          <span className="material-symbols-outlined">arrow_forward</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Phone-call screen mock (How-it-works visual) ──────────── */
+function PhoneMock({ t }: { t: (en: string, ru: string) => string }) {
+  const keys = [
+    { icon: 'mic_off', label: t('mute', 'звук') },
+    { icon: 'dialpad', label: t('keypad', 'клавиши') },
+    { icon: 'volume_up', label: t('speaker', 'динамик') },
+    { icon: 'add_call', label: t('add call', 'добавить') },
+    { icon: 'call_merge', label: t('merge', 'объединить'), merge: true },
+    { icon: 'person', label: t('contacts', 'контакты') },
+  ];
+  return (
+    <div className="phone-wrap" data-reveal>
+      <div className="phone-mock glass-panel" role="img"
+        aria-label={t('Phone call screen with the Merge button highlighted', 'Экран звонка с подсвеченной кнопкой «Объединить»')}>
+        <div className="pm-notch" aria-hidden />
+        <div className="pm-caller">
+          <div className="pm-name font-headline">{t('Leasing office + Caller', 'Офис аренды + Caller')}</div>
+          <div className="pm-status">{t('conference · 01:24', 'конференция · 01:24')}</div>
+        </div>
+        <div className="pm-grid">
+          {keys.map((k, i) => (
+            <div key={i} className={`pm-key${k.merge ? ' pm-key--merge' : ''}`}>
+              <span className="pm-key-btn"><span className="material-symbols-outlined">{k.icon}</span></span>
+              <span className="pm-key-label">{k.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="pm-end" aria-hidden><span className="material-symbols-outlined">call_end</span></div>
+      </div>
+      <p className="pm-hint">
+        <span className="material-symbols-outlined">touch_app</span>
+        {t('Tap “Merge” — that’s the whole trick', 'Нажмите «Объединить» — в этом весь фокус')}
+      </p>
     </div>
   );
 }
@@ -443,8 +530,17 @@ const LP_CSS = `
 .btn-ghost { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); border: 1px solid var(--line); background: rgba(255,255,255,0.03); padding: 13px 20px; border-radius: 12px; font-weight: 600; font-size: 15px; text-decoration: none; transition: all .18s; }
 .btn-ghost:hover { background: rgba(255,255,255,0.06); border-color: var(--accent); }
 
-.eyebrow { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 16px; }
+.eyebrow { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 9px; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin: 0 0 16px; }
 .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
+.eyebrow-chip { display: inline-flex; align-items: center; gap: 5px; margin-left: 4px; padding: 4px 11px; border-radius: 999px; border: 1px solid rgba(173,198,255,0.3); background: rgba(173,198,255,0.07); font-size: 11px; letter-spacing: 0.08em; }
+.eyebrow-chip .material-symbols-outlined { font-size: 13px; }
+
+/* Hero 1-2-3 stepper */
+.hero-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; list-style: none; margin: 0 0 26px; padding: 0; }
+.hero-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 9px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); font-size: 13.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.hero-steps li .material-symbols-outlined { font-size: 17px; color: var(--accent); }
+.hs-n { width: 20px; height: 20px; border-radius: 50%; background: var(--cta); color: #0e131f; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hs-sep { font-size: 15px; color: var(--ink-3); }
 .lead { color: var(--ink-2); }
 .section { padding-top: 88px; }
 .section-flush-top { padding-top: 44px; }
@@ -494,14 +590,36 @@ const LP_CSS = `
 .problem-lead { font-size: clamp(18px, 1.8vw, 21px); margin: 0 0 18px; }
 .problem-turn { font-size: clamp(18px, 1.8vw, 21px); color: var(--ink); font-weight: 500; margin: 0; }
 
-/* Steps */
-.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
-.step { border-radius: 18px; padding: 26px 24px; }
-.step-n { display: block; font-size: 36px; line-height: 1; margin-bottom: 16px; font-weight: 800; }
-.step-title { font-size: 18px; font-weight: 700; margin: 0 0 8px; }
+/* Steps (left column) + phone mock (right column) */
+.how-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 36px; align-items: center; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 18px; }
+.step { border-radius: 18px; padding: 22px 24px; display: flex; gap: 18px; align-items: flex-start; }
+.step-n { display: block; font-size: 30px; line-height: 1.15; font-weight: 800; flex-shrink: 0; }
+.step-title { font-size: 18px; font-weight: 700; margin: 0 0 7px; }
 .step-body { color: var(--ink-2); font-size: 15px; margin: 0; }
-.step-note { display: inline-flex; align-items: center; gap: 9px; margin-top: 28px; padding: 12px 18px; background: rgba(173,198,255,0.08); border: 1px solid var(--line-2); border-radius: 12px; color: var(--accent); font-size: 14.5px; font-weight: 500; }
+.step-notes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.step-note { display: inline-flex; align-items: center; gap: 9px; margin: 0; padding: 12px 18px; background: rgba(173,198,255,0.08); border: 1px solid var(--line-2); border-radius: 12px; color: var(--accent); font-size: 14.5px; font-weight: 500; }
 .step-note .material-symbols-outlined { font-size: 19px; }
+
+/* Phone-call screen mock */
+.phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.phone-mock { position: relative; width: min(290px, 100%); border-radius: 42px; border: 1px solid var(--line); padding: 26px 20px 24px; box-shadow: 0 40px 90px -30px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05); }
+.pm-notch { width: 110px; height: 22px; border-radius: 999px; background: #060a12; margin: -8px auto 18px; }
+.pm-caller { text-align: center; margin-bottom: 24px; }
+.pm-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.pm-status { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
+.pm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 10px; margin-bottom: 26px; }
+.pm-key { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pm-key-btn { width: 58px; height: 58px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.07); }
+.pm-key-btn .material-symbols-outlined { font-size: 24px; color: var(--ink-2); }
+.pm-key-label { font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.02em; }
+.pm-key--merge .pm-key-btn { background: var(--cta); animation: pm-pulse 2s infinite; }
+.pm-key--merge .pm-key-btn .material-symbols-outlined { color: #0e131f; font-variation-settings: 'FILL' 1; }
+.pm-key--merge .pm-key-label { color: var(--accent); font-weight: 700; }
+.pm-end { width: 58px; height: 58px; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; background: #e5484d; }
+.pm-end .material-symbols-outlined { font-size: 24px; color: #fff; font-variation-settings: 'FILL' 1; }
+.pm-hint { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; font-weight: 600; color: var(--accent); }
+.pm-hint .material-symbols-outlined { font-size: 18px; }
 
 /* Why */
 .why { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
@@ -563,6 +681,12 @@ const LP_CSS = `
 
 /* Content is always visible (no opacity-gated entrance) so it can never be
    hidden by paused/throttled animations or a failed observer. */
+/* Mobile sticky CTA */
+.sticky-cta { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: none; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(10,15,26,0.96) 60%, transparent); transform: translateY(110%); transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+.sticky-cta.on { transform: none; pointer-events: auto; }
+.sticky-cta .btn-accent { width: 100%; justify-content: center; }
+
+@keyframes pm-pulse { 0% { box-shadow: 0 0 0 0 rgba(77,142,255,0.55); } 70% { box-shadow: 0 0 0 14px rgba(77,142,255,0); } 100% { box-shadow: 0 0 0 0 rgba(77,142,255,0); } }
 @keyframes gradient-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes float-slow { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(3deg); } }
@@ -575,11 +699,16 @@ const LP_CSS = `
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 40px; }
   .hero-visual { max-width: 460px; }
+  .how-grid { grid-template-columns: 1fr; gap: 32px; }
   .steps, .why { grid-template-columns: 1fr; gap: 16px; }
   .pricing { grid-template-columns: 1fr; gap: 28px; }
   .lp-nav-links { display: none; }
   .section { padding-top: 64px; }
   .marquee-band { margin-top: 56px; }
+}
+@media (max-width: 700px) {
+  .sticky-cta { display: block; }
+  .hs-sep { display: none; }
 }
 @media (max-width: 520px) {
   .lp-wrap { padding-left: 18px; padding-right: 18px; }
@@ -587,6 +716,6 @@ const LP_CSS = `
 }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal], .tx-row, .tx-typing, .tx-float, .hero-glow, .gradient-text, .lang:nth-child(3n+1), .marquee-row { animation: none !important; opacity: 1 !important; transform: none !important; }
-  .tx-dot { animation: none !important; }
+  .tx-dot, .pm-key--merge .pm-key-btn { animation: none !important; }
 }
 `;
