@@ -193,44 +193,44 @@ export default function DashboardHub() {
               { icon: 'payments', accent: '139,92,246', label: tt('Spent · 30d', 'Потрачено · 30д'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
             ].map(k => (
               <div key={k.label}
-                className="group relative flex flex-col gap-2.5 rounded-2xl border border-[var(--th-border)] bg-[var(--th-surface)]/60 px-3.5 py-3 lg:min-w-[112px] transition-all hover:-translate-y-0.5 hover:border-[var(--th-border)] hover:shadow-[0_6px_20px_var(--th-shadow)]"
+                className="group relative flex items-center gap-3 rounded-2xl border border-[var(--th-border)] bg-[var(--th-surface)]/60 px-3.5 py-2.5 lg:min-w-[150px] transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_20px_var(--th-shadow)]"
                 style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
                 <span aria-hidden className="absolute inset-x-0 top-0 h-px rounded-t-2xl opacity-60" style={{ background: `linear-gradient(90deg, transparent, rgba(${k.accent},0.5), transparent)` }} />
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: `rgba(${k.accent},0.12)`, color: `rgb(${k.accent})` }}>
-                    <span className="material-symbols-outlined text-[16px]">{k.icon}</span>
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xl md:text-2xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
-                  <div className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide text-[var(--th-text-muted)] mt-1.5 whitespace-nowrap">{k.label}</div>
+                <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{ background: `rgba(${k.accent},0.12)`, color: `rgb(${k.accent})` }}>
+                  <span className="material-symbols-outlined text-[18px]">{k.icon}</span>
+                </span>
+                <div className="min-w-0">
+                  <div className="text-lg md:text-xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
+                  <div className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide text-[var(--th-text-muted)] mt-1 whitespace-nowrap">{k.label}</div>
                 </div>
               </div>
             ))}
             {/* Balance — emphasized card */}
-            <div className="group relative col-span-2 sm:col-span-3 lg:col-span-1 flex flex-col gap-2.5 rounded-2xl border px-3.5 py-3 lg:min-w-[200px] transition-all hover:-translate-y-0.5"
+            <div className="group relative col-span-2 sm:col-span-3 lg:col-span-1 flex flex-col gap-2 rounded-2xl border px-3.5 py-2.5 lg:min-w-[210px] transition-all hover:-translate-y-0.5"
               style={{ borderColor: 'rgba(16,185,129,0.30)', background: 'linear-gradient(160deg, rgba(16,185,129,0.10), rgba(16,185,129,0.02))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
               <span aria-hidden className="absolute inset-x-0 top-0 h-px rounded-t-2xl opacity-70" style={{ background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.6), transparent)' }} />
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
-                  <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+                  <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
                 </span>
-                <span className="text-[10px] md:text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#10b981' }}>{tt('Balance', 'Баланс')}</span>
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                {unlimited ? (
-                  <span className="text-xl md:text-2xl font-extrabold leading-none text-[var(--th-text)]">{tt('Unlimited', 'Безлимит')}</span>
-                ) : (
-                  <>
-                    <span className="text-xl md:text-2xl font-extrabold tabular-nums leading-none" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
-                    {minutes != null && (
-                      <span className="text-sm md:text-base font-bold tabular-nums leading-none text-[var(--th-text-muted)]">≈{minutes}<span className="text-[11px] font-medium ml-0.5">{tt('min', 'мин')}</span></span>
+                <div className="min-w-0">
+                  <div className="text-[10px] md:text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#10b981' }}>{tt('Balance', 'Баланс')}</div>
+                  <div className="flex items-baseline gap-1.5">
+                    {unlimited ? (
+                      <span className="text-lg md:text-xl font-extrabold leading-none text-[var(--th-text)]">{tt('Unlimited', 'Безлимит')}</span>
+                    ) : (
+                      <>
+                        <span className="text-lg md:text-xl font-extrabold tabular-nums leading-none" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
+                        {minutes != null && (
+                          <span className="text-xs md:text-sm font-bold tabular-nums leading-none text-[var(--th-text-muted)]">≈{minutes}<span className="text-[10px] font-medium ml-0.5">{tt('min', 'мин')}</span></span>
+                        )}
+                      </>
                     )}
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
               <button onClick={() => router.push('/dashboard/billing')}
-                className="mt-0.5 inline-flex items-center justify-center gap-1 w-full px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+                className="inline-flex items-center justify-center gap-1 w-full px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
                 style={{ background: 'var(--th-primary)' }}>
                 {tt('Top up balance', 'Пополнить баланс')} <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
               </button>
