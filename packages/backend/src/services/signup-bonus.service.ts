@@ -21,12 +21,22 @@ async function getBonusAmount(): Promise<number> {
   return Number(typeof row.value === 'string' ? JSON.parse(row.value) : row.value);
 }
 
-async function findClaimedPhones(phones: string[]): Promise<string[]> {
+/**
+ * Phones already claimed by SOMEONE ELSE (or by a deleted account). A phone
+ * claimed by `ownWorkspaceId` itself doesn't block — re-adding your own
+ * number is not fraud, it just never grants a second bonus (ledger check).
+ */
+async function findClaimedPhones(phones: string[], ownWorkspaceId?: string): Promise<string[]> {
   if (!phones.length) return [];
-  const rows = await db.select({ p: bonusBlockedPhones.phone_number })
+  const rows = await db.select({
+    p: bonusBlockedPhones.phone_number,
+    claimer: bonusBlockedPhones.claimed_by_workspace_id,
+  })
     .from(bonusBlockedPhones)
     .where(inArray(bonusBlockedPhones.phone_number, phones));
-  return rows.map(r => r.p);
+  return rows
+    .filter(r => !ownWorkspaceId || r.claimer !== ownWorkspaceId)
+    .map(r => r.p);
 }
 
 async function hasReceivedBonus(workspaceId: string): Promise<boolean> {
@@ -58,7 +68,7 @@ export async function grantSignupBonusIfEligible(params: {
     const bonusAmount = await getBonusAmount();
     if (bonusAmount <= 0) return { granted: false, blocked: false };
 
-    const claimed = await findClaimedPhones(phones);
+    const claimed = await findClaimedPhones(phones, params.workspaceId);
     if (claimed.length > 0) {
       await db.insert(bonusClaimAttempts).values(claimed.map(phone => ({
         workspace_id: params.workspaceId,
@@ -131,6 +141,6 @@ export async function getSignupBonusStatus(workspaceId: string, rawPhones: strin
   const phones = rawPhones.map(p => normalizePhone(p)).filter((p): p is string => !!p);
   if (!phones.length) return 'pending_phone';
 
-  const claimed = await findClaimedPhones(phones);
+  const claimed = await findClaimedPhones(phones, workspaceId);
   return claimed.length > 0 ? 'blocked' : 'none';
 }
