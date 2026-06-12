@@ -683,6 +683,7 @@ const en: Record<string, string> = {
   'settings.subtitle': 'Manage your account, notifications and preferences.',
   'settings.generalDesc': 'Your name and the phone numbers linked to this account.',
   'settings.notifications': 'Notifications',
+  'settings.personalNumber': 'Personal number',
   'settings.appearanceDesc': 'Theme and interface language.',
   'settings.dangerZone': 'Danger zone',
   'settings.unsavedChanges': 'Unsaved changes',

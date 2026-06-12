@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { telephonyConnections, workspaces } from '../db/schema.js';
 import { PLANS } from '../config/plans.js';
@@ -9,9 +9,13 @@ export async function getResourceCounts(workspaceId: string): Promise<{
   connectionCount: number;
 }> {
   // Translator-only: no agent profiles. Connections still gate phone numbers.
+  // Personal (rented) numbers don't count against the plan's connection limit.
   const [connections] = await db.select({ count: sql<number>`count(*)::int` })
     .from(telephonyConnections)
-    .where(eq(telephonyConnections.workspace_id, workspaceId));
+    .where(and(
+      eq(telephonyConnections.workspace_id, workspaceId),
+      eq(telephonyConnections.is_personal, false),
+    ));
 
   return {
     agentCount: 0,

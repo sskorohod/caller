@@ -167,6 +167,7 @@ export interface BillingSettings {
   billing_markup?: string;
   billing_low_balance_threshold?: string;
   billing_signup_bonus_usd?: string;
+  billing_personal_number_monthly_usd?: string;
   billing_agents_monthly_price?: string;
   billing_agents_mcp_monthly_price?: string;
 }

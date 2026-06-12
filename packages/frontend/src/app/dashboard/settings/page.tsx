@@ -5,6 +5,7 @@ import { useSettingsData } from './_lib/useSettingsData';
 import { SettingsSkeleton } from './_components/SettingsSkeleton';
 import { SettingsNav } from './_components/SettingsNav';
 import { GeneralSection } from './_components/GeneralSection';
+import { PersonalNumberSection } from './_components/PersonalNumberSection';
 import { TelegramSection } from './_components/TelegramSection';
 import { AppearanceSection } from './_components/AppearanceSection';
 import { DangerZone } from './_components/DangerZone';
@@ -38,6 +39,7 @@ export default function SettingsPage() {
         <SettingsNav />
         <div className="space-y-4 md:space-y-5 min-w-0">
           <GeneralSection workspace={workspace} onUpdated={handleWorkspaceUpdate} />
+          <PersonalNumberSection />
           <TelegramSection />
           <AppearanceSection />
           <DangerZone />

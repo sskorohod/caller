@@ -167,6 +167,16 @@ try {
   // Load pricing overrides from DB (cached, falls back to hardcoded)
   import('./config/pricing.js').then(m => m.loadPricingOverrides()).catch(() => {});
 
+  // Personal-number renewal sweep — hourly. State lives in Postgres
+  // (next_renewal_at), so a plain interval is restart-safe and idempotent.
+  import('./services/personal-number.service.js').then(m => {
+    const run = () => m.runRenewalSweep()
+      .then(r => { if (r.checked > 0) app.log.info(r, 'Personal-number renewal sweep'); })
+      .catch(err => app.log.error({ err }, 'Personal-number renewal sweep failed'));
+    run();
+    setInterval(run, 60 * 60 * 1000);
+  }).catch(() => {});
+
   // Auto-setup Telegram bot webhook + commands
   (async () => {
     try {

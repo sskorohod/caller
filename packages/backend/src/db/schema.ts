@@ -125,6 +125,15 @@ export const telephonyConnections = pgTable('telephony_connections', {
   inbound_enabled: boolean('inbound_enabled').notNull().default(false),
   outbound_enabled: boolean('outbound_enabled').notNull().default(true),
   ai_answering_enabled: boolean('ai_answering_enabled').notNull().default(false),
+  // Personal-number rental (is_personal = true): billed monthly from
+  // balance_usd, auto-released on non-renewal. Released rows kept for history.
+  is_personal: boolean('is_personal').notNull().default(false),
+  monthly_price_usd: numeric('monthly_price_usd', { precision: 8, scale: 2 }),
+  purchased_at: timestamp('purchased_at', { withTimezone: true }),
+  next_renewal_at: timestamp('next_renewal_at', { withTimezone: true }),
+  auto_renew: boolean('auto_renew').notNull().default(true),
+  status: text('status').notNull().default('active'), // 'active' | 'released'
+  released_at: timestamp('released_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -512,7 +521,7 @@ export const adminAuditLog = pgTable('admin_audit_log', {
 export const depositTransactions = pgTable('deposit_transactions', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  type: text('type').notNull(), // 'topup' | 'usage' | 'refund' | 'promo' | 'signup_bonus' | 'gift'
+  type: text('type').notNull(), // 'topup' | 'usage' | 'refund' | 'promo' | 'signup_bonus' | 'gift' | 'number_rental'
   amount_usd: numeric('amount_usd', { precision: 12, scale: 4 }).notNull(), // positive = credit, negative = debit
   balance_after: numeric('balance_after', { precision: 12, scale: 4 }).notNull(),
   description: text('description'),

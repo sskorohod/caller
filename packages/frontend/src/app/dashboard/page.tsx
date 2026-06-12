@@ -49,6 +49,7 @@ export default function DashboardHub() {
 
   // ── Data ──────────────────────────────────────────────
   const [phone, setPhone] = useState<string | null>(null);
+  const [isPersonalNumber, setIsPersonalNumber] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [bonusStatus, setBonusStatus] = useState<string | undefined>(undefined);
   const [usage, setUsage] = useState<UsageResp | null>(null);
@@ -59,7 +60,7 @@ export default function DashboardHub() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    api.get<{ phone_number: string | null }>('/translator/phone').then(r => setPhone(r.phone_number)).catch(() => {});
+    api.get<{ phone_number: string | null; is_personal?: boolean }>('/translator/phone').then(r => { setPhone(r.phone_number); setIsPersonalNumber(!!r.is_personal); }).catch(() => {});
     api.get<{ balance_usd: number; signup_bonus_status?: string }>('/billing/balance').then(r => { setBalance(r.balance_usd); setBonusStatus(r.signup_bonus_status); }).catch(() => {});
     api.get<UsageResp>('/translator/usage?period=all').then(setUsage).catch(() => {});
     api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', greeting_text: DEFAULT_GREETING, ...d }); setLoaded(true); }).catch(() => setLoaded(true));
@@ -166,11 +167,18 @@ export default function DashboardHub() {
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-6">
           {/* Number (left) */}
           <div className="min-w-0">
-            <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{tt("Your translator's phone number", 'Номер телефона вашего переводчика')}</div>
+            <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{isPersonalNumber ? tt('Your personal number', 'Ваш личный номер') : tt("Your translator's phone number", 'Номер телефона вашего переводчика')}</div>
             <div className="flex items-center gap-3 flex-wrap">
               {phone ? (
                 <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
               ) : <div className="text-xl md:text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
+              {isPersonalNumber && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap"
+                  style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>
+                  <span className="material-symbols-outlined text-[13px] leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                  {tt('Personal number', 'Личный номер')}
+                </span>
+              )}
               {(() => {
                 const busy = lineBusy === true;
                 const loading = lineBusy === null;

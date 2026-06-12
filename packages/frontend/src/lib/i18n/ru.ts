@@ -683,6 +683,7 @@ const ru: Record<string, string> = {
   'settings.subtitle': 'Управляйте аккаунтом, уведомлениями и настройками интерфейса.',
   'settings.generalDesc': 'Ваше имя и номера телефонов, привязанные к аккаунту.',
   'settings.notifications': 'Уведомления',
+  'settings.personalNumber': 'Личный номер',
   'settings.appearanceDesc': 'Тема и язык интерфейса.',
   'settings.dangerZone': 'Опасная зона',
   'settings.unsavedChanges': 'Есть несохранённые изменения',

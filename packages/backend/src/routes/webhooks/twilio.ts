@@ -82,6 +82,8 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       .where(and(
         eq(telephonyConnections.phone_number, calledNumber),
         eq(telephonyConnections.ai_answering_enabled, true),
+        // Released personal numbers must not match if Twilio re-issues the number
+        eq(telephonyConnections.status, 'active'),
       ))
       .limit(1);
 
@@ -93,17 +95,22 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
 
     const { connection, workspace } = row;
 
-    // --- Check if caller has a workspace with phone_number (translator user) ---
+    // --- Resolve the translator user ---
+    // Personal number: the connection owner IS the translator user. Any
+    // caller (owner from any phone, or someone dialing them) gets the
+    // owner's interpreter, billed to the owner — it's their line.
+    // Shared platform number: identify the user by caller ID against
+    // workspaces.phone_numbers.
     const callerNormalized = normalizePhone(callerNumber);
-    const [callerWorkspace] = await db
-      .select()
-      .from(workspaces)
-      .where(sql`${workspaces.phone_numbers} @> ${JSON.stringify([callerNormalized])}::jsonb`)
-      .limit(1);
+    const callerWorkspace: typeof workspace | undefined = connection.is_personal
+      ? workspace
+      : (await db
+          .select()
+          .from(workspaces)
+          .where(sql`${workspaces.phone_numbers} @> ${JSON.stringify([callerNormalized])}::jsonb`)
+          .limit(1))[0];
 
-    const isTranslatorCall = !!callerWorkspace;
-
-    if (isTranslatorCall) {
+    if (callerWorkspace) {
       const translatorBalance = parseFloat(callerWorkspace.balance_usd as string);
       const wsDefs = (callerWorkspace.translator_defaults as Record<string, string>) || {};
 

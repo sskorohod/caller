@@ -1,6 +1,6 @@
 import { db } from '../config/db.js';
 import { workspaces, depositTransactions, platformSettings } from '../db/schema.js';
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { DEFAULT_PLATFORM_MARKUP, calculateClientCost } from '../config/pricing.js';
 import type { ProviderConfig } from '../models/types.js';
 
@@ -147,6 +147,53 @@ export async function creditDeposit(params: {
   });
 
   return { newBalance };
+}
+
+/**
+ * Atomic conditional debit: only succeeds if balance_usd >= amount. Unlike
+ * deductUsageCost it never drives the balance negative and applies no markup.
+ * Accepts an optional executor so callers can run it inside db.transaction()
+ * (helpers on the global `db` handle would escape a caller's tx).
+ */
+export async function debitBalance(params: {
+  workspaceId: string;
+  amountUsd: number;
+  type: 'number_rental';
+  description?: string;
+  referenceType?: string;
+  referenceId?: string;
+  createdBy?: string;
+}, executor: Pick<typeof db, 'update' | 'insert'> = db): Promise<{ success: boolean; newBalance: number }> {
+  const amount = params.amountUsd.toFixed(4);
+  const result = await executor.update(workspaces)
+    .set({
+      balance_usd: sql`balance_usd - ${amount}::numeric`,
+      updated_at: sql`now()`,
+    })
+    .where(and(
+      eq(workspaces.id, params.workspaceId),
+      sql`balance_usd >= ${amount}::numeric`,
+    ))
+    .returning({ balance_usd: workspaces.balance_usd });
+
+  if (!result.length) {
+    return { success: false, newBalance: 0 };
+  }
+
+  const newBalance = parseFloat(result[0].balance_usd as string);
+
+  await executor.insert(depositTransactions).values({
+    workspace_id: params.workspaceId,
+    type: params.type,
+    amount_usd: (-params.amountUsd).toFixed(4),
+    balance_after: newBalance.toFixed(4),
+    description: params.description || params.type,
+    reference_type: params.referenceType || null,
+    reference_id: params.referenceId || null,
+    created_by: params.createdBy || null,
+  });
+
+  return { success: true, newBalance };
 }
 
 /**

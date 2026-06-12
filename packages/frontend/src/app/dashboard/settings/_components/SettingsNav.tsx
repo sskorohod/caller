@@ -4,6 +4,7 @@ import { useT } from '@/lib/i18n';
 
 const ITEMS = [
   { id: 'general', icon: 'person', key: 'settings.general', danger: false },
+  { id: 'personal-number', icon: 'call', key: 'settings.personalNumber', danger: false },
   { id: 'notifications', icon: 'notifications', key: 'settings.notifications', danger: false },
   { id: 'appearance', icon: 'palette', key: 'settings.appearance', danger: false },
   { id: 'danger', icon: 'warning', key: 'settings.dangerZone', danger: true },

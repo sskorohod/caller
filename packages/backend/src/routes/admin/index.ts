@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and, desc, sql, gte, lte, like, or, count, sum } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, lte, like, or, count, sum, inArray } from 'drizzle-orm';
 import { authenticateUser, requireAdmin } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import {
@@ -629,13 +629,13 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         gte(depositTransactions.created_at, thirtyDaysAgo),
       ));
 
-    // Usage in last 30 days
+    // Usage in last 30 days (incl. personal-number rental fees)
     const [usageOut] = await db.select({
       total: sum(depositTransactions.amount_usd),
       count: count(),
     }).from(depositTransactions)
       .where(and(
-        eq(depositTransactions.type, 'usage'),
+        inArray(depositTransactions.type, ['usage', 'number_rental']),
         gte(depositTransactions.created_at, thirtyDaysAgo),
       ));
 
@@ -721,7 +721,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     const rows = await db.execute(sql`
       SELECT DATE(created_at) as date,
         SUM(CASE WHEN type = 'topup' THEN amount_usd::numeric ELSE 0 END) as deposits,
-        SUM(CASE WHEN type = 'usage' THEN ABS(amount_usd::numeric) ELSE 0 END) as usage_revenue
+        SUM(CASE WHEN type IN ('usage', 'number_rental') THEN ABS(amount_usd::numeric) ELSE 0 END) as usage_revenue
       FROM deposit_transactions
       WHERE created_at >= ${thirtyDaysAgo}
       GROUP BY DATE(created_at)
@@ -733,7 +733,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── GET /billing-settings ───────────────────────────────────────────
   app.get('/billing-settings', async () => {
-    const keys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd'];
+    const keys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd', 'billing_personal_number_monthly_usd'];
 
     const rows = await db.select().from(platformSettings)
       .where(or(...keys.map(k => eq(platformSettings.key, k))));
@@ -749,7 +749,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   app.put('/billing-settings', async (request) => {
     const body = z.record(z.union([z.string(), z.number()])).parse(request.body);
 
-    const allowedKeys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd'];
+    const allowedKeys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd', 'billing_personal_number_monthly_usd'];
 
     for (const [key, value] of Object.entries(body)) {
       if (!allowedKeys.includes(key)) continue;

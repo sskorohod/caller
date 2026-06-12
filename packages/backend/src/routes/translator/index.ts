@@ -9,12 +9,17 @@ import { getMarkup } from '../../services/billing.service.js';
 const translatorRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', authenticateUser);
 
-  // GET /api/translator/phone — the platform number to call for the translator.
-  // Telephony is centralized under the admin, so this is the admin's connection.
-  app.get('/phone', async () => {
+  // GET /api/translator/phone — the number to call for the translator.
+  // A workspace's own personal (rented) number wins; otherwise the shared
+  // platform number (the admin's connection).
+  app.get('/phone', async (request) => {
+    const { getPersonalNumber } = await import('../../services/personal-number.service.js');
+    const personal = await getPersonalNumber(request.auth.workspaceId);
+    if (personal) return { phone_number: personal.phone_number, is_personal: true };
+
     const { getAdminWorkspaceId } = await import('../../services/credential-resolver.service.js');
     const adminWs = await getAdminWorkspaceId().catch(() => null);
-    if (!adminWs) return { phone_number: null };
+    if (!adminWs) return { phone_number: null, is_personal: false };
     const [conn] = await db.select({ phone_number: telephonyConnections.phone_number })
       .from(telephonyConnections)
       .where(and(
@@ -22,7 +27,7 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
         eq(telephonyConnections.ai_answering_enabled, true),
       ))
       .limit(1);
-    return { phone_number: conn?.phone_number || null };
+    return { phone_number: conn?.phone_number || null, is_personal: false };
   });
 
   // GET /api/translator/sessions — history for workspace
@@ -116,21 +121,44 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // GET /api/translator/line-status — is the translator line free or busy right now?
-  // The translator dial-in number is a shared resource; an active (non-training)
-  // session anywhere on the platform means the line is occupied.
+  // Personal-number owners have their own line: only their sessions count.
+  // The shared platform number counts active (non-training) sessions
+  // platform-wide, excluding sessions running on personal numbers.
   app.get('/line-status', async (request) => {
+    const { getPersonalNumber } = await import('../../services/personal-number.service.js');
+    const personal = await getPersonalNumber(request.auth.workspaceId);
+
+    if (personal) {
+      // Only sessions running ON the personal number — a session the owner
+      // started via the shared platform line must not mark this line busy.
+      const rows = await db.execute(sql`
+        SELECT COUNT(*)::int AS active
+        FROM translator_sessions ts
+        JOIN calls c ON c.id = ts.call_id
+        WHERE c.telephony_connection_id = ${personal.id}
+          AND ts.status = 'active'
+          AND ts.is_training = false
+          AND ts.created_at > now() - interval '2 hours'
+      `);
+      const active = (rows.rows[0] as { active: number } | undefined)?.active ?? 0;
+      return { busy: active > 0, mine: active > 0, active_count: active, personal: true };
+    }
+
     const rows = await db.execute(sql`
       SELECT COUNT(*)::int AS active,
-             SUM(CASE WHEN workspace_id = ${request.auth.workspaceId} THEN 1 ELSE 0 END)::int AS mine
-      FROM translator_sessions
-      WHERE status = 'active'
-        AND is_training = false
-        AND created_at > now() - interval '2 hours'
+             SUM(CASE WHEN ts.workspace_id = ${request.auth.workspaceId} THEN 1 ELSE 0 END)::int AS mine
+      FROM translator_sessions ts
+      LEFT JOIN calls c ON c.id = ts.call_id
+      LEFT JOIN telephony_connections tc ON tc.id = c.telephony_connection_id
+      WHERE ts.status = 'active'
+        AND ts.is_training = false
+        AND ts.created_at > now() - interval '2 hours'
+        AND COALESCE(tc.is_personal, false) = false
     `);
     const r = rows.rows[0] as { active: number; mine: number } | undefined;
     const active = r?.active ?? 0;
     const mine = (r?.mine ?? 0) > 0;
-    return { busy: active > 0, mine, active_count: active };
+    return { busy: active > 0, mine, active_count: active, personal: false };
   });
 
   // GET /api/translator/sessions/active — active sessions for live monitor

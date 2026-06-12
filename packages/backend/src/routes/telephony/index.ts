@@ -44,6 +44,60 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
     return telephonyService.listTelephonyConnections(request.auth.workspaceId);
   });
 
+  // ─── Personal number (rented, billed monthly from balance) ──────────
+  // Not behind requireResourceLimit: the 1-per-workspace limit is enforced
+  // by the partial unique index + the service guard.
+
+  // GET /api/telephony/personal-number — current number + price
+  app.get('/personal-number', async (request) => {
+    const { getPersonalNumber, getPersonalNumberPrice } = await import('../../services/personal-number.service.js');
+    const [number, price] = await Promise.all([
+      getPersonalNumber(request.auth.workspaceId),
+      getPersonalNumberPrice(),
+    ]);
+    return { number, price_usd: price };
+  });
+
+  // POST /api/telephony/personal-number — one-click purchase
+  app.post('/personal-number', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request, reply) => {
+    const { purchasePersonalNumber } = await import('../../services/personal-number.service.js');
+    const number = await purchasePersonalNumber({
+      workspaceId: request.auth.workspaceId,
+      userId: request.auth.userId,
+    });
+    reply.status(201);
+    return { number };
+  });
+
+  // PATCH /api/telephony/personal-number — toggle auto-renew
+  app.patch('/personal-number', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const body = z.object({ auto_renew: z.boolean() }).parse(request.body);
+    const { setAutoRenew } = await import('../../services/personal-number.service.js');
+    const number = await setAutoRenew({
+      workspaceId: request.auth.workspaceId,
+      userId: request.auth.userId,
+      autoRenew: body.auto_renew,
+    });
+    return { number };
+  });
+
+  // DELETE /api/telephony/personal-number — immediate release, no refund
+  app.delete('/personal-number', {
+    preHandler: [requireRole('owner', 'admin')],
+  }, async (request) => {
+    const { releasePersonalNumber } = await import('../../services/personal-number.service.js');
+    await releasePersonalNumber({
+      workspaceId: request.auth.workspaceId,
+      userId: request.auth.userId,
+      reason: 'user_request',
+    });
+    return { released: true };
+  });
+
   // POST /api/telephony/connections — save selected number
   app.post('/connections', {
     preHandler: [requireRole('owner', 'admin'), requireResourceLimit('connection')],
@@ -106,6 +160,8 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
         and(
           eq(telephonyConnections.id, id),
           eq(telephonyConnections.workspace_id, request.auth.workspaceId),
+          // Personal numbers are managed only via /personal-number routes
+          eq(telephonyConnections.is_personal, false),
         ),
       )
       .returning();
@@ -138,6 +194,8 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
       and(
         eq(telephonyConnections.id, id),
         eq(telephonyConnections.workspace_id, request.auth.workspaceId),
+        // Personal numbers must go through release (Twilio cleanup + history)
+        eq(telephonyConnections.is_personal, false),
       ),
     );
     return { deleted: true };

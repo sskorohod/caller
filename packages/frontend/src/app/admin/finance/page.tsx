@@ -26,6 +26,7 @@ const TX_FILTER_OPTIONS = [
   { value: 'refund', label: 'Refund' },
   { value: 'gift', label: 'Gift' },
   { value: 'signup_bonus', label: 'Signup Bonus' },
+  { value: 'number_rental', label: 'Number Rental' },
 ];
 
 const TX_TYPE_VARIANTS: Record<string, 'success' | 'primary' | 'warning' | 'info' | 'neutral' | 'error'> = {
@@ -36,6 +37,7 @@ const TX_TYPE_VARIANTS: Record<string, 'success' | 'primary' | 'warning' | 'info
   signup_bonus: 'info',
   subscription: 'neutral',
   promo: 'info',
+  number_rental: 'primary',
 };
 
 export default function AdminFinance() {
