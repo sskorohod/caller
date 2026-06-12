@@ -86,7 +86,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
     const result = await createDepositCheckout({
       workspaceId: request.auth.workspaceId,
       amountUsd: body.amount_usd,
-      successUrl: `${origin}/dashboard/billing?success=true`,
+      successUrl: `${origin}/dashboard/billing?success=true&amount=${body.amount_usd}`,
       cancelUrl: `${origin}/dashboard/billing?canceled=true`,
     });
 
