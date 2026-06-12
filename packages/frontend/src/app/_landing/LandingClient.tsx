@@ -580,6 +580,14 @@ const LP_CSS = `
 
 /* Hero */
 .hero { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; padding-top: 80px; padding-bottom: 48px; }
+/* Full-bleed hero + trust strip on desktop — stretch to the page width with
+   adaptive side padding; copy and transcript drift to the edges, photo centers. */
+.lp-wrap.hero, .lp-wrap.lp-nav-inner, .lp-wrap:has(> .trust) { max-width: none; padding-left: clamp(24px, 5vw, 120px); padding-right: clamp(24px, 5vw, 120px); }
+@media (min-width: 1180px) {
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(56px, 7vw, 170px); }
+  .hero-copy { max-width: 600px; }
+  .hero-visual { max-width: 580px; justify-self: end; width: 100%; }
+}
 .hero > *:not(.hero-glow):not(.hero-photo) { position: relative; z-index: 1; }
 .hero-glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; }
 .hero-glow.g1 { width: 420px; height: 420px; top: -120px; left: -120px; background: radial-gradient(circle, rgba(99,102,241,0.22), transparent 70%); animation: float-slow 9s ease-in-out infinite; }
