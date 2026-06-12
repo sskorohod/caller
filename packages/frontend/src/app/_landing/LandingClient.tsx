@@ -137,20 +137,23 @@ function Landing() {
 
       {/* ─── Problem ─────────────────────────────────────────── */}
       <section className="lp-wrap section problem" data-reveal>
-        <p className="eyebrow"><span className="dot" />{t('The problem', 'Проблема')}</p>
-        <h2 className="display problem-h">{t('You know the feeling.', 'Знакомое чувство.')}</h2>
-        <p className="lead problem-lead">
-          {t(
-            'A call to the doctor. The leasing office. The tax line. You rehearse the words, you dread the moment they start speaking too fast — and you hang up having understood half of it.',
-            'Звонок врачу. В офис аренды. На налоговую линию. Вы репетируете фразы и боитесь момента, когда заговорят слишком быстро — и кладёте трубку, поняв половину.',
-          )}
-        </p>
-        <p className="problem-turn">
-          {t(
-            'LingoLine takes that wall down. You speak your language, they speak theirs, and everyone is understood — live, on the very same call.',
-            'LingoLine убирает эту стену. Вы говорите на своём языке, они на своём — и все друг друга понимают, прямо во время звонка.',
-          )}
-        </p>
+        <div className="problem-photo" role="img" aria-label={t('An older person confused on a phone call', 'Пожилой человек в растерянности во время звонка')} />
+        <div className="problem-text">
+          <p className="eyebrow"><span className="dot" />{t('The problem', 'Проблема')}</p>
+          <h2 className="display problem-h">{t('You know the feeling.', 'Знакомое чувство.')}</h2>
+          <p className="lead problem-lead">
+            {t(
+              'A call to the doctor. The leasing office. The tax line. You rehearse the words, you dread the moment they start speaking too fast — and you hang up having understood half of it.',
+              'Звонок врачу. В офис аренды. На налоговую линию. Вы репетируете фразы и боитесь момента, когда заговорят слишком быстро — и кладёте трубку, поняв половину.',
+            )}
+          </p>
+          <p className="problem-turn">
+            {t(
+              'LingoLine takes that wall down. You speak your language, they speak theirs, and everyone is understood — live, on the very same call.',
+              'LingoLine убирает эту стену. Вы говорите на своём языке, они на своём — и все друг друга понимают, прямо во время звонка.',
+            )}
+          </p>
+        </div>
       </section>
 
       {/* ─── How it works ────────────────────────────────────── */}
@@ -633,8 +636,10 @@ const LP_CSS = `
 .tx-foot { display: flex; align-items: center; gap: 8px; padding: 14px 6px 4px; border-top: 1px solid var(--line-2); font-size: 12.5px; color: var(--ink-3); }
 .tx-foot .material-symbols-outlined { font-size: 17px; color: var(--accent); }
 
-/* Problem */
-.problem { max-width: 800px; }
+/* Problem — photo left, full block height; text right */
+.problem { max-width: 1080px; display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: clamp(32px, 4vw, 64px); align-items: stretch; }
+.problem-photo { border-radius: 20px; min-height: 420px; background-image: url('/landing/issue.webp'); background-size: cover; background-position: center 25%; border: 1px solid var(--line); box-shadow: 0 24px 60px -28px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.03); }
+.problem-text { align-self: center; }
 .problem-h { font-size: clamp(30px, 4.4vw, 48px); line-height: 1.05; margin: 0 0 22px; font-weight: 800; }
 .problem-lead { font-size: clamp(18px, 1.8vw, 21px); margin: 0 0 18px; }
 .problem-turn { font-size: clamp(18px, 1.8vw, 21px); color: var(--ink); font-weight: 500; margin: 0; }
@@ -751,6 +756,8 @@ const LP_CSS = `
   .hero-photo { display: none; }
   .hero-visual { max-width: 460px; }
   .how-grid { grid-template-columns: 1fr; gap: 32px; }
+  .problem { grid-template-columns: 1fr; gap: 24px; }
+  .problem-photo { min-height: 260px; max-height: 320px; background-position: center 18%; }
   .steps, .why { grid-template-columns: 1fr; gap: 16px; }
   .pricing { grid-template-columns: 1fr; gap: 28px; }
   .lp-nav-links { display: none; }
