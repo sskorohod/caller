@@ -316,19 +316,22 @@ function Landing() {
       </section>
 
       {/* ─── FAQ ─────────────────────────────────────────────── */}
-      <section id="faq" className="lp-wrap section">
-        <div className="section-head" data-reveal>
-          <p className="eyebrow"><span className="dot" />{t('Questions', 'Вопросы')}</p>
-          <h2 className="display section-h">{t('Good to know', 'Полезно знать')}</h2>
+      <section id="faq" className="lp-wrap section faq-section">
+        <div className="faq-main">
+          <div className="section-head" data-reveal>
+            <p className="eyebrow"><span className="dot" />{t('Questions', 'Вопросы')}</p>
+            <h2 className="display section-h">{t('Good to know', 'Полезно знать')}</h2>
+          </div>
+          <div className="faq" data-reveal>
+            {FAQ(t).map((f, i) => (
+              <details key={i} className="faq-item">
+                <summary>{f.q}<span className="material-symbols-outlined">add</span></summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
         </div>
-        <div className="faq" data-reveal>
-          {FAQ(t).map((f, i) => (
-            <details key={i} className="faq-item">
-              <summary>{f.q}<span className="material-symbols-outlined">add</span></summary>
-              <p>{f.a}</p>
-            </details>
-          ))}
-        </div>
+        <div className="faq-photo" role="img" aria-label={t('A man happily using the translator on his phone', 'Мужчина с радостью пользуется переводчиком на телефоне')} />
       </section>
 
       {/* ─── Final CTA ───────────────────────────────────────── */}
@@ -743,8 +746,11 @@ const LP_CSS = `
 .price-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; color: var(--ink-2); }
 .price-list .material-symbols-outlined { font-size: 19px; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
 
-/* FAQ */
-.faq { border-top: 1px solid var(--line-2); max-width: 800px; }
+/* FAQ — questions left, photo right (full section height) */
+.faq-section { max-width: 1080px; display: grid; grid-template-columns: 1fr minmax(280px, 360px); gap: clamp(36px, 5vw, 72px); align-items: stretch; }
+.faq-main { min-width: 0; }
+.faq-photo { border-radius: 20px; min-height: 100%; background-image: url('/landing/faq.webp'); background-size: cover; background-position: center top; border: 1px solid var(--line); box-shadow: 0 24px 60px -28px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.03); }
+.faq { border-top: 1px solid var(--line-2); max-width: none; }
 .faq-item { border-bottom: 1px solid var(--line-2); }
 .faq-item summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 2px; font-size: 17px; font-weight: 600; color: var(--ink); cursor: pointer; list-style: none; }
 .faq-item summary::-webkit-details-marker { display: none; }
@@ -759,7 +765,9 @@ const LP_CSS = `
 .final-lead { color: var(--ink-2); font-size: 17px; max-width: 34em; margin: 0 auto 30px; }
 
 /* Footer */
-.lp-footer { margin-top: 120px; border-top: 1px solid var(--line-2); padding: 56px 0 30px; background: var(--bg-2); }
+.lp-footer { position: relative; margin-top: 120px; border-top: 1px solid var(--line-2); padding: 64px 0 32px; background-color: var(--bg-2); background-image: url('/landing/waves.webp'); background-size: cover; background-position: center; overflow: hidden; }
+.lp-footer::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(180deg, rgba(10,15,26,0.86), rgba(10,15,26,0.78) 45%, rgba(10,15,26,0.92)); }
+.lp-footer > * { position: relative; z-index: 1; }
 .footer-inner { display: flex; justify-content: space-between; gap: 48px; flex-wrap: wrap; }
 .footer-brand { max-width: 280px; }
 .footer-brand p { color: var(--ink-3); font-size: 14px; margin: 16px 0 0; }
@@ -794,6 +802,8 @@ const LP_CSS = `
   .how-grid { grid-template-columns: 1fr; gap: 32px; }
   .problem { grid-template-columns: 1fr; gap: 24px; }
   .problem-photo { min-height: 260px; max-height: 320px; background-position: center 18%; }
+  .faq-section { grid-template-columns: 1fr; gap: 28px; }
+  .faq-photo { min-height: 300px; max-height: 380px; background-position: center 12%; order: 2; }
   .steps, .why { grid-template-columns: 1fr; gap: 16px; }
   .pricing { grid-template-columns: 1fr; gap: 28px; }
   .lp-nav-links { display: none; }
