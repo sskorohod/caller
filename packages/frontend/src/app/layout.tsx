@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { I18nProvider } from '@/lib/i18n';
@@ -64,6 +65,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style>{`.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }`}</style>
       </head>
       <body>
+        {/* Google Ads (gtag.js) */}
+        <Script src="https://www.googletagmanager.com/gtag/js?id=AW-18232663036" strategy="afterInteractive" />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'AW-18232663036');`}
+        </Script>
         <ThemeProvider>
           <I18nProvider>
             <ToastProvider>
