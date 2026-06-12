@@ -2,8 +2,9 @@
 import { useState } from 'react';
 import { useAdminQuery, api } from '../_lib/admin-api';
 import { fmtCurrency } from '../_lib/format';
-import type { Workspace, Transaction, RepeatBonusAttempt, AdminPersonalNumber } from '../_lib/types';
+import type { Workspace, Transaction, RepeatBonusAttempt, AdminPersonalNumber, WorkspacesListResponse, WorkspaceUsage } from '../_lib/types';
 import AdminPageHeader from '../_components/AdminPageHeader';
+import AdminKpiCard from '../_components/AdminKpiCard';
 import AdminModal from '../_components/AdminModal';
 import AdminFormField from '../_components/AdminFormField';
 import { adminInputClass, adminSelectClass } from '../_components/AdminFormField';
@@ -18,13 +19,37 @@ function fmtPhone(p?: string | null) {
   return p;
 }
 
+const fmtShortDate = (d?: string | null) => d
+  ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  : '—';
+
+type ListFlag = '' | 'repeat_phone' | 'low_balance' | 'has_number';
+type ListSort = 'newest' | 'balance' | 'spent' | 'last_active';
+
+const FLAG_OPTIONS: Array<{ value: ListFlag; label: string }> = [
+  { value: '', label: 'All' },
+  { value: 'repeat_phone', label: '⚑ Repeat phone' },
+  { value: 'low_balance', label: 'Low balance' },
+  { value: 'has_number', label: 'Has number' },
+];
+
+const SORT_OPTIONS: Array<{ value: ListSort; label: string }> = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'balance', label: 'Balance' },
+  { value: 'spent', label: 'Spent' },
+  { value: 'last_active', label: 'Last active' },
+];
+
 export default function AdminSubscribers() {
   const [selected, setSelected] = useState<Workspace | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [repeatAttempts, setRepeatAttempts] = useState<RepeatBonusAttempt[]>([]);
   const [personalNumbers, setPersonalNumbers] = useState<AdminPersonalNumber[]>([]);
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const [usage, setUsage] = useState<WorkspaceUsage | null>(null);
   const [search, setSearch] = useState('');
-  const [flagRepeat, setFlagRepeat] = useState(false);
+  const [flag, setFlag] = useState<ListFlag>('');
+  const [sort, setSort] = useState<ListSort>('newest');
 
   // Balance modal
   const [balanceModal, setBalanceModal] = useState(false);
@@ -42,23 +67,35 @@ export default function AdminSubscribers() {
   // Delete confirmation modal
   const [deleteModal, setDeleteModal] = useState(false);
 
-  const { data: workspaces, loading, error, refetch } = useAdminQuery<Workspace[]>(
+  const { data, loading, error, refetch } = useAdminQuery<WorkspacesListResponse>(
     () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      if (flagRepeat) params.set('flag', 'repeat_phone');
-      return api.get<Workspace[]>(`/admin/workspaces?${params}`);
+      if (flag) params.set('flag', flag);
+      if (sort !== 'newest') params.set('sort', sort);
+      return api.get<WorkspacesListResponse>(`/admin/workspaces?${params}`);
     },
-    [search, flagRepeat],
+    [search, flag, sort],
   );
 
   const selectWorkspace = async (ws: Workspace) => {
     setSelected(ws);
     setRepeatAttempts([]);
     setPersonalNumbers([]);
+    setOwnerEmail(ws.owner_email ?? null);
+    setUsage(null);
     try {
-      const data = await api.get<{ workspace: Workspace; transactions: Transaction[]; repeat_phone_attempts?: RepeatBonusAttempt[]; personal_numbers?: AdminPersonalNumber[] }>(`/admin/workspaces/${ws.id}`);
+      const data = await api.get<{
+        workspace: Workspace;
+        owner_email?: string | null;
+        usage?: WorkspaceUsage;
+        transactions: Transaction[];
+        repeat_phone_attempts?: RepeatBonusAttempt[];
+        personal_numbers?: AdminPersonalNumber[];
+      }>(`/admin/workspaces/${ws.id}`);
       setSelected({ ...data.workspace, repeat_phone_attempts: ws.repeat_phone_attempts });
+      setOwnerEmail(data.owner_email ?? ws.owner_email ?? null);
+      setUsage(data.usage ?? null);
       setTransactions(data.transactions);
       setRepeatAttempts(data.repeat_phone_attempts ?? []);
       setPersonalNumbers(data.personal_numbers ?? []);
@@ -120,31 +157,55 @@ export default function AdminSubscribers() {
     }
   };
 
-  if (loading) return <AdminLoadingState />;
+  if (loading && !data) return <AdminLoadingState />;
   if (error) return <AdminErrorState error={error} onRetry={refetch} />;
 
-  const list = workspaces ?? [];
+  const list = data?.workspaces ?? [];
+  const stats = data?.stats;
 
   const listContent = (
-    <div className="space-y-3">
-      {/* Filters */}
+    <div className={`space-y-3 transition-opacity ${loading ? 'opacity-50' : ''}`}>
+      {/* Search + sort */}
       <div className="flex gap-2">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, owner, phone…"
+          placeholder="Search by name, owner, phone, email…"
           className={`${adminInputClass} flex-1`}
         />
-        <button
-          onClick={() => setFlagRepeat(v => !v)}
-          className="px-3 rounded-lg text-xs font-medium whitespace-nowrap transition"
-          style={flagRepeat
-            ? { background: 'var(--th-warning-bg)', color: 'var(--th-warning-text)', border: '1px solid var(--th-warning-border)' }
-            : { background: 'var(--th-card)', color: 'var(--th-text-secondary)', border: '1px solid var(--th-border)' }}
-          title="Show only accounts that tried to re-use a phone that already claimed the $2 gift"
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as ListSort)}
+          className={adminSelectClass}
+          style={{ width: 'auto' }}
+          title="Sort"
         >
-          ⚑ Repeat phone
-        </button>
+          {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      {/* Filter chips */}
+      <div className="flex gap-1.5 flex-wrap">
+        {FLAG_OPTIONS.map(o => {
+          const on = flag === o.value;
+          return (
+            <button
+              key={o.value}
+              onClick={() => setFlag(o.value)}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition whitespace-nowrap"
+              style={on
+                ? { background: 'var(--th-primary-bg)', color: 'var(--th-primary-text)', border: '1px solid var(--th-primary)' }
+                : { background: 'var(--th-card)', color: 'var(--th-text-secondary)', border: '1px solid var(--th-border)' }}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+        {data && (
+          <span className="ml-auto self-center text-[11px]" style={{ color: 'var(--th-text-muted)' }}>
+            {data.total > list.length ? `showing ${list.length} of ${data.total}` : `${data.total} ${data.total === 1 ? 'subscriber' : 'subscribers'}`}
+          </span>
+        )}
       </div>
 
       {/* List */}
@@ -180,6 +241,11 @@ export default function AdminSubscribers() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="text-sm font-medium truncate">{owner}</div>
+                      {ws.has_personal_number && (
+                        <span className="material-symbols-outlined text-[14px] shrink-0" style={{ color: '#8b5cf6' }} title="Has a personal number">
+                          sim_card
+                        </span>
+                      )}
                       {(ws.repeat_phone_attempts ?? 0) > 0 && (
                         <span
                           className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
@@ -189,16 +255,25 @@ export default function AdminSubscribers() {
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] mt-0.5 font-mono tabular-nums" style={{ color: 'var(--th-text-muted)' }}>
-                      {phone ? fmtPhone(phone) : <span className="italic">no phone registered</span>}
+                    <div className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--th-text-muted)' }}>
+                      <span className="font-mono tabular-nums">{phone ? fmtPhone(phone) : ws.owner_email || 'no phone'}</span>
+                      {' · '}joined {fmtShortDate(ws.created_at)}
+                      {ws.last_session_at && <> · active {fmtShortDate(ws.last_session_at)}</>}
                     </div>
                   </div>
-                  <span
-                    className="font-mono text-sm font-medium shrink-0 tabular-nums"
-                    style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}
-                  >
-                    {fmtCurrency(ws.balance_usd)}
-                  </span>
+                  <div className="text-right shrink-0">
+                    <div
+                      className="font-mono text-sm font-medium tabular-nums"
+                      style={{ color: ws.balance_usd < 5 ? 'var(--th-warning-text)' : 'var(--th-success-text)' }}
+                    >
+                      {fmtCurrency(ws.balance_usd)}
+                    </div>
+                    {(ws.spent_total ?? 0) > 0 && (
+                      <div className="text-[10px] font-mono tabular-nums" style={{ color: 'var(--th-text-muted)' }}>
+                        spent {fmtCurrency(ws.spent_total!)}
+                      </div>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -230,8 +305,9 @@ export default function AdminSubscribers() {
             </span>
           )}
         </div>
-        <p className="text-xs mt-0.5 font-mono tabular-nums" style={{ color: 'var(--th-text-secondary)' }}>
-          {selected.id.slice(0, 8)}
+        <p className="text-xs mt-0.5" style={{ color: 'var(--th-text-secondary)' }}>
+          <span className="font-mono tabular-nums">{selected.id.slice(0, 8)}</span>
+          {' · '}joined {fmtShortDate(selected.created_at)}
         </p>
       </div>
 
@@ -243,13 +319,53 @@ export default function AdminSubscribers() {
             <a href={`tel:${p}`} className="font-mono tabular-nums hover:underline">{fmtPhone(p)}</a>
           </div>
         ))}
-        {selected.email && (
+        {ownerEmail && (
           <div className="flex items-center gap-2 text-xs">
             <span className="material-symbols-outlined text-[14px]" style={{ color: 'var(--th-text-muted)' }}>mail</span>
-            <a href={`mailto:${selected.email}`} className="hover:underline">{selected.email}</a>
+            <a href={`mailto:${ownerEmail}`} className="hover:underline">{ownerEmail}</a>
           </div>
         )}
       </div>
+
+      {/* Usage */}
+      {usage && (
+        <div
+          className="rounded-xl p-4"
+          style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}
+        >
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+              Usage
+            </div>
+            {usage.bonus_granted && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                style={{ background: 'var(--th-success-bg)', color: 'var(--th-success-text)' }}>
+                $2 gift granted
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-x-3 gap-y-2.5">
+            {[
+              { label: 'Sessions', value: String(usage.sessions_total) },
+              { label: 'Minutes', value: usage.minutes_total.toFixed(0) },
+              { label: 'Spent', value: fmtCurrency(usage.spent_total) },
+              { label: 'Spent 30d', value: fmtCurrency(usage.spent_30d) },
+              { label: 'Top-ups', value: fmtCurrency(usage.topup_total) },
+              { label: 'Languages', value: usage.languages ?? '—' },
+            ].map(item => (
+              <div key={item.label}>
+                <div className="text-[10px]" style={{ color: 'var(--th-text-muted)' }}>{item.label}</div>
+                <div className="text-sm font-headline mt-0.5" style={{ color: 'var(--th-text)' }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+          {usage.last_session_at && (
+            <div className="text-[11px] mt-2.5" style={{ color: 'var(--th-text-muted)' }}>
+              Last session: {fmtShortDate(usage.last_session_at)}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Personal numbers */}
       {personalNumbers.length > 0 && (
@@ -412,9 +528,19 @@ export default function AdminSubscribers() {
     <div className="py-4 md:py-6 space-y-4">
       <AdminPageHeader
         title="Subscribers"
-        subtitle="Translator accounts — balance, transactions, refunds"
+        subtitle="Translator accounts — balance, usage, transactions, refunds"
         icon="person"
       />
+
+      {/* KPI summary (admin workspace excluded) */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <AdminKpiCard label="Subscribers" value={String(stats.total_subscribers)} icon="group" color="var(--th-primary-text)" />
+          <AdminKpiCard label="New (30d)" value={String(stats.new_30d)} icon="person_add" color="var(--th-success-text)" />
+          <AdminKpiCard label="Active (30d)" value={String(stats.active_30d)} icon="call" color="var(--th-info-text)" />
+          <AdminKpiCard label="With balance" value={String(stats.with_balance)} icon="account_balance_wallet" color="var(--th-text-secondary)" />
+        </div>
+      )}
 
       <AdminSplitView
         list={listContent}

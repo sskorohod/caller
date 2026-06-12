@@ -179,8 +179,35 @@ export interface Workspace {
   created_at: string;
   owner_name?: string | null;
   phone_numbers?: string[] | null;
-  email?: string | null;
   repeat_phone_attempts?: number;
+  // List enrichment (GET /admin/workspaces)
+  spent_total?: number;
+  sessions_count?: number;
+  last_session_at?: string | null;
+  owner_email?: string | null;
+  has_personal_number?: boolean;
+}
+
+export interface WorkspacesListResponse {
+  workspaces: Workspace[];
+  total: number;
+  stats: {
+    total_subscribers: number;
+    new_30d: number;
+    active_30d: number;
+    with_balance: number;
+  };
+}
+
+export interface WorkspaceUsage {
+  sessions_total: number;
+  minutes_total: number;
+  last_session_at: string | null;
+  spent_total: number;
+  spent_30d: number;
+  topup_total: number;
+  bonus_granted: boolean;
+  languages: string | null;
 }
 
 export interface Transaction {

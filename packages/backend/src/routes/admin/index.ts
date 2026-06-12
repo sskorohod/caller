@@ -648,16 +648,20 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   // ═══════════════════════════════════════════════════════════════════════
 
   // ─── GET /workspaces ─────────────────────────────────────────────────
+  // Subscribers list. The platform admin's own workspace is excluded — it is
+  // a service account, not a subscriber.
   app.get('/workspaces', async (request) => {
     const q = z.object({
       plan: z.string().optional(),
       search: z.string().optional(),
-      flag: z.enum(['repeat_phone']).optional(),
-      limit: z.coerce.number().int().min(1).max(200).default(50),
+      flag: z.enum(['repeat_phone', 'low_balance', 'has_number']).optional(),
+      sort: z.enum(['newest', 'balance', 'spent', 'last_active']).default('newest'),
+      limit: z.coerce.number().int().min(1).max(200).default(100),
       offset: z.coerce.number().int().min(0).default(0),
     }).parse(request.query);
 
-    const conditions: any[] = [];
+    const adminWs = await adminWorkspaceId();
+    const conditions: any[] = [sql`${workspaces.id} IS DISTINCT FROM ${adminWs}`];
     if (q.plan) conditions.push(eq(workspaces.plan, q.plan));
     if (q.search) {
       const s = `%${q.search}%`;
@@ -666,25 +670,74 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         like(workspaces.owner_name, s),
         // phone search: cast jsonb array to text and ILIKE
         sql`${workspaces.phone_numbers}::text ILIKE ${s}`,
+        sql`EXISTS (
+          SELECT 1 FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+          WHERE wm.workspace_id = workspaces.id AND u.email ILIKE ${s}
+        )`,
       ));
     }
 
-    const attemptCount = sql<number>`(SELECT count(*)::int FROM bonus_claim_attempts a WHERE a.workspace_id = ${workspaces.id})`;
+    // NB: the outer correlation is written as literal `workspaces.id` text.
+    // Interpolating ${workspaces.id} renders UNQUALIFIED "id" when the
+    // fragment sits in a single-table SELECT field list (drizzle 0.45
+    // buildSelection), which is ambiguous/mis-correlated inside subqueries.
+    const attemptCount = sql<number>`(SELECT count(*)::int FROM bonus_claim_attempts a WHERE a.workspace_id = workspaces.id)`;
+    const spentTotal = sql<number>`(SELECT COALESCE(SUM(ABS(dt.amount_usd::numeric)), 0)::float FROM deposit_transactions dt WHERE dt.workspace_id = workspaces.id AND dt.type IN ('usage', 'number_rental'))`;
+    const sessionsCount = sql<number>`(SELECT count(*)::int FROM translator_sessions ts WHERE ts.workspace_id = workspaces.id AND ts.is_training = false)`;
+    const lastSessionAt = sql<string | null>`(SELECT MAX(ts.created_at) FROM translator_sessions ts WHERE ts.workspace_id = workspaces.id AND ts.is_training = false)`;
+    const ownerEmail = sql<string | null>`(SELECT u.email FROM workspace_members wm JOIN users u ON u.id = wm.user_id WHERE wm.workspace_id = workspaces.id AND wm.role = 'owner' LIMIT 1)`;
+    const hasPersonalNumber = sql<boolean>`EXISTS (SELECT 1 FROM telephony_connections tc WHERE tc.workspace_id = workspaces.id AND tc.is_personal = true AND tc.status = 'active')`;
+
     if (q.flag === 'repeat_phone') conditions.push(sql`${attemptCount} > 0`);
+    if (q.flag === 'low_balance') conditions.push(sql`${workspaces.balance_usd}::numeric > 0 AND ${workspaces.balance_usd}::numeric <= 2`);
+    if (q.flag === 'has_number') conditions.push(hasPersonalNumber);
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(...conditions);
 
-    const rows = await db.select({ ws: workspaces, repeat_phone_attempts: attemptCount })
+    const orderBy = {
+      newest: sql`${workspaces.created_at} DESC`,
+      balance: sql`${workspaces.balance_usd}::numeric DESC`,
+      spent: sql`${spentTotal} DESC`,
+      last_active: sql`${lastSessionAt} DESC NULLS LAST`,
+    }[q.sort];
+
+    const rows = await db.select({
+      ws: workspaces,
+      repeat_phone_attempts: attemptCount,
+      spent_total: spentTotal,
+      sessions_count: sessionsCount,
+      last_session_at: lastSessionAt,
+      owner_email: ownerEmail,
+      has_personal_number: hasPersonalNumber,
+    })
       .from(workspaces)
       .where(where)
-      .orderBy(desc(workspaces.created_at))
+      .orderBy(orderBy)
       .limit(q.limit).offset(q.offset);
 
-    return rows.map(({ ws, repeat_phone_attempts }) => ({
-      ...ws,
-      balance_usd: parseFloat(ws.balance_usd as string) || 0,
-      repeat_phone_attempts,
-    }));
+    const [totalRow] = await db.select({ c: count() }).from(workspaces).where(where);
+
+    const statsRows = await db.execute(sql`
+      SELECT COUNT(*)::int AS total_subscribers,
+             COUNT(*) FILTER (WHERE created_at >= now() - interval '30 days')::int AS new_30d,
+             COUNT(*) FILTER (WHERE EXISTS (
+               SELECT 1 FROM translator_sessions ts
+               WHERE ts.workspace_id = workspaces.id AND ts.is_training = false
+                 AND ts.created_at >= now() - interval '30 days'))::int AS active_30d,
+             COUNT(*) FILTER (WHERE balance_usd::numeric > 0)::int AS with_balance
+      FROM workspaces
+      WHERE id IS DISTINCT FROM ${adminWs}
+    `);
+
+    return {
+      workspaces: rows.map(({ ws, ...extra }) => ({
+        ...ws,
+        balance_usd: parseFloat(ws.balance_usd as string) || 0,
+        ...extra,
+      })),
+      total: totalRow?.c ?? 0,
+      stats: statsRows.rows[0],
+    };
   });
 
   // ─── GET /workspaces/:id ─────────────────────────────────────────────
@@ -727,8 +780,40 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       ))
       .orderBy(desc(telephonyConnections.purchased_at));
 
+    // Owner email + usage aggregates + signup-bonus status
+    const metaRows = await db.execute(sql`
+      SELECT
+        (SELECT u.email FROM workspace_members wm JOIN users u ON u.id = wm.user_id
+          WHERE wm.workspace_id = ${id} AND wm.role = 'owner' LIMIT 1) AS owner_email,
+        (SELECT COUNT(*)::int FROM translator_sessions ts WHERE ts.workspace_id = ${id} AND ts.is_training = false) AS sessions_total,
+        (SELECT COALESCE(SUM(ts.minutes_used::numeric), 0)::float FROM translator_sessions ts WHERE ts.workspace_id = ${id} AND ts.is_training = false) AS minutes_total,
+        (SELECT MAX(ts.created_at) FROM translator_sessions ts WHERE ts.workspace_id = ${id} AND ts.is_training = false) AS last_session_at,
+        (SELECT COALESCE(SUM(ABS(dt.amount_usd::numeric)), 0)::float FROM deposit_transactions dt
+          WHERE dt.workspace_id = ${id} AND dt.type IN ('usage', 'number_rental')) AS spent_total,
+        (SELECT COALESCE(SUM(ABS(dt.amount_usd::numeric)), 0)::float FROM deposit_transactions dt
+          WHERE dt.workspace_id = ${id} AND dt.type IN ('usage', 'number_rental')
+            AND dt.created_at >= now() - interval '30 days') AS spent_30d,
+        (SELECT COALESCE(SUM(dt.amount_usd::numeric), 0)::float FROM deposit_transactions dt
+          WHERE dt.workspace_id = ${id} AND dt.type = 'topup') AS topup_total,
+        EXISTS (SELECT 1 FROM deposit_transactions dt WHERE dt.workspace_id = ${id} AND dt.type = 'signup_bonus') AS bonus_granted
+    `);
+    const meta = metaRows.rows[0] as Record<string, unknown>;
+
+    const defs = (ws.translator_defaults as Record<string, string> | null) ?? {};
+
     return {
       workspace: { ...ws, balance_usd: parseFloat(ws.balance_usd as string) || 0 },
+      owner_email: meta.owner_email ?? null,
+      usage: {
+        sessions_total: meta.sessions_total ?? 0,
+        minutes_total: meta.minutes_total ?? 0,
+        last_session_at: meta.last_session_at ?? null,
+        spent_total: meta.spent_total ?? 0,
+        spent_30d: meta.spent_30d ?? 0,
+        topup_total: meta.topup_total ?? 0,
+        bonus_granted: !!meta.bonus_granted,
+        languages: defs.my_language && defs.target_language ? `${defs.my_language} → ${defs.target_language}` : null,
+      },
       transactions: transactions.map(t => ({
         ...t,
         amount_usd: parseFloat(t.amount_usd as string),
