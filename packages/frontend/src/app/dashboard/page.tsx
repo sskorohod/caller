@@ -59,7 +59,7 @@ export default function DashboardHub() {
   useEffect(() => {
     api.get<{ phone_number: string | null }>('/translator/phone').then(r => setPhone(r.phone_number)).catch(() => {});
     api.get<{ balance_usd: number }>('/billing/balance').then(r => setBalance(r.balance_usd)).catch(() => {});
-    api.get<UsageResp>('/translator/usage?period=30d').then(setUsage).catch(() => {});
+    api.get<UsageResp>('/translator/usage?period=all').then(setUsage).catch(() => {});
     api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', greeting_text: DEFAULT_GREETING, ...d }); setLoaded(true); }).catch(() => setLoaded(true));
   }, []);
 
@@ -188,9 +188,9 @@ export default function DashboardHub() {
           {/* Stats opposite the phone (30d KPI cards + balance card) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-stretch gap-2.5 md:gap-3 lg:shrink-0">
             {[
-              { icon: 'call', accent: '99,102,241', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
-              { icon: 'schedule', accent: '14,165,233', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
-              { icon: 'payments', accent: '139,92,246', label: tt('Spent · 30d', 'Потрачено · 30д'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
+              { icon: 'call', accent: '99,102,241', label: tt('Sessions · total', 'Сессий · всего'), value: usage ? String(usage.totals.calls) : '—' },
+              { icon: 'schedule', accent: '14,165,233', label: tt('Minutes · total', 'Минут · всего'), value: usage ? String(usage.totals.minutes) : '—' },
+              { icon: 'payments', accent: '139,92,246', label: tt('Spent · total', 'Потрачено · всего'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
             ].map(k => (
               <div key={k.label}
                 className="group relative flex items-center gap-3 rounded-2xl border border-[var(--th-border)] bg-[var(--th-surface)]/60 px-3.5 py-2.5 lg:min-w-[150px] transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_20px_var(--th-shadow)]"
