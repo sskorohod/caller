@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useAdminQuery, api } from '../_lib/admin-api';
 import { fmtCurrency } from '../_lib/format';
-import type { Workspace, Transaction } from '../_lib/types';
+import type { Workspace, Transaction, RepeatBonusAttempt } from '../_lib/types';
 import AdminPageHeader from '../_components/AdminPageHeader';
 import AdminModal from '../_components/AdminModal';
 import AdminFormField from '../_components/AdminFormField';
@@ -21,7 +21,9 @@ function fmtPhone(p?: string | null) {
 export default function AdminSubscribers() {
   const [selected, setSelected] = useState<Workspace | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [repeatAttempts, setRepeatAttempts] = useState<RepeatBonusAttempt[]>([]);
   const [search, setSearch] = useState('');
+  const [flagRepeat, setFlagRepeat] = useState(false);
 
   // Balance modal
   const [balanceModal, setBalanceModal] = useState(false);
@@ -43,17 +45,20 @@ export default function AdminSubscribers() {
     () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
+      if (flagRepeat) params.set('flag', 'repeat_phone');
       return api.get<Workspace[]>(`/admin/workspaces?${params}`);
     },
-    [search],
+    [search, flagRepeat],
   );
 
   const selectWorkspace = async (ws: Workspace) => {
     setSelected(ws);
+    setRepeatAttempts([]);
     try {
-      const data = await api.get<{ workspace: Workspace; transactions: Transaction[] }>(`/admin/workspaces/${ws.id}`);
-      setSelected(data.workspace);
+      const data = await api.get<{ workspace: Workspace; transactions: Transaction[]; repeat_phone_attempts?: RepeatBonusAttempt[] }>(`/admin/workspaces/${ws.id}`);
+      setSelected({ ...data.workspace, repeat_phone_attempts: ws.repeat_phone_attempts });
       setTransactions(data.transactions);
+      setRepeatAttempts(data.repeat_phone_attempts ?? []);
     } catch {
       // Keep selected workspace with basic info
     }
@@ -127,6 +132,16 @@ export default function AdminSubscribers() {
           placeholder="Search by name, owner, phone…"
           className={`${adminInputClass} flex-1`}
         />
+        <button
+          onClick={() => setFlagRepeat(v => !v)}
+          className="px-3 rounded-lg text-xs font-medium whitespace-nowrap transition"
+          style={flagRepeat
+            ? { background: 'var(--th-warning-bg)', color: 'var(--th-warning-text)', border: '1px solid var(--th-warning-border)' }
+            : { background: 'var(--th-card)', color: 'var(--th-text-secondary)', border: '1px solid var(--th-border)' }}
+          title="Show only accounts that tried to re-use a phone that already claimed the $2 gift"
+        >
+          ⚑ Repeat phone
+        </button>
       </div>
 
       {/* List */}
@@ -160,7 +175,17 @@ export default function AdminSubscribers() {
                   onMouseLeave={(e) => { if (selected?.id !== ws.id) e.currentTarget.style.background = ''; }}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{owner}</div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="text-sm font-medium truncate">{owner}</div>
+                      {(ws.repeat_phone_attempts ?? 0) > 0 && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
+                          style={{ background: 'var(--th-warning-bg)', color: 'var(--th-warning-text)', border: '1px solid var(--th-warning-border)' }}
+                        >
+                          repeat phone
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] mt-0.5 font-mono tabular-nums" style={{ color: 'var(--th-text-muted)' }}>
                       {phone ? fmtPhone(phone) : <span className="italic">no phone registered</span>}
                     </div>
@@ -191,7 +216,17 @@ export default function AdminSubscribers() {
     >
       {/* Header */}
       <div>
-        <h3 className="font-headline text-lg">{selected.owner_name || selected.name}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-headline text-lg">{selected.owner_name || selected.name}</h3>
+          {repeatAttempts.length > 0 && (
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{ background: 'var(--th-warning-bg)', color: 'var(--th-warning-text)', border: '1px solid var(--th-warning-border)' }}
+            >
+              repeat phone
+            </span>
+          )}
+        </div>
         <p className="text-xs mt-0.5 font-mono tabular-nums" style={{ color: 'var(--th-text-secondary)' }}>
           {selected.id.slice(0, 8)}
         </p>
@@ -212,6 +247,25 @@ export default function AdminSubscribers() {
           </div>
         )}
       </div>
+
+      {/* Repeat $2-gift attempts */}
+      {repeatAttempts.length > 0 && (
+        <div
+          className="rounded-xl p-3 space-y-1.5"
+          style={{ background: 'var(--th-warning-bg)', border: '1px solid var(--th-warning-border)' }}
+        >
+          <div className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'var(--th-warning-text)', letterSpacing: '0.5px' }}>
+            Repeat $2-gift attempts
+          </div>
+          {repeatAttempts.map((a) => (
+            <div key={a.id} className="text-xs" style={{ color: 'var(--th-text-secondary)' }}>
+              <span className="font-mono" style={{ color: 'var(--th-text)' }}>{fmtPhone(a.phone_number)}</span>
+              {a.claimed_by_name && <> — claimed by {a.claimed_by_name}</>}
+              <span style={{ color: 'var(--th-text-muted)' }}> · {new Date(a.created_at).toLocaleDateString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Balance */}
       <div

@@ -5,6 +5,7 @@ export interface BillingInfo {
   subscription_status: string;
   subscription_current_period_end: string | null;
   provider_config: Record<string, string>;
+  signup_bonus_status?: 'granted' | 'blocked' | 'pending_phone' | 'none';
   features: {
     liveTranslator: boolean;
     aiAgents: boolean;

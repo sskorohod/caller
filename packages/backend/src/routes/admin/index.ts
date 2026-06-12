@@ -76,6 +76,18 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       ORDER BY balance_usd::numeric ASC LIMIT 10
     `);
 
+    // Repeat signup-bonus attempts (phone already claimed the $2 gift)
+    const repeatAttempts = await db.execute(sql`
+      SELECT a.id, a.phone_number, a.source, a.created_at,
+             a.workspace_id, w.name AS workspace_name, w.owner_name,
+             b.claimed_by_workspace_id, cw.name AS claimed_by_name
+      FROM bonus_claim_attempts a
+      LEFT JOIN workspaces w ON w.id = a.workspace_id
+      LEFT JOIN bonus_blocked_phones b ON b.phone_number = a.phone_number
+      LEFT JOIN workspaces cw ON cw.id = b.claimed_by_workspace_id
+      ORDER BY a.created_at DESC LIMIT 10
+    `);
+
     const totalMinutes = parseFloat(sessStats.total_minutes ?? '0');
     const totalRevenue = parseFloat(sessStats.total_cost ?? '0');
     const estimatedCost = totalMinutes * 0.027;
@@ -93,6 +105,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       },
       revenue_by_day: revenueByDay.rows,
       low_balance_alerts: lowBalance.rows,
+      repeat_bonus_attempts: repeatAttempts.rows,
       recent_sessions: recentSessions,
     };
   });
@@ -410,6 +423,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     const q = z.object({
       plan: z.string().optional(),
       search: z.string().optional(),
+      flag: z.enum(['repeat_phone']).optional(),
       limit: z.coerce.number().int().min(1).max(200).default(50),
       offset: z.coerce.number().int().min(0).default(0),
     }).parse(request.query);
@@ -426,16 +440,21 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       ));
     }
 
+    const attemptCount = sql<number>`(SELECT count(*)::int FROM bonus_claim_attempts a WHERE a.workspace_id = ${workspaces.id})`;
+    if (q.flag === 'repeat_phone') conditions.push(sql`${attemptCount} > 0`);
+
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const rows = await db.select().from(workspaces)
+    const rows = await db.select({ ws: workspaces, repeat_phone_attempts: attemptCount })
+      .from(workspaces)
       .where(where)
       .orderBy(desc(workspaces.created_at))
       .limit(q.limit).offset(q.offset);
 
-    return rows.map(w => ({
-      ...w,
-      balance_usd: parseFloat(w.balance_usd as string) || 0,
+    return rows.map(({ ws, repeat_phone_attempts }) => ({
+      ...ws,
+      balance_usd: parseFloat(ws.balance_usd as string) || 0,
+      repeat_phone_attempts,
     }));
   });
 
@@ -451,6 +470,16 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(depositTransactions.created_at))
       .limit(50);
 
+    const repeatAttempts = await db.execute(sql`
+      SELECT a.id, a.phone_number, a.source, a.created_at,
+             b.claimed_by_workspace_id, cw.name AS claimed_by_name
+      FROM bonus_claim_attempts a
+      LEFT JOIN bonus_blocked_phones b ON b.phone_number = a.phone_number
+      LEFT JOIN workspaces cw ON cw.id = b.claimed_by_workspace_id
+      WHERE a.workspace_id = ${id}
+      ORDER BY a.created_at DESC LIMIT 20
+    `);
+
     return {
       workspace: { ...ws, balance_usd: parseFloat(ws.balance_usd as string) || 0 },
       transactions: transactions.map(t => ({
@@ -458,6 +487,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         amount_usd: parseFloat(t.amount_usd as string),
         balance_after: parseFloat(t.balance_after as string),
       })),
+      repeat_phone_attempts: repeatAttempts.rows,
     };
   });
 

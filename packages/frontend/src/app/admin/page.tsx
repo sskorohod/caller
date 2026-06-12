@@ -54,6 +54,40 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* Repeat $2-gift attempts */}
+      {(data.repeat_bonus_attempts?.length ?? 0) > 0 && (
+        <div
+          className="rounded-xl p-4 md:p-5"
+          style={{
+            background: 'var(--th-warning-bg)',
+            border: '1px solid var(--th-warning-border)',
+          }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <span className="material-symbols-outlined text-[18px]" style={{ color: 'var(--th-warning-text)' }}>warning</span>
+            <h3 className="text-xs font-semibold" style={{ color: 'var(--th-warning-text)' }}>
+              Repeat $2-gift attempts
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {data.repeat_bonus_attempts!.map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: 'var(--th-text-secondary)' }}>
+                <span className="font-mono font-medium" style={{ color: 'var(--th-text)' }}>{a.phone_number}</span>
+                <span>{a.workspace_name ?? 'deleted workspace'}</span>
+                {a.claimed_by_name && <span>originally claimed by {a.claimed_by_name}</span>}
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                  style={{ background: 'var(--th-warning-bg)', color: 'var(--th-warning-text)', border: '1px solid var(--th-warning-border)' }}
+                >
+                  {a.source === 'phone_update' ? 'phone added' : a.source === 'magic_link' ? 'magic link' : 'register'}
+                </span>
+                <span style={{ color: 'var(--th-text-muted)' }}>{fmtDateTime(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Revenue Chart */}
       {chartData.length > 0 && (
         <div

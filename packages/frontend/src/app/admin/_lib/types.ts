@@ -25,10 +25,23 @@ export interface RecentSession {
   created_at: string;
 }
 
+export interface RepeatBonusAttempt {
+  id: string;
+  phone_number: string;
+  source: string; // 'register' | 'magic_link' | 'phone_update'
+  created_at: string;
+  workspace_id?: string | null;
+  workspace_name?: string | null;
+  owner_name?: string | null;
+  claimed_by_workspace_id: string | null;
+  claimed_by_name: string | null;
+}
+
 export interface DashboardData {
   kpi: DashboardKpi;
   revenue_by_day: RevenueDay[];
   recent_sessions: RecentSession[];
+  repeat_bonus_attempts?: RepeatBonusAttempt[];
 }
 
 // Tickets
@@ -102,6 +115,7 @@ export interface Workspace {
   owner_name?: string | null;
   phone_numbers?: string[] | null;
   email?: string | null;
+  repeat_phone_attempts?: number;
 }
 
 export interface Transaction {

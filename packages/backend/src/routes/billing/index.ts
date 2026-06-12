@@ -21,6 +21,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       subscription_status: workspaces.subscription_status,
       subscription_current_period_end: workspaces.subscription_current_period_end,
       provider_config: workspaces.provider_config,
+      phone_numbers: workspaces.phone_numbers,
     })
       .from(workspaces)
       .where(eq(workspaces.id, request.auth.workspaceId));
@@ -43,6 +44,10 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
 
     const plan = getPlanConfig((ws?.plan as WorkspacePlan) || 'translator');
 
+    const { getSignupBonusStatus } = await import('../../services/signup-bonus.service.js');
+    const phoneNumbers = Array.isArray(ws?.phone_numbers) ? (ws.phone_numbers as string[]) : [];
+    const signupBonusStatus = await getSignupBonusStatus(request.auth.workspaceId, phoneNumbers);
+
     return {
       balance_usd: parseFloat(ws?.balance_usd as string) || 0,
       plan: plan.id,
@@ -51,6 +56,7 @@ const billingRoutes: FastifyPluginAsync = async (app) => {
       subscription_current_period_end: ws?.subscription_current_period_end,
       provider_config: ws?.provider_config || {},
       features: plan.features,
+      signup_bonus_status: signupBonusStatus,
     };
   });
 

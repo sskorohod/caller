@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
 import type { Workspace } from '../_lib/types';
 import { SectionCard } from './SectionCard';
 
@@ -10,11 +10,14 @@ const normalize = (v: string) => v.replace(/[\s\-\(\)\.]/g, '');
 
 export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace | null; onUpdated: (w: Workspace) => void }) {
   const t = useT();
+  const { lang } = useI18n();
   const [ownerName, setOwnerName] = useState((workspace as any)?.owner_name ?? '');
   const [phoneNums, setPhoneNums] = useState<string[]>((workspace as any)?.phone_numbers ?? []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  // Deferred signup-bonus result from PATCH /workspaces/current (first phone added)
+  const [bonusNote, setBonusNote] = useState<'granted' | 'blocked' | null>(null);
 
   useEffect(() => {
     if (workspace) {
@@ -30,11 +33,13 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
   async function save() {
     setSaving(true); setError(''); setSaved(false);
     try {
-      const updated = await api.patch<Workspace>('/workspaces/current', {
+      const updated = await api.patch<Workspace & { signup_bonus?: { granted: boolean; blocked: boolean } }>('/workspaces/current', {
         owner_name: ownerName.trim() || null,
         phone_numbers: phoneNums.map(normalize).filter(n => n && E164.test(n)),
       });
       onUpdated(updated);
+      if (updated.signup_bonus?.granted) setBonusNote('granted');
+      else if (updated.signup_bonus?.blocked) setBonusNote('blocked');
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e: any) {
@@ -81,6 +86,19 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
       }
     >
       <div className="space-y-5">
+        {bonusNote && (
+          <div
+            className={`rounded-xl px-4 py-3 text-sm ${bonusNote === 'granted'
+              ? 'bg-[var(--th-success-bg)] border border-[var(--th-success-border)] text-[var(--th-success-text)]'
+              : 'bg-[var(--th-warning-bg)] border border-[var(--th-warning-border)] text-[var(--th-warning-text)]'}`}
+          >
+            {bonusNote === 'granted'
+              ? (lang === 'ru' ? 'Подарочные $2 начислены на баланс.' : '$2 welcome gift credited to your balance.')
+              : (lang === 'ru'
+                ? 'Подарочные $2 уже были использованы с этим номером телефона ранее — бонус не начислен.'
+                : 'The $2 welcome gift was already used with this phone number — no bonus credited.')}
+          </div>
+        )}
         {/* Owner name */}
         <div className="space-y-1.5">
           <label htmlFor="settings-owner-name" className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wider">

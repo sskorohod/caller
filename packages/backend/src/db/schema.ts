@@ -526,16 +526,35 @@ export const depositTransactions = pgTable('deposit_transactions', {
 ]);
 
 // ============================================================
-// BONUS-BLOCKED PHONES
-// Phones that already consumed their welcome bonus (e.g. via account
-// deletion). On re-registration with the same phone the signup bonus is
-// skipped. The phone is retained even after the workspace is deleted.
+// BONUS-BLOCKED PHONES (signup-bonus claims registry)
+// Phones that already consumed their welcome bonus. A row is inserted the
+// moment a bonus is granted ('bonus_claimed') and on account deletion
+// ('account_deleted'). The phone is retained even after the workspace is
+// deleted, so it can never claim the bonus again.
 // ============================================================
 export const bonusBlockedPhones = pgTable('bonus_blocked_phones', {
   phone_number: text('phone_number').primaryKey(),
-  reason: text('reason'), // 'account_deleted' | 'manual'
+  reason: text('reason'), // 'account_deleted' | 'manual' | 'bonus_claimed'
+  claimed_by_workspace_id: uuid('claimed_by_workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ============================================================
+// BONUS CLAIM ATTEMPTS
+// Log of blocked attempts to claim the signup bonus with a phone that
+// already consumed it (repeat registrations / phone re-adds). Shown in
+// the admin panel; workspace_id survives workspace deletion as NULL.
+// ============================================================
+export const bonusClaimAttempts = pgTable('bonus_claim_attempts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspace_id: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+  phone_number: text('phone_number').notNull(),
+  source: text('source').notNull(), // 'register' | 'magic_link' | 'phone_update'
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_bonus_attempts_created').on(t.created_at),
+  index('idx_bonus_attempts_workspace').on(t.workspace_id),
+]);
 
 // ============================================================
 // MAGIC LINKS (passwordless auth)

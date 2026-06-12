@@ -10,6 +10,7 @@ import { UsagePanel } from './_components/UsagePanel';
 import { TransactionHistory } from './_components/TransactionHistory';
 import { RedirectOverlay } from './_components/RedirectOverlay';
 import { TopUpSuccessModal } from './_components/TopUpSuccessModal';
+import { GiftAlreadyUsedBanner } from '../_components/GiftAlreadyUsedBanner';
 
 // Translator-only "Balance" page: balance + one-tap top-up, usage stats, payment history.
 function BillingPageInner() {
@@ -46,6 +47,7 @@ function BillingPageInner() {
           onClose={() => setTopUpSuccess(null)}
         />
       )}
+      <GiftAlreadyUsedBanner status={info.signup_bonus_status} />
       <BalanceHero balance={info.balance_usd} lang={lang} onTopUp={topUp} loading={topUpLoading} />
       <UsagePanel />
       <TransactionHistory transactions={transactions} t={t} />

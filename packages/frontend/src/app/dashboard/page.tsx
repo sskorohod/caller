@@ -6,6 +6,7 @@ import { useT, useI18n } from '@/lib/i18n';
 import { useSocket } from '@/lib/socket';
 import { api } from '@/lib/api';
 import { LANGUAGES, TTS_VOICES as VOICES } from '@/lib/constants';
+import { GiftAlreadyUsedBanner } from './_components/GiftAlreadyUsedBanner';
 
 interface TranslatorDefaults {
   greeting_text?: string;
@@ -49,6 +50,7 @@ export default function DashboardHub() {
   // ── Data ──────────────────────────────────────────────
   const [phone, setPhone] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [bonusStatus, setBonusStatus] = useState<string | undefined>(undefined);
   const [usage, setUsage] = useState<UsageResp | null>(null);
   const [defaults, setDefaults] = useState<TranslatorDefaults>({});
   const [loaded, setLoaded] = useState(false);
@@ -58,7 +60,7 @@ export default function DashboardHub() {
 
   useEffect(() => {
     api.get<{ phone_number: string | null }>('/translator/phone').then(r => setPhone(r.phone_number)).catch(() => {});
-    api.get<{ balance_usd: number }>('/billing/balance').then(r => setBalance(r.balance_usd)).catch(() => {});
+    api.get<{ balance_usd: number; signup_bonus_status?: string }>('/billing/balance').then(r => { setBalance(r.balance_usd); setBonusStatus(r.signup_bonus_status); }).catch(() => {});
     api.get<UsageResp>('/translator/usage?period=all').then(setUsage).catch(() => {});
     api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', greeting_text: DEFAULT_GREETING, ...d }); setLoaded(true); }).catch(() => setLoaded(true));
   }, []);
@@ -157,6 +159,7 @@ export default function DashboardHub() {
 
   return (
     <div className="flex flex-col gap-3 md:gap-4 lg:h-[calc(100vh-2.5rem)]">
+      <GiftAlreadyUsedBanner status={bonusStatus} />
       {/* ── Header: number · balance · 30d stats ──────────────── */}
       <div className={`${card} relative overflow-hidden p-5 md:p-6 shrink-0`}>
         <div className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full blur-3xl opacity-30" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.3), transparent 70%)' }} />

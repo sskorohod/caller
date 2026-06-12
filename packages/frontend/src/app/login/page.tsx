@@ -207,8 +207,8 @@ function LoginContent() {
                 style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
                 <span className="material-symbols-outlined text-xl shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>redeem</span>
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>$2 in free credit included</div>
-                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>Enough for a real test call (≈10 min). No card required.</div>
+                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>$2 in free credit with your phone number</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>Enough for a real test call (≈10 min). One gift per phone number. No card required.</div>
                 </div>
               </div>
 
@@ -234,7 +234,7 @@ function LoginContent() {
                       onBlur={() => setPhoneNumber(phoneNumber.replace(/[\s\-\(\)\.]/g, ''))}
                       placeholder="+14155551234" className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
-                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>Your phone number for translator service (E.164 format)</p>
+                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>Your phone number for translator service (E.164 format). The $2 gift is credited when you add a phone number — now or later in Settings.</p>
                 </div>
 
                 <label className="flex items-start gap-3 cursor-pointer select-none mt-1">

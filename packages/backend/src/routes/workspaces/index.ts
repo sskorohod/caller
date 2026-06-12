@@ -53,7 +53,23 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser, requireRole('owner', 'admin')],
   }, async (request) => {
     const body = updateWorkspaceSchema.parse(request.body);
+
+    // Snapshot phones before the update — a deferred signup bonus is granted
+    // only on the first phone ever added (0 → >0 transition).
+    const before = await workspaceService.getWorkspace(request.auth.workspaceId);
+    const prevPhones: string[] = Array.isArray((before as any)?.phone_numbers) ? (before as any).phone_numbers : [];
+
     const workspace = await workspaceService.updateWorkspace(request.auth.workspaceId, body);
+
+    let signupBonus: import('../../services/signup-bonus.service.js').BonusGrantResult | undefined;
+    if (prevPhones.length === 0 && (body.phone_numbers?.length ?? 0) > 0) {
+      const { grantSignupBonusIfEligible } = await import('../../services/signup-bonus.service.js');
+      signupBonus = await grantSignupBonusIfEligible({
+        workspaceId: request.auth.workspaceId,
+        phones: body.phone_numbers!,
+        source: 'phone_update',
+      });
+    }
 
     await auditService.writeAuditLog({
       workspaceId: request.auth.workspaceId,
@@ -64,7 +80,7 @@ const workspaceRoutes: FastifyPluginAsync = async (app) => {
       changes: body,
     });
 
-    return workspace;
+    return { ...workspace, ...(signupBonus ? { signup_bonus: signupBonus } : {}) };
   });
 
   // DELETE /api/workspaces/current — self-serve account deletion (owner only)

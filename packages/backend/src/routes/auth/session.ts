@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { scrypt, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { SignJWT } from 'jose';
-import { eq, and, gt, isNull, inArray } from 'drizzle-orm';
+import { eq, and, gt, isNull } from 'drizzle-orm';
 import { db } from '../../config/db.js';
-import { users, workspaces, workspaceMembers, magicLinks, platformSettings, bonusBlockedPhones } from '../../db/schema.js';
+import { users, workspaces, workspaceMembers, magicLinks } from '../../db/schema.js';
 import { env } from '../../config/env.js';
 import { UnauthorizedError } from '../../lib/errors.js';
 import { sendEmail, buildMagicLinkEmail } from '../../services/email.service.js';
@@ -34,15 +34,6 @@ function issueJWT(userId: string): Promise<string> {
     .setIssuedAt()
     .setExpirationTime('30d')
     .sign(secret);
-}
-
-/** True if any of the given phones already consumed a welcome bonus. */
-async function phonesBlockedFromBonus(phones: string[]): Promise<boolean> {
-  if (!phones.length) return false;
-  const rows = await db.select({ p: bonusBlockedPhones.phone_number })
-    .from(bonusBlockedPhones)
-    .where(inArray(bonusBlockedPhones.phone_number, phones));
-  return rows.length > 0;
 }
 
 const registerBody = z.object({
@@ -166,29 +157,17 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       await db.update(users).set({ is_admin: true }).where(eq(users.id, user.id));
     }
 
-    // Credit signup bonus from platform settings — unless the phone already
-    // consumed a welcome bonus (e.g. a previously deleted account).
-    try {
-      const blocked = await phonesBlockedFromBonus(phoneNumbers);
-      if (!blocked) {
-        const { creditDeposit } = await import('../../services/billing.service.js');
-        const [bonusSetting] = await db.select().from(platformSettings).where(eq(platformSettings.key, 'billing_signup_bonus_usd'));
-        const bonusAmount = bonusSetting ? Number(typeof bonusSetting.value === 'string' ? JSON.parse(bonusSetting.value) : bonusSetting.value) : 2.00;
-        if (bonusAmount > 0) {
-          await creditDeposit({
-            workspaceId: workspace.id,
-            amountUsd: bonusAmount,
-            type: 'signup_bonus',
-            description: `Welcome bonus — $${bonusAmount} free credit`,
-            referenceType: 'system',
-          });
-        }
-      } else {
-        app.log.info({ workspaceId: workspace.id }, 'Signup bonus skipped — phone previously claimed it');
-      }
-    } catch (err) {
-      // Non-critical — don't fail registration
-      app.log.error({ err }, 'Failed to credit signup bonus');
+    // Signup bonus: granted only with a phone that never claimed it before.
+    // Without a phone the grant is deferred to the first phone added in
+    // Settings (see PATCH /workspaces/current).
+    const { grantSignupBonusIfEligible } = await import('../../services/signup-bonus.service.js');
+    const bonus = await grantSignupBonusIfEligible({
+      workspaceId: workspace.id,
+      phones: phoneNumbers,
+      source: 'register',
+    });
+    if (bonus.blocked) {
+      app.log.info({ workspaceId: workspace.id }, 'Signup bonus blocked — phone previously claimed it');
     }
 
     const token = await issueJWT(user.id);
@@ -366,24 +345,14 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
           role: 'owner',
         });
 
-        // Credit signup bonus — unless the phone already claimed one before.
-        try {
-          const blocked = await phonesBlockedFromBonus(invitePhoneNumbers);
-          if (!blocked) {
-            const { creditDeposit } = await import('../../services/billing.service.js');
-            const [bonusSetting] = await db.select().from(platformSettings).where(eq(platformSettings.key, 'billing_signup_bonus_usd'));
-            const bonusAmount = bonusSetting ? Number(typeof bonusSetting.value === 'string' ? JSON.parse(bonusSetting.value) : bonusSetting.value) : 2.00;
-            if (bonusAmount > 0) {
-              await creditDeposit({
-                workspaceId: ws.id,
-                amountUsd: bonusAmount,
-                type: 'signup_bonus',
-                description: `Welcome bonus — $${bonusAmount} free credit`,
-                referenceType: 'system',
-              });
-            }
-          }
-        } catch { /* non-critical */ }
+        // Signup bonus: same rules as POST /register — phone required,
+        // one claim per phone and per workspace, forever.
+        const { grantSignupBonusIfEligible } = await import('../../services/signup-bonus.service.js');
+        await grantSignupBonusIfEligible({
+          workspaceId: ws.id,
+          phones: invitePhoneNumbers,
+          source: 'magic_link',
+        });
       }
     } else {
       // Existing user — find workspace
