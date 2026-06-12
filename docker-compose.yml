@@ -152,6 +152,24 @@ services:
           memory: 128M
           cpus: "0.5"
 
+  # Dedicated Cloudflare Tunnel for lingoline.net — fully isolated from any
+  # other product's tunnel. Remotely-managed (ingress configured in the CF
+  # dashboard/API); reaches nginx over the compose network as http://nginx:80.
+  # TUNNEL_TOKEN lives in .env (never commit it).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - nginx
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+
 volumes:
   postgres_data:
   redis_data:
