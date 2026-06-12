@@ -129,6 +129,22 @@ export interface Transaction {
   reference_id?: string | null;
 }
 
+// Personal numbers
+export interface AdminPersonalNumber {
+  id: string;
+  phone_number: string;
+  monthly_price_usd: number;
+  purchased_at: string | null;
+  next_renewal_at: string | null;
+  auto_renew: boolean;
+  status: string; // 'active' | 'released'
+  released_at: string | null;
+  workspace_id?: string;
+  workspace_name?: string | null;
+  owner_name?: string | null;
+  balance_usd?: number | null;
+}
+
 // Finance
 export interface FinanceKpi {
   total_deposit_balance: number;

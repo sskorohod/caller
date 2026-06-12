@@ -11,6 +11,7 @@ export const navSections = [
       { href: '/admin/workspaces', icon: 'person', label: 'Subscribers' },
       { href: '/admin/sessions', icon: 'history', label: 'Sessions' },
       { href: '/admin/finance', icon: 'monitoring', label: 'Finance' },
+      { href: '/admin/numbers', icon: 'sim_card', label: 'Numbers' },
       { href: '/admin/promo', icon: 'confirmation_number', label: 'Promo Codes' },
     ],
   },
@@ -47,6 +48,7 @@ export const adminMoreSections = [
   {
     label: 'Translator',
     items: [
+      { href: '/admin/numbers', icon: 'sim_card', label: 'Numbers' },
       { href: '/admin/promo', icon: 'confirmation_number', label: 'Promo Codes' },
     ],
   },

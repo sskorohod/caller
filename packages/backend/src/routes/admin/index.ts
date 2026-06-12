@@ -480,6 +480,24 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       ORDER BY a.created_at DESC LIMIT 20
     `);
 
+    const { telephonyConnections } = await import('../../db/schema.js');
+    const personalNumbers = await db.select({
+      id: telephonyConnections.id,
+      phone_number: telephonyConnections.phone_number,
+      monthly_price_usd: telephonyConnections.monthly_price_usd,
+      purchased_at: telephonyConnections.purchased_at,
+      next_renewal_at: telephonyConnections.next_renewal_at,
+      auto_renew: telephonyConnections.auto_renew,
+      status: telephonyConnections.status,
+      released_at: telephonyConnections.released_at,
+    })
+      .from(telephonyConnections)
+      .where(and(
+        eq(telephonyConnections.workspace_id, id),
+        eq(telephonyConnections.is_personal, true),
+      ))
+      .orderBy(desc(telephonyConnections.purchased_at));
+
     return {
       workspace: { ...ws, balance_usd: parseFloat(ws.balance_usd as string) || 0 },
       transactions: transactions.map(t => ({
@@ -488,6 +506,10 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         balance_after: parseFloat(t.balance_after as string),
       })),
       repeat_phone_attempts: repeatAttempts.rows,
+      personal_numbers: personalNumbers.map(n => ({
+        ...n,
+        monthly_price_usd: parseFloat((n.monthly_price_usd as string | null) ?? '0'),
+      })),
     };
   });
 
@@ -729,6 +751,58 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     `);
 
     return rows.rows;
+  });
+
+  // ─── GET /personal-numbers — all rented personal numbers ─────────────
+  app.get('/personal-numbers', async (request) => {
+    const q = z.object({
+      status: z.enum(['active', 'released']).optional(),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+      offset: z.coerce.number().int().min(0).default(0),
+    }).parse(request.query);
+
+    const { telephonyConnections } = await import('../../db/schema.js');
+
+    const conditions = [eq(telephonyConnections.is_personal, true)];
+    if (q.status) conditions.push(eq(telephonyConnections.status, q.status));
+
+    const rows = await db.select({
+      id: telephonyConnections.id,
+      phone_number: telephonyConnections.phone_number,
+      monthly_price_usd: telephonyConnections.monthly_price_usd,
+      purchased_at: telephonyConnections.purchased_at,
+      next_renewal_at: telephonyConnections.next_renewal_at,
+      auto_renew: telephonyConnections.auto_renew,
+      status: telephonyConnections.status,
+      released_at: telephonyConnections.released_at,
+      workspace_id: telephonyConnections.workspace_id,
+      workspace_name: workspaces.name,
+      owner_name: workspaces.owner_name,
+      balance_usd: workspaces.balance_usd,
+    })
+      .from(telephonyConnections)
+      .leftJoin(workspaces, eq(workspaces.id, telephonyConnections.workspace_id))
+      .where(and(...conditions))
+      .orderBy(desc(telephonyConnections.purchased_at))
+      .limit(q.limit).offset(q.offset);
+
+    const statsRows = await db.execute(sql`
+      SELECT COUNT(*) FILTER (WHERE status = 'active')::int AS active_count,
+             COUNT(*) FILTER (WHERE status = 'released')::int AS released_count,
+             COALESCE(SUM(monthly_price_usd) FILTER (WHERE status = 'active'), 0)::float AS mrr
+      FROM telephony_connections
+      WHERE is_personal = true
+    `);
+    const stats = statsRows.rows[0] as { active_count: number; released_count: number; mrr: number };
+
+    return {
+      numbers: rows.map(r => ({
+        ...r,
+        monthly_price_usd: parseFloat((r.monthly_price_usd as string | null) ?? '0'),
+        balance_usd: r.balance_usd != null ? parseFloat(r.balance_usd as string) : null,
+      })),
+      stats,
+    };
   });
 
   // ─── GET /billing-settings ───────────────────────────────────────────

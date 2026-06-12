@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useAdminQuery, api } from '../_lib/admin-api';
 import { fmtCurrency } from '../_lib/format';
-import type { Workspace, Transaction, RepeatBonusAttempt } from '../_lib/types';
+import type { Workspace, Transaction, RepeatBonusAttempt, AdminPersonalNumber } from '../_lib/types';
 import AdminPageHeader from '../_components/AdminPageHeader';
 import AdminModal from '../_components/AdminModal';
 import AdminFormField from '../_components/AdminFormField';
@@ -22,6 +22,7 @@ export default function AdminSubscribers() {
   const [selected, setSelected] = useState<Workspace | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [repeatAttempts, setRepeatAttempts] = useState<RepeatBonusAttempt[]>([]);
+  const [personalNumbers, setPersonalNumbers] = useState<AdminPersonalNumber[]>([]);
   const [search, setSearch] = useState('');
   const [flagRepeat, setFlagRepeat] = useState(false);
 
@@ -54,11 +55,13 @@ export default function AdminSubscribers() {
   const selectWorkspace = async (ws: Workspace) => {
     setSelected(ws);
     setRepeatAttempts([]);
+    setPersonalNumbers([]);
     try {
-      const data = await api.get<{ workspace: Workspace; transactions: Transaction[]; repeat_phone_attempts?: RepeatBonusAttempt[] }>(`/admin/workspaces/${ws.id}`);
+      const data = await api.get<{ workspace: Workspace; transactions: Transaction[]; repeat_phone_attempts?: RepeatBonusAttempt[]; personal_numbers?: AdminPersonalNumber[] }>(`/admin/workspaces/${ws.id}`);
       setSelected({ ...data.workspace, repeat_phone_attempts: ws.repeat_phone_attempts });
       setTransactions(data.transactions);
       setRepeatAttempts(data.repeat_phone_attempts ?? []);
+      setPersonalNumbers(data.personal_numbers ?? []);
     } catch {
       // Keep selected workspace with basic info
     }
@@ -247,6 +250,37 @@ export default function AdminSubscribers() {
           </div>
         )}
       </div>
+
+      {/* Personal numbers */}
+      {personalNumbers.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider font-medium mb-2"
+            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+            Personal number
+          </div>
+          <div className="space-y-1.5">
+            {personalNumbers.map((pn) => (
+              <div key={pn.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-mono tabular-nums">{fmtPhone(pn.phone_number)}</span>
+                <span className="flex items-center gap-2">
+                  <span style={{ color: 'var(--th-text-muted)' }}>
+                    ${pn.monthly_price_usd.toFixed(2)}/mo
+                    {pn.status === 'active'
+                      ? ` · renews ${pn.next_renewal_at ? new Date(pn.next_renewal_at).toLocaleDateString() : '—'}`
+                      : ` · released ${pn.released_at ? new Date(pn.released_at).toLocaleDateString() : ''}`}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={pn.status === 'active'
+                      ? { background: 'var(--th-success-bg)', color: 'var(--th-success-text)' }
+                      : { background: 'var(--th-surface)', color: 'var(--th-text-muted)' }}>
+                    {pn.status}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Repeat $2-gift attempts */}
       {repeatAttempts.length > 0 && (
