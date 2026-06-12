@@ -160,7 +160,7 @@ export default function DashboardHub() {
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-6">
           {/* Number (left) */}
           <div className="min-w-0">
-            <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{tt('Your phone number', 'Ваш номер телефона')}</div>
+            <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{tt("Your translator's phone number", 'Номер телефона вашего переводчика')}</div>
             <div className="flex items-center gap-3 flex-wrap">
               {phone ? (
                 <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
@@ -182,26 +182,37 @@ export default function DashboardHub() {
             </div>
             <p className="text-xs md:text-[13px] text-[var(--th-text-muted)] mt-1.5 leading-snug">{tt('During a call, add this number and tap "Merge" to bring in the translator.', 'Во время разговора добавьте этот номер и нажмите «Объединить», чтобы подключить переводчика.')}</p>
           </div>
-          {/* Stats opposite the phone (30d + balance) */}
-          <div className="flex flex-wrap items-start gap-x-6 md:gap-x-8 gap-y-4 lg:shrink-0">
+          {/* Stats opposite the phone (30d KPI cards + balance card) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-stretch gap-2.5 md:gap-3 lg:shrink-0">
             {[
-              { icon: 'call', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
-              { icon: 'schedule', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
-              { icon: 'payments', label: tt('Spent · 30d', 'Потрачено · 30д'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
+              { icon: 'call', accent: '99,102,241', label: tt('Sessions · 30d', 'Сессий · 30д'), value: usage ? String(usage.totals.calls) : '—' },
+              { icon: 'schedule', accent: '14,165,233', label: tt('Minutes · 30d', 'Минут · 30д'), value: usage ? String(usage.totals.minutes) : '—' },
+              { icon: 'payments', accent: '139,92,246', label: tt('Spent · 30d', 'Потрачено · 30д'), value: usage ? `$${usage.totals.cost.toFixed(2)}` : '—' },
             ].map(k => (
-              <div key={k.label}>
-                <div className="flex items-center gap-1.5 mb-1 text-[var(--th-text-muted)]">
-                  <span className="material-symbols-outlined text-[16px]">{k.icon}</span>
-                  <span className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide whitespace-nowrap">{k.label}</span>
+              <div key={k.label}
+                className="group relative flex flex-col gap-2.5 rounded-2xl border border-[var(--th-border)] bg-[var(--th-surface)]/60 px-3.5 py-3 lg:min-w-[112px] transition-all hover:-translate-y-0.5 hover:border-[var(--th-border)] hover:shadow-[0_6px_20px_var(--th-shadow)]"
+                style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+                <span aria-hidden className="absolute inset-x-0 top-0 h-px rounded-t-2xl opacity-60" style={{ background: `linear-gradient(90deg, transparent, rgba(${k.accent},0.5), transparent)` }} />
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: `rgba(${k.accent},0.12)`, color: `rgb(${k.accent})` }}>
+                    <span className="material-symbols-outlined text-[16px]">{k.icon}</span>
+                  </span>
                 </div>
-                <div className="text-xl md:text-2xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
+                <div>
+                  <div className="text-xl md:text-2xl font-extrabold tabular-nums text-[var(--th-text)] leading-none">{k.value}</div>
+                  <div className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide text-[var(--th-text-muted)] mt-1.5 whitespace-nowrap">{k.label}</div>
+                </div>
               </div>
             ))}
-            {/* Balance */}
-            <div className="lg:pl-6 lg:border-l lg:border-[var(--th-border)]">
-              <div className="flex items-center gap-1.5 mb-1 text-[var(--th-text-muted)]">
-                <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
-                <span className="text-[10px] md:text-[11px] font-medium uppercase tracking-wide whitespace-nowrap">{tt('Balance', 'Баланс')}</span>
+            {/* Balance — emphasized card */}
+            <div className="group relative col-span-2 sm:col-span-3 lg:col-span-1 flex flex-col gap-2.5 rounded-2xl border px-3.5 py-3 lg:min-w-[200px] transition-all hover:-translate-y-0.5"
+              style={{ borderColor: 'rgba(16,185,129,0.30)', background: 'linear-gradient(160deg, rgba(16,185,129,0.10), rgba(16,185,129,0.02))', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+              <span aria-hidden className="absolute inset-x-0 top-0 h-px rounded-t-2xl opacity-70" style={{ background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.6), transparent)' }} />
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
+                  <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+                </span>
+                <span className="text-[10px] md:text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#10b981' }}>{tt('Balance', 'Баланс')}</span>
               </div>
               <div className="flex items-baseline gap-1.5">
                 {unlimited ? (
@@ -210,15 +221,15 @@ export default function DashboardHub() {
                   <>
                     <span className="text-xl md:text-2xl font-extrabold tabular-nums leading-none" style={{ color: balance != null && balance < 5 ? '#f59e0b' : 'var(--th-text)' }}>{balance != null ? `$${balance.toFixed(2)}` : '—'}</span>
                     {minutes != null && (
-                      <span className="text-xl md:text-2xl font-extrabold tabular-nums leading-none text-[var(--th-text-muted)]">/ ≈{minutes}<span className="text-[11px] font-medium ml-1">{tt('min', 'мин')}</span></span>
+                      <span className="text-sm md:text-base font-bold tabular-nums leading-none text-[var(--th-text-muted)]">≈{minutes}<span className="text-[11px] font-medium ml-0.5">{tt('min', 'мин')}</span></span>
                     )}
                   </>
                 )}
               </div>
               <button onClick={() => router.push('/dashboard/billing')}
-                className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
+                className="mt-0.5 inline-flex items-center justify-center gap-1 w-full px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 shadow-sm"
                 style={{ background: 'var(--th-primary)' }}>
-                {tt('Top up balance', 'Пополнить баланс')} <span aria-hidden>→</span>
+                {tt('Top up balance', 'Пополнить баланс')} <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
               </button>
             </div>
           </div>
