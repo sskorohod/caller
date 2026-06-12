@@ -34,9 +34,32 @@ function Landing() {
     return () => io.disconnect();
   }, []);
 
+  // Ambient light blobs drift slowly and shift on scroll (subtle parallax).
+  const ambientRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        if (ambientRef.current) ambientRef.current.style.transform = `translate3d(0, ${window.scrollY * 0.12}px, 0)`;
+        raf = 0;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+
   return (
     <div className="lp">
       <style>{LP_CSS}</style>
+
+      {/* Ambient drifting light blobs (fixed → parallax, very subtle) */}
+      <div className="lp-ambient" ref={ambientRef} aria-hidden>
+        <span className="amb a1" />
+        <span className="amb a2" />
+        <span className="amb a3" />
+        <span className="amb a4" />
+      </div>
 
       {/* ─── Nav ─────────────────────────────────────────────── */}
       <header className="lp-nav">
@@ -105,7 +128,7 @@ function Landing() {
             </div>
             <div>
               <div className="hp-stars" aria-hidden>★★★★★</div>
-              <div className="hp-label">{t('10,000+ happy users', '10 000+ довольных пользователей')}</div>
+              <div className="hp-label">{t('50+ happy clients', '50+ довольных клиентов')}</div>
             </div>
           </div>
         </div>
@@ -522,6 +545,19 @@ const LP_CSS = `
 .gradient-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; background-size: 200% 200%; animation: gradient-shift 6s ease infinite; }
 .glass-panel { background: rgba(26, 32, 44, 0.55); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--line-2); }
 
+/* Ambient light blobs — fixed layer (parallax), slow drift, very subtle.
+   All real content sits above it via z-index:1. */
+.lp > * { position: relative; z-index: 1; }
+.lp-ambient { position: fixed; inset: -10% 0; z-index: 0; pointer-events: none; overflow: hidden; will-change: transform; }
+.lp-ambient .amb { position: absolute; border-radius: 50%; filter: blur(110px); }
+.lp-ambient .a1 { width: 540px; height: 540px; top: 6%; left: -8%; background: radial-gradient(circle, rgba(99,102,241,0.18), transparent 70%); animation: amb-drift1 52s ease-in-out infinite; }
+.lp-ambient .a2 { width: 480px; height: 480px; top: 40%; right: -7%; background: radial-gradient(circle, rgba(139,92,246,0.14), transparent 70%); animation: amb-drift2 64s ease-in-out infinite; }
+.lp-ambient .a3 { width: 420px; height: 420px; top: 70%; left: 32%; background: radial-gradient(circle, rgba(34,211,238,0.09), transparent 70%); animation: amb-drift3 58s ease-in-out infinite; }
+.lp-ambient .a4 { width: 460px; height: 460px; top: 22%; left: 46%; background: radial-gradient(circle, rgba(173,198,255,0.08), transparent 70%); animation: amb-drift1 70s ease-in-out infinite reverse; }
+@keyframes amb-drift1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(46px,-34px) scale(1.08); } }
+@keyframes amb-drift2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-54px,42px) scale(1.05); } }
+@keyframes amb-drift3 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(34px,30px) scale(1.1); } }
+
 .lp-wrap { position: relative; width: 100%; max-width: 1120px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
 
 /* Nav */
@@ -774,6 +810,6 @@ const LP_CSS = `
 }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal], .tx-row, .tx-typing, .tx-float, .hero-glow, .gradient-text, .lang:nth-child(3n+1), .marquee-row { animation: none !important; opacity: 1 !important; transform: none !important; }
-  .tx-dot, .pm-key--merge .pm-key-btn { animation: none !important; }
+  .tx-dot, .pm-key--merge .pm-key-btn, .lp-ambient .amb { animation: none !important; }
 }
 `;
