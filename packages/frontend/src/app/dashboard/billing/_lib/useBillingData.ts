@@ -1,9 +1,13 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
+import { useToast } from '@/lib/toast';
+import { useI18n } from '@/lib/i18n';
 import type { BillingInfo, Transaction, PlanInfo, DowngradePreview } from './types';
 
 export function useBillingData() {
+  const toast = useToast();
+  const { lang } = useI18n();
   const [info, setInfo] = useState<BillingInfo | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [plans, setPlans] = useState<PlanInfo[]>([]);
@@ -30,11 +34,19 @@ export function useBillingData() {
     setTopUpLoading(true);
     try {
       const result = await api.post<{ url: string }>('/billing/deposit/checkout', { amount_usd: amount });
-      if (result.url) window.location.href = result.url;
-    } finally {
+      if (result.url) {
+        // Keep the overlay up — the browser is now navigating to Stripe.
+        window.location.href = result.url;
+        return;
+      }
       setTopUpLoading(false);
+    } catch {
+      setTopUpLoading(false);
+      toast.error(lang === 'ru'
+        ? 'Не удалось начать оплату. Попробуйте ещё раз.'
+        : 'Could not start payment. Please try again.');
     }
-  }, []);
+  }, [toast, lang]);
 
   const subscribe = useCallback(async (planId: string) => {
     const result = await api.post<{ url: string }>('/billing/subscription', { plan: planId });

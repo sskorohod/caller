@@ -6,6 +6,7 @@ import { BillingSkeleton } from './_components/BillingSkeleton';
 import { BalanceHero } from './_components/BalanceHero';
 import { UsagePanel } from './_components/UsagePanel';
 import { TransactionHistory } from './_components/TransactionHistory';
+import { RedirectOverlay } from './_components/RedirectOverlay';
 
 // Translator-only "Balance" page: balance + one-tap top-up, usage stats, payment history.
 export default function BillingPage() {
@@ -17,6 +18,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-4 md:space-y-5">
+      <RedirectOverlay show={topUpLoading} lang={lang} />
       <BalanceHero balance={info.balance_usd} lang={lang} onTopUp={topUp} loading={topUpLoading} />
       <UsagePanel />
       <TransactionHistory transactions={transactions} t={t} />
