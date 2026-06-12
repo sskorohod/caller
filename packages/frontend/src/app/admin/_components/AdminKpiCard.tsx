@@ -5,10 +5,17 @@ interface AdminKpiCardProps {
   value: string;
   icon: string;
   color?: string;
+  // Optional trend vs the previous period; deltaPct null → trend hidden.
+  // invert: growth is bad (e.g. costs) — colors swap.
+  trend?: { deltaPct: number | null; suffix?: string; invert?: boolean };
 }
 
-export default function AdminKpiCard({ label, value, icon, color }: AdminKpiCardProps) {
+export default function AdminKpiCard({ label, value, icon, color, trend }: AdminKpiCardProps) {
   const accentColor = color || 'var(--th-primary-text)';
+  const delta = trend?.deltaPct;
+  const trendUp = delta != null && delta > 0;
+  const trendGood = trend?.invert ? !trendUp : trendUp;
+  const trendFlat = delta != null && Math.abs(delta) < 0.05;
 
   return (
     <div
@@ -41,6 +48,23 @@ export default function AdminKpiCard({ label, value, icon, color }: AdminKpiCard
       >
         {value}
       </div>
+      {delta != null && (
+        <div
+          className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] font-semibold"
+          style={{
+            color: trendFlat
+              ? 'var(--th-text-muted)'
+              : trendGood ? 'var(--th-success-text)' : 'var(--th-error-text)',
+          }}
+        >
+          {!trendFlat && (
+            <span className="material-symbols-outlined text-[13px] leading-none">
+              {trendUp ? 'trending_up' : 'trending_down'}
+            </span>
+          )}
+          {trendUp ? '+' : ''}{delta.toFixed(Math.abs(delta) >= 10 ? 0 : 1)}{trend?.suffix ?? '%'}
+        </div>
+      )}
     </div>
   );
 }

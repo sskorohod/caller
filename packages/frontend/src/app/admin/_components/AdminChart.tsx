@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useId } from 'react';
 import { smoothPath } from '@/lib/chart-utils';
 
 interface AdminChartProps {
@@ -16,6 +16,8 @@ export default function AdminChart({
   color = 'var(--th-primary)',
 }: AdminChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  // Unique per instance — two charts on one page must not share the gradient
+  const gradientId = useId();
 
   const { path, fillPath, maxVal, points } = useMemo(() => {
     if (data.length === 0) return { path: '', fillPath: '', maxVal: 0, points: [] };
@@ -59,14 +61,14 @@ export default function AdminChart({
         onMouseLeave={() => setHoverIndex(null)}
       >
         <defs>
-          <linearGradient id="admin-chart-fill" x1="0" x2="0" y1="0" y2="1">
+          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity={0.15} />
             <stop offset="100%" stopColor={color} stopOpacity={0.01} />
           </linearGradient>
         </defs>
 
         {/* Fill area */}
-        <path d={fillPath} fill="url(#admin-chart-fill)" />
+        <path d={fillPath} fill={`url(#${gradientId})`} />
 
         {/* Line */}
         <path

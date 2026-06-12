@@ -1,9 +1,9 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { useAdminQuery, api } from '../_lib/admin-api';
-import { fmtCurrency, fmtPercent, fmtDateTime, fmtDate } from '../_lib/format';
-import { PLAN_BADGES, FINANCE_TYPE_COLORS } from '../_lib/constants';
-import type { FinanceOverview, FinanceRevenueDay, FinanceTransaction } from '../_lib/types';
+import { fmtCurrency, fmtDateTime, fmtDate } from '../_lib/format';
+import { PLAN_BADGES } from '../_lib/constants';
+import type { FinanceOverview, FinanceRevenueChart, FinanceTransaction, Period, KpiWindow } from '../_lib/types';
 import AdminPageHeader from '../_components/AdminPageHeader';
 import AdminKpiCard from '../_components/AdminKpiCard';
 import AdminChart from '../_components/AdminChart';
@@ -12,10 +12,11 @@ import AdminBadge from '../_components/AdminBadge';
 import AdminFilterBar from '../_components/AdminFilterBar';
 import AdminLoadingState from '../_components/AdminLoadingState';
 import AdminErrorState from '../_components/AdminErrorState';
+import AdminPeriodFilter from '../_components/AdminPeriodFilter';
 
 interface FinanceData {
   overview: FinanceOverview;
-  chart: FinanceRevenueDay[];
+  chart: FinanceRevenueChart;
   transactions: FinanceTransaction[];
 }
 
@@ -40,19 +41,35 @@ const TX_TYPE_VARIANTS: Record<string, 'success' | 'primary' | 'warning' | 'info
   number_rental: 'primary',
 };
 
+function deltaPct(w: KpiWindow): number | null {
+  if (w.previous == null) return null;
+  if (w.previous === 0) return w.current > 0 ? 100 : null;
+  return ((w.current - w.previous) / w.previous) * 100;
+}
+
+function bucketLabel(date: string, granularity: FinanceRevenueChart['granularity']): string {
+  const d = new Date(date);
+  if (granularity === 'hour') return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  // Day/month buckets are UTC calendar units (date_trunc in a UTC database) —
+  // format them in UTC or every label shifts a day/month back west of UTC.
+  if (granularity === 'day') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 export default function AdminFinance() {
+  const [period, setPeriod] = useState<Period>('30d');
   const [txFilter, setTxFilter] = useState('');
 
-  // Initial parallel fetch
   const { data, loading, error, refetch } = useAdminQuery<FinanceData>(
     async () => {
       const [overview, chart, transactions] = await Promise.all([
-        api.get<FinanceOverview>('/admin/finance/overview'),
-        api.get<FinanceRevenueDay[]>('/admin/finance/revenue-chart'),
+        api.get<FinanceOverview>(`/admin/finance/overview?period=${period}`),
+        api.get<FinanceRevenueChart>(`/admin/finance/revenue-chart?period=${period}`),
         api.get<FinanceTransaction[]>('/admin/finance/transactions?limit=30'),
       ]);
       return { overview, chart, transactions };
     },
+    [period],
   );
 
   // Filtered transactions fetch
@@ -65,22 +82,33 @@ export default function AdminFinance() {
     [txFilter, data?.transactions],
   );
 
-  // Chart data for AdminChart
-  const chartData = useMemo(() => {
+  const revenueChart = useMemo(() => {
     if (!data?.chart) return [];
-    return data.chart.map((day) => ({
-      label: fmtDate(day.date),
-      value: parseFloat(day.usage_revenue) || 0,
+    return data.chart.rows.map((r) => ({
+      label: bucketLabel(r.date, data.chart.granularity),
+      value: r.usage_revenue || 0,
     }));
   }, [data?.chart]);
 
-  if (loading) return <AdminLoadingState rows={6} />;
+  const depositsChart = useMemo(() => {
+    if (!data?.chart) return [];
+    return data.chart.rows.map((r) => ({
+      label: bucketLabel(r.date, data.chart.granularity),
+      value: r.deposits || 0,
+    }));
+  }, [data?.chart]);
+
+  if (loading && !data) return <AdminLoadingState rows={6} />;
   if (error) return <AdminErrorState error={error} onRetry={refetch} />;
   if (!data) return null;
 
   const { overview } = data;
   const { kpi } = overview;
   const transactions = filteredTx ?? data.transactions;
+  const marginDelta = kpi.margin_percent.previous != null
+    ? kpi.margin_percent.current - kpi.margin_percent.previous
+    : null;
+  const breakdownTotal = overview.revenue_breakdown.usage + overview.revenue_breakdown.number_rental;
 
   const txColumns = [
     {
@@ -175,39 +203,55 @@ export default function AdminFinance() {
     </div>
   );
 
+  const cardStyle = {
+    background: 'var(--th-card)',
+    border: '1px solid var(--th-card-border-subtle)',
+    boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
+  } as const;
+
   return (
     <div className="p-4 md:p-6 space-y-5 md:space-y-6">
       <AdminPageHeader
         title="Finance"
-        subtitle="Revenue, costs, and margin overview"
+        subtitle="Revenue, costs, and margin — admin account excluded"
         icon="payments"
       />
 
-      {/* KPI Cards */}
+      <AdminPeriodFilter value={period} onChange={setPeriod} />
+
+      {/* While a period switch is in flight, dim the stale data so the
+          numbers aren't misread as belonging to the new period. */}
+      <div className={`space-y-5 md:space-y-6 transition-opacity ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+
+      {/* KPI Cards with trends vs previous period */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         <AdminKpiCard
-          label="Usage Revenue (30d)"
-          value={fmtCurrency(kpi.usage_revenue_30d)}
+          label="Usage Revenue"
+          value={fmtCurrency(kpi.usage_revenue.current)}
           icon="payments"
           color="var(--th-success-text)"
+          trend={{ deltaPct: deltaPct(kpi.usage_revenue) }}
         />
         <AdminKpiCard
-          label="Provider Cost (30d)"
-          value={fmtCurrency(kpi.real_provider_cost_30d)}
+          label="Provider Cost"
+          value={fmtCurrency(kpi.provider_cost.current)}
           icon="receipt_long"
           color="var(--th-error-text)"
+          trend={{ deltaPct: deltaPct(kpi.provider_cost), invert: true }}
         />
         <AdminKpiCard
           label="Margin"
-          value={fmtPercent(kpi.margin_percent)}
+          value={`${kpi.margin_percent.current.toFixed(0)}%`}
           icon="trending_up"
-          color={kpi.margin_percent > 60 ? 'var(--th-success-text)' : 'var(--th-warning-text)'}
+          color={kpi.margin_percent.current > 60 ? 'var(--th-success-text)' : 'var(--th-warning-text)'}
+          trend={{ deltaPct: marginDelta, suffix: ' pp' }}
         />
         <AdminKpiCard
-          label="Deposits (30d)"
-          value={fmtCurrency(kpi.deposits_30d)}
+          label="Deposits"
+          value={fmtCurrency(kpi.deposits.current)}
           icon="account_balance"
           color="var(--th-primary-text)"
+          trend={{ deltaPct: deltaPct(kpi.deposits) }}
         />
         <AdminKpiCard
           label="Total On Deposit"
@@ -223,76 +267,99 @@ export default function AdminFinance() {
         />
       </div>
 
-      {/* Plan Distribution */}
-      <div
-        className="rounded-xl p-4 md:p-5"
-        style={{
-          background: 'var(--th-card)',
-          border: '1px solid var(--th-card-border-subtle)',
-          boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
-        }}
-      >
-        <h3
-          className="text-[10px] font-semibold uppercase tracking-wider mb-3"
-          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
-        >
-          Plan Distribution
-        </h3>
-        <div className="flex flex-wrap gap-4 md:gap-6">
-          {overview.plan_counts.map((p) => {
-            const badge = PLAN_BADGES[p.plan];
-            return (
-              <div key={p.plan} className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ background: badge?.color ?? 'var(--th-text-muted)' }}
-                />
-                <span className="text-sm font-medium" style={{ color: 'var(--th-text)' }}>
-                  {badge?.label ?? p.plan}
-                </span>
-                <span className="text-sm font-mono" style={{ color: 'var(--th-text-secondary)' }}>
-                  {p.count}
-                </span>
-              </div>
-            );
-          })}
+      {/* Charts: usage revenue + deposits */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-xl p-4 md:p-5" style={cardStyle}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+            Usage Revenue
+          </h3>
+          <AdminChart data={revenueChart} height={140} formatValue={(v) => fmtCurrency(v)} color="var(--th-primary)" />
+        </div>
+        <div className="rounded-xl p-4 md:p-5" style={cardStyle}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+            Deposits (Stripe top-ups)
+          </h3>
+          <AdminChart data={depositsChart} height={140} formatValue={(v) => fmtCurrency(v)} color="#22c55e" />
         </div>
       </div>
 
-      {/* Revenue Chart */}
-      {chartData.length > 0 && (
-        <div
-          className="rounded-xl p-4 md:p-6"
-          style={{
-            background: 'var(--th-card)',
-            border: '1px solid var(--th-card-border-subtle)',
-            boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
-          }}
-        >
-          <h3
-            className="text-[10px] font-semibold uppercase tracking-wider mb-4"
-            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
-          >
-            Revenue by Day (30d)
+      {/* Revenue breakdown + top spenders + plans */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {/* Breakdown */}
+        <div className="rounded-xl p-4 md:p-5" style={cardStyle}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+            Revenue Breakdown
           </h3>
-          <AdminChart
-            data={chartData}
-            height={140}
-            formatValue={(v) => fmtCurrency(v)}
-            color="var(--th-primary)"
-          />
+          {breakdownTotal === 0 ? (
+            <p className="text-xs py-2" style={{ color: 'var(--th-text-muted)' }}>No revenue in this period</p>
+          ) : (
+            <div className="space-y-3">
+              {[
+                { label: 'Translator calls', value: overview.revenue_breakdown.usage, color: 'var(--th-primary)' },
+                { label: 'Number rental', value: overview.revenue_breakdown.number_rental, color: '#8b5cf6' },
+              ].map(item => (
+                <div key={item.label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span style={{ color: 'var(--th-text)' }}>{item.label}</span>
+                    <span className="font-mono" style={{ color: 'var(--th-text-secondary)' }}>
+                      {fmtCurrency(item.value)} · {((item.value / breakdownTotal) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--th-surface)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${(item.value / breakdownTotal) * 100}%`, background: item.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Top spenders */}
+        <div className="rounded-xl p-4 md:p-5" style={cardStyle}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+            Top Spenders
+          </h3>
+          {overview.top_spenders.length === 0 ? (
+            <p className="text-xs py-2" style={{ color: 'var(--th-text-muted)' }}>No spending in this period</p>
+          ) : (
+            <div className="space-y-2">
+              {overview.top_spenders.map((s, i) => (
+                <div key={s.workspace_id} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="shrink-0 w-4 text-center font-mono" style={{ color: 'var(--th-text-muted)' }}>{i + 1}</span>
+                    <span className="truncate" style={{ color: 'var(--th-text)' }}>{s.owner_name || s.workspace_name || s.workspace_id.slice(0, 8)}</span>
+                  </span>
+                  <span className="font-mono shrink-0" style={{ color: 'var(--th-success-text)' }}>{fmtCurrency(s.spent)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Plan distribution */}
+        <div className="rounded-xl p-4 md:p-5" style={cardStyle}>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+            Plan Distribution
+          </h3>
+          <div className="space-y-2">
+            {overview.plan_counts.map((p) => {
+              const badge = PLAN_BADGES[p.plan];
+              return (
+                <div key={p.plan} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: badge?.color ?? 'var(--th-text-muted)' }} />
+                    <span style={{ color: 'var(--th-text)' }}>{badge?.label ?? p.plan}</span>
+                  </span>
+                  <span className="font-mono" style={{ color: 'var(--th-text-secondary)' }}>{p.count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* Transactions */}
-      <div
-        className="rounded-xl p-4 md:p-6"
-        style={{
-          background: 'var(--th-card)',
-          border: '1px solid var(--th-card-border-subtle)',
-          boxShadow: 'rgba(0,0,0,0.05) 0px 4px 24px',
-        }}
-      >
+      <div className="rounded-xl p-4 md:p-6" style={cardStyle}>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <h3
             className="text-[10px] font-semibold uppercase tracking-wider"
@@ -316,6 +383,8 @@ export default function AdminFinance() {
           emptyText="No transactions"
           mobileRender={(row) => txMobileRender(row as unknown as FinanceTransaction)}
         />
+      </div>
+
       </div>
     </div>
   );

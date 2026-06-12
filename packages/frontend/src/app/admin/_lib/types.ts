@@ -1,19 +1,60 @@
 // ─── Admin Panel Type Definitions ───────────────────────────────────────
 
 // Dashboard
-export interface DashboardKpi {
-  total_revenue: number;
-  minutes_used: number;
-  total_sessions: number;
-  margin: number;
-  estimated_cost: number;
+export type Period = 'today' | '7d' | '30d' | 'year' | 'all';
+
+export interface KpiWindow {
+  current: number;
+  previous: number | null; // null for 'all' (no trend)
 }
 
-export interface RevenueDay {
-  date: string;
-  revenue: string;
-  minutes: string;
-  sessions: string;
+export interface DashboardKpi {
+  revenue: KpiWindow;
+  provider_cost: KpiWindow;
+  margin_percent: KpiWindow;
+  minutes: KpiWindow;
+  sessions: KpiWindow;
+  active_users: KpiWindow;
+  signups: KpiWindow;
+}
+
+export interface ChartBucket {
+  bucket: string;
+  value: number;
+}
+
+export interface FunnelData {
+  signed_up: number;
+  claimed_bonus: number;
+  first_call: number;
+  first_topup: number;
+  bought_number: number;
+}
+
+export interface LowBalanceAlert {
+  id: string;
+  name: string;
+  owner_name: string | null;
+  balance_usd: number;
+}
+
+export interface NumberAtRisk {
+  id: string;
+  phone_number: string;
+  next_renewal_at: string;
+  monthly_price_usd: number;
+  workspace_id: string;
+  workspace_name: string;
+  owner_name: string | null;
+  balance_usd: number;
+}
+
+export interface HealthData {
+  low_balance: LowBalanceAlert[];
+  numbers_at_risk: NumberAtRisk[];
+  untranslated_7d: { turns: number; sessions: number };
+  failed_calls_7d: { failed: number; total: number };
+  open_tickets: number;
 }
 
 export interface RecentSession {
@@ -23,6 +64,25 @@ export interface RecentSession {
   cost_usd: string;
   status: string;
   created_at: string;
+}
+
+export interface DashboardLiveSession {
+  call_id: string;
+  workspace_id: string;
+  workspace_name: string | null;
+  is_admin: boolean;
+  type: string;
+  started_at: string;
+  from_number: string | null;
+  to_number: string | null;
+}
+
+export interface DashboardLiveData {
+  active: DashboardLiveSession[];
+  active_count: number;
+  today: { revenue: number; sessions: number; signups: number };
+  open_tickets: number;
+  new_contacts: number;
 }
 
 export interface RepeatBonusAttempt {
@@ -38,8 +98,13 @@ export interface RepeatBonusAttempt {
 }
 
 export interface DashboardData {
+  period: Period;
+  granularity: 'hour' | 'day' | 'month';
   kpi: DashboardKpi;
-  revenue_by_day: RevenueDay[];
+  revenue_by_bucket: ChartBucket[];
+  signups_by_bucket: ChartBucket[];
+  funnel: FunnelData;
+  health: HealthData;
   recent_sessions: RecentSession[];
   repeat_bonus_attempts?: RepeatBonusAttempt[];
 }
@@ -147,24 +212,39 @@ export interface AdminPersonalNumber {
 
 // Finance
 export interface FinanceKpi {
+  deposits: KpiWindow;
+  usage_revenue: KpiWindow;
+  provider_cost: KpiWindow;
+  margin_percent: KpiWindow;
   total_deposit_balance: number;
-  deposits_30d: number;
-  usage_revenue_30d: number;
-  real_provider_cost_30d: number;
-  margin_percent: number;
   active_subscriptions: number;
-  total_sessions_30d: number;
+  total_sessions: number;
+}
+
+export interface FinanceTopSpender {
+  workspace_id: string;
+  workspace_name: string | null;
+  owner_name: string | null;
+  spent: number;
 }
 
 export interface FinanceOverview {
+  period: Period;
   kpi: FinanceKpi;
+  revenue_breakdown: { usage: number; number_rental: number };
+  top_spenders: FinanceTopSpender[];
   plan_counts: Array<{ plan: string; count: number }>;
 }
 
 export interface FinanceRevenueDay {
   date: string;
-  deposits: string;
-  usage_revenue: string;
+  deposits: number;
+  usage_revenue: number;
+}
+
+export interface FinanceRevenueChart {
+  granularity: 'hour' | 'day' | 'month';
+  rows: FinanceRevenueDay[];
 }
 
 export interface FinanceTransaction {
