@@ -36,7 +36,7 @@ interface ConferenceTranslatorOptions {
 
 import { LANG_NAMES, TONE_INSTRUCTIONS } from '../config/languages.js';
 
-const DEFAULT_GREETING = `A live interpreter has joined this call. I will translate between your languages. Please speak naturally, then pause briefly after finishing your thought so I can translate. Let's begin.`;
+const DEFAULT_GREETING = `Hi, I'm your AI interpreter. Please go ahead.`;
 
 // Grok Voice Agent realtime model. We were passing the undocumented slug
 // "grok-3-mini-fast", which xAI silently mapped to a default model. Around

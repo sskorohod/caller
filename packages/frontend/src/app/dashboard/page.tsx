@@ -35,6 +35,9 @@ const TONES = [
 const card = 'rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(--th-card)] shadow-[0_1px_3px_var(--th-shadow),0_8px_24px_var(--th-card-glow)]';
 const selectCls = 'w-full px-3 py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] transition-all appearance-none';
 const PRICE_PER_MIN = 0.2;
+// Default greeting pre-filled for new clients; fully editable in the panel below.
+// Keep in sync with DEFAULT_GREETING in backend services/conference-translator.ts.
+const DEFAULT_GREETING = "Hi, I'm your AI interpreter. Please go ahead.";
 
 export default function DashboardHub() {
   const t = useT();
@@ -57,7 +60,7 @@ export default function DashboardHub() {
     api.get<{ phone_number: string | null }>('/translator/phone').then(r => setPhone(r.phone_number)).catch(() => {});
     api.get<{ balance_usd: number }>('/billing/balance').then(r => setBalance(r.balance_usd)).catch(() => {});
     api.get<UsageResp>('/translator/usage?period=30d').then(setUsage).catch(() => {});
-    api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', ...d }); setLoaded(true); }).catch(() => setLoaded(true));
+    api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', greeting_text: DEFAULT_GREETING, ...d }); setLoaded(true); }).catch(() => setLoaded(true));
   }, []);
 
   // Shared translator line status (free / busy). `/translator/line-status`
