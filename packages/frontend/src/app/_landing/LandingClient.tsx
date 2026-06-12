@@ -570,8 +570,12 @@ const LP_CSS = `
 .hp-stars { color: #818cf8; font-size: 14px; letter-spacing: 2px; line-height: 1; }
 .hp-label { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
 
-/* Hero photo (center, behind content) */
-.hero-photo { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: url('/landing/hero-photo.jpg'); background-repeat: no-repeat; background-position: center; background-size: cover; opacity: 0.55; -webkit-mask-image: radial-gradient(85% 100% at 50% 50%, #000 55%, transparent 100%); mask-image: radial-gradient(85% 100% at 50% 50%, #000 55%, transparent 100%); }
+/* Hero photo — cutout woman (transparent PNG/WebP), centered behind content,
+   so the live headline sits over her left and the transcript over her right —
+   matching the reference composite. */
+.hero-photo { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: url('/landing/hero-woman.webp'); background-repeat: no-repeat; background-position: 59% bottom; background-size: auto 99%; }
+.hero-copy, .hero-visual { position: relative; }
+.hero-copy::before { content: ''; position: absolute; inset: -40px -100px -40px -140px; z-index: -1; background: radial-gradient(62% 72% at 28% 50%, rgba(14,19,31,0.88), rgba(14,19,31,0.5) 55%, transparent 78%); pointer-events: none; }
 .lead { color: var(--ink-2); }
 .section { padding-top: 88px; }
 .section-flush-top { padding-top: 44px; }
