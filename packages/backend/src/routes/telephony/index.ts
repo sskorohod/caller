@@ -63,26 +63,44 @@ const telephonyRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [requireRole('owner', 'admin')],
   }, async (request, reply) => {
     const { purchasePersonalNumber } = await import('../../services/personal-number.service.js');
-    const number = await purchasePersonalNumber({
-      workspaceId: request.auth.workspaceId,
-      userId: request.auth.userId,
-    });
-    reply.status(201);
-    return { number };
+    try {
+      const number = await purchasePersonalNumber({
+        workspaceId: request.auth.workspaceId,
+        userId: request.auth.userId,
+      });
+      reply.status(201);
+      return { number };
+    } catch (err) {
+      // Service errors carry user-facing messages (INSUFFICIENT_BALANCE etc.)
+      // that the global prod sanitizer would replace with 'Invalid input'.
+      const { AppError } = await import('../../lib/errors.js');
+      if (err instanceof AppError && err.statusCode < 500) {
+        return reply.status(err.statusCode).send({ error: err.code, message: err.message });
+      }
+      throw err;
+    }
   });
 
   // PATCH /api/telephony/personal-number — toggle auto-renew
   app.patch('/personal-number', {
     preHandler: [requireRole('owner', 'admin')],
-  }, async (request) => {
+  }, async (request, reply) => {
     const body = z.object({ auto_renew: z.boolean() }).parse(request.body);
     const { setAutoRenew } = await import('../../services/personal-number.service.js');
-    const number = await setAutoRenew({
-      workspaceId: request.auth.workspaceId,
-      userId: request.auth.userId,
-      autoRenew: body.auto_renew,
-    });
-    return { number };
+    try {
+      const number = await setAutoRenew({
+        workspaceId: request.auth.workspaceId,
+        userId: request.auth.userId,
+        autoRenew: body.auto_renew,
+      });
+      return { number };
+    } catch (err) {
+      const { AppError } = await import('../../lib/errors.js');
+      if (err instanceof AppError && err.statusCode < 500) {
+        return reply.status(err.statusCode).send({ error: err.code, message: err.message });
+      }
+      throw err;
+    }
   });
 
   // DELETE /api/telephony/personal-number — immediate release, no refund
