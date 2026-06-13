@@ -1,6 +1,7 @@
 import { Client as MinioClient } from 'minio';
 import pino from 'pino';
 import { env } from '../config/env.js';
+import { isTwilioRecordingUrl } from '../lib/url-validation.js';
 
 const logger = pino({ name: 'recording-storage' });
 
@@ -54,6 +55,13 @@ export async function storeRecording(params: {
 
   try {
     await ensureBucket();
+
+    // Gate the destination to Twilio before attaching Basic-Auth: this request
+    // carries the Twilio AccountSid:AuthToken, so a non-Twilio (forged/legacy)
+    // URL would leak those credentials and enable SSRF.
+    if (!isTwilioRecordingUrl(params.twilioRecordingUrl)) {
+      throw new Error('Refusing to download recording from non-Twilio host');
+    }
 
     // Download from Twilio (requires Basic Auth with AccountSid:AuthToken)
     const mp3Url = params.twilioRecordingUrl.endsWith('.mp3')

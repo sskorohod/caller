@@ -80,12 +80,31 @@ export function isAllowedWebhookUrl(url: string): boolean {
   const host = parsed.hostname.replace(/^\[|\]$/g, '');
 
   // If the host is an IP literal, reject private/reserved ranges right away.
-  // (Hostnames are accepted here and re-checked against resolved IPs at fetch
-  // time by assertPublicHost — that is what stops DNS-rebinding.)
+  // (Hostnames are accepted here and re-checked against the resolved IP at fetch
+  // time by the pinned lookup in webhook.service.ts — that stops DNS-rebinding.)
   const fam = net.isIP(host);
   if (fam) {
     return !addressIsPrivateOrReserved(host, fam);
   }
 
   return true;
+}
+
+/**
+ * True only for https Twilio recording hosts. Recording downloads send the
+ * Twilio account's Basic-Auth credentials, so the destination must be gated to
+ * Twilio: a forged/legacy recording URL pointing elsewhere would otherwise
+ * leak those credentials (and enable SSRF). Twilio recording URLs are
+ * api.twilio.com / *.twilio.com.
+ */
+export function isTwilioRecordingUrl(rawUrl: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase();
+  return host === 'twilio.com' || host === 'api.twilio.com' || host.endsWith('.twilio.com');
 }

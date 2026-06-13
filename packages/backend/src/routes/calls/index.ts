@@ -8,6 +8,7 @@ import * as memoryService from '../../services/memory.service.js';
 import { ValidationError, AppError } from '../../lib/errors.js';
 import { env } from '../../config/env.js';
 import { signStreamToken } from '../../lib/stream-token.js';
+import { isTwilioRecordingUrl } from '../../lib/url-validation.js';
 import { db } from '../../config/db.js';
 import { calls } from '../../db/schema.js';
 import { eq, and, or, sql, gte, desc, inArray } from 'drizzle-orm';
@@ -240,6 +241,12 @@ const callRoutes: FastifyPluginAsync = async (app) => {
 
     // Twilio URL — proxy through backend with auth (Twilio URLs require Basic Auth)
     try {
+      // Never send Twilio Basic-Auth to a non-Twilio host (forged/legacy
+      // recording_url → credential leak + SSRF).
+      if (!isTwilioRecordingUrl(url)) {
+        reply.status(502).send({ error: 'Invalid recording URL' });
+        return;
+      }
       const creds = await telephonyService.getTwilioCreds(request.auth.workspaceId);
       const authHeader = 'Basic ' + Buffer.from(`${creds.account_sid}:${creds.auth_token}`).toString('base64');
       const mp3Url = url.endsWith('.mp3') ? url : `${url}.mp3`;
