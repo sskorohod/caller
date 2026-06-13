@@ -1,8 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import {
-  createCheckoutSession,
   handleCheckoutCompleted,
   handleDepositCheckoutCompleted,
   handleSubscriptionCheckoutCompleted,
@@ -10,9 +7,7 @@ import {
   handleInvoiceEvent,
   verifyWebhookSignature,
   getPlatformWebhookSecret,
-  isPlatformStripeConfigured,
 } from '../../services/stripe.service.js';
-import { env } from '../../config/env.js';
 import { db } from '../../config/db.js';
 import { stripeProcessedEvents } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -21,51 +16,6 @@ import pino from 'pino';
 const log = pino({ name: 'stripe-webhook' });
 
 const stripeRoutes: FastifyPluginAsync = async (app) => {
-  // POST /api/translator/checkout — create Stripe checkout session (authenticated)
-  app.post('/checkout', {
-    preHandler: [authenticateUser, requireRole('owner', 'admin')],
-  }, async (request, reply) => {
-    // Stripe is available if the platform account (panel key or env) is set up.
-    if (!(await isPlatformStripeConfigured())) {
-      reply.status(503).send({ error: 'Stripe not configured' });
-      return;
-    }
-
-    const body = z.object({
-      subscriber_id: z.string().uuid(),
-      minutes: z.number().int().min(1).max(10000),
-      price_per_minute: z.number().min(0.01).max(10).default(0.15),
-    }).parse(request.body);
-
-    // Verify the subscriber belongs to the caller's workspace (IDOR guard).
-    {
-      const { db } = await import('../../config/db.js');
-      const { translatorSubscribers } = await import('../../db/schema.js');
-      const { eq, and } = await import('drizzle-orm');
-      const [sub] = await db.select({ id: translatorSubscribers.id })
-        .from(translatorSubscribers)
-        .where(and(
-          eq(translatorSubscribers.id, body.subscriber_id),
-          eq(translatorSubscribers.workspace_id, request.auth.workspaceId),
-        ));
-      if (!sub) {
-        reply.status(404).send({ error: 'Subscriber not found' });
-        return;
-      }
-    }
-
-    const session = await createCheckoutSession({
-      subscriberId: body.subscriber_id,
-      minutes: body.minutes,
-      pricePerMinute: body.price_per_minute,
-      successUrl: `https://${env.API_DOMAIN}/dashboard/translator?checkout=success`,
-      cancelUrl: `https://${env.API_DOMAIN}/dashboard/translator?checkout=canceled`,
-      workspaceId: request.auth.workspaceId,
-    });
-
-    return { url: session.url, session_id: session.sessionId };
-  });
-
   // POST /api/translator/webhook — Stripe webhook (no auth, uses signature)
   app.post('/webhook', {
     config: { rawBody: true },

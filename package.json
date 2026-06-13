@@ -6,6 +6,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "overrides": {
+    "postcss": "^8.5.3"
+  },
   "scripts": {
     "dev:backend": "npm run dev -w packages/backend",
     "dev:frontend": "npm run dev -w packages/frontend",
