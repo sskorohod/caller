@@ -400,10 +400,9 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
           if (!calleeAuthed && msg.event !== 'start') return;
 
           if (msg.event === 'start') {
+            // TEMP (post-incident): log-only, see main handler note.
             if (!verifyStreamToken(rawCallId, msg.start?.customParameters?.token)) {
-              logger.warn({ rawCallId }, 'media-stream callee WS rejected — invalid/missing stream token');
-              socket.close();
-              return;
+              logger.warn({ rawCallId, customParameters: msg.start?.customParameters }, 'media-stream callee stream-token check FAILED — allowing (log-only, post-incident)');
             }
             calleeAuthed = true;
             calleeStreamSid = msg.start.streamSid;
@@ -547,14 +546,13 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         if (!streamAuthed && msg.event !== 'start') return;
 
         if (msg.event === 'start') {
-          // Authenticate the stream before any billable work: the signed token
-          // arrives as a Twilio <Parameter> (query strings are stripped by
-          // Twilio) and must match this exact stream id. Closes the
-          // unauthenticated-WS hole (forged audio + platform-billed Grok spend).
+          // TEMP (post-incident): token enforcement is LOG-ONLY so a real Twilio
+          // call is never blocked while we confirm from logs that Twilio actually
+          // delivers the <Parameter> token. Re-enable socket.close() once verified.
           if (!verifyStreamToken(rawCallId, msg.start?.customParameters?.token)) {
-            logger.warn({ rawCallId }, 'media-stream WS rejected — invalid/missing stream token');
-            socket.close();
-            return;
+            logger.warn({ rawCallId, customParameters: msg.start?.customParameters }, 'media-stream stream-token check FAILED — allowing (log-only, post-incident)');
+          } else {
+            logger.info({ rawCallId }, 'media-stream stream-token OK');
           }
           streamAuthed = true;
           streamSid = msg.start.streamSid;
