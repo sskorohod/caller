@@ -28,7 +28,11 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
 
   const initialName = (workspace as any)?.owner_name ?? '';
   const initialPhones = JSON.stringify(((workspace as any)?.phone_numbers ?? []).filter(Boolean));
-  const dirty = ownerName !== initialName || JSON.stringify(phoneNums.filter(Boolean)) !== initialPhones;
+  // Compare only valid E.164 phones — a stray browser/password-manager
+  // autofill (e.g. an email injected into an empty field) must not wedge the
+  // form into a permanent "unsaved changes" state.
+  const validPhones = phoneNums.map(normalize).filter(n => n && E164.test(n));
+  const dirty = ownerName !== initialName || JSON.stringify(validPhones) !== initialPhones;
 
   async function save() {
     setSaving(true); setError(''); setSaved(false);
@@ -107,9 +111,11 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
           <input
             id="settings-owner-name"
             type="text"
+            name="account-owner-name"
+            autoComplete="off"
             value={ownerName}
             onChange={e => setOwnerName(e.target.value)}
-            placeholder="Slava"
+            placeholder={lang === 'ru' ? 'Иван' : 'John'}
             className={`${inputCls} max-w-sm font-medium`}
           />
           <p className="text-[11px] leading-relaxed text-[var(--th-text-muted)]">
@@ -133,6 +139,14 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
                 <div key={i}>
                   <input
                     type="tel"
+                    inputMode="tel"
+                    // Suppress browser + password-manager autofill — these are
+                    // "authorized caller" numbers, not the user's own profile
+                    // phone, and unsuppressed autofill injected emails here.
+                    name={`authorized-phone-${i + 1}`}
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
                     value={val}
                     aria-label={`${t('settings.phoneNumbers')} ${i + 1}`}
                     placeholder={i === 0 ? '+14155551234' : `Phone ${i + 1} (optional)`}

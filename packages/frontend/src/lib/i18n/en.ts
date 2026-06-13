@@ -716,7 +716,7 @@ const en: Record<string, string> = {
   'settings.language': 'Language',
   'settings.workspaceSettings': 'Workspace Settings',
   'settings.workspaceName': 'Workspace Name',
-  'settings.ownerName': 'Your Name',
+  'settings.ownerName': 'Your name',
   'settings.ownerNameHint': 'Used as the account holder name on billing and system notifications.',
   'settings.industry': 'Industry',
   'settings.selectIndustry': 'Select industry...',
