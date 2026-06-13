@@ -90,6 +90,18 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
       }
     >
       <div className="space-y-5">
+        {/* Off-screen decoy credential pair. Chrome shows its "fill saved
+            password" dropdown on text fields whenever the origin has a saved
+            login (lingoline.net does). This live (non-readonly) username +
+            password pair, placed first and hidden OFF-SCREEN (not display:none,
+            which Chrome skips), gives the password manager a dedicated target
+            so it parks its UI here instead of the visible name/phone fields.
+            Hidden from keyboard (tabIndex=-1) and screen readers (aria-hidden);
+            uncontrolled, so its value never enters React state or the save. */}
+        <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: 0, width: 1, height: 1, overflow: 'hidden' }}>
+          <input type="text" name="username" autoComplete="username" tabIndex={-1} />
+          <input type="password" name="password" autoComplete="new-password" tabIndex={-1} data-1p-ignore data-lpignore="true" />
+        </div>
         {bonusNote && (
           <div
             className={`rounded-xl px-4 py-3 text-sm ${bonusNote === 'granted'
@@ -120,7 +132,7 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
             onPointerDown={e => { e.currentTarget.readOnly = false; }}
             value={ownerName}
             onChange={e => setOwnerName(e.target.value)}
-            placeholder={lang === 'ru' ? 'Иван' : 'John'}
+            placeholder={lang === 'ru' ? 'Ваше имя' : 'Your name'}
             className={`${inputCls} max-w-sm font-medium`}
           />
           <p className="text-[11px] leading-relaxed text-[var(--th-text-muted)]">
