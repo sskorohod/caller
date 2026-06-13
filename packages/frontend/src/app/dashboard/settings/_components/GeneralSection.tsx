@@ -140,11 +140,14 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
                   <input
                     type="tel"
                     inputMode="tel"
-                    // Suppress browser + password-manager autofill — these are
-                    // "authorized caller" numbers, not the user's own profile
-                    // phone, and unsuppressed autofill injected emails here.
+                    // Chrome IGNORES autocomplete="off" and then heuristically
+                    // classifies the last empty field as a password candidate
+                    // (the password-fill prompt the user saw on field 3). The
+                    // semantic "tel" tells Chrome it's a phone field, so it
+                    // never offers a password or email here. data-*-ignore
+                    // covers 1Password / LastPass, which don't read autocomplete.
                     name={`authorized-phone-${i + 1}`}
-                    autoComplete="off"
+                    autoComplete="tel"
                     data-1p-ignore
                     data-lpignore="true"
                     value={val}
