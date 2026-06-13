@@ -1,15 +1,14 @@
 import net from 'node:net';
-import { lookup } from 'node:dns/promises';
 
 /**
  * SSRF protection for outbound webhook delivery.
  *
- * Two layers:
  *  - isAllowedWebhookUrl(): cheap synchronous sanity check at create/update
  *    time (https-only, no creds, reject private IP *literals*).
- *  - assertPublicHost(): the real guard, called at FETCH time. It resolves the
- *    hostname via DNS and rejects if ANY resolved address is private/reserved.
- *    This is what defeats DNS-rebinding and alternate IP encodings that a
+ *  - addressIsPrivateOrReserved(): the IP classifier used at FETCH time by the
+ *    webhook delivery path's pinned DNS lookup (services/webhook.service.ts),
+ *    which resolves once, rejects any private/reserved address, and pins the
+ *    connection IP — defeating DNS-rebinding and alternate IP encodings that a
  *    string denylist cannot catch.
  */
 
@@ -89,29 +88,4 @@ export function isAllowedWebhookUrl(url: string): boolean {
   }
 
   return true;
-}
-
-/**
- * Resolve the hostname and throw if it maps to any private/reserved address.
- * Call this immediately before issuing an outbound request to a user-supplied
- * URL. Defeats DNS rebinding and alternate IP encodings.
- */
-export async function assertPublicHost(hostname: string): Promise<void> {
-  const host = hostname.replace(/^\[|\]$/g, '');
-
-  const fam = net.isIP(host);
-  if (fam) {
-    if (addressIsPrivateOrReserved(host, fam)) {
-      throw new Error('Blocked outbound request to private/reserved address');
-    }
-    return;
-  }
-
-  const results = await lookup(host, { all: true });
-  if (!results.length) throw new Error('Host did not resolve');
-  for (const r of results) {
-    if (addressIsPrivateOrReserved(r.address, r.family)) {
-      throw new Error('Blocked outbound request to private/reserved address');
-    }
-  }
 }

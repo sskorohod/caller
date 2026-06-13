@@ -1,8 +1,10 @@
 import crypto from 'node:crypto';
+import https from 'node:https';
+import { lookup as dnsLookup } from 'node:dns';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { webhookEndpoints } from '../db/schema.js';
-import { assertPublicHost } from '../lib/url-validation.js';
+import { addressIsPrivateOrReserved } from '../lib/url-validation.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'webhook-service' });
@@ -33,6 +35,33 @@ function signPayload(body: string, secret: string): string {
 }
 
 /**
+ * DNS lookup for outbound webhook delivery that resolves the host ONCE, rejects
+ * if any resolved address is private/reserved, and pins the connection to the
+ * validated IP. Because https.request connects to exactly the address this
+ * returns (no second resolution), it closes the check-then-connect DNS-rebinding
+ * window. TLS SNI/cert validation still uses the original hostname.
+ */
+function pinnedPublicLookup(
+  hostname: string,
+  options: { family?: number; all?: boolean } | number,
+  callback: (err: Error | null, address?: string | { address: string; family: number }[], family?: number) => void,
+): void {
+  const opts = typeof options === 'number' ? { family: options } : (options || {});
+  dnsLookup(hostname, { all: true, family: opts.family || 0 }, (err, addresses) => {
+    if (err) return callback(err);
+    const list = Array.isArray(addresses) ? addresses : [];
+    if (!list.length) return callback(new Error('Host did not resolve'));
+    for (const a of list) {
+      if (addressIsPrivateOrReserved(a.address, a.family)) {
+        return callback(new Error('Blocked outbound request to private/reserved address'));
+      }
+    }
+    if (opts.all) return callback(null, list);
+    callback(null, list[0].address, list[0].family);
+  });
+}
+
+/**
  * Sends a single webhook request with retries and exponential backoff.
  */
 async function sendWithRetry(
@@ -50,41 +79,48 @@ async function sendWithRetry(
   }
 
   try {
-    // SSRF guard at delivery time: re-validate scheme and resolve the host,
-    // rejecting any private/reserved address. This catches DNS-rebinding and
-    // IP-encoding tricks that a create-time string check cannot.
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') {
       logger.warn({ url, attempt }, 'Webhook delivery blocked — non-https URL');
       return false;
     }
-    await assertPublicHost(parsed.hostname);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body,
-      signal: controller.signal,
-      // Never auto-follow redirects: a 3xx Location could point at an internal
-      // host (and downgrade https→http), bypassing the SSRF check above.
-      redirect: 'manual',
+    const payload = Buffer.from(body, 'utf8');
+    // node:https does NOT follow redirects, so a 3xx Location to an internal
+    // host can't bypass the lookup guard. pinnedPublicLookup resolves+validates
+    // once and pins the connection IP, closing the DNS-rebinding TOCTOU.
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: parsed.hostname,
+          port: parsed.port || 443,
+          path: `${parsed.pathname}${parsed.search}`,
+          method: 'POST',
+          headers: { ...headers, 'Content-Length': payload.length },
+          lookup: pinnedPublicLookup as never,
+          timeout: 10_000,
+        },
+        (res) => {
+          res.resume(); // drain & discard the response body
+          resolve(res.statusCode || 0);
+        },
+      );
+      req.on('timeout', () => req.destroy(new Error('Webhook request timed out')));
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
     });
 
-    clearTimeout(timeout);
-
-    if (response.ok) {
+    if (status >= 200 && status < 300) {
       return true;
     }
 
-    if (response.status >= 300 && response.status < 400) {
-      logger.warn({ url, status: response.status, attempt }, 'Webhook delivery blocked — redirect not followed');
+    if (status >= 300 && status < 400) {
+      logger.warn({ url, status, attempt }, 'Webhook delivery blocked — redirect not followed');
       return false;
     }
 
-    logger.warn({ url, status: response.status, attempt }, 'Webhook delivery failed with status');
+    logger.warn({ url, status, attempt }, 'Webhook delivery failed with status');
   } catch (err) {
     logger.warn({ url, err, attempt }, 'Webhook delivery request error');
   }
