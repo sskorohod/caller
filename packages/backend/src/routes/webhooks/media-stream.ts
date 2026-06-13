@@ -533,7 +533,11 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 targetLanguage = fallback;
               }
 
-              const { ConferenceTranslator } = await import('../../services/conference-translator.js');
+              const { ConferenceTranslator, DEFAULT_GREETING } = await import('../../services/conference-translator.js');
+              // Greeting precedence: per-call meta → workspace setting →
+              // admin-configured platform default → hardcoded fallback.
+              const { getStringSetting } = await import('../../services/platform-settings.service.js');
+              const platformGreeting = await getStringSetting('default_greeting', DEFAULT_GREETING).catch(() => DEFAULT_GREETING);
               const translator = new ConferenceTranslator({
                 callId,
                 workspaceId: callerWsId || call.workspace_id,
@@ -546,7 +550,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 ttsVoiceId: wsDefs.tts_voice_id || 'eve',
                 tone: wsDefs.tone || 'business',
                 personalContext: wsDefs.personal_context || '',
-                greetingText: callMeta.greeting_text || wsDefs.greeting_text || '',
+                greetingText: callMeta.greeting_text || wsDefs.greeting_text || platformGreeting,
                 greetingDelaySeconds: Number(wsDefs.greeting_delay_seconds ?? 3),
                 socket: socket as any,
                 streamSid: streamSid!,

@@ -10,6 +10,7 @@ import { GiftAlreadyUsedBanner } from './_components/GiftAlreadyUsedBanner';
 
 interface TranslatorDefaults {
   greeting_text?: string;
+  greeting_text_default?: string;
   greeting_delay_seconds?: number;
   tts_voice_id?: string;
   tone?: string;
@@ -63,7 +64,11 @@ export default function DashboardHub() {
     api.get<{ phone_number: string | null; is_personal?: boolean }>('/translator/phone').then(r => { setPhone(r.phone_number); setIsPersonalNumber(!!r.is_personal); }).catch(() => {});
     api.get<{ balance_usd: number; signup_bonus_status?: string }>('/billing/balance').then(r => { setBalance(r.balance_usd); setBonusStatus(r.signup_bonus_status); }).catch(() => {});
     api.get<UsageResp>('/translator/usage?period=all').then(setUsage).catch(() => {});
-    api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', greeting_text: DEFAULT_GREETING, ...d }); setLoaded(true); }).catch(() => setLoaded(true));
+    // NB: greeting_text is NOT pre-filled with the platform default — the
+    // autosave PUTs the whole state, and pre-filling would freeze the
+    // platform default into the workspace as its own greeting. The default
+    // is shown as the textarea placeholder instead.
+    api.get<TranslatorDefaults>('/translator/defaults').then(d => { setDefaults({ my_language: 'ru', target_language: 'en', ...d }); setLoaded(true); }).catch(() => setLoaded(true));
   }, []);
 
   // Shared translator line status (free / busy). `/translator/line-status`
@@ -443,7 +448,7 @@ export default function DashboardHub() {
               </span>
             </div>
             <textarea value={defaults.greeting_text || ''} onChange={e => update({ greeting_text: e.target.value })} rows={2}
-              placeholder={t('translator.greetingPlaceholder')} className={selectCls + ' resize-y'} />
+              placeholder={defaults.greeting_text_default || DEFAULT_GREETING} className={selectCls + ' resize-y'} />
             <p className="text-[10px] mt-1 leading-snug text-[var(--th-text-muted)]">
               {tt('Write it in any language — it is automatically translated into the other party’s language and spoken after the chosen delay. Translation starts right after.',
                   'Пишите на любом языке — приветствие автоматически переведётся на язык собеседника и прозвучит через указанное время после подключения. Сразу после него начнётся перевод.')}

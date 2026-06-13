@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { env } from './config/env.js';
 import { db, pool } from './config/db.js';
 import { AppError } from './lib/errors.js';
+import { ZodError } from 'zod';
 import { initSocketServer } from './realtime/socket-server.js';
 
 // Create shared HTTP server — Socket.IO and Fastify both attach to it
@@ -69,6 +70,16 @@ await app.register(rateLimit, {
 
 // Global error handler — sanitize errors in production
 app.setErrorHandler((error, request, reply) => {
+  // Zod validation failures are client errors, not 500s
+  if (error instanceof ZodError) {
+    const first = error.issues[0];
+    reply.status(400).send({
+      error: 'VALIDATION_ERROR',
+      message: first ? `${first.path.join('.') || 'body'}: ${first.message}` : 'Invalid input',
+    });
+    return;
+  }
+
   if (error instanceof AppError) {
     const message = env.NODE_ENV === 'production'
       ? getPublicMessage(error.code ?? 'UNKNOWN')

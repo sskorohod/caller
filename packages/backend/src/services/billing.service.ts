@@ -19,8 +19,25 @@ export async function getMarkup(): Promise<number> {
     .where(eq(platformSettings.key, 'billing_markup'))
     .limit(1);
   cachedMarkup = row.length ? parseFloat(row[0].value as string) : DEFAULT_PLATFORM_MARKUP;
+  if (!Number.isFinite(cachedMarkup)) cachedMarkup = DEFAULT_PLATFORM_MARKUP;
   markupCachedAt = Date.now();
   return cachedMarkup;
+}
+
+/** Apply an admin markup change immediately (the cache TTL is 60s). */
+export function invalidateMarkupCache(): void {
+  cachedMarkup = null;
+  markupCachedAt = 0;
+}
+
+/**
+ * Balance level at/below which a subscriber counts as "low balance"
+ * (admin dashboard alert + Subscribers filter). Admin-configurable.
+ */
+export async function getLowBalanceThreshold(): Promise<number> {
+  const { getNumericSetting } = await import('./platform-settings.service.js');
+  const value = await getNumericSetting('billing_low_balance_threshold', 2);
+  return value > 0 ? value : 2;
 }
 
 // ─── Balance Operations ───────────────────────────────────────────────────

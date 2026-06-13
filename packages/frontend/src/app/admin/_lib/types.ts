@@ -51,6 +51,7 @@ export interface NumberAtRisk {
 
 export interface HealthData {
   low_balance: LowBalanceAlert[];
+  low_balance_threshold?: number;
   numbers_at_risk: NumberAtRisk[];
   untranslated_7d: { turns: number; sessions: number };
   failed_calls_7d: { failed: number; total: number };
@@ -285,14 +286,30 @@ export interface FinanceTransaction {
   created_at: string;
 }
 
-// Billing
+// Billing (values may arrive as raw numbers or legacy JSON-encoded strings)
 export interface BillingSettings {
-  billing_markup?: string;
-  billing_low_balance_threshold?: string;
-  billing_signup_bonus_usd?: string;
-  billing_personal_number_monthly_usd?: string;
-  billing_agents_monthly_price?: string;
-  billing_agents_mcp_monthly_price?: string;
+  billing_markup?: string | number;
+  billing_low_balance_threshold?: string | number;
+  billing_signup_bonus_usd?: string | number;
+  billing_personal_number_monthly_usd?: string | number;
+}
+
+// Provider pricing (admin pricing editor)
+export interface LlmModelPrice {
+  inputPer1M: number;
+  outputPer1M: number;
+}
+
+export interface PricingTables {
+  llm: Record<string, LlmModelPrice>;
+  tts: Record<string, number>;
+  stt: Record<string, number>;
+  telephony: Record<string, number>;
+}
+
+export interface PricingConfig {
+  defaults: PricingTables;
+  overrides: Partial<PricingTables>;
 }
 
 // Providers
@@ -315,11 +332,8 @@ export interface ProviderConfig {
 
 // Settings
 export interface PlatformSettings {
-  pricing_per_minute?: string;
-  bundles?: Array<{ name: string; minutes: number; price: number }>;
   default_greeting?: string;
-  default_tts_provider?: string;
-  default_languages?: { my: string; target: string };
+  pricing?: Partial<PricingTables>;
   [key: string]: unknown;
 }
 

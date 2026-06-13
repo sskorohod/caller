@@ -17,7 +17,7 @@ function buildRows(health: HealthData): HealthRow[] {
     rows.push({
       severity: 'warning',
       icon: 'account_balance_wallet',
-      text: `${health.low_balance.length} subscriber${health.low_balance.length > 1 ? 's' : ''} with low balance (≤ $2)`,
+      text: `${health.low_balance.length} subscriber${health.low_balance.length > 1 ? 's' : ''} with low balance (≤ $${String(health.low_balance_threshold ?? 2)})`,
       detail: health.low_balance.slice(0, 3).map(w => `${w.owner_name || w.name} ($${w.balance_usd.toFixed(2)})`).join(', '),
       href: '/admin/workspaces',
     });

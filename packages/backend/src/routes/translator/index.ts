@@ -186,7 +186,13 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
     const [ws] = await db.select({ translator_defaults: workspaces.translator_defaults })
       .from(workspaces)
       .where(eq(workspaces.id, request.auth.workspaceId));
-    return ws?.translator_defaults || {};
+    // greeting_text_default = the platform-wide greeting used on calls when
+    // the workspace hasn't set its own — the dashboard pre-fills from it so
+    // what the user sees matches what the call actually says.
+    const { getStringSetting } = await import('../../services/platform-settings.service.js');
+    const { DEFAULT_GREETING } = await import('../../services/conference-translator.js');
+    const greetingDefault = await getStringSetting('default_greeting', DEFAULT_GREETING).catch(() => DEFAULT_GREETING);
+    return { ...(ws?.translator_defaults as Record<string, unknown> || {}), greeting_text_default: greetingDefault };
   });
 
   // PUT /api/translator/defaults — update workspace-level translator settings

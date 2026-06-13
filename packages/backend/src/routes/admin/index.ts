@@ -193,11 +193,13 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
 
     // ── Health & alerts (fixed windows, independent of the period filter) ──
 
+    const { getLowBalanceThreshold } = await import('../../services/billing.service.js');
+    const lowBalanceThreshold = await getLowBalanceThreshold();
     const lowBalance = await db.execute(sql`
       SELECT id, name, owner_name, balance_usd::float AS balance_usd, phone_numbers
       FROM workspaces
       WHERE id IS DISTINCT FROM ${adminWs}
-        AND balance_usd::numeric > 0 AND balance_usd::numeric <= 2
+        AND balance_usd::numeric > 0 AND balance_usd::numeric <= ${lowBalanceThreshold}
       ORDER BY balance_usd::numeric ASC LIMIT 10
     `);
 
@@ -277,6 +279,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       funnel,
       health: {
         low_balance: lowBalance.rows,
+        low_balance_threshold: lowBalanceThreshold,
         numbers_at_risk: numbersAtRisk.rows,
         untranslated_7d: untranslated,
         failed_calls_7d: failed,
@@ -527,28 +530,59 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ─── Settings ─────────────────────────────────────────────────────────
+  // Strict whitelist: only the keys the Settings UI owns. Infrastructure
+  // keys (platform_stripe_workspace_id etc.) must never be writable here.
+
+  const llmPriceSchema = z.object({
+    inputPer1M: z.number().min(0),
+    outputPer1M: z.number().min(0),
+  });
+  const pricingOverridesSchema = z.object({
+    llm: z.record(llmPriceSchema).optional(),
+    tts: z.record(z.number().min(0)).optional(),
+    stt: z.record(z.number().min(0)).optional(),
+    telephony: z.record(z.number().min(0)).optional(),
+  }).strict();
+  const settingsBodySchema = z.object({
+    default_greeting: z.string().max(500).optional(),
+    pricing: pricingOverridesSchema.optional(),
+  }).strict();
 
   app.get('/settings', async () => {
-    const rows = await db.select().from(platformSettings);
+    const keys = ['default_greeting', 'pricing'];
+    const rows = await db.select().from(platformSettings)
+      .where(or(...keys.map(k => eq(platformSettings.key, k))));
     const settings: Record<string, any> = {};
     for (const row of rows) settings[row.key] = row.value;
     return { settings };
   });
 
   app.put('/settings', async (request) => {
-    const body = z.record(z.unknown()).parse(request.body);
+    const body = settingsBodySchema.parse(request.body);
     for (const [key, value] of Object.entries(body)) {
+      if (value === undefined) continue;
       await db.insert(platformSettings).values({ key, value: value as any, updated_at: new Date() })
         .onConflictDoUpdate({ target: platformSettings.key, set: { value: value as any, updated_at: new Date() } });
     }
     await auditLog(request.auth.userId, 'settings_changed', 'settings', 'platform',
       { keys: Object.keys(body) }, request.ip);
-    // Invalidate pricing cache if pricing was updated
+
+    const { invalidatePlatformSettingsCache } = await import('../../services/platform-settings.service.js');
+    invalidatePlatformSettingsCache();
     if ('pricing' in body) {
-      const { invalidatePricingCache } = await import('../../config/pricing.js');
+      // Re-apply immediately — overrides otherwise only load at boot
+      const { invalidatePricingCache, loadPricingOverrides } = await import('../../config/pricing.js');
       invalidatePricingCache();
+      await loadPricingOverrides();
     }
     return { ok: true };
+  });
+
+  // ─── GET /pricing — defaults + applied overrides for the editor ────────
+  app.get('/pricing', async () => {
+    const { PRICING_DEFAULTS, getAppliedPricingOverrides, loadPricingOverrides } = await import('../../config/pricing.js');
+    await loadPricingOverrides();
+    return { defaults: PRICING_DEFAULTS, overrides: getAppliedPricingOverrides() };
   });
 
   // ─── Stripe Connect OAuth ─────────────────────────────────���────────────
@@ -689,7 +723,11 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     const hasPersonalNumber = sql<boolean>`EXISTS (SELECT 1 FROM telephony_connections tc WHERE tc.workspace_id = workspaces.id AND tc.is_personal = true AND tc.status = 'active')`;
 
     if (q.flag === 'repeat_phone') conditions.push(sql`${attemptCount} > 0`);
-    if (q.flag === 'low_balance') conditions.push(sql`${workspaces.balance_usd}::numeric > 0 AND ${workspaces.balance_usd}::numeric <= 2`);
+    if (q.flag === 'low_balance') {
+      const { getLowBalanceThreshold } = await import('../../services/billing.service.js');
+      const threshold = await getLowBalanceThreshold();
+      conditions.push(sql`${workspaces.balance_usd}::numeric > 0 AND ${workspaces.balance_usd}::numeric <= ${threshold}`);
+    }
     if (q.flag === 'has_number') conditions.push(hasPersonalNumber);
 
     const where = and(...conditions);
@@ -1174,23 +1212,37 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── PUT /billing-settings ───────────────────────────────────────────
   app.put('/billing-settings', async (request) => {
-    const body = z.record(z.union([z.string(), z.number()])).parse(request.body);
-
-    const allowedKeys = ['billing_markup', 'billing_low_balance_threshold', 'billing_signup_bonus_usd', 'billing_personal_number_monthly_usd'];
+    // Raw numbers in jsonb; every reader tolerates both this and the
+    // legacy JSON-string encoding.
+    const body = z.object({
+      billing_markup: z.coerce.number().min(1).optional(),
+      // 0 would silently behave as the default (getLowBalanceThreshold
+      // coerces non-positive to 2) — reject it instead of diverging.
+      billing_low_balance_threshold: z.coerce.number().positive().optional(),
+      billing_signup_bonus_usd: z.coerce.number().min(0).optional(),
+      billing_personal_number_monthly_usd: z.coerce.number().min(0).optional(),
+    }).strict().parse(request.body);
 
     for (const [key, value] of Object.entries(body)) {
-      if (!allowedKeys.includes(key)) continue;
+      if (value === undefined) continue;
       await db.insert(platformSettings).values({
         key,
-        value: JSON.stringify(String(value)) as any,
+        value: value as any,
         updated_at: new Date(),
       }).onConflictDoUpdate({
         target: platformSettings.key,
-        set: { value: JSON.stringify(String(value)) as any, updated_at: new Date() },
+        set: { value: value as any, updated_at: new Date() },
       });
     }
 
     await auditLog(request.auth.userId, 'billing_settings_changed', 'settings', 'billing', body, request.ip);
+
+    // Apply immediately — markup is cached 60s, settings cache likewise
+    const { invalidateMarkupCache } = await import('../../services/billing.service.js');
+    invalidateMarkupCache();
+    const { invalidatePlatformSettingsCache } = await import('../../services/platform-settings.service.js');
+    invalidatePlatformSettingsCache();
+
     return { success: true };
   });
 };

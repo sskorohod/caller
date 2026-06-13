@@ -36,7 +36,10 @@ interface ConferenceTranslatorOptions {
 
 import { LANG_NAMES, TONE_INSTRUCTIONS } from '../config/languages.js';
 
-const DEFAULT_GREETING = `Hi, I'm your AI interpreter. Please go ahead.`;
+// Last-resort fallback; the admin-configurable platform default lives in
+// platform_settings.default_greeting (resolved at the media-stream
+// construction site).
+export const DEFAULT_GREETING = `Hi, I'm your AI interpreter. Please go ahead.`;
 
 // Grok Voice Agent realtime model. We were passing the undocumented slug
 // "grok-3-mini-fast", which xAI silently mapped to a default model. Around
