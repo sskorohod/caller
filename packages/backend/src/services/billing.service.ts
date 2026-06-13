@@ -14,12 +14,12 @@ export async function getMarkup(): Promise<number> {
   if (cachedMarkup !== null && Date.now() - markupCachedAt < MARKUP_CACHE_TTL) {
     return cachedMarkup;
   }
-  const row = await db.select({ value: platformSettings.value })
-    .from(platformSettings)
-    .where(eq(platformSettings.key, 'billing_markup'))
-    .limit(1);
-  cachedMarkup = row.length ? parseFloat(row[0].value as string) : DEFAULT_PLATFORM_MARKUP;
-  if (!Number.isFinite(cachedMarkup)) cachedMarkup = DEFAULT_PLATFORM_MARKUP;
+  // Tolerate every historical jsonb encoding: raw number (2), single
+  // JSON-string ("2"), and the legacy double-encoded form ("\"2\"").
+  // parseFloat('"2"') is NaN, which previously silently fell back to 3×.
+  const { getNumericSetting } = await import('./platform-settings.service.js');
+  cachedMarkup = await getNumericSetting('billing_markup', DEFAULT_PLATFORM_MARKUP);
+  if (!Number.isFinite(cachedMarkup) || cachedMarkup < 1) cachedMarkup = DEFAULT_PLATFORM_MARKUP;
   markupCachedAt = Date.now();
   return cachedMarkup;
 }
