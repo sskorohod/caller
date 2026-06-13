@@ -147,7 +147,7 @@ function Landing() {
           {[
             { icon: 'smartphone', l1: t('No app needed —', 'Без приложения —'), l2: t('any phone works', 'с любого телефона') },
             { icon: 'lock', l1: t('Private', 'Конфиденциально'), l2: t('and secure', 'и безопасно') },
-            { icon: 'language', l1: t('12 languages', '12 языков'), l2: t('and growing', 'и больше') },
+            { icon: 'language', l1: t('13 languages', '13 языков'), l2: t('and growing', 'и больше') },
             { icon: 'public', l1: t('Works from', 'Работает из любой'), l2: t('anywhere', 'точки мира') },
           ].map((item, i) => (
             <li key={i}>
@@ -271,10 +271,10 @@ function Landing() {
       <section className="lp-wrap section section-flush-top">
         <div className="section-head" data-reveal>
           <p className="eyebrow"><span className="dot" />{t('Languages', 'Языки')}</p>
-          <h2 className="display section-h">{t('Twelve languages, any direction', 'Двенадцать языков, в любую сторону')}</h2>
+          <h2 className="display section-h">{t('Thirteen languages, any direction', 'Тринадцать языков, в любую сторону')}</h2>
         </div>
         <div className="langs" data-reveal>
-          {['English', 'Русский', 'Español', 'Deutsch', 'Français', '中文', '日本語', '한국어', 'العربية', 'Português', 'Italiano', 'हिन्दी'].map((l) => (
+          {['English', 'Русский', 'Українська', 'Español', 'Deutsch', 'Français', '中文', '日本語', '한국어', 'العربية', 'Português', 'Italiano', 'हिन्दी'].map((l) => (
             <span key={l} className="lang display">{l}</span>
           ))}
         </div>
@@ -492,8 +492,8 @@ function LangToggle() {
 }
 
 function GreetingsMarquee() {
-  // "Hello" across the 12 supported languages — an animated multilingual band.
-  const greetings = ['Hello', 'Hola', 'Привет', '你好', 'مرحبا', 'Bonjour', 'Olá', 'こんにちは', '안녕하세요', 'Hallo', 'Ciao', 'नमस्ते'];
+  // "Hello" across the 13 supported languages — an animated multilingual band.
+  const greetings = ['Hello', 'Hola', 'Привет', 'Привіт', '你好', 'مرحبا', 'Bonjour', 'Olá', 'こんにちは', '안녕하세요', 'Hallo', 'Ciao', 'नमस्ते'];
   const loop = [...greetings, ...greetings];
   return (
     <div className="marquee-band" aria-hidden>
@@ -510,7 +510,7 @@ function GreetingsMarquee() {
 function FAQ(t: (en: string, ru: string) => string) {
   return [
     { q: t('Do I need to install an app?', 'Нужно ли устанавливать приложение?'), a: t('No. LingoLine is a phone number you merge into a normal call. Nothing to download, and the other person needs nothing at all.', 'Нет. LingoLine — это номер, который вы подключаете в обычный звонок. Ничего скачивать не нужно, а собеседнику — тем более.') },
-    { q: t('Which languages are supported?', 'Какие языки поддерживаются?'), a: t('Twelve: English, Russian, Spanish, German, French, Chinese, Japanese, Korean, Arabic, Portuguese, Italian and Hindi — in any direction, detected automatically.', 'Двенадцать: английский, русский, испанский, немецкий, французский, китайский, японский, корейский, арабский, португальский, итальянский и хинди — в любую сторону, с авто-определением.') },
+    { q: t('Which languages are supported?', 'Какие языки поддерживаются?'), a: t('Thirteen: English, Russian, Ukrainian, Spanish, German, French, Chinese, Japanese, Korean, Arabic, Portuguese, Italian and Hindi — in any direction, detected automatically.', 'Тринадцать: английский, русский, украинский, испанский, немецкий, французский, китайский, японский, корейский, арабский, португальский, итальянский и хинди — в любую сторону, с авто-определением.') },
     { q: t('How accurate and natural is it?', 'Насколько это точно и естественно?'), a: t('It uses premium AI voices and translates both sides of the call out loud. Take turns and pause briefly so each phrase can finish — it sounds like a real interpreter, not a robot.', 'Используются премиальные AI-голоса, перевод озвучивается для обеих сторон. Говорите по очереди с короткой паузой, чтобы фраза успевала завершиться — звучит как живой переводчик, а не робот.') },
     { q: t('Is it really no subscription?', 'Правда без подписки?'), a: t('Yes. You top up a balance and pay about $0.20 per minute, only while you’re actually talking. No monthly fee, no commitment. New accounts get $2 free to try.', 'Да. Вы пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без абонплаты и обязательств. Новым аккаунтам — $2 бесплатно на пробу.') },
     { q: t('Does it work on the other person’s landline or mobile?', 'Работает ли с мобильным или стационарным телефоном собеседника?'), a: t('Yes. Because it’s an ordinary phone call, it works whoever you’re calling — a mobile, a landline, a clinic’s switchboard. They just talk normally.', 'Да. Это обычный звонок, поэтому работает с кем угодно — мобильный, стационарный, телефон регистратуры. Собеседник просто говорит как обычно.') },

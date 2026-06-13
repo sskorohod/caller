@@ -156,7 +156,7 @@ export default function PricingPage() {
           {/* What you get */}
           <div className="mt-12 sm:mt-16 glass-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto text-center">
             <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#adc6ff' }}>translate</span>
-            <h3 className="text-xl font-headline font-bold mb-2">12 languages, any direction</h3>
+            <h3 className="text-xl font-headline font-bold mb-2">13 languages, any direction</h3>
             <p className="text-sm" style={{ color: '#c2c6d6' }}>
               Merge your personal LingoLine number into any phone call and the AI interprets both sides live,
               in a natural voice — direction detected automatically. Works from any phone, with no app to install.

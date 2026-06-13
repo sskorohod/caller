@@ -6,6 +6,7 @@
 export const LANGUAGES = [
   { value: 'en', label: 'English' },
   { value: 'ru', label: 'Russian' },
+  { value: 'uk', label: 'Ukrainian' },
   { value: 'es', label: 'Spanish' },
   { value: 'de', label: 'German' },
   { value: 'fr', label: 'French' },

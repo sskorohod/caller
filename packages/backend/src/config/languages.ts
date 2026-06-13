@@ -6,6 +6,7 @@
 export const LANG_NAMES: Record<string, string> = {
   en: 'English',
   ru: 'Russian',
+  uk: 'Ukrainian',
   es: 'Spanish',
   de: 'German',
   fr: 'French',
