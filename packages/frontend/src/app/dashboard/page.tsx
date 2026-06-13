@@ -79,6 +79,16 @@ export default function DashboardHub() {
       .then(r => setLineBusy(r.busy)).catch(() => {});
   }, []);
 
+  // Real-time header stats: re-fetch usage (sessions/minutes/spent) + balance.
+  // Driven by the call:status 'completed' event, which finalizeSession emits
+  // AFTER it has written costs and deducted the balance — so a re-fetch here
+  // reflects the just-finished call.
+  const refreshStats = useCallback(() => {
+    api.get<UsageResp>('/translator/usage?period=all').then(setUsage).catch(() => {});
+    api.get<{ balance_usd: number; signup_bonus_status?: string }>('/billing/balance')
+      .then(r => { setBalance(r.balance_usd); setBonusStatus(r.signup_bonus_status); }).catch(() => {});
+  }, []);
+
   // Fallback poll (covers other accounts + any missed socket event).
   useEffect(() => {
     refreshLineStatus();
@@ -128,6 +138,21 @@ export default function DashboardHub() {
     socket.on('call:status', onStatus);
     return () => { socket.off('call:status', onStatus); };
   }, [socket, refreshLineStatus]);
+
+  // Real-time header stats + balance: when any call in this workspace finishes,
+  // re-fetch usage and balance so the top cards update without a page reload.
+  // (1.5s second pass guards against any finalize lag.)
+  useEffect(() => {
+    if (!socket) return;
+    const onEndRefresh = (d: { status?: string }) => {
+      if (d?.status === 'completed' || d?.status === 'failed') {
+        refreshStats();
+        setTimeout(refreshStats, 1500);
+      }
+    };
+    socket.on('call:status', onEndRefresh);
+    return () => { socket.off('call:status', onEndRefresh); };
+  }, [socket, refreshStats]);
 
   useEffect(() => {
     if (!socket || !liveCallId) return;
