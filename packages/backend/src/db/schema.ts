@@ -521,7 +521,7 @@ export const adminAuditLog = pgTable('admin_audit_log', {
 export const depositTransactions = pgTable('deposit_transactions', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspace_id: uuid('workspace_id').notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  type: text('type').notNull(), // 'topup' | 'usage' | 'refund' | 'promo' | 'signup_bonus' | 'gift' | 'number_rental'
+  type: text('type').notNull(), // 'topup' | 'usage' | 'refund' | 'promo' | 'signup_bonus' | 'gift' | 'number_rental' | 'deduction'
   amount_usd: numeric('amount_usd', { precision: 12, scale: 4 }).notNull(), // positive = credit, negative = debit
   balance_after: numeric('balance_after', { precision: 12, scale: 4 }).notNull(),
   description: text('description'),

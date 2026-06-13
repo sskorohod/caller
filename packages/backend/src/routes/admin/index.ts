@@ -880,22 +880,27 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = z.object({
       amount_usd: z.number().positive('Amount must be positive'),
-      type: z.enum(['topup', 'refund', 'gift']),
+      // 'deduction' subtracts from the balance (manual admin debit); the
+      // others add. Amount is always entered as a positive number.
+      type: z.enum(['topup', 'refund', 'gift', 'deduction']),
       comment: z.string().optional(),
     }).parse(request.body);
+
+    const isDeduction = body.type === 'deduction';
+    const signedAmount = isDeduction ? -body.amount_usd : body.amount_usd;
 
     const { creditDeposit } = await import('../../services/billing.service.js');
     const result = await creditDeposit({
       workspaceId: id,
-      amountUsd: body.amount_usd,
+      amountUsd: signedAmount,
       type: body.type,
-      description: body.comment || `Admin ${body.type}`,
+      description: body.comment || (isDeduction ? 'Admin deduction' : `Admin ${body.type}`),
       referenceType: 'admin',
       createdBy: request.auth.userId,
     });
 
     await auditLog(request.auth.userId, 'balance_adjusted', 'workspace', id,
-      { amount_usd: body.amount_usd, type: body.type, comment: body.comment, new_balance: result.newBalance },
+      { amount_usd: signedAmount, type: body.type, comment: body.comment, new_balance: result.newBalance },
       request.ip);
 
     return { success: true, new_balance: result.newBalance };

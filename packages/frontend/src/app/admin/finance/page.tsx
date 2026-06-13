@@ -28,6 +28,7 @@ const TX_FILTER_OPTIONS = [
   { value: 'gift', label: 'Gift' },
   { value: 'signup_bonus', label: 'Signup Bonus' },
   { value: 'number_rental', label: 'Number Rental' },
+  { value: 'deduction', label: 'Deduction' },
 ];
 
 const TX_TYPE_VARIANTS: Record<string, 'success' | 'primary' | 'warning' | 'info' | 'neutral' | 'error'> = {
@@ -39,6 +40,7 @@ const TX_TYPE_VARIANTS: Record<string, 'success' | 'primary' | 'warning' | 'info
   subscription: 'neutral',
   promo: 'info',
   number_rental: 'primary',
+  deduction: 'error',
 };
 
 function deltaPct(w: KpiWindow): number | null {

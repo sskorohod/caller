@@ -54,7 +54,7 @@ export default function AdminSubscribers() {
   // Balance modal
   const [balanceModal, setBalanceModal] = useState(false);
   const [balanceAmount, setBalanceAmount] = useState('');
-  const [balanceType, setBalanceType] = useState<'topup' | 'gift' | 'refund'>('topup');
+  const [balanceType, setBalanceType] = useState<'topup' | 'gift' | 'refund' | 'deduction'>('topup');
   const [balanceComment, setBalanceComment] = useState('');
 
   // Stripe refund modal
@@ -581,24 +581,36 @@ export default function AdminSubscribers() {
         <AdminFormField label="Type">
           <select
             value={balanceType}
-            onChange={(e) => setBalanceType(e.target.value as 'topup' | 'gift' | 'refund')}
+            onChange={(e) => setBalanceType(e.target.value as 'topup' | 'gift' | 'refund' | 'deduction')}
             className={adminSelectClass}
           >
-            <option value="topup">Top Up</option>
-            <option value="gift">Gift</option>
-            <option value="refund">Refund</option>
+            <option value="topup">Top Up (+)</option>
+            <option value="gift">Gift (+)</option>
+            <option value="refund">Refund (+)</option>
+            <option value="deduction">Deduct (−)</option>
           </select>
         </AdminFormField>
         <AdminFormField label="Amount (USD)">
           <input
             type="number"
             step="0.01"
+            min="0"
             value={balanceAmount}
             onChange={(e) => setBalanceAmount(e.target.value)}
             className={adminInputClass}
             placeholder="10.00"
           />
         </AdminFormField>
+        {selected && balanceAmount && !isNaN(parseFloat(balanceAmount)) && (() => {
+          const amt = parseFloat(balanceAmount);
+          const newBal = selected.balance_usd + (balanceType === 'deduction' ? -amt : amt);
+          return (
+            <p className="text-xs" style={{ color: newBal < 0 ? 'var(--th-error-text)' : 'var(--th-text-secondary)' }}>
+              New balance: <span className="font-mono font-medium">{fmtCurrency(newBal)}</span>
+              {newBal < 0 && ' — goes negative'}
+            </p>
+          );
+        })()}
         <AdminFormField label="Comment">
           <input
             value={balanceComment}

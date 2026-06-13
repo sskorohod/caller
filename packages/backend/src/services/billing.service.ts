@@ -136,7 +136,8 @@ export async function deductUsageCost(params: DeductUsageCostParams): Promise<De
 export async function creditDeposit(params: {
   workspaceId: string;
   amountUsd: number;
-  type: 'topup' | 'refund' | 'promo' | 'signup_bonus' | 'gift';
+  // 'deduction' is a manual admin debit — pass a negative amountUsd.
+  type: 'topup' | 'refund' | 'promo' | 'signup_bonus' | 'gift' | 'deduction';
   description?: string;
   referenceType?: string;
   referenceId?: string;
