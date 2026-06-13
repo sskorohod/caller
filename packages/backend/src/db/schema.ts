@@ -21,6 +21,12 @@ export const users = pgTable('users', {
   // and the /admin panel. Distinct from workspace 'owner' role (every signup
   // owns their own workspace; only is_admin reaches the platform admin surface).
   is_admin: boolean('is_admin').notNull().default(false),
+  // true once the user has chosen a real password; gates /set-password to
+  // require the current password before a change (security audit M1).
+  password_set: boolean('password_set').notNull().default(false),
+  // JWTs issued before this instant are rejected; advanced on password change
+  // to revoke outstanding tokens.
+  tokens_valid_from: timestamp('tokens_valid_from', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

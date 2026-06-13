@@ -14,6 +14,11 @@ import { normalizePhone } from '../../lib/phone.js';
 
 const scryptAsync = promisify(scrypt);
 
+// Fixed dummy hash (valid salt:hash shape, 64-byte hash) used to spend an
+// equivalent scrypt cost on logins for non-existent accounts — closes the
+// timing oracle that would otherwise reveal which emails are registered.
+const DUMMY_PASSWORD_HASH = `${'0'.repeat(32)}:${'0'.repeat(128)}`;
+
 async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
   const hash = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -111,7 +116,7 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
     // Create user
     const [user] = await db
       .insert(users)
-      .values({ email: body.email, password_hash: passwordHash })
+      .values({ email: body.email, password_hash: passwordHash, password_set: true })
       .returning({ id: users.id, email: users.email });
 
     if (!user) throw new Error('Failed to create user');
@@ -196,15 +201,17 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       .from(users)
       .where(eq(users.email, body.email));
 
-    if (!user) throw new UnauthorizedError('Invalid email or password');
-
-    let valid: boolean;
+    // Constant-cost verification: run scrypt even when the email is unknown,
+    // using a fixed dummy hash, so response timing can't distinguish
+    // "no such account" from "wrong password" (account-enumeration oracle).
+    const storedHash = user?.password_hash ?? DUMMY_PASSWORD_HASH;
+    let valid = false;
     try {
-      valid = await verifyPassword(body.password, user.password_hash);
+      valid = await verifyPassword(body.password, storedHash);
     } catch {
-      throw new UnauthorizedError('Invalid email or password');
+      valid = false;
     }
-    if (!valid) throw new UnauthorizedError('Invalid email or password');
+    if (!user || !valid) throw new UnauthorizedError('Invalid email or password');
 
     const token = await issueJWT(user.id);
 
@@ -256,9 +263,12 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       expires_at: expiresAt,
     });
 
-    // Build magic link URL
-    const baseUrl = request.headers.origin || `https://${env.API_DOMAIN}`;
-    const magicLink = `${baseUrl}/auth/verify?token=${token}`;
+    // Build magic link URL from a trusted server-side constant only.
+    // NEVER derive it from request.headers.origin — that header is fully
+    // attacker-controlled, so trusting it lets an attacker send the victim a
+    // genuine login email whose link points at the attacker's domain
+    // (magic-link poisoning → account takeover).
+    const magicLink = `https://${env.API_DOMAIN}/auth/verify?token=${token}`;
 
     // Send email
     const emailContent = buildMagicLinkEmail(magicLink);
@@ -383,10 +393,15 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── Set Password ───────────────────────────────────────────────────
 
-  // POST /api/auth/set-password — set password for current user (after magic link)
+  // POST /api/auth/set-password — set/change password for the current user.
+  // First-time (magic-link new user, password_set=false): no current password
+  // required. Otherwise the current password MUST be supplied and verified, so a
+  // stolen session token alone can't silently take over the account; a genuine
+  // change also revokes all outstanding tokens and re-issues a fresh one.
   app.post('/set-password', async (request, reply) => {
     const body = z.object({
       token: z.string().min(1),
+      current_password: z.string().optional(),
       password: z.string().min(8, 'Password must be at least 8 characters'),
     }).parse(request.body);
 
@@ -400,13 +415,39 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
+    const [existing] = await db.select({
+      password_hash: users.password_hash,
+      password_set: users.password_set,
+    }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!existing) return reply.status(401).send({ error: 'User not found' });
+
+    const isChange = existing.password_set;
+    if (isChange) {
+      if (!body.current_password) {
+        return reply.status(400).send({ error: 'Current password is required' });
+      }
+      let ok = false;
+      try { ok = await verifyPassword(body.current_password, existing.password_hash); } catch { ok = false; }
+      if (!ok) return reply.status(401).send({ error: 'Current password is incorrect' });
+    }
+
     const passwordHash = await hashPassword(body.password);
 
     await db.update(users)
-      .set({ password_hash: passwordHash, updated_at: new Date() })
+      .set({
+        password_hash: passwordHash,
+        password_set: true,
+        // Revoke outstanding tokens only on a genuine change (not the first-time
+        // set, which has no prior sessions to invalidate).
+        ...(isChange ? { tokens_valid_from: new Date() } : {}),
+        updated_at: new Date(),
+      })
       .where(eq(users.id, userId));
 
-    return reply.send({ success: true });
+    // On a change we just invalidated the caller's token too — mint a fresh one
+    // so they stay logged in.
+    const token = isChange ? await issueJWT(userId) : undefined;
+    return reply.send({ success: true, ...(token ? { token } : {}) });
   });
 };
 

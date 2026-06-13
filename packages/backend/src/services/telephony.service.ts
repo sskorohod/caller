@@ -5,6 +5,7 @@ import { providerCredentials, telephonyConnections, workspaces } from '../db/sch
 import { decrypt, encrypt } from '../lib/crypto.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { env } from '../config/env.js';
+import { signStreamToken, streamIdFromUrl } from '../lib/stream-token.js';
 import type { TelephonyConnection, ProviderName } from '../models/types.js';
 import pino from 'pino';
 
@@ -103,10 +104,14 @@ export async function initiateOutboundCall(params: {
 
   const twiml = new twilio.twiml.VoiceResponse();
   const connect = twiml.connect();
-  connect.stream({
+  const stream = connect.stream({
     url: params.streamUrl,
     name: `call-${params.callId}`,
   });
+  // Authenticate the media-stream upgrade: Twilio strips query strings from
+  // <Stream> URLs, so the signed token is delivered as a <Parameter> and
+  // verified (against the URL's stream id) before any billable session starts.
+  stream.parameter({ name: 'token', value: signStreamToken(streamIdFromUrl(params.streamUrl)) });
 
   const call = await client.calls.create({
     twiml: twiml.toString(),
@@ -143,10 +148,14 @@ export function generateInboundTwiml(params: {
   }
 
   const connect = twiml.connect();
-  connect.stream({
+  const stream = connect.stream({
     url: params.streamUrl,
     name: `call-${params.callId}`,
   });
+  // Authenticate the media-stream upgrade: Twilio strips query strings from
+  // <Stream> URLs, so the signed token is delivered as a <Parameter> and
+  // verified (against the URL's stream id) before any billable session starts.
+  stream.parameter({ name: 'token', value: signStreamToken(streamIdFromUrl(params.streamUrl)) });
 
   return twiml.toString();
 }

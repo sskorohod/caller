@@ -4,12 +4,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy backend package files
-COPY packages/backend/package.json ./
+# Copy backend package files (lockfile too, so npm ci can enforce it)
+COPY packages/backend/package.json packages/backend/package-lock.json ./
 COPY packages/backend/tsconfig.json ./
 
-# Install all deps (including devDeps for build)
-RUN npm install
+# Install all deps (including devDeps for build). npm ci installs exactly the
+# lockfile's integrity-pinned versions and fails on any mismatch — so a build
+# can't silently pull a new (possibly compromised) in-range dependency version.
+RUN npm ci
 
 # Copy backend source
 COPY packages/backend/src/ ./src/
@@ -28,8 +30,8 @@ ENV NODE_ENV=production
 RUN apk add --no-cache ffmpeg
 
 # Install production deps
-COPY packages/backend/package.json ./
-RUN npm install --omit=dev && npm cache clean --force
+COPY packages/backend/package.json packages/backend/package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy compiled output
 COPY --from=builder /app/dist ./dist

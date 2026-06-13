@@ -5,6 +5,7 @@ interface JWTPayload {
   sub: string; // user ID
   email?: string;
   role?: string;
+  iat?: number; // issued-at (seconds) — used for token revocation checks
 }
 
 /**
@@ -24,5 +25,6 @@ export async function verifyJWT(token: string): Promise<JWTPayload> {
     sub: payload.sub,
     email: payload.email as string | undefined,
     role: payload.role as string | undefined,
+    iat: typeof payload.iat === 'number' ? payload.iat : undefined,
   };
 }

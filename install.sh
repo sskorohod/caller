@@ -130,6 +130,10 @@ ELEVENLABS_KEY="${ELEVENLABS_KEY:-}"
 info "Generating security keys..."
 JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n/+=')
 ENCRYPTION_KEY=$(openssl rand -hex 32)
+# MinIO object-store credentials (call-recording storage). Generated per install
+# so deployments never run with a shared, source-known default password.
+MINIO_ACCESS_KEY=caller
+MINIO_SECRET_KEY=$(openssl rand -hex 24)
 
 # ----- Write .env -----
 info "Writing .env..."
@@ -146,6 +150,9 @@ JWT_SECRET=${JWT_SECRET}
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
 TWILIO_WEBHOOK_SECRET=${TWILIO_WEBHOOK_SECRET}
+
+MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 
 LOG_LEVEL=info
 NEXT_PUBLIC_API_URL=/api

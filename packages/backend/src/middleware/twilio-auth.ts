@@ -13,7 +13,15 @@ export async function validateTwilioSignature(request: FastifyRequest, reply: Fa
   // without the secret — taking the translator down. The secret must be the
   // Twilio AUTH TOKEN; enable it deliberately and verify with a live call.)
   if (!env.TWILIO_WEBHOOK_SECRET) {
-    request.log.warn('TWILIO_WEBHOOK_SECRET not set — Twilio webhook signature validation is OFF');
+    // Fail CLOSED in production: an unset secret there means every Twilio
+    // webhook (/inbound, /status, /recording) is forgeable. Only tolerate the
+    // warn-and-skip path in development. (Prod sets the secret via .env, so this
+    // branch is not normally reached.)
+    if (env.NODE_ENV === 'production') {
+      request.log.error('TWILIO_WEBHOOK_SECRET not set in production — rejecting Twilio webhook');
+      throw new UnauthorizedError('Twilio webhook authentication is not configured');
+    }
+    request.log.warn('TWILIO_WEBHOOK_SECRET not set — Twilio webhook signature validation is OFF (dev only)');
     return;
   }
 

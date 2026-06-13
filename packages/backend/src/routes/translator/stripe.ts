@@ -129,6 +129,15 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
       // Event was already marked as processed via atomic INSERT above
     } catch (err) {
       log.error({ err, eventId, type: event.type }, 'Stripe webhook handler error');
+      // Roll back the idempotency claim so Stripe's automatic retry actually
+      // re-runs the handler. Without this, the event id stays marked
+      // "processed" and the retry is short-circuited as a duplicate — silently
+      // dropping a paid customer's credit/subscription on any transient failure.
+      if (eventId) {
+        await db.delete(stripeProcessedEvents)
+          .where(eq(stripeProcessedEvents.event_id, eventId))
+          .catch((delErr) => log.error({ delErr, eventId }, 'Failed to roll back processed-event claim'));
+      }
       reply.status(500).send({ error: 'Webhook handler failed' });
       return;
     }

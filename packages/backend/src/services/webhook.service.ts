@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { webhookEndpoints } from '../db/schema.js';
+import { assertPublicHost } from '../lib/url-validation.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'webhook-service' });
@@ -49,6 +50,16 @@ async function sendWithRetry(
   }
 
   try {
+    // SSRF guard at delivery time: re-validate scheme and resolve the host,
+    // rejecting any private/reserved address. This catches DNS-rebinding and
+    // IP-encoding tricks that a create-time string check cannot.
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') {
+      logger.warn({ url, attempt }, 'Webhook delivery blocked — non-https URL');
+      return false;
+    }
+    await assertPublicHost(parsed.hostname);
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
@@ -57,12 +68,20 @@ async function sendWithRetry(
       headers,
       body,
       signal: controller.signal,
+      // Never auto-follow redirects: a 3xx Location could point at an internal
+      // host (and downgrade https→http), bypassing the SSRF check above.
+      redirect: 'manual',
     });
 
     clearTimeout(timeout);
 
     if (response.ok) {
       return true;
+    }
+
+    if (response.status >= 300 && response.status < 400) {
+      logger.warn({ url, status: response.status, attempt }, 'Webhook delivery blocked — redirect not followed');
+      return false;
     }
 
     logger.warn({ url, status: response.status, attempt }, 'Webhook delivery failed with status');

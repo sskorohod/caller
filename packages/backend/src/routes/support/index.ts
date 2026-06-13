@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, requireAdmin } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import { supportTickets, supportMessages, users, workspaces } from '../../db/schema.js';
 import { eq, and, desc, count, sql } from 'drizzle-orm';
@@ -117,7 +117,7 @@ const supportRoutes: FastifyPluginAsync = async (app) => {
 
   // List all tickets (admin)
   app.get('/admin/all', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request) => {
     const query = z.object({
       status: z.enum(['open', 'replied', 'closed']).optional(),
@@ -157,7 +157,7 @@ const supportRoutes: FastifyPluginAsync = async (app) => {
 
   // Get ticket detail (admin)
   app.get<{ Params: { id: string } }>('/admin/:id', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request, reply) => {
     const { id } = request.params;
 
@@ -199,7 +199,7 @@ const supportRoutes: FastifyPluginAsync = async (app) => {
 
   // Admin reply to ticket
   app.post<{ Params: { id: string } }>('/admin/:id/reply', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request, reply) => {
     const { id } = request.params;
     const body = z.object({ message: z.string().min(1).max(5000) }).parse(request.body);
@@ -223,7 +223,7 @@ const supportRoutes: FastifyPluginAsync = async (app) => {
 
   // Admin close ticket
   app.patch<{ Params: { id: string } }>('/admin/:id/close', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request, reply) => {
     const { id } = request.params;
     const [ticket] = await db.update(supportTickets)
@@ -236,7 +236,7 @@ const supportRoutes: FastifyPluginAsync = async (app) => {
 
   // Admin reopen ticket
   app.patch<{ Params: { id: string } }>('/admin/:id/reopen', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request, reply) => {
     const { id } = request.params;
     const [ticket] = await db.update(supportTickets)

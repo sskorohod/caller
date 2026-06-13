@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 
 interface User { id: string; email: string; }
 interface Workspace { id: string; name: string; plan?: string; role?: string; }
@@ -56,7 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(t);
     setUser(u);
     if (w) setWorkspaceState(w);
-    router.push(redirectTo ?? '/dashboard');
+    // Validate the redirect target to a safe same-origin path (accepts relative
+    // paths and same-origin absolute URLs, e.g. the OAuth consent round-trip);
+    // blocks open-redirect phishing via a crafted ?return=.
+    router.push(safeRedirectPath(redirectTo));
   }, [router]);
 
   const logout = useCallback(() => {

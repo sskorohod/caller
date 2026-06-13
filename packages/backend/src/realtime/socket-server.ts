@@ -226,31 +226,35 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     });
 
     // Change voice mid-call (Grok Voice Agent reconnect)
-    socket.on('call:tts:change', async ({ call_id, voice }: { call_id: string; provider?: string; voice?: string; language?: string }) => {
+    socket.on('call:tts:change', async ({ call_id, voice }: { call_id?: string; provider?: string; voice?: string; language?: string }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id || !await authorizeCallAccess(id)) return;
         // Try conference translator first
         const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(call_id);
+        const ct = getActiveConferenceTranslators().get(id);
         if (ct && voice) { ct.updateVoice(voice); return; }
 
         // Dialer VT: reconnect Grok with new voice (not supported yet — would need session.update)
-        log.debug({ call_id, voice }, 'Voice change requested (no active translator)');
+        log.debug({ call_id: id, voice }, 'Voice change requested (no active translator)');
       } catch (err) {
         log.error({ err, call_id }, 'Voice change failed');
       }
     });
 
     // PTT state for sequential interpretation mode
-    socket.on('call:ptt:state', async ({ call_id, active }: { call_id: string; active: boolean }) => {
+    socket.on('call:ptt:state', async ({ call_id, active }: { call_id?: string; active: boolean }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveVoiceTranslateSessions, flushPttAudio } = await import('../routes/webhooks/media-stream.js');
-        const session = getActiveVoiceTranslateSessions().get(call_id);
+        const session = getActiveVoiceTranslateSessions().get(id);
         if (session) {
           session.pttActive = active;
           // PTT released → flush buffered audio
           if (!active && session.sequentialMode) {
             // Grok handles VAD — just flush accumulated audio buffer
-            const result = flushPttAudio(call_id);
+            const result = flushPttAudio(id);
             if (result instanceof Promise) await result;
           }
         }
@@ -258,10 +262,12 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     });
 
     // Toggle sequential mode mid-call
-    socket.on('call:translate:mode', async ({ call_id, sequential }: { call_id: string; sequential: boolean }) => {
+    socket.on('call:translate:mode', async ({ call_id, sequential }: { call_id?: string; sequential: boolean }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
-        const session = getActiveVoiceTranslateSessions().get(call_id);
+        const session = getActiveVoiceTranslateSessions().get(id);
         if (session) session.sequentialMode = sequential;
       } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });

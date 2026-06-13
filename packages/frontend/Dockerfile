@@ -6,11 +6,13 @@ WORKDIR /app
 ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Copy package files
-COPY package.json ./
+# Copy package files (lockfile too, so npm ci can enforce it)
+COPY package.json package-lock.json ./
 
-# Install all deps
-RUN npm install
+# Install all deps. npm ci installs exactly the lockfile's integrity-pinned
+# versions and fails on any mismatch — so a build can't silently pull a new
+# (possibly compromised) in-range dependency version.
+RUN npm ci
 
 # Copy source
 COPY . .

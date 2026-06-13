@@ -42,7 +42,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-caller}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-callerSecretKey123}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
     volumes:
       - minio_data:/data
     healthcheck:
@@ -91,7 +91,7 @@ services:
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-caller}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-callerSecretKey123}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
       MINIO_USE_SSL: "false"
       MINIO_BUCKET: ${MINIO_BUCKET:-caller-recordings}
       RESEND_API_KEY: ${RESEND_API_KEY:-}

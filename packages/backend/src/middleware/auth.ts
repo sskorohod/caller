@@ -46,9 +46,11 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
   if (!token) throw new UnauthorizedError('Missing authorization token');
 
   let userId: string;
+  let tokenIat: number | undefined;
   try {
     const payload = await verifyJWT(token);
     userId = payload.sub;
+    tokenIat = payload.iat;
   } catch {
     throw new UnauthorizedError('Invalid token');
   }
@@ -57,6 +59,7 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
     workspace_id: workspaceMembers.workspace_id,
     role: workspaceMembers.role,
     is_admin: users.is_admin,
+    tokens_valid_from: users.tokens_valid_from,
     plan: workspaces.plan,
     balance_usd: workspaces.balance_usd,
     provider_config: workspaces.provider_config,
@@ -72,6 +75,14 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
   if (!rows.length) throw new ForbiddenError('No workspace membership found');
 
   const row = rows[0];
+
+  // Token revocation: a password change advances tokens_valid_from, invalidating
+  // any JWT issued before it (e.g. a stolen token). 5s grace absorbs clock skew
+  // between the issued-at second and the stored timestamp.
+  if (row.tokens_valid_from && tokenIat &&
+      tokenIat * 1000 < new Date(row.tokens_valid_from).getTime() - 5000) {
+    throw new UnauthorizedError('Session expired — please log in again');
+  }
 
   // Auto-downgrade expired trials
   const downgraded = await checkTrialExpiry(

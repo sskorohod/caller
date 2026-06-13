@@ -21,10 +21,16 @@ import { callEvents } from '../../realtime/call-events.js';
 import { redis } from '../../config/redis.js';
 import { SandboxSession, type SandboxMode } from '../../services/sandbox-session.service.js';
 import { verifyJWT } from '../../lib/jwt.js';
+import { verifyStreamToken } from '../../lib/stream-token.js';
 import { workspaceMembers } from '../../db/schema.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'media-stream' });
+
+// Max concurrent browser sandbox sessions per workspace. Bounds the
+// check-then-act budget race so a burst of parallel sockets can't all read
+// "budget available" at once and amplify platform-billed Grok spend.
+const SANDBOX_MAX_CONCURRENT = 2;
 
 /** Convert PCM 16-bit 24kHz to mulaw 8kHz (Twilio format) */
 export function pcmToMulaw(pcmBuf: Buffer): Buffer {
@@ -276,13 +282,20 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
     let session: SandboxSession | null = null;
     let authed = false;
+    let sandboxConcKey: string | null = null;
 
     const authTimer = setTimeout(() => {
       if (!authed) { send({ type: 'error', message: 'auth timeout' }); socket.close(); }
     }, 6000);
     const ping = setInterval(() => { if (socket.readyState === 1) socket.ping(); }, 30000);
 
-    const cleanup = () => { clearTimeout(authTimer); clearInterval(ping); session?.finalize().catch(() => {}); };
+    const cleanup = () => {
+      clearTimeout(authTimer);
+      clearInterval(ping);
+      // Release the per-workspace concurrency slot reserved at session start.
+      if (sandboxConcKey) { redis.decr(sandboxConcKey).catch(() => {}); sandboxConcKey = null; }
+      session?.finalize().catch(() => {});
+    };
     socket.on('close', cleanup);
     socket.on('error', cleanup);
 
@@ -316,11 +329,33 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       const lang = (typeof msg.lang === 'string' ? msg.lang : 'ru').slice(0, 8);
 
       // Daily per-workspace budget (SANDBOX_MAX_SECONDS total per day).
+      // Fail CLOSED: this bridges to the platform's metered xAI key, so a Redis
+      // outage must not turn into an unbounded free-for-all on the admin's bill.
       const rlKey = `sandbox:used:${workspaceId}`;
       let used = 0;
-      try { used = parseInt((await redis.get(rlKey)) || '0', 10) || 0; } catch { /* redis down — fail open */ }
+      try {
+        used = parseInt((await redis.get(rlKey)) || '0', 10) || 0;
+      } catch {
+        send({ type: 'error', message: 'unavailable' }); socket.close(); return;
+      }
       const remaining = Math.max(0, env.SANDBOX_MAX_SECONDS - used);
       if (remaining <= 0) { send({ type: 'limit', remainingSeconds: 0 }); socket.close(); return; }
+
+      // Reserve a concurrency slot atomically (INCR). Without this the budget
+      // read above is a check-then-act race: many sockets opened together all
+      // see used=0 and each start a full session, blowing past the daily cap.
+      const concKey = `sandbox:active:${workspaceId}`;
+      try {
+        const active = await redis.incr(concKey);
+        await redis.expire(concKey, 3600); // self-heal if a finalizer is ever missed
+        if (active > SANDBOX_MAX_CONCURRENT) {
+          await redis.decr(concKey).catch(() => {});
+          send({ type: 'limit', remainingSeconds: remaining, reason: 'too_many_sessions' }); socket.close(); return;
+        }
+        sandboxConcKey = concKey; // released in cleanup()
+      } catch {
+        send({ type: 'error', message: 'unavailable' }); socket.close(); return;
+      }
       send({ type: 'session', remainingSeconds: remaining });
 
       session = new SandboxSession({ browserWs: socket as any, workspaceId, mode, lang, maxSeconds: remaining });
@@ -354,12 +389,23 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       socket.on('close', () => clearInterval(calleePingInterval));
 
       let calleeStreamSid: string | null = null;
+      let calleeAuthed = false;
 
       socket.on('message', async (data: Buffer) => {
         try {
           const msg = JSON.parse(data.toString());
 
+          // Ignore everything until a token-verified 'start' — an unauthenticated
+          // socket must not be able to inject 'media' into a live session.
+          if (!calleeAuthed && msg.event !== 'start') return;
+
           if (msg.event === 'start') {
+            if (!verifyStreamToken(rawCallId, msg.start?.customParameters?.token)) {
+              logger.warn({ rawCallId }, 'media-stream callee WS rejected — invalid/missing stream token');
+              socket.close();
+              return;
+            }
+            calleeAuthed = true;
             calleeStreamSid = msg.start.streamSid;
             const session = activeVoiceTranslateSessions.get(callId);
             if (session) {
@@ -496,6 +542,15 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         const msg = JSON.parse(data.toString());
 
         if (msg.event === 'start') {
+          // Authenticate the stream before any billable work: the signed token
+          // arrives as a Twilio <Parameter> (query strings are stripped by
+          // Twilio) and must match this exact stream id. Closes the
+          // unauthenticated-WS hole (forged audio + platform-billed Grok spend).
+          if (!verifyStreamToken(rawCallId, msg.start?.customParameters?.token)) {
+            logger.warn({ rawCallId }, 'media-stream WS rejected — invalid/missing stream token');
+            socket.close();
+            return;
+          }
           streamSid = msg.start.streamSid;
           logger.info({ callId, streamSid }, 'Stream started');
 

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '../../config/db.js';
 import { providerCredentials } from '../../db/schema.js';
@@ -164,7 +164,12 @@ const telegramWebhook: FastifyPluginAsync = async (app) => {
       const matched = allBots.some(b => {
         try {
           const creds = JSON.parse(decrypt(b.credential_data)) as { bot_token?: string };
-          return creds.bot_token && deriveTelegramWebhookSecret(creds.bot_token) === headerSecret;
+          if (!creds.bot_token) return false;
+          // Constant-time compare (both are fixed 32-char hex), consistent with
+          // the Stripe/OAuth/API-key secret checks elsewhere in the codebase.
+          const derived = Buffer.from(deriveTelegramWebhookSecret(creds.bot_token));
+          const provided = Buffer.from(headerSecret);
+          return derived.length === provided.length && timingSafeEqual(derived, provided);
         } catch {
           return false;
         }

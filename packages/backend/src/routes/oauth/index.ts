@@ -15,7 +15,7 @@ function sha256(s: string): string {
 async function verifyJwt(token: string): Promise<{ sub: string; workspaceId: string } | null> {
   try {
     const secret = new TextEncoder().encode(env.JWT_SECRET);
-    const { payload } = await jose.jwtVerify(token, secret);
+    const { payload } = await jose.jwtVerify(token, secret, { algorithms: ['HS256'] });
     const userId = payload.sub as string;
     // OAuth tokens already include workspaceId; session JWTs do not — resolve from DB
     let workspaceId = (payload as any).workspaceId as string | undefined;

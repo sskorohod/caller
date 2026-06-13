@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../../config/db.js';
 import { contactMessages } from '../../db/schema.js';
 import { eq, desc, count, sql } from 'drizzle-orm';
-import { authenticateUser, requireRole } from '../../middleware/auth.js';
+import { authenticateUser, requireAdmin } from '../../middleware/auth.js';
 
 // Simple in-memory rate limiter by IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -75,7 +75,7 @@ const contactRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Admin: List contact messages ──────────────────────────
   app.get('/admin/all', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request) => {
     const query = z.object({
       status: z.string().optional(),
@@ -107,7 +107,7 @@ const contactRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Admin: Update message status ──────────────────────────
   app.patch<{ Params: { id: string } }>('/admin/:id/status', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request, reply) => {
     const { id } = request.params;
     const body = z.object({
@@ -125,7 +125,7 @@ const contactRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Admin: Delete message ─────────────────────────────────
   app.delete<{ Params: { id: string } }>('/admin/:id', {
-    preHandler: [authenticateUser, requireRole('owner')],
+    preHandler: [authenticateUser, requireAdmin],
   }, async (request, reply) => {
     const { id } = request.params;
     const [deleted] = await db.delete(contactMessages)

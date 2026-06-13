@@ -9,6 +9,7 @@ import { deliverWebhookEvent } from '../../services/webhook.service.js';
 import { env } from '../../config/env.js';
 import { normalizePhone } from '../../lib/phone.js';
 import { validateTwilioSignature } from '../../middleware/twilio-auth.js';
+import { signStreamToken } from '../../lib/stream-token.js';
 import { calls, providerCredentials } from '../../db/schema.js';
 import { getIo } from '../../realtime/io.js';
 import * as memoryService from '../../services/memory.service.js';
@@ -213,10 +214,13 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       // Return TwiML: connect directly to media stream (greeting spoken by Grok Voice Agent)
       const twiml = new (await import('twilio')).default.twiml.VoiceResponse();
       const connect = twiml.connect();
-      connect.stream({
+      const stream = connect.stream({
         url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${translatorCall.id}`,
         name: `translator-${translatorCall.id}`,
       });
+      // Authenticate the media-stream WS: token delivered as a <Parameter>
+      // (Twilio strips query strings) and verified before the Grok session.
+      stream.parameter({ name: 'token', value: signStreamToken(translatorCall.id) });
 
       app.log.info({ callId: translatorCall.id, user: callerWorkspace.name, phone: callerNormalized }, 'Translator call connected');
       reply.type('text/xml').send(twiml.toString());
@@ -500,10 +504,11 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
       if (callerNumber) {
         // Always use <Connect><Stream> for dialer calls (supports mid-call translate toggle)
         const connect = twiml.connect();
-        connect.stream({
+        const stream = connect.stream({
           url: `wss://${env.API_DOMAIN}/webhooks/ws/media-stream/${callId || 'browser'}`,
           name: `call-${callId || Date.now()}`,
         });
+        stream.parameter({ name: 'token', value: signStreamToken(callId || 'browser') });
         // Backend initiates callee call separately via REST API
       } else {
         twiml.say('No outbound number configured.');

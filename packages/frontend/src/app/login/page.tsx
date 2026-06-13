@@ -12,6 +12,8 @@ function LoginContent() {
   const { t } = useLang();
   const { login } = useAuth();
   const searchParams = useSearchParams();
+  // Raw ?return= value; validated to a safe same-origin path at the redirect
+  // sink (auth-context login() → safeRedirectPath).
   const returnUrl = searchParams.get('return');
   const modeParam = searchParams.get('mode');
   const [mode, setMode] = useState<'login' | 'register'>(modeParam === 'register' ? 'register' : 'login');

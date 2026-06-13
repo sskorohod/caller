@@ -7,6 +7,7 @@ import * as telephonyService from '../../services/telephony.service.js';
 import * as memoryService from '../../services/memory.service.js';
 import { ValidationError, AppError } from '../../lib/errors.js';
 import { env } from '../../config/env.js';
+import { signStreamToken } from '../../lib/stream-token.js';
 import { db } from '../../config/db.js';
 import { calls } from '../../db/schema.js';
 import { eq, and, or, sql, gte, desc, inArray } from 'drizzle-orm';
@@ -602,7 +603,8 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       const twilio = await import('twilio');
       const twiml = new twilio.default.twiml.VoiceResponse();
       const connect = twiml.connect();
-      connect.stream({ url: streamUrl, name: `inbound-manual-${id}` });
+      const stream = connect.stream({ url: streamUrl, name: `inbound-manual-${id}` });
+      stream.parameter({ name: 'token', value: signStreamToken(id) });
       await telephonyService.updateActiveCall(request.auth.workspaceId, call.twilio_call_sid, twiml.toString());
     } else {
       // Connect to AI orchestrator stream
