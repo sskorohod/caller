@@ -4,8 +4,12 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { authApi, api } from '@/lib/api';
+// Public-site language (shared with the landing — localStorage 'caller_public_lang'),
+// so the language chosen on the landing carries over to the login page.
+import { LangProvider, useLang, LangSwitcher } from '@/app/_landing/useLang';
 
 function LoginContent() {
+  const { t } = useLang();
   const { login } = useAuth();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('return');
@@ -27,7 +31,7 @@ function LoginContent() {
       const res = await authApi.login({ email, password });
       login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      setError(err.message || t('Invalid email or password', 'Неверный email или пароль'));
     } finally {
       setLoading(false);
     }
@@ -43,7 +47,7 @@ function LoginContent() {
       await api.post('/auth/magic-link', { email, phone_number: cleanPhone || undefined });
       setMagicLinkSent(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to send magic link');
+      setError(err.message || t('Failed to send magic link', 'Не удалось отправить ссылку'));
     } finally {
       setLoading(false);
     }
@@ -81,19 +85,21 @@ function LoginContent() {
             <span className="text-2xl font-headline font-extrabold tracking-tight">LingoLine</span>
           </Link>
           <h2 className="text-3xl font-headline font-extrabold tracking-tight leading-tight mb-4">
-            AI Live
+            {t('AI Live', 'AI-переводчик')}
             <br />
-            <span style={{ color: '#adc6ff' }}>Translator</span>
+            <span style={{ color: '#adc6ff' }}>{t('Translator', 'в реальном времени')}</span>
           </h2>
           <p className="text-sm leading-relaxed mb-8" style={{ color: '#c2c6d6' }}>
-            Real-time AI interpretation on any phone call. Works from any phone — no apps.
-            Start with free credit.
+            {t(
+              'Real-time AI interpretation on any phone call. Works from any phone — no apps. Start with free credit.',
+              'Перевод звонков с помощью ИИ в реальном времени. Работает с любого телефона — без приложений. Начните с бесплатным балансом.',
+            )}
           </p>
           <div className="space-y-3">
             {[
-              { icon: 'translate', text: 'Live translation on any phone call' },
-              { icon: 'sync_alt', text: 'Both directions, detected automatically' },
-              { icon: 'savings', text: 'No subscription — pay per minute' },
+              { icon: 'translate', text: t('Live translation on any phone call', 'Живой перевод любого телефонного звонка') },
+              { icon: 'sync_alt', text: t('Both directions, detected automatically', 'В обе стороны — направление определяется автоматически') },
+              { icon: 'savings', text: t('No subscription — pay per minute', 'Без подписки — оплата за минуты') },
             ].map(f => (
               <div key={f.text} className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>{f.icon}</span>
@@ -105,7 +111,11 @@ function LoginContent() {
       </div>
 
       {/* Right — Form */}
-      <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-6 lg:p-12">
+      <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-6 lg:p-12 relative">
+        {/* Language switch (top-right) */}
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+          <LangSwitcher />
+        </div>
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <Link href="/" className="lg:hidden flex items-center justify-center gap-3 mb-8 group">
@@ -124,27 +134,29 @@ function LoginContent() {
                 <span className="material-symbols-outlined text-3xl" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>mark_email_read</span>
               </div>
               <div>
-                <h1 className="text-2xl font-headline font-bold tracking-tight mb-2">Check your email</h1>
+                <h1 className="text-2xl font-headline font-bold tracking-tight mb-2">{t('Check your email', 'Проверьте почту')}</h1>
                 <p className="text-sm" style={{ color: '#c2c6d6' }}>
-                  We sent a sign-in link to<br />
+                  {t('We sent a sign-in link to', 'Мы отправили ссылку для входа на')}<br />
                   <strong style={{ color: '#dde2f3' }}>{email}</strong>
                 </p>
               </div>
               <p className="text-xs" style={{ color: 'rgba(194,198,214,0.5)' }}>
-                Click the link to verify your email and create your account.<br />
-                Expires in 15 minutes.
+                {t(
+                  'Click the link to verify your email and create your account. Expires in 15 minutes.',
+                  'Перейдите по ссылке, чтобы подтвердить почту и создать аккаунт. Ссылка действует 15 минут.',
+                )}
               </p>
               <button onClick={() => { setMagicLinkSent(false); setEmail(''); }}
                 className="text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
-                Use a different email
+                {t('Use a different email', 'Использовать другую почту')}
               </button>
             </div>
           ) : mode === 'login' ? (
             /* ─── Sign In (email + password) ─── */
             <>
               <div className="mb-8">
-                <h1 className="text-2xl font-headline font-bold tracking-tight">Welcome back</h1>
-                <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>Sign in to your account</p>
+                <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Welcome back', 'С возвращением')}</h1>
+                <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>{t('Sign in to your account', 'Войдите в свой аккаунт')}</p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
@@ -157,11 +169,11 @@ function LoginContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Password</label>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Password', 'Пароль')}</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>lock</span>
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
-                      placeholder="Enter password" className="input-field" style={{ paddingLeft: '40px' }} />
+                      placeholder={t('Enter password', 'Введите пароль')} className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
                 </div>
 
@@ -176,29 +188,32 @@ function LoginContent() {
                 <button type="submit" disabled={loading}
                   className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                   style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)', color: '#0e131f', boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)' }}>
-                  {loading ? 'Signing in...' : 'Sign In'}
+                  {loading ? t('Signing in...', 'Вход…') : t('Sign In', 'Войти')}
                 </button>
               </form>
 
               <div className="flex items-center gap-3 my-6">
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
-                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>new here?</span>
+                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('new here?', 'впервые здесь?')}</span>
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
               </div>
 
               <button onClick={() => { setMode('register'); setError(''); }}
                 className="w-full py-3 rounded-xl text-sm font-medium transition-all min-h-[44px]"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                Create Account
+                {t('Create Account', 'Создать аккаунт')}
               </button>
             </>
           ) : (
             /* ─── Register (magic link) ─── */
             <>
               <div className="mb-6">
-                <h1 className="text-2xl font-headline font-bold tracking-tight">Create account</h1>
+                <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Create account', 'Создать аккаунт')}</h1>
                 <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
-                  Enter your email — we&apos;ll send a verification link to get started.
+                  {t(
+                    "Enter your email — we'll send a verification link to get started.",
+                    'Введите email — мы отправим ссылку для подтверждения.',
+                  )}
                 </p>
               </div>
 
@@ -207,8 +222,8 @@ function LoginContent() {
                 style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
                 <span className="material-symbols-outlined text-xl shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>redeem</span>
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>$2 in free credit with your phone number</div>
-                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>Enough for a real test call (≈10 min). One gift per phone number. No card required.</div>
+                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>{t('$2 in free credit with your phone number', '$2 бесплатно при добавлении номера телефона')}</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>{t('Enough for a real test call (≈10 min). One gift per phone number. No card required.', 'Хватит на реальный тестовый звонок (≈10 мин). Один бонус на номер. Без карты.')}</div>
                 </div>
               </div>
 
@@ -222,7 +237,7 @@ function LoginContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Phone Number</label>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Phone Number', 'Номер телефона')}</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>phone</span>
                     <input type="tel" value={phoneNumber}
@@ -234,17 +249,18 @@ function LoginContent() {
                       onBlur={() => setPhoneNumber(phoneNumber.replace(/[\s\-\(\)\.]/g, ''))}
                       placeholder="+14155551234" className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
-                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>Your phone number for translator service (E.164 format). The $2 gift is credited when you add a phone number — now or later in Settings.</p>
+                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('Your phone number for translator service (E.164 format). The $2 gift is credited when you add a phone number — now or later in Settings.', 'Ваш номер для сервиса перевода (формат E.164). Бонус $2 начисляется при добавлении номера — сейчас или позже в настройках.')}</p>
                 </div>
 
                 <label className="flex items-start gap-3 cursor-pointer select-none mt-1">
                   <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
                     className="mt-0.5 w-4 h-4 rounded accent-blue-500 flex-shrink-0" />
                   <span className="text-xs leading-relaxed" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>
-                    I agree to the{' '}
-                    <a href="/terms" target="_blank" className="underline" style={{ color: '#adc6ff' }}>Terms of Service</a>,{' '}
-                    <a href="/privacy" target="_blank" className="underline" style={{ color: '#adc6ff' }}>Privacy Policy</a>, and{' '}
-                    <a href="/acceptable-use" target="_blank" className="underline" style={{ color: '#adc6ff' }}>Acceptable Use Policy</a>
+                    {t('I agree to the', 'Я согласен с')}{' '}
+                    <a href="/terms" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Terms of Service', 'Условиями использования')}</a>,{' '}
+                    <a href="/privacy" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Privacy Policy', 'Политикой конфиденциальности')}</a>{' '}
+                    {t('and', 'и')}{' '}
+                    <a href="/acceptable-use" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Acceptable Use Policy', 'Правилами допустимого использования')}</a>
                   </span>
                 </label>
 
@@ -262,22 +278,22 @@ function LoginContent() {
                   {loading ? (
                     <span className="inline-flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      Sending...
+                      {t('Sending...', 'Отправка…')}
                     </span>
-                  ) : 'Send Verification Link'}
+                  ) : t('Send Verification Link', 'Отправить ссылку')}
                 </button>
               </form>
 
               <div className="flex items-center gap-3 my-6">
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
-                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>already have an account?</span>
+                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('already have an account?', 'уже есть аккаунт?')}</span>
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
               </div>
 
               <button onClick={() => { setMode('login'); setError(''); }}
                 className="w-full py-3 rounded-xl text-sm font-medium transition-all min-h-[44px]"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                Sign In with Password
+                {t('Sign In with Password', 'Войти по паролю')}
               </button>
             </>
           )}
@@ -293,12 +309,14 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0e131f' }}>
-        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#adc6ff', borderTopColor: 'transparent' }} />
-      </div>
-    }>
-      <LoginContent />
-    </Suspense>
+    <LangProvider>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center" style={{ background: '#0e131f' }}>
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#adc6ff', borderTopColor: 'transparent' }} />
+        </div>
+      }>
+        <LoginContent />
+      </Suspense>
+    </LangProvider>
   );
 }
