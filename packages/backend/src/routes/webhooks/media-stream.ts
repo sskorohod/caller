@@ -536,10 +536,15 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
     socket.on('close', () => clearInterval(pingInterval));
 
     let streamSid: string | null = null;
+    let streamAuthed = false;
 
     socket.on('message', async (data: Buffer) => {
       try {
         const msg = JSON.parse(data.toString());
+
+        // Ignore everything until a token-verified 'start' — an unauthenticated
+        // socket must not be able to inject 'media' into an active session.
+        if (!streamAuthed && msg.event !== 'start') return;
 
         if (msg.event === 'start') {
           // Authenticate the stream before any billable work: the signed token
@@ -551,6 +556,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
             socket.close();
             return;
           }
+          streamAuthed = true;
           streamSid = msg.start.streamSid;
           logger.info({ callId, streamSid }, 'Stream started');
 

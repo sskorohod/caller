@@ -60,6 +60,11 @@ export function addressIsPrivateOrReserved(addr: string, family?: number): boole
 
   if (/^f[cd]/.test(ip)) return true; // fc00::/7 unique-local
   if (/^fe[89ab]/.test(ip)) return true; // fe80::/10 link-local
+  // Transitional ranges that embed/relay IPv4 — a legitimate webhook endpoint
+  // never uses these, and they can reach internal v4 via the host's stack.
+  if (ip.startsWith('2002:')) return true;   // 6to4 (2002::/16)
+  if (ip.startsWith('64:ff9b:')) return true; // NAT64 (64:ff9b::/96)
+  if (ip.startsWith('::') && ip.includes('.')) return true; // IPv4-compatible ::a.b.c.d (deprecated)
   return false;
 }
 

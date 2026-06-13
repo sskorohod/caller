@@ -25,8 +25,11 @@ export async function validateTwilioSignature(request: FastifyRequest, reply: Fa
     return;
   }
 
-  // Skip validation for voice-client (called by Twilio Client SDK from browser, not Twilio servers)
-  if (request.url.includes('/voice-client')) return;
+  // Skip validation for voice-client (called by Twilio Client SDK from browser, not Twilio servers).
+  // Match the route path exactly after stripping the query string. A substring
+  // check on the full URL was a signature-validation bypass: an attacker could
+  // forge any Twilio webhook (e.g. /status?x=/voice-client) to skip the check.
+  if (request.url.split('?')[0].endsWith('/voice-client')) return;
 
   const signature = request.headers['x-twilio-signature'] as string | undefined;
   const url = `https://${env.API_DOMAIN}${request.url}`;

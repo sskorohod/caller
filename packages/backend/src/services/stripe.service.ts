@@ -154,81 +154,11 @@ function planFromPriceId(priceId: string): WorkspacePlan | null {
   return null;
 }
 
-// ============================================================
-// TRANSLATOR MINUTES CHECKOUT
-// ============================================================
-
-/**
- * Create a Stripe Checkout session for buying translator minutes.
- */
-export async function createCheckoutSession(params: {
-  subscriberId: string;
-  minutes: number;
-  pricePerMinute: number;
-  successUrl: string;
-  cancelUrl: string;
-  workspaceId?: string;
-}): Promise<{ url: string; sessionId: string }> {
-  const key = await getStripeKey(params.workspaceId);
-
-  const [sub] = await db.select().from(translatorSubscribers)
-    .where(eq(translatorSubscribers.id, params.subscriberId));
-  if (!sub) throw new Error('Subscriber not found');
-
-  // Create or reuse Stripe customer
-  let customerId = sub.stripe_customer_id;
-  if (!customerId) {
-    const customer = await stripeRequest('/customers', 'POST', {
-      name: sub.name,
-      phone: sub.phone_number,
-      ...(sub.email ? { email: sub.email } : {}),
-      'metadata[subscriber_id]': sub.id,
-    }, key);
-    customerId = customer.id;
-    await db.update(translatorSubscribers)
-      .set({ stripe_customer_id: customerId })
-      .where(eq(translatorSubscribers.id, sub.id));
-  }
-
-  const totalCents = Math.round(params.minutes * params.pricePerMinute * 100);
-
-  const session = await stripeRequest('/checkout/sessions', 'POST', {
-    customer: customerId!,
-    mode: 'payment',
-    'line_items[0][price_data][currency]': 'usd',
-    'line_items[0][price_data][unit_amount]': String(totalCents),
-    'line_items[0][price_data][product_data][name]': `${params.minutes} Translator Minutes`,
-    'line_items[0][price_data][product_data][description]': `Live translator service - ${params.minutes} minutes`,
-    'line_items[0][quantity]': '1',
-    'metadata[subscriber_id]': params.subscriberId,
-    'metadata[minutes]': String(params.minutes),
-    success_url: params.successUrl,
-    cancel_url: params.cancelUrl,
-  }, key);
-
-  return { url: session.url, sessionId: session.id };
-}
-
-/**
- * Handle checkout.session.completed — add minutes to subscriber balance.
- */
-export async function handleCheckoutCompleted(session: any): Promise<void> {
-  const subscriberId = session.metadata?.subscriber_id;
-  const minutes = parseFloat(session.metadata?.minutes ?? '0');
-
-  if (!subscriberId || !minutes) {
-    log.warn({ session: session.id }, 'Checkout completed but missing metadata');
-    return;
-  }
-
-  const { sql } = await import('drizzle-orm');
-  await db.update(translatorSubscribers).set({
-    balance_minutes: sql`${translatorSubscribers.balance_minutes} + ${minutes}`,
-    updated_at: new Date(),
-  }).where(eq(translatorSubscribers.id, subscriberId));
-
-  log.info({ subscriberId, minutes, sessionId: session.id }, 'Minutes added from Stripe checkout');
-}
+// NOTE: the legacy "translator minutes" checkout (createCheckoutSession /
+// handleCheckoutCompleted) was removed — its producer endpoint
+// (POST /api/translator/checkout) is gone and balance_minutes was never spent.
+// Removing the non-idempotent minutes-credit handler also closes a latent
+// double-credit-on-retry path. Deposits/subscriptions are the live flows.
 
 // ============================================================
 // DEPOSIT CHECKOUT (workspace-level USD deposit)

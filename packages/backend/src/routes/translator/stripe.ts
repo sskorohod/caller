@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
-  handleCheckoutCompleted,
   handleDepositCheckoutCompleted,
   handleSubscriptionCheckoutCompleted,
   handleSubscriptionEvent,
@@ -55,8 +54,7 @@ const stripeRoutes: FastifyPluginAsync = async (app) => {
           } else if (metaType === 'subscription') {
             await handleSubscriptionCheckoutCompleted(session);
           } else {
-            // Legacy: translator minutes checkout (no metadata.type)
-            await handleCheckoutCompleted(session);
+            log.info({ sessionId: session.id }, 'Ignoring checkout.session.completed with no recognized metadata.type');
           }
           break;
         }

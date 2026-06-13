@@ -273,13 +273,15 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
     });
 
     // Toggle translation on/off mid-call
-    socket.on('call:translate:toggle', async ({ call_id, enabled }: { call_id: string; enabled: boolean }) => {
+    socket.on('call:translate:toggle', async ({ call_id, enabled }: { call_id?: string; enabled: boolean }) => {
       try {
+        const id = resolveCallId(call_id);
+        if (!id || !await authorizeCallAccess(id)) return;
         const { getActiveVoiceTranslateSessions } = await import('../routes/webhooks/media-stream.js');
-        const session = getActiveVoiceTranslateSessions().get(call_id);
+        const session = getActiveVoiceTranslateSessions().get(id);
         if (session) {
           session.translationEnabled = enabled;
-          log.info({ call_id, enabled }, 'Translation toggled');
+          log.info({ call_id: id, enabled }, 'Translation toggled');
         }
       } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });

@@ -60,17 +60,26 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
     if (!token) return reply.status(401).send({ error: 'Not authenticated' });
 
     let userId: string;
+    let tokenIat: number | undefined;
     try {
       const { verifyJWT } = await import('../../lib/jwt.js');
       const payload = await verifyJWT(token);
       userId = payload.sub;
+      tokenIat = payload.iat;
     } catch {
       return reply.status(401).send({ error: 'Invalid token' });
     }
 
-    const [user] = await db.select({ id: users.id, email: users.email, is_admin: users.is_admin })
+    const [user] = await db.select({ id: users.id, email: users.email, is_admin: users.is_admin, tokens_valid_from: users.tokens_valid_from })
       .from(users).where(eq(users.id, userId)).limit(1);
     if (!user) return reply.status(401).send({ error: 'User not found' });
+
+    // Honor token revocation here too (mirror of middleware/auth.ts), so a token
+    // invalidated by a password change can't keep reading identity info.
+    if (user.tokens_valid_from &&
+        (!tokenIat || tokenIat * 1000 < new Date(user.tokens_valid_from).getTime() - 5000)) {
+      return reply.status(401).send({ error: 'Session expired' });
+    }
 
     const [membership] = await db.select({
       workspace_id: workspaceMembers.workspace_id,
