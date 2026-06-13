@@ -21,6 +21,13 @@ const app = Fastify({
     level: env.LOG_LEVEL,
     transport: env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
   },
+  // Behind Cloudflare Tunnel → nginx (which sets X-Forwarded-For). Without
+  // this, request.ip is the nginx container IP for EVERY user, making the
+  // per-IP rate limits (login/register/magic-link) effectively global — one
+  // user's attempts lock out everyone. trustProxy makes request.ip the real
+  // client IP. The stack is only reachable via the tunnel, so XFF can't be
+  // spoofed by bypassing the proxy.
+  trustProxy: true,
   bodyLimit: 1024 * 100, // 100KB max request body
   serverFactory: (handler) => {
     httpServer.on('request', (req, res) => {
@@ -88,6 +95,19 @@ app.setErrorHandler((error, request, reply) => {
     reply.status(error.statusCode).send({
       error: error.code,
       message,
+    });
+    return;
+  }
+
+  // Framework/plugin errors carry their own 4xx status (rate-limit 429,
+  // payload-too-large 413, malformed JSON 400). Preserve it instead of
+  // masking as 500 — masking a 429 as 500 made the login lockout look like
+  // a server crash.
+  const status = (error as { statusCode?: number }).statusCode;
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    reply.status(status).send({
+      error: (error as { code?: string }).code ?? 'REQUEST_ERROR',
+      message: (error as { message?: string }).message || 'Request error',
     });
     return;
   }

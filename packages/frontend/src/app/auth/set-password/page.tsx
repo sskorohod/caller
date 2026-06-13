@@ -53,8 +53,9 @@ export default function SetPasswordPage() {
       sessionStorage.removeItem('caller_set_password_token');
       sessionStorage.removeItem('caller_set_password_user');
       sessionStorage.removeItem('caller_set_password_workspace');
-      // Log in and go to onboarding
-      login(token, user!, workspace ?? undefined, '/onboarding');
+      // Log in and go straight to the dashboard (plan selection was removed
+      // in the translator-only split — there are no plans to choose).
+      login(token, user!, workspace ?? undefined, '/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to set password');
     } finally {
