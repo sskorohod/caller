@@ -113,6 +113,11 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
             type="text"
             name="account-owner-name"
             autoComplete="off"
+            // Same read-only-until-touched guard as the phone fields, so Chrome
+            // can't move the password prompt here once the phones are protected.
+            readOnly
+            onFocus={e => { e.currentTarget.readOnly = false; }}
+            onPointerDown={e => { e.currentTarget.readOnly = false; }}
             value={ownerName}
             onChange={e => setOwnerName(e.target.value)}
             placeholder={lang === 'ru' ? 'Иван' : 'John'}
@@ -140,16 +145,22 @@ export function GeneralSection({ workspace, onUpdated }: { workspace: Workspace 
                   <input
                     type="tel"
                     inputMode="tel"
-                    // Chrome IGNORES autocomplete="off" and then heuristically
-                    // classifies the last empty field as a password candidate
-                    // (the password-fill prompt the user saw on field 3). The
-                    // semantic "tel" tells Chrome it's a phone field, so it
-                    // never offers a password or email here. data-*-ignore
-                    // covers 1Password / LastPass, which don't read autocomplete.
                     name={`authorized-phone-${i + 1}`}
                     autoComplete="tel"
                     data-1p-ignore
                     data-lpignore="true"
+                    // Chrome's password-manager form-parser is a SEPARATE pass
+                    // from autocomplete; it ignored "tel" and tagged the empty
+                    // last field as a credential slot (password prompt on
+                    // field 3). The only reliable fix is to make the field
+                    // read-only at initial parse so Chrome's classifier skips
+                    // it entirely, then unlock it the instant the user touches
+                    // it. Mutating the DOM node directly (not React state)
+                    // survives re-renders because the static readOnly prop
+                    // never changes value, so React never re-applies it.
+                    readOnly
+                    onFocus={e => { e.currentTarget.readOnly = false; }}
+                    onPointerDown={e => { e.currentTarget.readOnly = false; }}
                     value={val}
                     aria-label={`${t('settings.phoneNumbers')} ${i + 1}`}
                     placeholder={i === 0 ? '+14155551234' : `Phone ${i + 1} (optional)`}
