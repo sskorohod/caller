@@ -143,28 +143,47 @@ export async function creditDeposit(params: {
   referenceId?: string;
   createdBy?: string;
 }): Promise<{ newBalance: number }> {
-  const result = await db.update(workspaces)
-    .set({
-      balance_usd: sql`balance_usd + ${params.amountUsd.toFixed(4)}::numeric`,
-      updated_at: sql`now()`,
-    })
-    .where(eq(workspaces.id, params.workspaceId))
-    .returning({ balance_usd: workspaces.balance_usd });
+  // Claim-first, in a transaction, so the credit is idempotent: the ledger row
+  // is inserted before the balance is touched. For Stripe checkouts a replay
+  // hits the partial unique index (uniq_deposit_tx_stripe_checkout) and the
+  // ON CONFLICT DO NOTHING returns zero rows → we skip the increment, so a
+  // retried webhook can never double-credit. Non-Stripe credits (admin/refund,
+  // null reference) never match the index and behave exactly as before.
+  return db.transaction(async (tx) => {
+    const claimed = await tx.insert(depositTransactions).values({
+      workspace_id: params.workspaceId,
+      type: params.type,
+      amount_usd: params.amountUsd.toFixed(4),
+      balance_after: '0', // placeholder; set to the real balance below
+      description: params.description || params.type,
+      reference_type: params.referenceType || null,
+      reference_id: params.referenceId || null,
+      created_by: params.createdBy || null,
+    }).onConflictDoNothing().returning({ id: depositTransactions.id });
 
-  const newBalance = result.length ? parseFloat(result[0].balance_usd as string) : 0;
+    if (!claimed.length) {
+      // Already credited (idempotent replay) — return current balance, no change.
+      const [w] = await tx.select({ balance_usd: workspaces.balance_usd })
+        .from(workspaces).where(eq(workspaces.id, params.workspaceId));
+      return { newBalance: w ? parseFloat(w.balance_usd as string) : 0 };
+    }
 
-  await db.insert(depositTransactions).values({
-    workspace_id: params.workspaceId,
-    type: params.type,
-    amount_usd: params.amountUsd.toFixed(4),
-    balance_after: newBalance.toFixed(4),
-    description: params.description || params.type,
-    reference_type: params.referenceType || null,
-    reference_id: params.referenceId || null,
-    created_by: params.createdBy || null,
+    const result = await tx.update(workspaces)
+      .set({
+        balance_usd: sql`balance_usd + ${params.amountUsd.toFixed(4)}::numeric`,
+        updated_at: sql`now()`,
+      })
+      .where(eq(workspaces.id, params.workspaceId))
+      .returning({ balance_usd: workspaces.balance_usd });
+
+    const newBalance = result.length ? parseFloat(result[0].balance_usd as string) : 0;
+
+    await tx.update(depositTransactions)
+      .set({ balance_after: newBalance.toFixed(4) })
+      .where(eq(depositTransactions.id, claimed[0].id));
+
+    return { newBalance };
   });
-
-  return { newBalance };
 }
 
 /**

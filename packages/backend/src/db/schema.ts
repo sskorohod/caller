@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, boolean, integer, numeric, timestamp, jsonb, unique, index, customType,
+  pgTable, uuid, text, boolean, integer, numeric, timestamp, jsonb, unique, index, uniqueIndex, customType,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -538,6 +538,11 @@ export const depositTransactions = pgTable('deposit_transactions', {
 }, (t) => [
   index('idx_deposit_tx_workspace').on(t.workspace_id, t.created_at),
   index('idx_deposit_tx_type').on(t.type),
+  // Idempotency for Stripe-driven credits: one balance top-up per checkout
+  // session. Partial so it never constrains usage rows (which share a
+  // reference_id) or admin/refund credits (different reference_type).
+  uniqueIndex('uniq_deposit_tx_stripe_checkout').on(t.reference_id)
+    .where(sql`reference_type = 'stripe_checkout' AND reference_id IS NOT NULL`),
 ]);
 
 // ============================================================

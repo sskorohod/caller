@@ -78,9 +78,11 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
 
   // Token revocation: a password change advances tokens_valid_from, invalidating
   // any JWT issued before it (e.g. a stolen token). 5s grace absorbs clock skew
-  // between the issued-at second and the stored timestamp.
-  if (row.tokens_valid_from && tokenIat &&
-      tokenIat * 1000 < new Date(row.tokens_valid_from).getTime() - 5000) {
+  // between the issued-at second and the stored timestamp. A token with no iat
+  // claim is also rejected once a revocation point exists, so revocation can't
+  // be bypassed by an iat-less token (all in-app issuers set iat).
+  if (row.tokens_valid_from &&
+      (!tokenIat || tokenIat * 1000 < new Date(row.tokens_valid_from).getTime() - 5000)) {
     throw new UnauthorizedError('Session expired — please log in again');
   }
 
