@@ -75,7 +75,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           }}
         />
         {/* End Google Tag Manager */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
+        {/* Early-connect to the Google Fonts origins to shave a round-trip on mobile. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Material Symbols — SUBSET to only the icons the app actually uses
+            (icon_names). The full variable icon font is ~1.1 MB; the subset is a
+            few tens of KB, which is the single biggest mobile-load win. wght fixed
+            at 400 (the only weight used), FILL kept 0..1 for filled-icon states. */}
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&icon_names=account_balance,account_balance_wallet,add,add_call,ads_click,apartment,architecture,arrow_back,arrow_forward,article,auto_awesome,auto_stories,autorenew,balance,bolt,business_center,call,call_end,call_merge,call_missed,cancel,cell_tower,chat_bubble,check_circle,chevron_left,chevron_right,close,code,compare_arrows,confirmation_number,dark_mode,dashboard,description,dialpad,error,filter_alt,forum,gavel,graphic_eq,group,headphones,health_and_safety,hearing,help,history,hourglass_bottom,hourglass_empty,hourglass_top,hub,inbox,info,insights,language,light_mode,local_hospital,lock,login,loyalty,mail,mark_email_read,mark_email_unread,menu_book,mic,mic_off,monitoring,more_horiz,notifications,palette,payments,person,person_add,person_off,phone,phone_enabled,phone_in_talk,play_circle,policy,progress_activity,psychology,public,receipt_long,record_voice_over,redeem,remove_circle,repeat,rocket_launch,savings,schedule,search,send,sentiment_satisfied,settings,shield,show_chart,sim_card,sim_card_alert,sim_card_download,smart_toy,smartphone,spatial_audio_off,star,subtitles,support_agent,sync,sync_alt,thermostat,timeline,timer,touch_app,translate,travel_explore,trending_up,verified,visibility,volume_up,warning&display=swap" />
         <style>{`.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }`}</style>
       </head>
       <body>

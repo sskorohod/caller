@@ -51,6 +51,9 @@ function Landing() {
 
   return (
     <div className="lp">
+      {/* Inter + Manrope via a hoisted <link> (parallel fetch) instead of a
+          render-blocking CSS @import; display=swap keeps text visible immediately. */}
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" />
       <style>{LP_CSS}</style>
 
       {/* Ambient drifting light blobs (fixed → parallax, very subtle) */}
@@ -520,8 +523,6 @@ function FAQ(t: (en: string, ru: string) => string) {
 
 /* ─── Scoped styles (dark, app-consistent) ──────────────────── */
 const LP_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
-
 .lp {
   --bg: #0e131f;
   --bg-2: #0a0f1a;
