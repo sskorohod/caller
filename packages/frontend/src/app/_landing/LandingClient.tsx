@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { LangProvider, useLang } from './useLang';
 import { inter, manrope } from '../fonts';
+import { landingFaq } from '../_seo/faq';
 
 /* ════════════════════════════════════════════════════════════════════
    LingoLine — Live phone translation for expats.
@@ -509,14 +510,7 @@ function GreetingsMarquee() {
 }
 
 function FAQ(t: (en: string, ru: string) => string) {
-  return [
-    { q: t('Do I need to install an app?', 'Нужно ли устанавливать приложение?'), a: t('No. LingoLine is a phone number you merge into a normal call. Nothing to download, and the other person needs nothing at all.', 'Нет. LingoLine — это номер, который вы подключаете в обычный звонок. Ничего скачивать не нужно, а собеседнику — тем более.') },
-    { q: t('Which languages are supported?', 'Какие языки поддерживаются?'), a: t('Thirteen: English, Russian, Ukrainian, Spanish, German, French, Chinese, Japanese, Korean, Arabic, Portuguese, Italian and Hindi — in any direction, detected automatically.', 'Тринадцать: английский, русский, украинский, испанский, немецкий, французский, китайский, японский, корейский, арабский, португальский, итальянский и хинди — в любую сторону, с авто-определением.') },
-    { q: t('How accurate and natural is it?', 'Насколько это точно и естественно?'), a: t('It uses premium AI voices and translates both sides of the call out loud. Take turns and pause briefly so each phrase can finish — it sounds like a real interpreter, not a robot.', 'Используются премиальные AI-голоса, перевод озвучивается для обеих сторон. Говорите по очереди с короткой паузой, чтобы фраза успевала завершиться — звучит как живой переводчик, а не робот.') },
-    { q: t('Is it really no subscription?', 'Правда без подписки?'), a: t('Yes. You top up a balance and pay about $0.20 per minute, only while you’re actually talking. No monthly fee, no commitment. New accounts get $2 free to try.', 'Да. Вы пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без абонплаты и обязательств. Новым аккаунтам — $2 бесплатно на пробу.') },
-    { q: t('Does it work on the other person’s landline or mobile?', 'Работает ли с мобильным или стационарным телефоном собеседника?'), a: t('Yes. Because it’s an ordinary phone call, it works whoever you’re calling — a mobile, a landline, a clinic’s switchboard. They just talk normally.', 'Да. Это обычный звонок, поэтому работает с кем угодно — мобильный, стационарный, телефон регистратуры. Собеседник просто говорит как обычно.') },
-    { q: t('How do I pay?', 'Как оплачивать?'), a: t('Top up your balance by card through Stripe whenever you like. Usage is deducted per minute. You don’t need a card to create an account and use your free credit.', 'Пополняйте баланс картой через Stripe в любой момент. Списание идёт по минутам. Карта не нужна, чтобы создать аккаунт и потратить бесплатный баланс.') },
-  ];
+  return landingFaq.map((f) => ({ q: t(f.q.en, f.q.ru), a: t(f.a.en, f.a.ru) }));
 }
 
 /* ─── Scoped styles (dark, app-consistent) ──────────────────── */

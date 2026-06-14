@@ -562,7 +562,7 @@ function HelpPageInner() {
                 <span className="font-headline font-extrabold text-lg">LingoLine</span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
-                {t('AI phone agents and live translation for the globally connected business. One platform, zero complexity.', 'AI-телефонные агенты и живой перевод для глобального бизнеса. Одна платформа, никакой сложности.')}
+                {t('Real-time phone call translation — merge it into any call and speak in your own language.', 'Перевод телефонных звонков в реальном времени — подключите к любому звонку и говорите на своём языке.')}
               </p>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.12)' }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80' }} />
@@ -573,14 +573,13 @@ function HelpPageInner() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-12">
               {[
                 { title: t('Product', 'Продукт'), links: [
-                  { label: t('AI Agents', 'AI Агенты'), href: '/#products' },
                   { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
                   { label: t('Pricing', 'Цены'), href: '/pricing' },
-                  { label: t('Features', 'Возможности'), href: '/#features' },
+                  { label: t('Help Center', 'Центр помощи'), href: '/help' },
                 ] },
                 { title: t('Resources', 'Ресурсы'), links: [
                   { label: t('Documentation', 'Документация'), href: '/docs' },
-                  { label: t('API Reference', 'Справочник API'), href: '/docs?section=api' },
+                  { label: t('Blog', 'Блог'), href: '/blog' },
                   { label: t('Help Center', 'Центр помощи'), href: '/help' },
                 ] },
                 { title: t('Legal', 'Правовая информация'), links: [

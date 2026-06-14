@@ -72,7 +72,7 @@ export default function CallInsuranceNoEnglish() {
       </ul>
 
       <h2>{t('Option 3: Use an AI Phone Translator', 'Вариант 3: Использовать AI-переводчик')}</h2>
-      <p><strong>{t('Cost: $0.15/min (Live Translator) | Best for: Routine calls, follow-ups, any language', 'Стоимость: $0.15/мин (Live Translator) | Лучше всего для: обычных звонков, повторных обращений, любого языка')}</strong></p>
+      <p><strong>{t('Cost: $0.20/min (Live Translator) | Best for: Routine calls, follow-ups, any language', 'Стоимость: $0.20/мин (Live Translator) | Лучше всего для: обычных звонков, повторных обращений, любого языка')}</strong></p>
       <p>
         {t(
           'AI phone translation works by adding a translator to your call — like a conference call with an interpreter. You speak in your language, and the other person hears English. They respond in English, and you hear your language.',

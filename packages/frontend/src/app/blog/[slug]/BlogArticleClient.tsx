@@ -30,8 +30,8 @@ function ArticleCTA() {
       </h3>
       <p className="mb-6" style={{ color: '#a0a8c0' }}>
         {t(
-          'Merge our number into any phone call — AI translates both sides. $0.15/min. First $2 free.',
-          'Добавьте наш номер в любой звонок — AI переведёт обе стороны. $0.15/мин. Первые $2 бесплатно.'
+          'Merge our number into any phone call — AI translates both sides. $0.20/min. First $2 free.',
+          'Добавьте наш номер в любой звонок — AI переведёт обе стороны. $0.20/мин. Первые $2 бесплатно.'
         )}
       </p>
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

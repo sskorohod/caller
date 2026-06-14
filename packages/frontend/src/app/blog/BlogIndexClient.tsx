@@ -76,8 +76,8 @@ export default function BlogIndexClient() {
           </h3>
           <p className="text-sm mb-5" style={{ color: '#a0a8c0' }}>
             {t(
-              'Merge our AI translator into any phone call. $0.15/min. No app needed.',
-              'Добавьте AI-переводчика в любой звонок. $0.15/мин. Без приложений.'
+              'Merge our AI translator into any phone call. $0.20/min. No app needed.',
+              'Добавьте AI-переводчика в любой звонок. $0.20/мин. Без приложений.'
             )}
           </p>
           <div className="flex items-center justify-center gap-3">

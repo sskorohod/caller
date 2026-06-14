@@ -70,7 +70,7 @@ export default function UscisInterpreterPolicy() {
       </ul>
 
       <h3>{t('Option 3: Use a Phone Interpretation Service', 'Вариант 3: Использовать телефонную переводческую службу')}</h3>
-      <p><strong>{t('Cost: $2–5/min (LanguageLine) or $0.15/min (Live Translator)', 'Стоимость: $2–5/мин (LanguageLine) или $0.15/мин (Live Translator)')}</strong></p>
+      <p><strong>{t('Cost: $2–5/min (LanguageLine) or $0.20/min (Live Translator)', 'Стоимость: $2–5/мин (LanguageLine) или $0.20/мин (Live Translator)')}</strong></p>
       <p>
         {t(
           'While USCIS interviews are in-person, phone interpretation services are essential for all the other calls you need to make during the immigration process:',
@@ -115,11 +115,11 @@ export default function UscisInterpreterPolicy() {
         )}
       </p>
 
-      <h3>{t('Is $0.15/min really enough for immigration calls?', 'Действительно ли $0.15/мин достаточно для иммиграционных звонков?')}</h3>
+      <h3>{t('Is $0.20/min really enough for immigration calls?', 'Действительно ли $0.20/мин достаточно для иммиграционных звонков?')}</h3>
       <p>
         {t(
-          'A typical call to USCIS customer service takes 15–30 minutes (including hold time). At $0.15/min, that\'s $2.25–$4.50 per call — compared to $30–150 with traditional interpreter services.',
-          'Типичный звонок в службу поддержки USCIS занимает 15–30 минут (включая ожидание). При $0.15/мин это $2.25–$4.50 за звонок — по сравнению с $30–150 при традиционных переводческих услугах.'
+          'A typical call to USCIS customer service takes 15–30 minutes (including hold time). At $0.20/min, that\'s $3–$6 per call — compared to $30–150 with traditional interpreter services.',
+          'Типичный звонок в службу поддержки USCIS занимает 15–30 минут (включая ожидание). При $0.20/мин это $3–$6 за звонок — по сравнению с $30–150 при традиционных переводческих услугах.'
         )}
       </p>
 
@@ -143,8 +143,8 @@ export default function UscisInterpreterPolicy() {
       </ul>
       <p>
         {t(
-          'Each of these calls becomes easier with a translator on the line. And at $0.15/min, you can handle all of them for less than the cost of a single hour with a human interpreter.',
-          'Каждый из этих звонков становится проще с переводчиком на линии. А при $0.15/мин вы справитесь со всеми за сумму меньше стоимости одного часа с живым переводчиком.'
+          'Each of these calls becomes easier with a translator on the line. And at $0.20/min, you can handle all of them for less than the cost of a single hour with a human interpreter.',
+          'Каждый из этих звонков становится проще с переводчиком на линии. А при $0.20/мин вы справитесь со всеми за сумму меньше стоимости одного часа с живым переводчиком.'
         )}
       </p>
 

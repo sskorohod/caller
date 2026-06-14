@@ -85,7 +85,7 @@ export default function RealTimePhoneTranslation() {
       <p><strong>{t('Cons:', 'Минусы:')}</strong></p>
       <ul>
         <li>{t('Fewer languages than carrier-based (15+ vs. 50+)', 'Меньше языков, чем у оператора (15+ против 50+)')}</li>
-        <li>{t('Costs $0.15/min (not free like T-Mobile beta)', 'Стоит $0.15/мин (не бесплатно, как бета T-Mobile)')}</li>
+        <li>{t('Costs $0.20/min (not free like T-Mobile beta)', 'Стоит $0.20/мин (не бесплатно, как бета T-Mobile)')}</li>
         <li>{t('Requires knowing how to use conference/merge calls on your phone', 'Нужно знать, как использовать конференц-звонки на вашем телефоне')}</li>
       </ul>
 
@@ -140,7 +140,7 @@ export default function RealTimePhoneTranslation() {
             <td>{t('Price', 'Цена')}</td>
             <td>$10–20/{t('mo', 'мес')}</td>
             <td>{t('Free (beta)', 'Бесплатно (бета)')}</td>
-            <td>$0.15/{t('min', 'мин')}</td>
+            <td>$0.20/{t('min', 'мин')}</td>
           </tr>
           <tr>
             <td>{t('Latency', 'Задержка')}</td>
@@ -198,8 +198,8 @@ export default function RealTimePhoneTranslation() {
       </p>
       <p>
         {t(
-          'For now, the merge-based approach offers the best combination of universality (any phone, any carrier), simplicity (no app), and affordability ($0.15/min).',
-          'Пока что метод объединения предлагает лучшую комбинацию универсальности (любой телефон, любой оператор), простоты (без приложений) и доступности ($0.15/мин).'
+          'For now, the merge-based approach offers the best combination of universality (any phone, any carrier), simplicity (no app), and affordability ($0.20/min).',
+          'Пока что метод объединения предлагает лучшую комбинацию универсальности (любой телефон, любой оператор), простоты (без приложений) и доступности ($0.20/мин).'
         )}
       </p>
 

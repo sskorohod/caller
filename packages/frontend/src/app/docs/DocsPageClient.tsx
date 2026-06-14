@@ -11,9 +11,9 @@ import { DOC_SECTIONS, type DocSection, type DocArticle } from './_lib/docs-data
 /* ── Section accent colors ───────────────────────────────────────────── */
 const SECTION_COLORS: Record<string, string> = {
   'getting-started': '#6366f1',
-  'user-guide': '#8b5cf6',
-  'api-reference': '#f59e0b',
-  'architecture': '#06b6d4',
+  'using-translator': '#8b5cf6',
+  'billing': '#10b981',
+  'privacy-security': '#06b6d4',
 };
 
 /* ── Styles ──────────────────────────────────────────────────────────── */
@@ -53,9 +53,9 @@ function DocsStyles() {
 /* ── Inner component that uses useSearchParams ───────────────────────── */
 const SECTION_RU: Record<string, string> = {
   'Getting Started': 'Начало работы',
-  'User Guide': 'Руководство пользователя',
-  'API Reference': 'Справочник API',
-  'Architecture': 'Архитектура',
+  'Using the Translator': 'Работа с переводчиком',
+  'Billing & Balance': 'Оплата и баланс',
+  'Privacy & Security': 'Приватность и безопасность',
 };
 
 function DocsPageInner() {
@@ -216,8 +216,8 @@ function DocsPageInner() {
             <Link href="/docs" className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ color: '#818cf8', background: 'rgba(99,102,241,0.08)' }}>
               {t('Documentation', 'Документация')}
             </Link>
-            <Link href="/docs?section=api-reference" className="px-3 py-1.5 rounded-lg text-sm transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>
-              {t('API Reference', 'Справочник API')}
+            <Link href="/pricing" className="px-3 py-1.5 rounded-lg text-sm transition-colors hover:text-white" style={{ color: '#a0a8c0' }}>
+              {t('Pricing', 'Цены')}
             </Link>
           </nav>
 
@@ -246,7 +246,7 @@ function DocsPageInner() {
           <div className="md:hidden px-4 pb-4 pt-2 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
             <Link href="/help" className="block px-3 py-2 rounded-lg text-sm" style={{ color: '#a0a8c0' }} onClick={() => setMobileHamburger(false)}>{t('Help Center', 'Центр помощи')}</Link>
             <Link href="/docs" className="block px-3 py-2 rounded-lg text-sm font-medium" style={{ color: '#818cf8' }} onClick={() => setMobileHamburger(false)}>{t('Documentation', 'Документация')}</Link>
-            <Link href="/docs?section=api-reference" className="block px-3 py-2 rounded-lg text-sm" style={{ color: '#a0a8c0' }} onClick={() => setMobileHamburger(false)}>{t('API Reference', 'Справочник API')}</Link>
+            <Link href="/pricing" className="block px-3 py-2 rounded-lg text-sm" style={{ color: '#a0a8c0' }} onClick={() => setMobileHamburger(false)}>{t('Pricing', 'Цены')}</Link>
             <LangSwitcher className="mx-3" />
             <Link href="/login?mode=register" className="block mt-2 px-4 py-2 rounded-lg text-sm font-semibold text-center" style={{ background: 'linear-gradient(135deg, #818cf8, #4d8eff)', color: '#fff' }} onClick={() => setMobileHamburger(false)}>{t('Get Started', 'Начать')}</Link>
           </div>
@@ -268,7 +268,7 @@ function DocsPageInner() {
                   <span className="gradient-text">{t('Documentation', 'Документация')}</span>
                 </h1>
                 <p className="text-sm max-w-lg" style={{ color: '#a0a8c0' }}>
-                  {t('Everything you need to build with LingoLine — guides, API reference, and architecture deep dives.', 'Всё для работы с LingoLine — руководства, справочник API и обзор архитектуры.')}
+                  {t('Everything you need to use LingoLine — getting started, merging the translator into a call, languages, and billing.', 'Всё для работы с LingoLine — начало работы, как подключить переводчик к звонку, языки и оплата.')}
                 </p>
               </div>
 
@@ -514,7 +514,7 @@ function DocsPageInner() {
                 <span className="font-headline font-extrabold text-lg">LingoLine</span>
               </div>
               <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(194,198,214,0.4)' }}>
-                {t('AI phone agents and live translation for the globally connected business.', 'AI-телефонные агенты и живой перевод для глобального бизнеса.')}
+                {t('Real-time phone call translation — merge it into any call and speak in your own language.', 'Перевод телефонных звонков в реальном времени — подключите к любому звонку и говорите на своём языке.')}
               </p>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit" style={{ background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.12)' }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#4ade80' }} />
@@ -525,13 +525,13 @@ function DocsPageInner() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-12">
               {[
                 { title: t('Product', 'Продукт'), links: [
-                  { label: t('AI Agents', 'AI Агенты'), href: '/#products' },
                   { label: t('Live Translator', 'Живой переводчик'), href: '/translator' },
                   { label: t('Pricing', 'Цены'), href: '/pricing' },
+                  { label: t('Help Center', 'Центр помощи'), href: '/help' },
                 ] },
                 { title: t('Resources', 'Ресурсы'), links: [
                   { label: t('Documentation', 'Документация'), href: '/docs' },
-                  { label: t('API Reference', 'Справочник API'), href: '/docs?section=api-reference' },
+                  { label: t('Blog', 'Блог'), href: '/blog' },
                   { label: t('Help Center', 'Центр помощи'), href: '/help' },
                 ] },
                 { title: t('Legal', 'Правовая информация'), links: [

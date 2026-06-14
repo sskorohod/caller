@@ -5,6 +5,7 @@ import AnimatedSection from '@/app/_landing/AnimatedSection';
 import FaqAccordion from '@/app/_landing/FaqAccordion';
 import ContactPopup from '@/app/_landing/ContactPopup';
 import { useLang, LangSwitcher, LangProvider } from '@/app/_landing/useLang';
+import { translatorFaq } from '@/app/_seo/faq';
 
 /* ── Styles ─────────────────────────────────────────────────────────────── */
 function TranslatorStyles() {
@@ -332,55 +333,12 @@ function LanguagePairsGrid() {
 function TranslatorContent() {
   const { t } = useLang();
 
-  const faqItems = [
-    {
-      q: t('How does the translator join my call?', 'Как переводчик подключается к моему звонку?'),
-      a: t(
-        'Simply merge our translator number into your active call. It joins within seconds, introduces itself briefly, and begins translating both sides of the conversation in real-time.',
-        'Просто добавьте наш номер переводчика к активному звонку. Он подключается за секунды, коротко представляется и начинает переводить обе стороны разговора в режиме реального времени.'
-      ),
-    },
-    {
-      q: t('What languages are supported?', 'Какие языки поддерживаются?'),
-      a: t(
-        "We support 15+ language pairs including English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Russian, Portuguese, Italian, and more. Auto-detection is available so you don't need to specify the language upfront.",
-        'Мы поддерживаем 15+ языковых пар, включая английский, испанский, французский, немецкий, китайский, японский, корейский, арабский, русский, португальский, итальянский и другие. Доступно автоопределение языка — указывать заранее не нужно.'
-      ),
-    },
-    {
-      q: t('Can I use it on inbound calls too?', 'Можно ли использовать при входящих звонках?'),
-      a: t(
-        "Yes! Whether you're making a call or receiving one, you can merge the translator at any point during the conversation. It works seamlessly for both directions.",
-        'Да! Неважно, звоните ли вы или принимаете звонок — вы можете подключить переводчика в любой момент разговора. Работает в обоих направлениях.'
-      ),
-    },
-    {
-      q: t('Do I need to install any app?', 'Нужно ли устанавливать приложение?'),
-      a: t(
-        'No apps needed. The translator works with any phone — landline, mobile, or VoIP. Just merge the number into your call and the translator handles everything.',
-        'Никаких приложений. Переводчик работает с любым телефоном — стационарным, мобильным или VoIP. Просто добавьте номер к звонку — переводчик всё сделает сам.'
-      ),
-    },
-    {
-      q: t('How does the Telegram integration work?', 'Как работает интеграция с Telegram?'),
-      a: t(
-        "Connect your Telegram account in settings. After each translated call, you'll receive a call summary and a link to the live transcript directly in Telegram — perfect for keeping records.",
-        'Подключите аккаунт Telegram в настройках. После каждого переведённого звонка вы получите краткое резюме и ссылку на онлайн-транскрипцию прямо в Telegram — удобно для ведения записей.'
-      ),
-    },
-    {
-      q: t('What voices are available?', 'Какие голоса доступны?'),
-      a: t(
-        'Choose from premium AI voices by xAI (Grok TTS), OpenAI, and ElevenLabs. Each provider offers multiple voice options with different characteristics to match your preferred tone.',
-        'Выбирайте из премиальных AI-голосов от xAI (Grok TTS), OpenAI и ElevenLabs. Каждый провайдер предлагает несколько голосовых вариантов с разными характеристиками под нужный тон.'
-      ),
-    },
-  ];
+  const faqItems = translatorFaq.map((f) => ({ q: t(f.q.en, f.q.ru), a: t(f.a.en, f.a.ru) }));
 
   const features = [
     {
       icon: 'language',
-      title: t('15+ Languages', '15+ языков'),
+      title: t('13 Languages', '13 языков'),
       desc: t(
         'English, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Russian, Portuguese, Italian, and more.',
         'Английский, испанский, французский, немецкий, китайский, японский, корейский, арабский, русский, португальский, итальянский и другие.'
@@ -511,7 +469,7 @@ function TranslatorContent() {
             <div className="flex justify-center mb-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold" style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)', color: '#22d3ee' }}>
                 <span className="material-symbols-outlined text-sm">translate</span>
-                {t('Live Translation · 15+ Languages', 'Живой перевод · 15+ языков')}
+                {t('Live Translation · 13 Languages', 'Живой перевод · 13 языков')}
               </div>
             </div>
           </AnimatedSection>
@@ -793,7 +751,7 @@ function TranslatorContent() {
                   )}
                 </p>
                 <div className="text-4xl font-headline font-extrabold mb-2 gradient-text-translator">
-                  {t('From', 'От')} $0.15<span className="text-2xl">{t('/min', '/мин')}</span>
+                  {t('From', 'От')} $0.20<span className="text-2xl">{t('/min', '/мин')}</span>
                 </div>
                 <p className="text-sm mb-10" style={{ color: 'rgba(194,198,214,0.4)' }}>{t('Pricing varies by language pair and voice engine', 'Цена зависит от языковой пары и голосового движка')}</p>
 
@@ -878,7 +836,7 @@ function TranslatorContent() {
                 slug: 'languageline-alternative',
                 icon: 'compare_arrows',
                 color: '#818cf8',
-                title: t('LanguageLine Alternative: $0.15/min AI Translation', 'Альтернатива LanguageLine: AI-перевод за $0.15/мин'),
+                title: t('LanguageLine Alternative: $0.20/min AI Translation', 'Альтернатива LanguageLine: AI-перевод за $0.20/мин'),
                 desc: t('How Live Translator compares to LanguageLine, Boostlingo, T-Mobile, and other services.', 'Как Live Translator сравнивается с LanguageLine, Boostlingo, T-Mobile и другими.'),
                 readTime: t('6 min read', '6 мин чтения'),
               },
@@ -966,7 +924,7 @@ function TranslatorContent() {
                 <span className="font-headline font-bold text-white text-lg">LingoLine</span>
               </Link>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(194,198,214,0.45)' }}>
-                {t('AI phone agents and live translation for modern businesses.', 'AI-телефонные агенты и живой перевод для современного бизнеса.')}
+                {t('Real-time phone call translation — merge it into any call and speak in your own language.', 'Перевод телефонных звонков в реальном времени — подключите к любому звонку и говорите на своём языке.')}
               </p>
             </div>
 
@@ -997,7 +955,6 @@ function TranslatorContent() {
                 {[
                   { label: t('Documentation', 'Документация'), href: '/docs' },
                   { label: t('Help Center', 'Центр помощи'), href: '/help' },
-                  { label: t('API Reference', 'Справочник API'), href: '/docs?section=api-reference' },
                   { label: t('Blog', 'Блог'), href: '/blog' },
                 ].map((link) => (
                   <li key={link.href}>

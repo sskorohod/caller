@@ -13,8 +13,8 @@ export default function LanguageLineAlternative() {
       </p>
       <p>
         {t(
-          'In 2026, AI-powered phone translation has changed the game. You can now get real-time phone translation for $0.15/min — no app, no contract, any phone. Here\'s how the alternatives stack up.',
-          'В 2026 году AI-перевод звонков изменил правила игры. Теперь можно получить перевод в реальном времени за $0.15/мин — без приложений, без контрактов, с любого телефона. Вот как выглядят альтернативы.'
+          'In 2026, AI-powered phone translation has changed the game. You can now get real-time phone translation for $0.20/min — no app, no contract, any phone. Here\'s how the alternatives stack up.',
+          'В 2026 году AI-перевод звонков изменил правила игры. Теперь можно получить перевод в реальном времени за $0.20/мин — без приложений, без контрактов, с любого телефона. Вот как выглядят альтернативы.'
         )}
       </p>
 
@@ -45,7 +45,7 @@ export default function LanguageLineAlternative() {
         <tbody>
           <tr>
             <td><strong>Live Translator</strong></td>
-            <td>$0.15/{t('min', 'мин')}</td>
+            <td>$0.20/{t('min', 'мин')}</td>
             <td>{t('Merge a number into any call', 'Добавьте номер в любой звонок')}</td>
             <td>15+</td>
             <td>{t('No', 'Нет')}</td>
@@ -159,7 +159,7 @@ export default function LanguageLineAlternative() {
         <li>{t('You need translation for everyday calls (insurance, bank, doctor, utilities)', 'Вам нужен перевод для повседневных звонков (страховая, банк, врач, коммунальные)')}</li>
         <li>{t('You want pay-per-use without contracts', 'Вы хотите платить за использование без контрактов')}</li>
         <li>{t('You value convenience — no app, no setup, works instantly', 'Вам важно удобство — без приложений, без настройки, работает мгновенно')}</li>
-        <li>{t('Your budget matters — $0.15/min vs. $2–5/min', 'Бюджет имеет значение — $0.15/мин против $2–5/мин')}</li>
+        <li>{t('Your budget matters — $0.20/min vs. $2–5/min', 'Бюджет имеет значение — $0.20/мин против $2–5/мин')}</li>
       </ul>
 
       <h2>{t('Real Use Cases', 'Реальные примеры использования')}</h2>
