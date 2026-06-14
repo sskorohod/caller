@@ -4,7 +4,7 @@ import JsonLd from '@/components/JsonLd';
 import { breadcrumbSchema, SITE_URL } from '../_seo/schema';
 
 export const metadata: Metadata = {
-  title: 'Documentation — LingoLine',
+  title: 'Documentation',
   description: 'How to use LingoLine, the AI live phone translator — getting started, merging the translator into a call, supported languages, and how the balance works.',
   alternates: { canonical: `${SITE_URL}/docs` },
 };

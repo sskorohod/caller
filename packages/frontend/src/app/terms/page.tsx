@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — LingoLine',
+  title: 'Terms of Service',
   description: 'LingoLine platform terms of service and conditions of use.',
 };
 

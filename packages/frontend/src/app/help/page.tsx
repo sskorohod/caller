@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import HelpPageClient from './HelpPageClient';
 
 export const metadata: Metadata = {
-  title: 'Help Center — LingoLine',
-  description: 'Find answers to common questions about LingoLine AI phone agents, live translation, billing, and more.',
+  title: 'Help Center',
+  description: 'Answers to common questions about LingoLine — the live phone translator: getting started, merging into a call, languages, and billing.',
 };
 
 export default function HelpPage() {

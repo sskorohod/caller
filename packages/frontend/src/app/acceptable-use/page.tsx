@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Acceptable Use Policy — LingoLine',
+  title: 'Acceptable Use Policy',
   description: 'LingoLine platform acceptable use policy. Rules for using our AI phone calling service.',
 };
 
