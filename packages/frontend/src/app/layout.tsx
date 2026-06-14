@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/auth-context';
 import { I18nProvider } from '@/lib/i18n';
 import { ToastProvider } from '@/lib/toast';
 import { ThemeProvider } from '@/lib/theme';
+import AnalyticsTracker from '@/components/AnalyticsTracker';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -99,6 +100,8 @@ gtag('config', 'AW-18232663036');`}
             </ToastProvider>
           </I18nProvider>
         </ThemeProvider>
+        {/* First-party site analytics — self-gated to public pages */}
+        <AnalyticsTracker />
       </body>
     </html>
   );

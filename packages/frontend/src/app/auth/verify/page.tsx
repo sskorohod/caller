@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 
 function VerifyContent() {
   const { login } = useAuth();
@@ -28,6 +29,8 @@ function VerifyContent() {
     }>(`/auth/verify?token=${token}`)
       .then(res => {
         setStatus('success');
+        // Signup conversion for the analytics funnel (new account just created).
+        if (res.isNewUser) trackEvent('signup');
         setTimeout(() => {
           if (res.needsPassword) {
             // New user — save token temporarily and go to set-password page

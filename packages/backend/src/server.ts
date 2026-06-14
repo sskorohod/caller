@@ -176,7 +176,11 @@ app.get('/api/billing/plans', async () => {
 await app.register(import('./routes/billing/index.js'), { prefix: '/api/billing' });
 await app.register(import('./routes/support/index.js'), { prefix: '/api/support' });
 await app.register(import('./routes/contact/index.js'), { prefix: '/api/contact' });
+// Public site-analytics ingestion (no auth — serves the public site)
+await app.register(import('./routes/analytics/index.js'), { prefix: '/api/analytics' });
 await app.register(import('./routes/admin/index.js'), { prefix: '/api/admin' });
+// Admin-only analytics read API (self-gated with authenticateUser + requireAdmin)
+await app.register(import('./routes/admin/analytics.js'), { prefix: '/api/admin/analytics' });
 
 // Graceful shutdown
 async function gracefulShutdown(signal: string) {

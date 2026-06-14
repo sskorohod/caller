@@ -647,3 +647,46 @@ export const contactMessages = pgTable('contact_messages', {
   index('idx_contact_messages_status').on(t.status, t.created_at),
   index('idx_contact_messages_created').on(t.created_at),
 ]);
+
+// ── Site Analytics (public site/landing behavior — in-house, first-party) ──
+// Anonymous: visitor_id is a random client id (no PII), ip is stored hashed.
+// One row per tracked event. The high-volume click-coordinate stream lives in
+// analytics_heatmap_points to keep this table lean.
+export const analyticsEvents = pgTable('analytics_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  visitor_id: text('visitor_id').notNull(),
+  session_id: text('session_id').notNull(),
+  type: text('type').notNull(), // 'pageview' | 'engage' | 'click' | 'scroll' | 'signup'
+  path: text('path').notNull(),
+  referrer: text('referrer'),
+  utm_source: text('utm_source'),
+  utm_medium: text('utm_medium'),
+  utm_campaign: text('utm_campaign'),
+  device: text('device'),       // 'desktop' | 'tablet' | 'mobile'
+  viewport: text('viewport'),   // same bucket, kept for heatmap correlation
+  lang: text('lang'),
+  active_ms: integer('active_ms'),     // for 'engage' — active time on page
+  scroll_pct: integer('scroll_pct'),   // for 'scroll' — max depth 0..100
+  element_label: text('element_label'),    // for 'click' — button/link text
+  element_selector: text('element_selector'), // for 'click' — stable selector
+  ip_hash: text('ip_hash'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_analytics_events_created').on(t.created_at),
+  index('idx_analytics_events_type_created').on(t.type, t.created_at),
+  index('idx_analytics_events_path_created').on(t.path, t.created_at),
+  index('idx_analytics_events_session').on(t.session_id),
+]);
+
+// High-volume click coordinates for heatmap rendering. x_pct = hundredths of a
+// percent of content width (0..10000); y_px = absolute document Y at the bucket.
+export const analyticsHeatmapPoints = pgTable('analytics_heatmap_points', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  path: text('path').notNull(),
+  viewport: text('viewport').notNull(), // 'desktop' | 'tablet' | 'mobile'
+  x_pct: integer('x_pct').notNull(),
+  y_px: integer('y_px').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('idx_analytics_heatmap_path_vp_created').on(t.path, t.viewport, t.created_at),
+]);

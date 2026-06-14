@@ -3,6 +3,7 @@ export const navSections = [
     label: 'Overview',
     items: [
       { href: '/admin', icon: 'dashboard', label: 'Dashboard' },
+      { href: '/admin/analytics', icon: 'insights', label: 'Analytics' },
     ],
   },
   {
