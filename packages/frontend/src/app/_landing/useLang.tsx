@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 
-type Lang = 'en' | 'ru';
+export type Lang = 'en' | 'ru';
 
 interface LangContextValue {
   lang: Lang;
@@ -15,11 +15,15 @@ const LangContext = createContext<LangContextValue>({
   t: (en) => en,
 });
 
-export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('en');
+export function LangProvider({ children, initialLang }: { children: ReactNode; initialLang?: Lang }) {
+  const [lang, setLangState] = useState<Lang>(initialLang ?? 'en');
 
   useEffect(() => {
-    // Detect from localStorage or browser language
+    // When the route is locale-authoritative (e.g. /ru/* passes initialLang),
+    // the server already rendered the right language — don't override it from
+    // localStorage/browser (that would cause a flash and break the canonical URL).
+    if (initialLang) return;
+    // Otherwise (the default en routes) keep the existing client-side preference.
     const stored = localStorage.getItem('caller_public_lang') as Lang | null;
     if (stored === 'en' || stored === 'ru') {
       setLangState(stored);
@@ -29,7 +33,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
         setLangState('ru');
       }
     }
-  }, []);
+  }, [initialLang]);
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);

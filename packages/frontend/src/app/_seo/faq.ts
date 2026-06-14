@@ -101,15 +101,16 @@ export const translatorFaq: FaqItem[] = [
   },
 ];
 
-/** Build FAQPage JSON-LD from the English Q&A (one language per FAQPage; en = canonical). */
-export function faqPageSchema(items: FaqItem[]): Record<string, unknown> {
+/** Build FAQPage JSON-LD in one language (one language per FAQPage; en = default). */
+export function faqPageSchema(items: FaqItem[], lang: 'en' | 'ru' = 'en'): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
+    inLanguage: lang,
     mainEntity: items.map((it) => ({
       '@type': 'Question',
-      name: it.q.en,
-      acceptedAnswer: { '@type': 'Answer', text: it.a.en },
+      name: it.q[lang],
+      acceptedAnswer: { '@type': 'Answer', text: it.a[lang] },
     })),
   };
 }

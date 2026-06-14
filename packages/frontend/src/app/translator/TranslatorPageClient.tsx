@@ -1006,9 +1006,9 @@ function TranslatorContent() {
 }
 
 /* ── Page Export ─────────────────────────────────────────────────────────── */
-export default function TranslatorPageClient() {
+export default function TranslatorPageClient({ initialLang }: { initialLang?: 'en' | 'ru' }) {
   return (
-    <LangProvider>
+    <LangProvider initialLang={initialLang}>
       <TranslatorContent />
     </LangProvider>
   );

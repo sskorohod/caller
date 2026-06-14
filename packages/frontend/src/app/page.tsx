@@ -3,11 +3,12 @@ import LandingClient from './_landing/LandingClient';
 import JsonLd from '@/components/JsonLd';
 import { softwareApplicationSchema } from './_seo/schema';
 import { faqPageSchema, landingFaq } from './_seo/faq';
+import { altLanguages } from './_seo/schema';
 
 export const metadata: Metadata = {
   title: 'LingoLine — AI Live Translator for Phone Calls',
   description: 'Real-time AI interpretation on any phone call. Merge our number into a call and the AI translates both sides live — no apps, works from any phone.',
-  alternates: { canonical: 'https://lingoline.net/' },
+  alternates: { canonical: 'https://lingoline.net/', languages: altLanguages('') },
 };
 
 export default function LandingPage() {

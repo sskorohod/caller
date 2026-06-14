@@ -104,8 +104,8 @@ const ART_TITLES: Record<string, { en: string; ru: string }> = {
 };
 
 /* ── Main Component ─────────────────────────────────────────────────── */
-export default function HelpPageClient() {
-  return <LangProvider><HelpPageInner /></LangProvider>;
+export default function HelpPageClient({ initialLang }: { initialLang?: 'en' | 'ru' }) {
+  return <LangProvider initialLang={initialLang}><HelpPageInner /></LangProvider>;
 }
 
 function HelpPageInner() {

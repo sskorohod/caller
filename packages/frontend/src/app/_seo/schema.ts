@@ -69,6 +69,15 @@ export const softwareApplicationSchema: Record<string, unknown> = {
   },
 };
 
+/**
+ * hreflang alternates for a page that has an EN (root) and RU (/ru) version.
+ * `enPath` is the path WITHOUT locale prefix: '' for home, '/translator', etc.
+ */
+export function altLanguages(enPath: string): Record<string, string> {
+  const en = `${SITE_URL}${enPath || '/'}`;
+  return { en, ru: `${SITE_URL}/ru${enPath}`, 'x-default': en };
+}
+
 /** Build a BreadcrumbList from [{ name, url }] crumbs. */
 export function breadcrumbSchema(items: { name: string; url: string }[]): Record<string, unknown> {
   return {

@@ -12,9 +12,9 @@ import { landingFaq } from '../_seo/faq';
    signature "live bilingual call transcript" hero. CSS + reveal motion.
    ═══════════════════════════════════════════════════════════════════ */
 
-export default function LandingClient() {
+export default function LandingClient({ initialLang }: { initialLang?: 'en' | 'ru' }) {
   return (
-    <LangProvider>
+    <LangProvider initialLang={initialLang}>
       <Landing />
     </LangProvider>
   );

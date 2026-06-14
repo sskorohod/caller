@@ -566,9 +566,9 @@ function DocsPageInner() {
 }
 
 /* ── Exported client component wrapped in Suspense ───────────────────── */
-export default function DocsPageClient() {
+export default function DocsPageClient({ initialLang }: { initialLang?: 'en' | 'ru' }) {
   return (
-    <LangProvider>
+    <LangProvider initialLang={initialLang}>
       <Suspense fallback={
         <div style={{ minHeight: '100vh', background: '#0a0e1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span className="material-symbols-outlined text-4xl" style={{ color: '#606880' }}>hourglass_empty</span>
