@@ -197,7 +197,7 @@ export default function DashboardHub() {
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 lg:gap-6">
           {/* Number (left) */}
           <div className="min-w-0">
-            <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{isPersonalNumber ? tt('Save your personal number to contacts', 'Сохраните ваш личный номер в контактах') : tt("Save your translator's number to contacts", 'Сохраните номер переводчика в контактах')}</div>
+            <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{tt("Save your translator's number to contacts", 'Сохраните номер переводчика в контактах')}</div>
             <div className="flex items-center gap-3 flex-wrap">
               {phone ? (
                 <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
