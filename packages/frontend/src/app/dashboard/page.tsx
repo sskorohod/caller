@@ -108,6 +108,34 @@ export default function DashboardHub() {
     });
   }, []);
 
+  // Mobile: tapping the number in the header downloads a vCard so the phone
+  // offers to save the translator number straight to the user's contacts.
+  // Built client-side from the number already in state (a server endpoint
+  // wouldn't be reachable: auth is a Bearer token, not a cookie a navigation
+  // could carry).
+  const saveContact = useCallback(() => {
+    if (!phone) return;
+    const name = lang === 'ru' ? 'Переводчик LingoLine' : 'LingoLine Translator';
+    const vcard = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${name}`,
+      `N:;${name};;;`,
+      `TEL;TYPE=CELL,VOICE:${phone}`,
+      'ORG:LingoLine',
+      'END:VCARD',
+      '',
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob([vcard], { type: 'text/vcard;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'LingoLine-Translator.vcf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [phone, lang]);
+
   // ── Live transcript ───────────────────────────────────
   const [liveCallId, setLiveCallId] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<TranslationEntry[]>([]);
@@ -200,7 +228,18 @@ export default function DashboardHub() {
             <div className="text-sm font-semibold uppercase tracking-wide text-[var(--th-text-muted)] mb-1">{tt("Save your translator's number to contacts", 'Сохраните номер переводчика в контактах')}</div>
             <div className="flex items-center gap-3 flex-wrap">
               {phone ? (
-                <a href={`tel:${phone}`} className="text-xl md:text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
+                <>
+                  {/* Mobile: tap the number to save it to contacts */}
+                  <button type="button" onClick={saveContact}
+                    title={tt('Tap to save to contacts', 'Нажмите, чтобы сохранить в контакты')}
+                    className="md:hidden inline-flex items-center gap-1.5 text-xl font-extrabold tracking-wide text-[var(--th-text)]"
+                    style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>
+                    {fmtPhone(phone)}
+                    <span className="material-symbols-outlined text-[18px]" style={{ color: '#8b5cf6' }}>person_add</span>
+                  </button>
+                  {/* Desktop: tap to call */}
+                  <a href={`tel:${phone}`} className="hidden md:inline text-2xl font-extrabold tracking-wide text-[var(--th-text)]" style={{ filter: 'drop-shadow(0 1px 3px rgba(139,92,246,0.25))' }}>{fmtPhone(phone)}</a>
+                </>
               ) : <div className="text-xl md:text-2xl font-extrabold text-[var(--th-text-muted)]">—</div>}
               {isPersonalNumber && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap"
