@@ -19,14 +19,14 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
     const d = daysOf(req.query);
     const r = await db.execute(sql`
       SELECT
-        (SELECT count(*) FROM analytics_events WHERE type='pageview' AND created_at >= now()-make_interval(days=>${d}))::int AS pageviews,
-        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='pageview' AND created_at >= now()-make_interval(days=>${d}))::int AS visitors,
-        (SELECT count(DISTINCT session_id) FROM analytics_events WHERE created_at >= now()-make_interval(days=>${d}))::int AS sessions,
+        (SELECT count(*) FROM analytics_events WHERE type='pageview' AND created_at >= now()-(${d}::int * interval '1 day'))::int AS pageviews,
+        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='pageview' AND created_at >= now()-(${d}::int * interval '1 day'))::int AS visitors,
+        (SELECT count(DISTINCT session_id) FROM analytics_events WHERE created_at >= now()-(${d}::int * interval '1 day'))::int AS sessions,
         (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE created_at >= now()-interval '5 minutes')::int AS active_now,
-        COALESCE((SELECT avg(active_ms) FROM analytics_events WHERE type='engage' AND created_at >= now()-make_interval(days=>${d})),0)::int AS avg_time_ms,
+        COALESCE((SELECT avg(active_ms) FROM analytics_events WHERE type='engage' AND created_at >= now()-(${d}::int * interval '1 day')),0)::int AS avg_time_ms,
         COALESCE((SELECT avg(total) FROM (
           SELECT session_id, sum(active_ms) AS total FROM analytics_events
-          WHERE type='engage' AND created_at >= now()-make_interval(days=>${d}) GROUP BY session_id
+          WHERE type='engage' AND created_at >= now()-(${d}::int * interval '1 day') GROUP BY session_id
         ) s),0)::int AS avg_session_ms
     `);
     return rows(r)[0] ?? {};
@@ -40,7 +40,7 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
         count(*) FILTER (WHERE type='pageview')::int AS pageviews,
         count(DISTINCT visitor_id) FILTER (WHERE type='pageview')::int AS visitors
       FROM analytics_events
-      WHERE created_at >= now()-make_interval(days=>${d})
+      WHERE created_at >= now()-(${d}::int * interval '1 day')
       GROUP BY 1 ORDER BY 1
     `);
     return { series: rows(r) };
@@ -56,7 +56,7 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
         COALESCE(avg(active_ms) FILTER (WHERE type='engage'),0)::int AS avg_time_ms,
         COALESCE(avg(scroll_pct) FILTER (WHERE type='scroll'),0)::int AS avg_scroll
       FROM analytics_events
-      WHERE created_at >= now()-make_interval(days=>${d})
+      WHERE created_at >= now()-(${d}::int * interval '1 day')
       GROUP BY path
       HAVING count(*) FILTER (WHERE type='pageview') > 0
       ORDER BY views DESC LIMIT 30
@@ -71,7 +71,7 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
       SELECT element_label, path, count(*)::int AS clicks
       FROM analytics_events
       WHERE type='click' AND element_label IS NOT NULL AND element_label <> ''
-        AND created_at >= now()-make_interval(days=>${d})
+        AND created_at >= now()-(${d}::int * interval '1 day')
       GROUP BY element_label, path ORDER BY clicks DESC LIMIT 50
     `);
     return { clicks: rows(r) };
@@ -88,7 +88,7 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
              ) AS source,
              count(DISTINCT visitor_id)::int AS visitors
       FROM analytics_events
-      WHERE type='pageview' AND created_at >= now()-make_interval(days=>${d})
+      WHERE type='pageview' AND created_at >= now()-(${d}::int * interval '1 day')
       GROUP BY 1 ORDER BY visitors DESC LIMIT 30
     `);
     return { sources: rows(r) };
@@ -100,7 +100,7 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
     const r = await db.execute(sql`
       SELECT COALESCE(NULLIF(device,''),'unknown') AS device, count(DISTINCT visitor_id)::int AS visitors
       FROM analytics_events
-      WHERE type='pageview' AND created_at >= now()-make_interval(days=>${d})
+      WHERE type='pageview' AND created_at >= now()-(${d}::int * interval '1 day')
       GROUP BY 1 ORDER BY visitors DESC
     `);
     return { devices: rows(r) };
@@ -111,9 +111,9 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
     const d = daysOf(req.query);
     const r = await db.execute(sql`
       SELECT
-        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='pageview' AND created_at >= now()-make_interval(days=>${d}))::int AS visitors,
-        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='pageview' AND path='/login' AND created_at >= now()-make_interval(days=>${d}))::int AS reached_login,
-        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='signup' AND created_at >= now()-make_interval(days=>${d}))::int AS signed_up
+        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='pageview' AND created_at >= now()-(${d}::int * interval '1 day'))::int AS visitors,
+        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='pageview' AND path='/login' AND created_at >= now()-(${d}::int * interval '1 day'))::int AS reached_login,
+        (SELECT count(DISTINCT visitor_id) FROM analytics_events WHERE type='signup' AND created_at >= now()-(${d}::int * interval '1 day'))::int AS signed_up
     `);
     return rows(r)[0] ?? { visitors: 0, reached_login: 0, signed_up: 0 };
   });
@@ -127,12 +127,12 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
     }).parse(req.query);
     const pts = await db.execute(sql`
       SELECT x_pct, y_px FROM analytics_heatmap_points
-      WHERE path=${q.path} AND viewport=${q.viewport} AND created_at >= now()-make_interval(days=>${q.days})
+      WHERE path=${q.path} AND viewport=${q.viewport} AND created_at >= now()-(${q.days}::int * interval '1 day')
       LIMIT 20000
     `);
     const scroll = await db.execute(sql`
       SELECT scroll_pct, count(*)::int AS c FROM analytics_events
-      WHERE type='scroll' AND path=${q.path} AND created_at >= now()-make_interval(days=>${q.days})
+      WHERE type='scroll' AND path=${q.path} AND created_at >= now()-(${q.days}::int * interval '1 day')
       GROUP BY scroll_pct ORDER BY scroll_pct
     `);
     return { points: rows(pts), scroll: rows(scroll) };
@@ -144,7 +144,7 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
     const r = await db.execute(sql`
       SELECT path, count(*) FILTER (WHERE type='pageview')::int AS views
       FROM analytics_events
-      WHERE created_at >= now()-make_interval(days=>${d})
+      WHERE created_at >= now()-(${d}::int * interval '1 day')
       GROUP BY path HAVING count(*) FILTER (WHERE type='pageview') > 0
       ORDER BY views DESC LIMIT 100
     `);
