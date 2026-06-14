@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
         source: '/landing/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
+      {
+        // Self-hosted fonts carry a versioned filename — safe to cache forever.
+        source: '/fonts/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
     ];
   },
 };

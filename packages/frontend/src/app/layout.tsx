@@ -85,13 +85,15 @@ window.addEventListener('load',function(){setTimeout(load,3500);});})();`,
         {/* Early-connect to the Google Fonts origins to shave a round-trip on mobile. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Material Symbols — SUBSET to only the icons the app uses (icon_names);
-            the full variable icon font is ~1.1 MB, the subset ~17 KB. Loaded
-            synchronously (render-blocking but tiny + preconnected) so the icon
-            glyph box is sized before first paint — async loading shifted the hero
-            CTAs (CLS). display=block avoids any ligature-text flash. */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&icon_names=account_balance,account_balance_wallet,add,add_call,ads_click,apartment,architecture,arrow_back,arrow_forward,article,auto_awesome,auto_stories,autorenew,balance,bolt,business_center,call,call_end,call_merge,call_missed,cancel,cell_tower,chat_bubble,check_circle,chevron_left,chevron_right,close,code,compare_arrows,confirmation_number,dark_mode,dashboard,description,dialpad,error,filter_alt,forum,gavel,graphic_eq,group,headphones,health_and_safety,hearing,help,history,hourglass_bottom,hourglass_empty,hourglass_top,hub,inbox,info,insights,language,light_mode,local_hospital,lock,login,loyalty,mail,mark_email_read,mark_email_unread,menu_book,mic,mic_off,monitoring,more_horiz,notifications,palette,payments,person,person_add,person_off,phone,phone_enabled,phone_in_talk,play_circle,policy,progress_activity,psychology,public,receipt_long,record_voice_over,redeem,remove_circle,repeat,rocket_launch,savings,schedule,search,send,sentiment_satisfied,settings,shield,show_chart,sim_card,sim_card_alert,sim_card_download,smart_toy,smartphone,spatial_audio_off,star,subtitles,support_agent,sync,sync_alt,thermostat,timeline,timer,touch_app,translate,travel_explore,trending_up,verified,visibility,volume_up,warning&display=block" />
-        <style>{`.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }`}</style>
+        {/* Material Symbols — SELF-HOSTED subset (only the ~116 icons the app
+            uses, 16 KB woff2). @font-face + the icon class are inlined so the
+            glyph box is sized before first paint (no CLS), font-display:block hides
+            the ligature text until the font loads (no flash), and there is NO
+            external render-blocking CSS request — the woff2 is same-origin and
+            preloaded. To change the icon set, re-fetch the subset from the css2
+            `icon_names=` URL and bump the versioned filename below. */}
+        <link rel="preload" href="/fonts/material-symbols-subset-v347.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <style>{`@font-face{font-family:'Material Symbols Outlined';font-style:normal;font-weight:400;font-display:block;src:url(/fonts/material-symbols-subset-v347.woff2) format('woff2')}.material-symbols-outlined{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:'liga';-webkit-font-smoothing:antialiased;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}`}</style>
       </head>
       <body>
         {/* Google Tag Manager (noscript) — must be immediately after <body>. */}
