@@ -362,8 +362,8 @@ function TranslatorContent() {
       icon: 'spatial_audio_off',
       title: t('Premium AI Voices', 'Премиальные AI-голоса'),
       desc: t(
-        'Choose from xAI, OpenAI, and ElevenLabs voice engines for natural-sounding, human-like translation.',
-        'Выбирайте между голосовыми движками xAI, OpenAI и ElevenLabs для естественного, человекоподобного перевода.'
+        'Choose from xAI (Grok) and OpenAI voice engines for natural-sounding, human-like translation.',
+        'Выбирайте между голосовыми движками xAI (Grok) и OpenAI для естественного, человекоподобного перевода.'
       ),
       accent: '#c084fc',
       accentBg: 'rgba(192,132,252,0.08)',
@@ -994,7 +994,7 @@ function TranslatorContent() {
               © {new Date().getFullYear()} LingoLine. {t('All rights reserved.', 'Все права защищены.')}
             </p>
             <p className="text-xs" style={{ color: 'rgba(194,198,214,0.25)' }}>
-              {t('Built with AI · Powered by xAI, OpenAI, ElevenLabs', 'Создано с AI · Работает на xAI, OpenAI, ElevenLabs')}
+              {t('Built with AI · Powered by xAI and OpenAI', 'Создано с AI · Работает на xAI и OpenAI')}
             </p>
           </div>
         </div>

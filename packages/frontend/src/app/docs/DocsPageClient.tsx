@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import AnimatedSection from '@/app/_landing/AnimatedSection';
 import ContactPopup from '@/app/_landing/ContactPopup';
 import { useLang, LangSwitcher, LangProvider } from '@/app/_landing/useLang';
@@ -61,40 +60,39 @@ const SECTION_RU: Record<string, string> = {
 function DocsPageInner() {
   const { t } = useLang();
   const sn = (title: string) => t(title, SECTION_RU[title] ?? title);
-  const searchParams = useSearchParams();
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['getting-started']));
-  const [activeArticle, setActiveArticle] = useState<{ section: DocSection; article: DocArticle } | null>(null);
+  // Default to the first article so its content server-renders (crawlable);
+  // the ?section= effect can still override it on the client.
+  const [activeArticle, setActiveArticle] = useState<{ section: DocSection; article: DocArticle } | null>(
+    () => ({ section: DOC_SECTIONS[0], article: DOC_SECTIONS[0].articles[0] })
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileView, setMobileView] = useState<'sections' | 'articles' | 'content'>('sections');
   const [mobileSectionId, setMobileSectionId] = useState<string | null>(null);
   const [mobileHamburger, setMobileHamburger] = useState(false);
 
-  /* ── Handle ?section= param ─────────────────────────────────────── */
+  /* ── Handle ?section= param + default article (client-only, so the docs
+        content still server-renders — no useSearchParams Suspense bailout) ── */
   useEffect(() => {
-    const sectionParam = searchParams.get('section');
-    if (!sectionParam) return;
+    const sectionParam =
+      typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('section') : null;
 
-    const normalized = sectionParam.toLowerCase().replace(/\s+/g, '-');
-    const sectionId = normalized === 'api' ? 'api-reference' : normalized;
-    const section = DOC_SECTIONS.find(s => s.id === sectionId);
-    if (!section) return;
-
-    setExpandedSections(prev => new Set([...prev, sectionId]));
-    const firstArticle = section.articles[0];
-    if (firstArticle) {
-      setActiveArticle({ section, article: firstArticle });
-    }
-  }, [searchParams]);
-
-  /* ── Set default article on load ─────────────────────────────────── */
-  useEffect(() => {
-    if (!searchParams.get('section') && !activeArticle) {
-      const first = DOC_SECTIONS[0];
-      if (first?.articles[0]) {
-        setActiveArticle({ section: first, article: first.articles[0] });
+    if (sectionParam) {
+      const sectionId = sectionParam.toLowerCase().replace(/\s+/g, '-');
+      const section = DOC_SECTIONS.find(s => s.id === sectionId);
+      if (section) {
+        setExpandedSections(prev => new Set([...prev, sectionId]));
+        if (section.articles[0]) setActiveArticle({ section, article: section.articles[0] });
+        return;
       }
     }
+
+    if (!activeArticle) {
+      const first = DOC_SECTIONS[0];
+      if (first?.articles[0]) setActiveArticle({ section: first, article: first.articles[0] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ── Search filtering ─────────────────────────────────────────────── */
