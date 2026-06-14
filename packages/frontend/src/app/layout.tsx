@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { I18nProvider } from '@/lib/i18n';
@@ -62,19 +61,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* Google Tag Manager — placed as high as possible in <head>.
-            Container GTM-MWTVH7RL manages GA4 (G-FZFVXEJMSD) and any future
-            Google Ads conversions. */}
+        {/* Google Tag Manager + Google Ads — DEFERRED. Loaded on the first user
+            interaction (scroll/touch/click/key) or shortly after load as a
+            fallback, so ~286 KB of tag-manager JS stays off the critical path
+            (better FCP/LCP/TBT). GTM-MWTVH7RL manages GA4 (G-FZFVXEJMSD);
+            AW-18232663036 is the Google Ads tag. Adjust the 3500ms fallback to
+            trade analytics coverage of non-interacting sessions vs. load speed. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-MWTVH7RL');`,
+            __html: `(function(){var loaded=false;function load(){if(loaded)return;loaded=true;
+window.dataLayer=window.dataLayer||[];
+window.dataLayer.push({'gtm.start':new Date().getTime(),event:'gtm.js'});
+var g=document.createElement('script');g.async=true;g.src='https://www.googletagmanager.com/gtm.js?id=GTM-MWTVH7RL';document.head.appendChild(g);
+var a=document.createElement('script');a.async=true;a.src='https://www.googletagmanager.com/gtag/js?id=AW-18232663036';document.head.appendChild(a);
+function gtag(){window.dataLayer.push(arguments);}gtag('js',new Date());gtag('config','AW-18232663036');}
+var evts=['scroll','mousemove','touchstart','keydown','pointerdown','click'];
+function once(){load();evts.forEach(function(e){window.removeEventListener(e,once);});}
+evts.forEach(function(e){window.addEventListener(e,once,{passive:true});});
+window.addEventListener('load',function(){setTimeout(load,3500);});})();`,
           }}
         />
-        {/* End Google Tag Manager */}
+        {/* End Google Tag Manager (deferred) */}
         {/* Early-connect to the Google Fonts origins to shave a round-trip on mobile. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -90,17 +97,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         {/* Google Tag Manager (noscript) — must be immediately after <body>. */}
         <noscript dangerouslySetInnerHTML={{ __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MWTVH7RL" height="0" width="0" style="display:none;visibility:hidden"></iframe>` }} />
         {/* End Google Tag Manager (noscript) */}
-        {/* Google Ads (gtag.js) — direct tag, kept for now. GA4 is managed
-            inside GTM; do NOT add a GA4 gtag here to avoid double-counting.
-            If this direct AW tag is removed later, recreate Google Ads
-            conversions inside GTM. */}
-        <Script src="https://www.googletagmanager.com/gtag/js?id=AW-18232663036" strategy="afterInteractive" />
-        <Script id="gtag-init" strategy="afterInteractive">
-          {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'AW-18232663036');`}
-        </Script>
+        {/* GTM + Google Ads (AW-18232663036) load via the deferred loader in
+            <head> on first interaction — see comment there. */}
         <ThemeProvider>
           <I18nProvider>
             <ToastProvider>
