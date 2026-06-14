@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { LangProvider, useLang } from './useLang';
+import { inter, manrope } from '../fonts';
 
 /* ════════════════════════════════════════════════════════════════════
    LingoLine — Live phone translation for expats.
@@ -50,10 +51,7 @@ function Landing() {
   }, []);
 
   return (
-    <div className="lp">
-      {/* Inter + Manrope via a hoisted <link> (parallel fetch) instead of a
-          render-blocking CSS @import; display=swap keeps text visible immediately. */}
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" />
+    <div className={`lp ${inter.variable} ${manrope.variable}`}>
       <style>{LP_CSS}</style>
 
       {/* Ambient drifting light blobs (fixed → parallax, very subtle) */}
@@ -538,14 +536,14 @@ const LP_CSS = `
   position: relative;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
 .lp * { box-sizing: border-box; }
-.lp .display, .lp .font-headline { font-family: 'Manrope', system-ui, sans-serif; letter-spacing: -0.02em; }
+.lp .display, .lp .font-headline { font-family: var(--font-manrope), system-ui, sans-serif; letter-spacing: -0.02em; }
 .gradient-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; background-size: 200% 200%; animation: gradient-shift 6s ease infinite; }
 .glass-panel { background: rgba(26, 32, 44, 0.55); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--line-2); }
 
@@ -665,7 +663,7 @@ const LP_CSS = `
 .tx2-row.is-tr .tx2-ava .material-symbols-outlined { color: var(--accent); }
 .tx2-main { flex: 1; min-width: 0; }
 .tx2-tag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; color: var(--ink-3); }
-.tx2-text { font-family: 'Manrope', system-ui, sans-serif; font-weight: 600; font-size: 15.5px; line-height: 1.35; color: var(--ink); margin: 4px 0 7px; letter-spacing: -0.01em; }
+.tx2-text { font-family: var(--font-manrope), system-ui, sans-serif; font-weight: 600; font-size: 15.5px; line-height: 1.35; color: var(--ink); margin: 4px 0 7px; letter-spacing: -0.01em; }
 .tx2-row.is-tr .tx2-text { color: var(--accent); }
 .tx2-call { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(173,198,255,0.1); flex-shrink: 0; align-self: center; }
 .tx2-call .material-symbols-outlined { font-size: 16px; color: var(--accent); }
@@ -726,7 +724,7 @@ const LP_CSS = `
 .marquee-band { margin-top: 80px; padding: 24px 0; border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
 .marquee-row { display: flex; gap: 44px; width: max-content; will-change: transform; animation: marquee 42s linear infinite; }
 .marquee-row.rev { animation-direction: reverse; animation-duration: 54s; margin-top: 12px; }
-.marquee-row span { font-family: 'Manrope', system-ui, sans-serif; font-weight: 700; font-size: clamp(20px, 2.6vw, 30px); letter-spacing: -0.01em; color: var(--ink); opacity: 0.42; }
+.marquee-row span { font-family: var(--font-manrope), system-ui, sans-serif; font-weight: 700; font-size: clamp(20px, 2.6vw, 30px); letter-spacing: -0.01em; color: var(--ink); opacity: 0.42; }
 .marquee-row span.accent { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; opacity: 0.95; }
 
 /* Languages */
