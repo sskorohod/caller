@@ -6,6 +6,8 @@ export interface Article {
   descriptionRu: string;
   keywords: string[];
   publishedAt: string;
+  /** Last substantive edit — drives dateModified (freshness) + sitemap lastModified. */
+  updatedAt?: string;
   locale: 'en' | 'ru';
   readTime: string;
   readTimeRu: string;

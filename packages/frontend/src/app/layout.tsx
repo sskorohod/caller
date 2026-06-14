@@ -5,6 +5,8 @@ import { I18nProvider } from '@/lib/i18n';
 import { ToastProvider } from '@/lib/toast';
 import { ThemeProvider } from '@/lib/theme';
 import AnalyticsTracker from '@/components/AnalyticsTracker';
+import JsonLd from '@/components/JsonLd';
+import { organizationSchema, websiteSchema } from '@/app/_seo/schema';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -101,6 +103,9 @@ window.addEventListener('load',function(){setTimeout(load,3500);});})();`,
         {/* End Google Tag Manager (noscript) */}
         {/* GTM + Google Ads (AW-18232663036) load via the deferred loader in
             <head> on first interaction — see comment there. */}
+        {/* Sitewide structured data (GEO): the LingoLine entity + website. */}
+        <JsonLd data={organizationSchema} />
+        <JsonLd data={websiteSchema} />
         <ThemeProvider>
           <I18nProvider>
             <ToastProvider>

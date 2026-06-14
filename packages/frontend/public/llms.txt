@@ -1,0 +1,39 @@
+# LingoLine
+
+> LingoLine is an AI live phone interpreter that joins a phone call and translates both sides in real time. You merge it into any call using your phone's built-in merge/conference button (or put it on speakerphone) — there is no app to install and it works from any phone.
+
+## What it is
+- A real-time, two-way voice translator for live phone calls.
+- Joins an existing call as an extra participant via the phone's standard "merge calls" feature (speakerphone also works).
+- Translation direction is detected automatically; the AI speaks each side's words in the other language using natural voices.
+- No app install, no account needed for the other person, works on mobile and landline.
+
+## Languages (13)
+English, Russian, Ukrainian, Spanish, German, French, Chinese, Japanese, Korean, Arabic, Portuguese, Italian, Hindi — any direction.
+
+## Pricing
+- Pay-as-you-go: about $0.20 per minute, charged only while talking.
+- $2 in free credit on signup; no credit card required to start.
+- No subscription, no monthly fee. Top up by card via Stripe.
+
+## Who it's for
+People who need to make or take phone calls across a language barrier — immigrants and expats calling clinics, banks, insurance, government lines, leasing offices, and USCIS. Popular with Russian-speaking expats in the US.
+
+## Key pages
+- Home: https://lingoline.net/
+- Live Translator: https://lingoline.net/translator
+- Pricing: https://lingoline.net/pricing
+- Help Center: https://lingoline.net/help
+- Documentation: https://lingoline.net/docs
+- Blog: https://lingoline.net/blog
+
+## Notable articles
+- Best LanguageLine Alternative in 2026: https://lingoline.net/blog/languageline-alternative
+- USCIS Stopped Providing Interpreters — What You Can Do: https://lingoline.net/blog/uscis-interpreter-policy
+- How to Call US Insurance If You Don't Speak English: https://lingoline.net/blog/call-insurance-no-english
+- Real-Time Phone Translation in 2026: https://lingoline.net/blog/real-time-phone-translation
+- Как позвонить в американский банк (RU): https://lingoline.net/blog/kak-pozvonit-v-bank
+
+## Notes
+- A Russian-language version of the site is available; see the hreflang/alternate links on each page.
+- Legal: https://lingoline.net/terms , https://lingoline.net/privacy

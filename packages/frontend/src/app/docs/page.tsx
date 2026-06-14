@@ -1,11 +1,24 @@
 import type { Metadata } from 'next';
 import DocsPageClient from './DocsPageClient';
+import JsonLd from '@/components/JsonLd';
+import { breadcrumbSchema, SITE_URL } from '../_seo/schema';
 
 export const metadata: Metadata = {
   title: 'Documentation — LingoLine',
-  description: 'Complete documentation for LingoLine platform — getting started guides, API reference, agent configuration, and architecture overview.',
+  description: 'How to use LingoLine, the AI live phone translator — getting started, merging the translator into a call, supported languages, and how the balance works.',
+  alternates: { canonical: `${SITE_URL}/docs` },
 };
 
 export default function DocsPage() {
-  return <DocsPageClient />;
+  return (
+    <>
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: 'Home', url: SITE_URL },
+          { name: 'Documentation', url: `${SITE_URL}/docs` },
+        ])}
+      />
+      <DocsPageClient />
+    </>
+  );
 }

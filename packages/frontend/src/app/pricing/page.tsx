@@ -1,180 +1,19 @@
-'use client';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import type { Metadata } from 'next';
+import PricingPageClient from './PricingPageClient';
+import JsonLd from '@/components/JsonLd';
+import { softwareApplicationSchema } from '../_seo/schema';
 
-interface PlanData {
-  id: string;
-  name: string;
-  monthly_price: number;
-  trial_days: number;
-}
-
-const PLAN_META: Record<string, { tagline: string; highlight: boolean; cta: string; priceNote: string; features: string[]; excluded: string[] }> = {
-  translator: {
-    tagline: 'Live translation on any call',
-    priceNote: 'No monthly fee — pay only for what you use',
-    highlight: true,
-    cta: 'Get Started',
-    features: ['Free credit on signup', 'Live translator (merge to call)', '10+ language pairs', 'Real-time text transcript', 'Telegram notifications', 'AI trainer (practice mode)', 'Pay-as-you-go from deposit'],
-    excluded: [],
-  },
+export const metadata: Metadata = {
+  title: 'Pricing — Pay-as-you-go Phone Translation | LingoLine',
+  description: 'No subscription. $2 free credit, then about $0.20/min — pay only while you talk. 13 languages, any phone, no app.',
+  alternates: { canonical: 'https://lingoline.net/pricing' },
 };
 
 export default function PricingPage() {
-  const [plans, setPlans] = useState<PlanData[]>([]);
-
-  useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? window.location.origin + '/api' : '/api');
-    fetch(`${apiUrl}/billing/plans`)
-      .then(r => r.json())
-      .then(data => setPlans(Array.isArray(data) ? data : []))
-      .catch(() => {
-        // Fallback defaults
-        setPlans([
-          { id: 'translator', name: 'Translator', monthly_price: 0, trial_days: 0 },
-        ]);
-      });
-  }, []);
-
   return (
-    <div className="min-h-screen" style={{ background: '#0e131f', color: '#dde2f3', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-        .font-headline { font-family: 'Manrope', sans-serif; }
-        .glass-panel {
-          background: rgba(36, 42, 54, 0.6);
-          backdrop-filter: blur(20px);
-          border: 0.5px solid rgba(140, 144, 159, 0.15);
-        }
-        .material-symbols-outlined {
-          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-      `}</style>
-
-      {/* Header */}
-      <header className="fixed top-0 w-full z-50 border-b" style={{ background: 'rgba(14, 19, 31, 0.6)', backdropFilter: 'blur(24px)', borderColor: 'rgba(221, 226, 243, 0.1)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold tracking-tighter flex items-center gap-2 font-headline">
-            <span className="material-symbols-outlined" style={{ color: '#adc6ff', fontVariationSettings: "'FILL' 1" }}>call</span>
-            LingoLine
-          </Link>
-          <div className="flex items-center gap-4 font-headline font-bold text-sm">
-            <Link href="/login" className="opacity-70 hover:opacity-100 transition">Log In</Link>
-            <Link href="/login?mode=register" className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)' }}>
-              Sign Up
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="pt-24 sm:pt-32 pb-20 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Title */}
-          <div className="text-center mb-16">
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-headline font-extrabold tracking-tight mb-4">
-              Simple, transparent pricing
-            </h1>
-            <p className="text-sm sm:text-lg max-w-2xl mx-auto" style={{ color: '#c2c6d6' }}>
-              No subscription. Start with $2 in free credit, then pay about $0.20 a minute —
-              only while you&apos;re talking. Top up your balance any time.
-            </p>
-          </div>
-
-          {/* Plan Cards */}
-          <div className="max-w-md mx-auto">
-            {plans.map(plan => {
-              const meta = PLAN_META[plan.id];
-              if (!meta) return null;
-              const price = plan.monthly_price;
-              return (
-              <div key={plan.id}
-                className="glass-panel rounded-2xl p-6 sm:p-8 flex flex-col relative"
-                style={meta.highlight ? {
-                  border: '1px solid rgba(77, 142, 255, 0.4)',
-                  boxShadow: '0 0 40px rgba(77, 142, 255, 0.08)',
-                } : undefined}>
-
-                {meta.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold"
-                    style={{ background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }}>
-                    Most Popular
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <h3 className="text-xl font-headline font-bold mb-1">{plan.name}</h3>
-                  <p className="text-sm" style={{ color: '#c2c6d6' }}>{meta.tagline}</p>
-                </div>
-
-                <div className="mb-6">
-                  {price > 0 ? (
-                    <>
-                      <span className="text-4xl font-headline font-extrabold">${price}</span>
-                      <span className="text-sm" style={{ color: '#c2c6d6' }}>/month</span>
-                    </>
-                  ) : (
-                    <span className="text-2xl font-headline font-bold" style={{ color: '#4ade80' }}>Free to start</span>
-                  )}
-                  <div className="text-xs mt-1" style={{ color: '#c2c6d6' }}>{meta.priceNote}</div>
-                  {plan.trial_days > 0 && (
-                    <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-semibold"
-                      style={{ background: 'rgba(74, 222, 128, 0.12)', color: '#4ade80' }}>
-                      <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
-                      {plan.trial_days}-day free trial
-                    </div>
-                  )}
-                </div>
-
-                <Link href="/login?mode=register"
-                  className="block text-center py-3 rounded-xl text-sm font-bold transition mb-6 min-h-[44px]"
-                  style={meta.highlight
-                    ? { background: 'linear-gradient(135deg, #adc6ff, #4d8eff)', color: '#0e131f' }
-                    : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                  {plan.trial_days > 0 ? 'Start Free Trial' : meta.cta}
-                </Link>
-
-                <div className="space-y-2.5 flex-1">
-                  {meta.features.map(f => (
-                    <div key={f} className="flex items-start gap-2 text-sm">
-                      <span className="material-symbols-outlined text-base mt-0.5" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                      {f}
-                    </div>
-                  ))}
-                  {meta.excluded.map(f => (
-                    <div key={f} className="flex items-start gap-2 text-sm" style={{ color: '#6b7280' }}>
-                      <span className="material-symbols-outlined text-base mt-0.5">cancel</span>
-                      {f}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              );
-            })}
-          </div>
-
-          {/* What you get */}
-          <div className="mt-12 sm:mt-16 glass-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto text-center">
-            <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#adc6ff' }}>translate</span>
-            <h3 className="text-xl font-headline font-bold mb-2">13 languages, any direction</h3>
-            <p className="text-sm" style={{ color: '#c2c6d6' }}>
-              Merge your personal LingoLine number into any phone call and the AI interprets both sides live,
-              in a natural voice — direction detected automatically. Works from any phone, with no app to install.
-            </p>
-          </div>
-
-          {/* Deposit Explainer */}
-          <div className="mt-6 sm:mt-8 glass-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto text-center">
-            <span className="material-symbols-outlined text-3xl mb-3 block" style={{ color: '#4ade80' }}>account_balance_wallet</span>
-            <h3 className="text-xl font-headline font-bold mb-2">How the balance works</h3>
-            <p className="text-sm" style={{ color: '#c2c6d6' }}>
-              Top up your balance by card via Stripe whenever you like. Each call costs about $0.20 a minute,
-              deducted after you hang up. When the balance runs low, just top up again.
-              No subscription, no monthly fee, no surprises.
-            </p>
-          </div>
-        </div>
-      </main>
-    </div>
+    <>
+      <JsonLd data={softwareApplicationSchema} />
+      <PricingPageClient />
+    </>
   );
 }

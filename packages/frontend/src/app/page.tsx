@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import LandingClient from './_landing/LandingClient';
+import JsonLd from '@/components/JsonLd';
+import { softwareApplicationSchema } from './_seo/schema';
 
 export const metadata: Metadata = {
   title: 'LingoLine — AI Live Translator for Phone Calls',
@@ -7,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function LandingPage() {
-  return <LandingClient />;
+  return (
+    <>
+      <JsonLd data={softwareApplicationSchema} />
+      <LandingClient />
+    </>
+  );
 }

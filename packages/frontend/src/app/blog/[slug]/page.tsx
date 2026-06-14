@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { articles, getArticle } from '../_lib/articles';
 import BlogArticleClient from './BlogArticleClient';
+import JsonLd from '@/components/JsonLd';
+import { breadcrumbSchema, SITE_URL } from '../../_seo/schema';
 
 /* ── Static params ────────────────────────────────────────────────────── */
 export function generateStaticParams() {
@@ -26,6 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: article.description,
       type: 'article',
       publishedTime: article.publishedAt,
+      modifiedTime: article.updatedAt ?? article.publishedAt,
       url,
       siteName: 'LingoLine',
       locale: article.locale === 'ru' ? 'ru_RU' : 'en_US',
@@ -47,21 +50,29 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
   const article = getArticle(slug);
   if (!article) notFound();
 
-  const jsonLd = {
+  const url = `${SITE_URL}/blog/${slug}`;
+  const blogPosting = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
     headline: article.title,
     description: article.description,
     datePublished: article.publishedAt,
-    author: { '@type': 'Organization', name: 'LingoLine', url: 'https://lingoline.net' },
-    publisher: { '@type': 'Organization', name: 'LingoLine', url: 'https://lingoline.net' },
-    mainEntityOfPage: `https://lingoline.net/blog/${slug}`,
+    dateModified: article.updatedAt ?? article.publishedAt,
+    author: { '@type': 'Organization', name: 'LingoLine', url: SITE_URL },
+    publisher: { '@type': 'Organization', name: 'LingoLine', url: SITE_URL },
+    mainEntityOfPage: url,
     inLanguage: article.locale === 'ru' ? 'ru' : 'en',
   };
 
+  const breadcrumb = breadcrumbSchema([
+    { name: 'Home', url: SITE_URL },
+    { name: 'Blog', url: `${SITE_URL}/blog` },
+    { name: article.title, url },
+  ]);
+
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={[blogPosting, breadcrumb]} />
       <BlogArticleClient article={article} slug={slug} />
     </>
   );
