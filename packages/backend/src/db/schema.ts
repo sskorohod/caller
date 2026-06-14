@@ -684,9 +684,11 @@ export const analyticsHeatmapPoints = pgTable('analytics_heatmap_points', {
   id: uuid('id').primaryKey().defaultRandom(),
   path: text('path').notNull(),
   viewport: text('viewport').notNull(), // 'desktop' | 'tablet' | 'mobile'
+  kind: text('kind').notNull().default('click'), // 'click' | 'move'
   x_pct: integer('x_pct').notNull(),
   y_px: integer('y_px').notNull(),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('idx_analytics_heatmap_path_vp_created').on(t.path, t.viewport, t.created_at),
+  index('idx_analytics_heatmap_path_vp_kind_created').on(t.path, t.viewport, t.kind, t.created_at),
 ]);

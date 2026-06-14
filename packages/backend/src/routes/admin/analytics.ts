@@ -123,12 +123,13 @@ const adminAnalyticsRoutes: FastifyPluginAsync = async (app) => {
     const q = z.object({
       path: z.string().min(1).max(512),
       viewport: z.enum(['desktop', 'tablet', 'mobile']).optional().default('desktop'),
+      kind: z.enum(['click', 'move']).optional().default('click'),
       days: z.coerce.number().int().min(1).max(365).optional().default(30),
     }).parse(req.query);
     const pts = await db.execute(sql`
       SELECT x_pct, y_px FROM analytics_heatmap_points
-      WHERE path=${q.path} AND viewport=${q.viewport} AND created_at >= now()-(${q.days}::int * interval '1 day')
-      LIMIT 20000
+      WHERE path=${q.path} AND viewport=${q.viewport} AND kind=${q.kind} AND created_at >= now()-(${q.days}::int * interval '1 day')
+      LIMIT 30000
     `);
     const scroll = await db.execute(sql`
       SELECT scroll_pct, count(*)::int AS c FROM analytics_events

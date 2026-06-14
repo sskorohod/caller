@@ -33,6 +33,10 @@ let activeMs = 0;
 let lastTick = 0;
 let visible = true;
 let maxScroll = 0;
+let moveCount = 0;       // mouse-move samples sent this page (capped)
+let lastMove = 0;        // throttle timestamp
+const MOVE_THROTTLE = 200;
+const MOVE_CAP = 200;    // bound data volume per pageview
 
 const rid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const isPublic = (p: string) => !p.startsWith('/dashboard') && !p.startsWith('/admin');
@@ -103,6 +107,19 @@ function onClick(ev: MouseEvent) {
     y_px: Math.max(0, Math.min(h, Math.round(ev.clientY + window.scrollY))),
   });
 }
+function onMove(ev: MouseEvent) {
+  if (!curPath || !isPublic(curPath)) return;
+  const now = Date.now();
+  if (now - lastMove < MOVE_THROTTLE || moveCount >= MOVE_CAP) return;
+  lastMove = now; moveCount++;
+  const w = window.innerWidth || 1;
+  const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 1);
+  enqueue({
+    type: 'move', path: curPath, device: device(), viewport: device(),
+    x_pct: Math.max(0, Math.min(10000, Math.round((ev.clientX / w) * 10000))),
+    y_px: Math.max(0, Math.min(h, Math.round(ev.clientY + window.scrollY))),
+  });
+}
 function onScroll() {
   if (!curPath || !isPublic(curPath)) return;
   const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 1);
@@ -115,6 +132,7 @@ function onHide() { flushEngage(); flush(true); }
 function startListeners() {
   started = true;
   document.addEventListener('click', onClick, true);
+  window.addEventListener('mousemove', onMove, { passive: true });
   window.addEventListener('scroll', onScroll, { passive: true });
   document.addEventListener('visibilitychange', onVis);
   window.addEventListener('pagehide', onHide);
@@ -126,7 +144,7 @@ export function trackPageview(path: string) {
   if (typeof window === 'undefined') return;
   if (!started) startListeners();
   if (curPath && curPath !== path) flushEngage();
-  curPath = path; activeMs = 0; maxScroll = 0; lastTick = Date.now(); visible = document.visibilityState === 'visible';
+  curPath = path; activeMs = 0; maxScroll = 0; moveCount = 0; lastTick = Date.now(); visible = document.visibilityState === 'visible';
   if (!isPublic(path)) return;
   enqueue({
     type: 'pageview', path, referrer: document.referrer || null, ...utm(),

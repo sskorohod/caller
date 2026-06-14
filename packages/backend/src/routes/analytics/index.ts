@@ -12,7 +12,7 @@ import { env } from '../../config/env.js';
 const s = (max: number) => z.string().max(max).optional().nullable();
 
 const eventSchema = z.object({
-  type: z.enum(['pageview', 'engage', 'click', 'scroll', 'signup']),
+  type: z.enum(['pageview', 'engage', 'click', 'scroll', 'signup', 'move']),
   path: z.string().min(1).max(512),
   referrer: s(1024),
   utm_source: s(256),
@@ -64,7 +64,7 @@ const analyticsRoutes: FastifyPluginAsync = async (app) => {
 
     const ipHash = hashIp(request);
 
-    const eventRows = body.events.map((e) => ({
+    const eventRows = body.events.filter((e) => e.type !== 'move').map((e) => ({
       visitor_id: body.visitor_id,
       session_id: body.session_id,
       type: e.type,
@@ -84,16 +84,17 @@ const analyticsRoutes: FastifyPluginAsync = async (app) => {
     }));
 
     const heatmapRows = body.events
-      .filter((e) => e.type === 'click' && e.x_pct != null && e.y_px != null)
+      .filter((e) => (e.type === 'click' || e.type === 'move') && e.x_pct != null && e.y_px != null)
       .map((e) => ({
         path: e.path,
         viewport: (e.viewport ?? e.device ?? 'desktop') as string,
+        kind: e.type === 'move' ? 'move' : 'click',
         x_pct: e.x_pct as number,
         y_px: e.y_px as number,
       }));
 
     try {
-      await db.insert(analyticsEvents).values(eventRows);
+      if (eventRows.length) await db.insert(analyticsEvents).values(eventRows);
       if (heatmapRows.length) await db.insert(analyticsHeatmapPoints).values(heatmapRows);
     } catch (err) {
       request.log.warn({ err }, 'analytics collect insert failed');

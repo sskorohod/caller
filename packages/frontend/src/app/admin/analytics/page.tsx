@@ -248,10 +248,29 @@ function drawHeatmap(canvas: HTMLCanvasElement, points: { x: number; y: number }
   ctx.putImageData(img, 0, 0);
 }
 
+// Scroll-reach zones: each depth band coloured by the share of visitors who
+// reached it (hot = everyone saw it, cold = few scrolled that far).
+function drawScrollHeatmap(canvas: HTMLCanvasElement, scroll: ScrollRow[], w: number, h: number) {
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d'); if (!ctx) return;
+  ctx.clearRect(0, 0, w, h);
+  const total = scroll.reduce((a, s) => a + s.c, 0) || 1;
+  for (let d = 0; d < 100; d++) {
+    const reach = scroll.filter(s => s.scroll_pct >= d).reduce((a, s) => a + s.c, 0) / total;
+    const [r, g, b] = colorRamp(reach);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.42)`;
+    const y0 = (d / 100) * h, y1 = ((d + 1) / 100) * h;
+    ctx.fillRect(0, y0, w, y1 - y0 + 1);
+  }
+}
+
+type HeatMode = 'click' | 'move' | 'scroll';
+
 function Heatmaps({ days }: { days: number }) {
   const [paths, setPaths] = useState<PathRow[]>([]);
   const [path, setPath] = useState<string>('/');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [mode, setMode] = useState<HeatMode>('click');
   const [points, setPoints] = useState<HeatPoint[]>([]);
   const [scroll, setScroll] = useState<ScrollRow[]>([]);
   const [iframeH, setIframeH] = useState(2200);
@@ -266,20 +285,22 @@ function Heatmaps({ days }: { days: number }) {
   }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    const kind = mode === 'move' ? 'move' : 'click';
     api.get<{ points: HeatPoint[]; scroll: ScrollRow[] }>(
-      `/admin/analytics/heatmap?path=${encodeURIComponent(path)}&viewport=${viewport}&days=${days}`,
+      `/admin/analytics/heatmap?path=${encodeURIComponent(path)}&viewport=${viewport}&kind=${kind}&days=${days}`,
     ).then(r => { setPoints(r.points || []); setScroll(r.scroll || []); }).catch(() => { setPoints([]); setScroll([]); });
-  }, [path, viewport, days]);
+  }, [path, viewport, days, mode]);
 
   const w = VP_WIDTH[viewport];
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current; if (!canvas) return;
+    if (mode === 'scroll') { drawScrollHeatmap(canvas, scroll, w, iframeH); return; }
     const pts = points
       .map(p => ({ x: (p.x_pct / 10000) * w, y: Math.min(p.y_px, iframeH) }))
       .filter(p => p.y <= iframeH);
     drawHeatmap(canvas, pts, w, iframeH);
-  }, [points, w, iframeH]);
+  }, [mode, points, scroll, w, iframeH]);
 
   useEffect(() => { redraw(); }, [redraw]);
 
@@ -317,7 +338,19 @@ function Heatmaps({ days }: { days: number }) {
             ))}
           </div>
         </div>
-        <div className="text-xs text-[var(--th-text-muted)] ml-auto">{points.length} clicks plotted</div>
+        <div>
+          <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase mb-1">View</label>
+          <div className="flex gap-1">
+            {([['click', 'Clicks'], ['move', 'Attention'], ['scroll', 'Scroll reach']] as const).map(([m, lbl]) => (
+              <button key={m} onClick={() => setMode(m)}
+                className="px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={mode === m ? { background: 'var(--th-primary)', color: '#fff' } : { background: 'var(--th-card)', color: 'var(--th-text-secondary)', border: '1px solid var(--th-border)' }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="text-xs text-[var(--th-text-muted)] ml-auto">{mode === 'scroll' ? 'scroll-reach zones' : `${points.length} points plotted`}</div>
       </div>
 
       {/* Scroll-reach (attention) */}
@@ -342,7 +375,7 @@ function Heatmaps({ days }: { days: number }) {
 
       {/* Click heatmap overlay on the live page */}
       <div className={`${card} p-4`}>
-        <div className="text-sm font-bold text-[var(--th-text)] mb-3">Click heatmap — {path}</div>
+        <div className="text-sm font-bold text-[var(--th-text)] mb-3">{mode === 'click' ? 'Click' : mode === 'move' ? 'Attention (movement)' : 'Scroll-reach'} heatmap — {path}</div>
         <div className="overflow-auto border border-[var(--th-border)] rounded-lg" style={{ maxHeight: 600 }}>
           <div style={{ position: 'relative', width: w, height: iframeH }}>
             <iframe
