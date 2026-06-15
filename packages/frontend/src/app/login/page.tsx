@@ -219,13 +219,13 @@ function LoginContent() {
                 </p>
               </div>
 
-              {/* $2 free credit callout */}
+              {/* free minutes callout */}
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl mb-6"
                 style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
                 <span className="material-symbols-outlined text-xl shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>redeem</span>
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>{t('$2 in free credit with your phone number', '$2 бесплатно при добавлении номера телефона')}</div>
-                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>{t('Enough for a real test call (≈10 min). One gift per phone number. No card required.', 'Хватит на реальный тестовый звонок (≈10 мин). Один бонус на номер. Без карты.')}</div>
+                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>{t('Ten free minutes with your phone number', 'Десять бесплатных минут при добавлении номера телефона')}</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>{t('Enough for a real test call. One gift per phone number. No card required to start.', 'Хватит на реальный тестовый звонок. Один бонус на один номер. Для старта платёжная карта не нужна.')}</div>
                 </div>
               </div>
 
