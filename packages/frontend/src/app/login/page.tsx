@@ -225,7 +225,7 @@ function LoginContent() {
                 <span className="material-symbols-outlined text-xl shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>redeem</span>
                 <div>
                   <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>{t('Ten free minutes when you sign up', 'Десять бесплатных минут при регистрации')}</div>
-                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>{t('Enough for a real test call. One gift per phone number. No card required to start.', 'Хватит на реальный тестовый звонок. Один бонус на один номер. Для старта платёжная карта не нужна.')}</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>{t('One gift per phone number. No card required to start.', 'Один бонус на один номер. Для старта платёжная карта не нужна.')}</div>
                 </div>
               </div>
 
