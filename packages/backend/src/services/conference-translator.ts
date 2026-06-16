@@ -96,6 +96,14 @@ export class ConferenceTranslator extends EventEmitter {
   private currentOutputTranscript: string = '';
   private currentResponseAudio: Buffer[] = []; // buffer audio until language verified
   private retranslationPending: boolean = false;
+  private retranslationTimer: ReturnType<typeof setTimeout> | null = null;
+  // Token makes the retranslation fallback idempotent: the timer-driven fallback
+  // and a late Grok retry response.done race to resolve the same turn — whichever
+  // resolves first bumps the token, invalidating the other.
+  private retranslationToken: number = 0;
+  // One-shot guard: after a fallback has already spoken a turn, drop the next
+  // "system" (no-input) Grok response so a late retry can't double-speak.
+  private suppressNextSystemResponse: boolean = false;
   private reconnectAttempts: number = 0;
   private intentionalReconnect: boolean = false; // true when reconnecting for settings change
 
@@ -136,6 +144,11 @@ export class ConferenceTranslator extends EventEmitter {
   // (see speech_started handler) — so casual long-form speech with nothing
   // to interrupt no longer triggers a useless cancel.
   private static readonly BARGE_IN_THRESHOLD_MS = 2000;
+  // When a same-language-echo re-translation is requested, Grok's Voice Agent
+  // sometimes accepts the response.create and never emits response.done (observed
+  // 2026-06-16: two utterances silently lost). If no response.done resolves the
+  // turn within this window, translate via the non-realtime text path instead.
+  private static readonly RETRANSLATION_FALLBACK_MS = 2500;
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -289,6 +302,8 @@ ${this.personalContext}` : ''}`;
       this.currentOutputTranscript = '';
       this.currentResponseAudio = [];
       this.retranslationPending = false;
+      this.clearRetranslationTimer();
+      this.suppressNextSystemResponse = false;
 
       this.grokWs!.send(JSON.stringify({
         type: 'session.update',
@@ -818,6 +833,135 @@ ${this.personalContext}` : ''}`;
     return this.greetingText;
   }
 
+  /** Cancel a pending same-language-echo fallback timer. */
+  private clearRetranslationTimer(): void {
+    if (this.retranslationTimer) {
+      clearTimeout(this.retranslationTimer);
+      this.retranslationTimer = null;
+    }
+  }
+
+  /**
+   * Arm a safety-net timer after asking Grok to re-translate a same-language
+   * echo. Grok's Voice Agent sometimes accepts the retry `response.create` and
+   * never emits a `response.done`, silently losing the utterance (2026-06-16
+   * incident: two turns dropped without a trace). On timeout, translate the
+   * original via the non-realtime text path so the turn is never lost.
+   */
+  private armRetranslationFallback(original: string, targetLangCode: string, targetLangName: string): void {
+    this.clearRetranslationTimer();
+    const token = ++this.retranslationToken;
+    this.retranslationTimer = setTimeout(() => {
+      this.retranslationTimer = null;
+      this.runRetranslationFallback(original, targetLangCode, targetLangName, token).catch(err =>
+        log.error({ err, callId: this.callId }, 'Retranslation fallback errored'));
+    }, ConferenceTranslator.RETRANSLATION_FALLBACK_MS);
+  }
+
+  private async runRetranslationFallback(
+    original: string, targetLangCode: string, targetLangName: string, token: number,
+  ): Promise<void> {
+    // Stale — a Grok retry response.done already resolved this turn.
+    if (token !== this.retranslationToken || !this.retranslationPending) return;
+
+    log.warn({ callId: this.callId, original: original.slice(0, 80), targetLang: targetLangCode },
+      'Grok retry silent — translating via text fallback');
+
+    const translated = await this.fallbackTextTranslate(original, targetLangName);
+
+    // Re-check after the await — the turn may have resolved meanwhile.
+    if (token !== this.retranslationToken || !this.retranslationPending) return;
+
+    // We own this turn now. Block a late Grok retry from double-speaking.
+    this.retranslationPending = false;
+    this.suppressNextSystemResponse = true;
+    this.resetTurnStreamingState();
+    this.currentInputTranscript = '';
+    this.currentOutputTranscript = '';
+    this.currentResponseAudio = [];
+
+    const direction = this.detectInputDirection(original);
+    const speaker = direction.isMyLang ? 'subscriber' : 'other';
+    const detectedLang = direction.detectedLang;
+    const io = getIo();
+
+    if (!translated) {
+      // Even the fallback failed — preserve the utterance as untranslated so it
+      // is never silently dropped (the original bug).
+      log.warn({ callId: this.callId, original: original.slice(0, 80) },
+        'Text fallback returned empty — preserving turn as untranslated');
+      this.transcript.push({
+        speaker, text: original, lang: detectedLang, translated: '',
+        untranslated: true, timestamp: new Date().toISOString(),
+      });
+      if (io) io.to(`call:${this.callId}:translate`).emit('call:translation', {
+        call_id: this.callId, speaker, original, translated: '',
+        untranslated: true, detected_language: detectedLang, timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Speak the fallback translation (xAI TTS → mulaw 8kHz, same path as greeting).
+    try {
+      const { XaiTTS } = await import('./tts.service.js');
+      const tts = new XaiTTS(this.xaiApiKey, (this.ttsVoiceId || 'ara').toLowerCase(), targetLangCode || 'en');
+      const audio = await tts.synthesize(translated);
+      if (audio.length > 0 && this.twilioSocket.readyState === 1) {
+        this.startPlayback();
+        this.sendBufferToTwilio(audio);
+        this.finalizePlayback();
+      }
+    } catch (err) {
+      log.error({ err, callId: this.callId }, 'Fallback TTS failed — saving translation as text only');
+    }
+
+    this.transcript.push({
+      speaker, text: original, lang: detectedLang, translated, timestamp: new Date().toISOString(),
+    });
+    if (io) {
+      io.to(`call:${this.callId}:translate`).emit('call:translation', {
+        call_id: this.callId, speaker, original, translated,
+        detected_language: detectedLang, timestamp: new Date().toISOString(),
+      });
+      io.to(`call:${this.callId}`).emit('call:transcript', {
+        call_id: this.callId, speaker: 'conference', text: original,
+        timestamp: new Date().toISOString(), isFinal: true,
+      });
+    }
+    log.info({ callId: this.callId, outputChars: translated.length },
+      'Text fallback translation spoken + saved');
+  }
+
+  /**
+   * Non-realtime text translation via xAI chat completions — the reliable path
+   * used when the realtime Voice Agent fails to translate. Returns null on any
+   * error/empty so callers can mark the turn untranslated.
+   */
+  private async fallbackTextTranslate(text: string, targetLangName: string): Promise<string | null> {
+    try {
+      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.xaiApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'grok-3-mini',
+          temperature: 0.2,
+          messages: [
+            { role: 'system', content: `You are a translation machine. Translate the user's message into ${targetLangName}. Output ONLY the ${targetLangName} translation — no quotes, no commentary, nothing else.` },
+            { role: 'user', content: text },
+          ],
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) throw new Error(`xAI fallback translate: HTTP ${res.status}`);
+      const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+      const out = data.choices?.[0]?.message?.content?.trim();
+      return out || null;
+    } catch (err) {
+      log.warn({ err, callId: this.callId }, 'Fallback translation request failed');
+      return null;
+    }
+  }
+
   /** Reset per-turn streaming state (called on speech_started and after response.done). */
   private resetTurnStreamingState(): void {
     this.streamingApproved = false;
@@ -1067,6 +1211,16 @@ ${this.personalContext}` : ''}`;
 
         // Greeting or system response (no input) — inject audio directly (never streamed).
         if (!original) {
+          // A text fallback already spoke this turn — drop a late Grok retry so it
+          // doesn't double-speak / leak the echoed audio.
+          if (this.suppressNextSystemResponse) {
+            this.suppressNextSystemResponse = false;
+            this.resetTurnStreamingState();
+            this.currentInputTranscript = '';
+            this.currentOutputTranscript = '';
+            this.currentResponseAudio = [];
+            break;
+          }
           // Grok Voice Agent sometimes reads the greeting more than once within a
           // single response ("Hi, I'm your AI interpreter... Hi, I'm your AI
           // interpreter..."). Detect the repeat from the output transcript and
@@ -1118,6 +1272,7 @@ ${this.personalContext}` : ''}`;
               const targetLangForRetry = inputScript === 'cyrillic'
                 ? (LANG_NAMES[this.targetLang] || this.targetLang)
                 : (LANG_NAMES[this.myLang] || this.myLang);
+              const targetLangCodeForRetry = inputScript === 'cyrillic' ? this.targetLang : this.myLang;
 
               log.warn({
                 callId: this.callId, inputScript, outputScript,
@@ -1140,6 +1295,10 @@ ${this.personalContext}` : ''}`;
                 }));
               }
 
+              // Safety net: if Grok never answers this retry, translate via the
+              // non-realtime text path so the utterance is never silently lost.
+              this.armRetranslationFallback(original, targetLangCodeForRetry, targetLangForRetry);
+
               this.resetTurnStreamingState();
               this.currentOutputTranscript = '';
               this.currentResponseAudio = [];
@@ -1147,6 +1306,9 @@ ${this.personalContext}` : ''}`;
             }
           }
 
+          // Grok's retry answered in time \u2014 cancel the pending text fallback so it
+          // can't also fire and double-record/double-speak this turn.
+          if (this.retranslationPending) { this.retranslationToken++; this.clearRetranslationTimer(); }
           this.retranslationPending = false;
 
           // Detect direction (real language detection \u2014 see detectInputDirection).
@@ -1204,11 +1366,14 @@ ${this.personalContext}` : ''}`;
         } else if (original && !translated) {
           // Grok produced no translation — classify (filler-only, hallucination skip, echo-retry-failed)
           // and preserve the utterance in transcript so the UI can surface it as "⚠ not translated".
+          // An empty retry response still counts as "answered" — cancel any pending fallback.
+          const retranslationWas = this.retranslationPending;
+          if (this.retranslationPending) { this.retranslationToken++; this.clearRetranslationTimer(); this.retranslationPending = false; }
           log.warn({
             callId: this.callId,
             original: original.slice(0, 200),
             wasStreamed,
-            retranslationWas: this.retranslationPending,
+            retranslationWas,
           }, 'Translation dropped: empty output from Grok');
 
           const direction = this.detectInputDirection(original);
@@ -1264,6 +1429,7 @@ ${this.personalContext}` : ''}`;
 
     if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
     this.speechStartedAt = null;
+    this.clearRetranslationTimer();
 
     if (this.safetyTimer) {
       clearTimeout(this.safetyTimer);
