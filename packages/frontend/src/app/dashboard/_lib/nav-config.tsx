@@ -88,11 +88,11 @@ const tabIcons = {
 };
 
 /* ─── Build bottom tabs based on workspace plan ──────────────────────── */
-export function getBottomTabs(_plan: string): TabItem[] {
-  // Translator-only product.
+export function getBottomTabs(_plan: string, isAdmin = false): TabItem[] {
+  // Translator-only product. Call recordings tab is admin-only for now.
   return [
     { key: 'nav.overview', href: '/dashboard', icon: tabIcons.translator, accent: true },
-    { key: 'nav.calls', href: '/dashboard/calls', icon: tabIcons.calls },
+    ...(isAdmin ? [{ key: 'nav.calls', href: '/dashboard/calls', icon: tabIcons.calls }] : []),
     { key: '__more__', href: '#', icon: tabIcons.more },
   ];
 }

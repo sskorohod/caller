@@ -35,6 +35,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { lang, setLang } = useI18n();
   const { theme, toggle } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Call recordings nav is admin-only for now (feature kept, hidden from regular users).
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !token) router.replace('/login');
@@ -44,11 +46,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!token || !workspace) return;
     Promise.all([
-      api.get<{ role?: string }>('/auth/me').catch(() => ({})),
+      api.get<{ role?: string; is_admin?: boolean }>('/auth/me').catch(() => ({})),
       api.get<{ plan?: string }>('/billing/balance').catch(() => ({})),
     ]).then(([me, billing]) => {
       const newRole = (me as any).role || workspace.role;
       const newPlan = (billing as any).plan || workspace.plan;
+      setIsAdmin((me as any).is_admin === true);
       if (newRole !== workspace.role || newPlan !== workspace.plan) {
         setWorkspace({ ...workspace, role: newRole, plan: newPlan });
       }
@@ -93,7 +96,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {(() => {
           // Translator-only product: single Operations group + System.
-          const operations = ['/dashboard/calls'];
+          // Call recordings is admin-only for now — hidden from regular users.
+          const operations = isAdmin ? ['/dashboard/calls'] : [];
           const system = ['/dashboard/billing', '/dashboard/settings', '/dashboard/help'];
 
           return [
@@ -250,7 +254,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Bottom tab bar — mobile only */}
       <BottomTabBar
-        tabs={getBottomTabs(plan)}
+        tabs={getBottomTabs(plan, isAdmin)}
         moreItems={getMoreItems(plan)}
         userEmail={user?.email}
         onLogout={logout}
