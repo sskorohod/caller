@@ -65,7 +65,7 @@ Every new account gets **$2 in free credit**. You can make real translated calls
 After signing in you'll see:
 
 - Your **LingoLine translator number** — the number you merge into calls.
-- Your **balance** and recent call history.
+- Your **balance** and payment history.
 - **Settings** — voice, tone, and Telegram notifications.
 - The **AI trainer** — a safe practice mode to hear the translator before a live call.
 `,
@@ -221,15 +221,11 @@ Set your default tone in **Settings**; you can change it any time.
         title: 'Live Transcript',
         content: `# Live Transcript
 
-Every translated call produces a **live text transcript** you can follow and revisit.
+Every translated call produces a **live text transcript** you can follow in real time.
 
 ## During the call
 
 The transcript updates in real time in your dashboard, showing each side's words and their translation — useful for confirming names, numbers, and details.
-
-## After the call
-
-The full transcript is saved to your call history. You can open it later to check what was said — handy for appointments, account numbers, or instructions you received on the call.
 `,
       },
       {
@@ -321,20 +317,19 @@ Your new balance is available immediately. There's no commitment — top up only
     articles: [
       {
         id: 'your-data-and-recordings',
-        title: 'Your Data & Recordings',
-        content: `# Your Data & Recordings
+        title: 'Your Data',
+        content: `# Your Data
 
-LingoLine processes the audio of your call in real time to translate it, and stores the **transcript** so you can review it later.
+LingoLine processes the audio of your call in real time to translate it, and stores the **transcript** of the conversation.
 
 ## What's kept
 
-- **Transcripts** of your translated calls, in your call history.
+- **Transcripts** of your translated calls.
 - **Call metadata** (time, duration, languages, cost).
-- Any **recordings** are subject to the retention described in our Privacy Policy.
 
 ## Your control
 
-You can review your call history in the dashboard. For full details on what we collect, how long it's kept, and your rights, see the [Privacy Policy](/privacy).
+For full details on what we collect, how long it's kept, and your rights, see the [Privacy Policy](/privacy).
 
 > For sensitive health, legal, or financial calls, review the accuracy and limitations note before relying on the translation.
 `,

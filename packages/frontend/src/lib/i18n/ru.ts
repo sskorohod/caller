@@ -67,7 +67,7 @@ const ru: Record<string, string> = {
   'help.art.firstCall': 'Первый перевод',
   'help.art.howToCall': 'Как идёт звонок',
   'help.art.languagesSettings': 'Языки и голос',
-  'help.art.liveHistory': 'Живой перевод и история',
+  'help.art.liveHistory': 'Живой перевод',
   'help.art.howBalanceWorks': 'Баланс и цены',
   'help.art.howToTopup': 'Как пополнить',
   'help.art.telegramNotifs': 'Уведомления в Telegram',

@@ -59,7 +59,7 @@ const ART_TITLES: Record<string, { en: string; ru: string }> = {
   'help.art.firstCall':         { en: 'Your First Translated Call', ru: 'Ваш первый перевод' },
   'help.art.howToCall':         { en: 'How a Translated Call Works', ru: 'Как идёт звонок с переводчиком' },
   'help.art.languagesSettings': { en: 'Translator Settings', ru: 'Настройки переводчика' },
-  'help.art.liveHistory':       { en: 'Live Translation & Call History', ru: 'Живой перевод и записи звонков' },
+  'help.art.liveHistory':       { en: 'Live Translation', ru: 'Живой перевод' },
   'help.art.howBalanceWorks':   { en: 'How Balance & Pricing Work', ru: 'Как работает баланс и цены' },
   'help.art.howToTopup':        { en: 'Topping Up Your Balance', ru: 'Как пополнить баланс' },
   'help.art.telegramNotifs':    { en: 'Telegram Notifications', ru: 'Уведомления в Telegram' },
