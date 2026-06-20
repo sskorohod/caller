@@ -144,11 +144,6 @@ export class ConferenceTranslator extends EventEmitter {
   // (see speech_started handler) — so casual long-form speech with nothing
   // to interrupt no longer triggers a useless cancel.
   private static readonly BARGE_IN_THRESHOLD_MS = 2000;
-  // When a same-language-echo re-translation is requested, Grok's Voice Agent
-  // sometimes accepts the response.create and never emits response.done (observed
-  // 2026-06-16: two utterances silently lost). If no response.done resolves the
-  // turn within this window, translate via the non-realtime text path instead.
-  private static readonly RETRANSLATION_FALLBACK_MS = 2500;
 
   constructor(options: ConferenceTranslatorOptions) {
     super();
@@ -841,23 +836,6 @@ ${this.personalContext}` : ''}`;
     }
   }
 
-  /**
-   * Arm a safety-net timer after asking Grok to re-translate a same-language
-   * echo. Grok's Voice Agent sometimes accepts the retry `response.create` and
-   * never emits a `response.done`, silently losing the utterance (2026-06-16
-   * incident: two turns dropped without a trace). On timeout, translate the
-   * original via the non-realtime text path so the turn is never lost.
-   */
-  private armRetranslationFallback(original: string, targetLangCode: string, targetLangName: string): void {
-    this.clearRetranslationTimer();
-    const token = ++this.retranslationToken;
-    this.retranslationTimer = setTimeout(() => {
-      this.retranslationTimer = null;
-      this.runRetranslationFallback(original, targetLangCode, targetLangName, token).catch(err =>
-        log.error({ err, callId: this.callId }, 'Retranslation fallback errored'));
-    }, ConferenceTranslator.RETRANSLATION_FALLBACK_MS);
-  }
-
   private async runRetranslationFallback(
     original: string, targetLangCode: string, targetLangName: string, token: number,
   ): Promise<void> {
@@ -1284,7 +1262,9 @@ ${this.personalContext}` : ''}`;
                 this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid }));
               }
 
-              // Request explicit re-translation
+              // Best-effort fast path: ask Grok to re-translate. Its Voice Agent is
+              // unreliable here — it frequently stays silent on the retry or echoes
+              // again — so we do NOT block on it (see immediate fallback below).
               if (this.grokWs?.readyState === WebSocket.OPEN) {
                 this.grokWs.send(JSON.stringify({
                   type: 'response.create',
@@ -1295,9 +1275,15 @@ ${this.personalContext}` : ''}`;
                 }));
               }
 
-              // Safety net: if Grok never answers this retry, translate via the
-              // non-realtime text path so the utterance is never silently lost.
-              this.armRetranslationFallback(original, targetLangCodeForRetry, targetLangForRetry);
+              // Translate via the reliable non-realtime text path immediately rather
+              // than blind-waiting for a retry that is usually silent. If Grok's retry
+              // does answer first, it bumps retranslationToken and this call bails
+              // after its await (the token re-check prevents double-speak); otherwise
+              // this is what the listener hears — seconds sooner than the old timer.
+              const fallbackToken = ++this.retranslationToken;
+              void this.runRetranslationFallback(
+                original, targetLangCodeForRetry, targetLangForRetry, fallbackToken,
+              ).catch(err => log.error({ err, callId: this.callId }, 'Retranslation fallback errored'));
 
               this.resetTurnStreamingState();
               this.currentOutputTranscript = '';
