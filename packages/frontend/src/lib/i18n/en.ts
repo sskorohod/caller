@@ -222,6 +222,8 @@ const en: Record<string, string> = {
   'translator.bidirectionalDesc': 'Speech from both sides is voice-translated — everyone hears the translation.',
   'translator.unidirectional': 'Unidirectional',
   'translator.unidirectionalDesc': 'Your speech is voice-translated for the other party; their speech appears on screen as real-time captions.',
+  'translator.stealth': 'Stealth',
+  'translator.stealthDesc': 'Silent text-only mode. The translator never speaks on the line — you read the live translation via a link sent over Telegram (or SMS).',
   'translator.myLanguage': 'Default My Language',
   'translator.targetLanguage': 'Default Target Language',
   'translator.greetingText': 'Default Greeting Text',

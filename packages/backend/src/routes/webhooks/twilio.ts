@@ -168,6 +168,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           const liveUrl = `https://${env.API_DOMAIN}/translate/${shareToken}`;
 
           // Notify the user
+          let userNotified = false;
           const [telegramCreds] = await db.select({ credential_data: providerCredentials.credential_data }).from(providerCredentials)
             .where(and(eq(providerCredentials.workspace_id, callerWorkspace.id), eq(providerCredentials.provider, 'telegram')));
           if (telegramCreds) {
@@ -178,8 +179,21 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
                   subscriberName: callerWorkspace.name,
                   liveUrl,
                 });
+                userNotified = true;
               }
             } catch { /* non-critical */ }
+          }
+
+          // Stealth mode: the live link IS the product (the translator is silent).
+          // If Telegram isn't connected, SMS the link to the caller's own number.
+          if (wsDefs.translation_mode === 'stealth' && !userNotified) {
+            try {
+              const { sendSms } = await import('../../services/sms.service.js');
+              const ok = await sendSms(callerWorkspace.id, callerNumber, `LingoLine live translation: ${liveUrl}`);
+              app.log.info({ callId: translatorCall.id, smsOk: ok }, 'Stealth link sent via SMS (Telegram not connected)');
+            } catch (err) {
+              app.log.warn({ err, callId: translatorCall.id }, 'Stealth SMS fallback failed');
+            }
           }
 
           // Notify admin (platform owner)

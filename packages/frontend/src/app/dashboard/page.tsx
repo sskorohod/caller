@@ -425,10 +425,11 @@ export default function DashboardHub() {
           {/* Mode */}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.translationMode')}</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { v: 'bidirectional', l: t('translator.bidirectional'), d: t('translator.bidirectionalDesc') },
                 { v: 'unidirectional', l: t('translator.unidirectional'), d: t('translator.unidirectionalDesc') },
+                { v: 'stealth', l: t('translator.stealth'), d: t('translator.stealthDesc') },
               ].map(m => {
                 const on = (defaults.translation_mode || 'bidirectional') === m.v;
                 return (

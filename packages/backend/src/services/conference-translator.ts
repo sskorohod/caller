@@ -1,7 +1,6 @@
 import { EventEmitter } from 'node:events';
 import pino from 'pino';
 import { WebSocket } from 'ws';
-import { detect as detectLang } from 'tinyld';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { translatorSessions, calls as callsTable, workspaces as workspacesSchema } from '../db/schema.js';
@@ -12,6 +11,8 @@ import { sendTranslatorSessionStart, sendTranslatorSessionEnd, sendAdminTranslat
 import { decrypt } from '../lib/crypto.js';
 import { providerCredentials } from '../db/schema.js';
 import { env } from '../config/env.js';
+import { detectTranslationDirection, languagesUseDifferentScripts as langsDifferentScripts } from '../lib/lang-direction.js';
+import { translateText } from './translate-text.js';
 
 const log = pino({ name: 'conference-translator' });
 
@@ -507,66 +508,14 @@ ${this.personalContext}` : ''}`;
     return this.paused;
   }
 
-  private static readonly CYRILLIC_LANGS = new Set(['ru', 'uk', 'bg', 'sr']);
-
   /** Check if configured language pair uses different scripts (Cyrillic vs Latin) */
   private languagesUseDifferentScripts(): boolean {
-    const myIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.myLang);
-    const targetIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.targetLang);
-    return myIsCyrillic !== targetIsCyrillic;
+    return langsDifferentScripts(this.myLang, this.targetLang);
   }
 
-  // Languages we treat as "close enough" to a configured language for direction
-  // detection. Phone-call STT is short and noisy and tinyld will often
-  // misclassify within these families (e.g. ru ↔ uk on a Russian phrase with
-  // a Ukrainian-looking name).
-  private static readonly LANG_FAMILIES: Record<string, string[]> = {
-    ru: ['ru', 'uk', 'bg', 'sr', 'be', 'mk'],
-    en: ['en'],
-    es: ['es', 'gl', 'ca'],
-    pt: ['pt', 'gl'],
-    fr: ['fr'],
-    de: ['de', 'nl'],
-    it: ['it'],
-  };
-
-  /**
-   * Decide whether transcribed input belongs to myLang or targetLang.
-   * Uses tinyld (a real language detector) and falls back to the older
-   * cyrillic-only heuristic if tinyld can't decide. The cyrillic heuristic
-   * is what existed before — fine for ru↔en, useless for ES↔EN, FR↔EN, etc.
-   */
+  /** Decide whether transcribed input belongs to myLang or targetLang (shared util). */
   private detectInputDirection(text: string): { isMyLang: boolean; detectedLang: string } {
-    const myFamily = ConferenceTranslator.LANG_FAMILIES[this.myLang] ?? [this.myLang];
-    const targetFamily = ConferenceTranslator.LANG_FAMILIES[this.targetLang] ?? [this.targetLang];
-
-    if (text && text.length >= 4) {
-      const detected = detectLang(text);
-      if (detected) {
-        if (myFamily.includes(detected)) {
-          return { isMyLang: true, detectedLang: this.myLang };
-        }
-        if (targetFamily.includes(detected)) {
-          return { isMyLang: false, detectedLang: this.targetLang };
-        }
-      }
-    }
-
-    // Fallback: legacy cyrillic-ratio heuristic. Only meaningful when one of
-    // the configured languages uses Cyrillic and the other doesn't.
-    const cyrillicRatio = (text.match(/[Ѐ-ӿ]/g) || []).length / Math.max(text.length, 1);
-    const myIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.myLang);
-    const targetIsCyrillic = ConferenceTranslator.CYRILLIC_LANGS.has(this.targetLang);
-    if (myIsCyrillic !== targetIsCyrillic) {
-      const inputIsCyrillic = cyrillicRatio > 0.3;
-      const isMyLang = inputIsCyrillic === myIsCyrillic;
-      return { isMyLang, detectedLang: isMyLang ? this.myLang : this.targetLang };
-    }
-
-    // Same-script pair and no detection signal — assume myLang as a stable
-    // default (better than coin-flipping per turn). The translator's own
-    // instructions still drive the actual translation direction.
-    return { isMyLang: true, detectedLang: this.myLang };
+    return detectTranslationDirection(text, this.myLang, this.targetLang);
   }
 
   /** Detect script of text: 'cyrillic' | 'latin' | null (ambiguous). */
@@ -916,28 +865,7 @@ ${this.personalContext}` : ''}`;
    * error/empty so callers can mark the turn untranslated.
    */
   private async fallbackTextTranslate(text: string, targetLangName: string): Promise<string | null> {
-    try {
-      const res = await fetch('https://api.x.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${this.xaiApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'grok-3-mini',
-          temperature: 0.2,
-          messages: [
-            { role: 'system', content: `You are a translation machine. Translate the user's message into ${targetLangName}. Output ONLY the ${targetLangName} translation — no quotes, no commentary, nothing else.` },
-            { role: 'user', content: text },
-          ],
-        }),
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!res.ok) throw new Error(`xAI fallback translate: HTTP ${res.status}`);
-      const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-      const out = data.choices?.[0]?.message?.content?.trim();
-      return out || null;
-    } catch (err) {
-      log.warn({ err, callId: this.callId }, 'Fallback translation request failed');
-      return null;
-    }
+    return translateText(text, targetLangName, { apiKey: this.xaiApiKey });
   }
 
   /** Reset per-turn streaming state (called on speech_started and after response.done). */

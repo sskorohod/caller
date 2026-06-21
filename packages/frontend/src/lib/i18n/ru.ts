@@ -222,6 +222,8 @@ const ru: Record<string, string> = {
   'translator.bidirectionalDesc': 'Речь обоих собеседников переводится голосом — перевод слышат оба.',
   'translator.unidirectional': 'Односторонний',
   'translator.unidirectionalDesc': 'Ваша речь переводится голосом для собеседника, а его речь вы читаете на экране — субтитры в реальном времени.',
+  'translator.stealth': 'Стелс',
+  'translator.stealthDesc': 'Тихий текстовый режим. Переводчик не говорит на линии — вы читаете живой перевод по ссылке, которую система пришлёт в Telegram (или по SMS).',
   'translator.myLanguage': 'Мой язык',
   'translator.targetLanguage': 'Язык собеседника',
   'translator.greetingText': 'Текст приветствия',

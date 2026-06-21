@@ -128,6 +128,25 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
         if (row && new Date(row.expires_at) > new Date()) {
           socket.join(`call:${row.call_id}`);
           socket.join(`call:${row.call_id}:translate`);
+
+          // Tell the page the actual mode + language pair so it renders correctly
+          // (stealth = silent text-only → hide voice controls, show badge).
+          try {
+            const { workspaces: wsT } = await import('../db/schema.js');
+            const [callRow] = await db.select({ workspace_id: callsTable.workspace_id, metadata: callsTable.metadata })
+              .from(callsTable).where(eq(callsTable.id, row.call_id)).limit(1);
+            const wsId = (callRow?.metadata as any)?.caller_workspace_id || callRow?.workspace_id;
+            if (wsId) {
+              const [wsRow] = await db.select({ translator_defaults: wsT.translator_defaults })
+                .from(wsT).where(eq(wsT.id, wsId)).limit(1);
+              const defs = (wsRow?.translator_defaults as Record<string, string>) || {};
+              socket.emit('translator:config', {
+                mode: defs.translation_mode || 'bidirectional',
+                my_language: defs.my_language || 'ru',
+                target_language: defs.target_language || 'en',
+              });
+            }
+          } catch { /* non-critical */ }
         }
       } catch (err) { log.error({ err }, 'call:translate:join:token failed'); }
     });

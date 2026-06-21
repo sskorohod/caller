@@ -207,7 +207,7 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
       personal_context: z.string().max(2000).optional(),
       my_language: z.string().min(2).max(10).optional(),
       target_language: z.string().min(2).max(10).optional(),
-      translation_mode: z.enum(['bidirectional', 'unidirectional']).optional(),
+      translation_mode: z.enum(['bidirectional', 'unidirectional', 'stealth']).optional(),
       who_hears: z.enum(['subscriber', 'both']).optional(),
     }).parse(request.body);
 
