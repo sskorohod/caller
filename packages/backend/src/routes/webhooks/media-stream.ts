@@ -106,6 +106,71 @@ export function getActiveManualSessions() { return activeManualSessions; }
 const activeConferenceTranslators = new Map<string, any>();
 export function getActiveConferenceTranslators() { return activeConferenceTranslators; }
 
+// Construction context per active translator call — lets us rebuild the
+// translator with a different engine for a mid-call mode swap (Grok ↔ Deepgram).
+interface TranslatorCtx {
+  callId: string;
+  workspaceId: string;
+  myLanguage: string;
+  targetLanguage: string;
+  ttsVoiceId: string;
+  tone: string;
+  personalContext: string;
+  whoHears: 'subscriber' | 'both';
+  greetingText: string;
+  greetingDelaySeconds: number;
+  socket: any;
+  streamSid: string;
+}
+const translatorContexts = new Map<string, TranslatorCtx>();
+
+/** Build a translator instance for the given page mode (stealth → Deepgram, else Grok voice). */
+async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?: any) {
+  if (pageMode === 'stealth') {
+    const { StealthTranslator } = await import('../../services/stealth-translator.js');
+    return new StealthTranslator({
+      callId: ctx.callId, workspaceId: ctx.workspaceId,
+      myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
+      socket: ctx.socket, streamSid: ctx.streamSid, carryover,
+    });
+  }
+  const { ConferenceTranslator } = await import('../../services/conference-translator.js');
+  return new ConferenceTranslator({
+    callId: ctx.callId, workspaceId: ctx.workspaceId, subscriberId: ctx.workspaceId,
+    myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
+    mode: pageMode === 'unidirectional' ? 'text' : 'voice',
+    whoHears: ctx.whoHears, ttsProvider: 'xai', ttsVoiceId: ctx.ttsVoiceId,
+    tone: ctx.tone, personalContext: ctx.personalContext,
+    greetingText: ctx.greetingText, greetingDelaySeconds: ctx.greetingDelaySeconds,
+    socket: ctx.socket, streamSid: ctx.streamSid, carryover,
+  });
+}
+
+/**
+ * Switch the live translator mode. Voice sub-modes (2-way/1-way) update in place;
+ * switching to/from stealth swaps the whole engine, handing off the session
+ * (transcript, duration, billing) so it stays one continuous call.
+ */
+export async function setTranslatorMode(callId: string, pageMode: string): Promise<void> {
+  const ctx = translatorContexts.get(callId);
+  const current = activeConferenceTranslators.get(callId);
+  if (!ctx || !current) return;
+  const targetEngine = pageMode === 'stealth' ? 'stealth' : 'voice';
+  if (current.engine === targetEngine) {
+    if (targetEngine === 'voice' && typeof current.updateMode === 'function') {
+      current.updateMode(pageMode === 'unidirectional' ? 'text' : 'voice');
+    }
+    return;
+  }
+  // Engine swap — hand off session state without finalizing.
+  const carryover = current.detach();
+  const neu = await buildTranslator(pageMode, ctx, carryover);
+  await neu.start();
+  ctx.socket.__conferenceTranslator = neu;
+  activeConferenceTranslators.set(callId, neu);
+  logger.info({ callId, from: current.engine, to: targetEngine }, 'Translator engine swapped mid-call');
+}
+
 // PTT audio buffer flush callbacks (registered per call, called when PTT released)
 const pttFlushCallbacks = new Map<string, () => void>();
 
@@ -595,43 +660,29 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 targetLanguage = fallback;
               }
 
-              // Stealth mode uses a separate silent text-only pipeline (Deepgram
-              // STT + text translation) — no Grok Voice Agent, no greeting, no TTS.
-              let translator: any;
-              if (wsDefs.translation_mode === 'stealth') {
-                const { StealthTranslator } = await import('../../services/stealth-translator.js');
-                translator = new StealthTranslator({
-                  callId,
-                  workspaceId: callerWsId || call.workspace_id,
-                  myLanguage,
-                  targetLanguage,
-                  socket: socket as any,
-                  streamSid: streamSid!,
-                });
-              } else {
-                const { ConferenceTranslator, DEFAULT_GREETING } = await import('../../services/conference-translator.js');
-                // Greeting precedence: per-call meta → workspace setting →
-                // admin-configured platform default → hardcoded fallback.
-                const { getStringSetting } = await import('../../services/platform-settings.service.js');
-                const platformGreeting = await getStringSetting('default_greeting', DEFAULT_GREETING).catch(() => DEFAULT_GREETING);
-                translator = new ConferenceTranslator({
-                  callId,
-                  workspaceId: callerWsId || call.workspace_id,
-                  subscriberId: callerWsId || call.workspace_id,
-                  myLanguage,
-                  targetLanguage,
-                  mode: wsDefs.translation_mode === 'unidirectional' ? 'text' : 'voice',
-                  whoHears: (wsDefs.who_hears as any) || 'both',
-                  ttsProvider: 'xai',
-                  ttsVoiceId: wsDefs.tts_voice_id || 'eve',
-                  tone: wsDefs.tone || 'business',
-                  personalContext: wsDefs.personal_context || '',
-                  greetingText: callMeta.greeting_text || wsDefs.greeting_text || platformGreeting,
-                  greetingDelaySeconds: Number(wsDefs.greeting_delay_seconds ?? 3),
-                  socket: socket as any,
-                  streamSid: streamSid!,
-                });
-              }
+              // Resolve greeting (Grok voice modes). Precedence: per-call meta →
+              // workspace setting → admin platform default → hardcoded fallback.
+              const { DEFAULT_GREETING } = await import('../../services/conference-translator.js');
+              const { getStringSetting } = await import('../../services/platform-settings.service.js');
+              const platformGreeting = await getStringSetting('default_greeting', DEFAULT_GREETING).catch(() => DEFAULT_GREETING);
+
+              const pageMode = wsDefs.translation_mode || 'bidirectional';
+              const ctx: TranslatorCtx = {
+                callId,
+                workspaceId: callerWsId || call.workspace_id,
+                myLanguage,
+                targetLanguage,
+                ttsVoiceId: wsDefs.tts_voice_id || 'eve',
+                tone: wsDefs.tone || 'business',
+                personalContext: wsDefs.personal_context || '',
+                whoHears: (wsDefs.who_hears as any) || 'both',
+                greetingText: callMeta.greeting_text || wsDefs.greeting_text || platformGreeting,
+                greetingDelaySeconds: Number(wsDefs.greeting_delay_seconds ?? 3),
+                socket: socket as any,
+                streamSid: streamSid!,
+              };
+              translatorContexts.set(callId, ctx);
+              const translator = await buildTranslator(pageMode, ctx);
               await translator.start();
               (socket as any).__conferenceTranslator = translator;
               activeConferenceTranslators.set(callId, translator);
@@ -1137,7 +1188,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
         if (msg.event === 'stop') {
           // Conference translator
           const ct = (socket as any).__conferenceTranslator;
-          if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); unregisterSession(callId).catch(() => {}); }
+          if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); translatorContexts.delete(callId); unregisterSession(callId).catch(() => {}); }
           finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on stop'));
           finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on stop'));
         }
@@ -1150,7 +1201,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
       logger.info({ callId, code, reason: reason?.toString() }, 'Twilio MediaStream WebSocket closed');
       // Finalize all session types (idempotent — safe to call even if already finalized in stop)
       const ct = (socket as any).__conferenceTranslator;
-      if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); unregisterSession(callId).catch(() => {}); }
+      if (ct) { ct.stop(); activeConferenceTranslators.delete(callId); translatorContexts.delete(callId); unregisterSession(callId).catch(() => {}); }
       finalizeVTSession(callId).catch(err => logger.error({ err, callId }, 'finalizeVTSession error on close'));
       finalizeManualSession(callId).catch(err => logger.error({ err, callId }, 'finalizeManualSession error on close'));
     });

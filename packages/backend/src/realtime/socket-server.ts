@@ -182,9 +182,9 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       try {
         const id = resolveCallId(call_id);
         if (!id || !await authorizeCallAccess(id)) return;
-        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(id);
-        if (ct) ct.updateMode(mode);
+        // May swap the whole engine (Grok ↔ Deepgram) for stealth ↔ voice.
+        const { setTranslatorMode } = await import('../routes/webhooks/media-stream.js');
+        await setTranslatorMode(id, mode);
       } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 

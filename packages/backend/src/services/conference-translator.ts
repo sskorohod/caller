@@ -33,6 +33,15 @@ interface ConferenceTranslatorOptions {
   greetingDelaySeconds?: number;
   socket: WebSocket;        // Twilio media stream WebSocket
   streamSid: string;        // Twilio stream SID
+  /** Mid-call engine swap: reuse the existing session instead of starting fresh. */
+  carryover?: TranslatorCarryover;
+}
+
+/** State handed off when swapping translator engines mid-call (Grok ↔ Deepgram). */
+export interface TranslatorCarryover {
+  sessionId: string | null;
+  startTime: number;
+  transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string; untranslated?: boolean }>;
 }
 
 import { LANG_NAMES, TONE_INSTRUCTIONS } from '../config/languages.js';
@@ -65,6 +74,8 @@ const GROK_VOICE_MODEL = process.env.GROK_VOICE_MODEL || 'grok-voice-fast-1.0';
  *   mixed audio (mulaw 8kHz) → Grok Voice Agent → translated audio (mulaw 8kHz) → inject
  */
 export class ConferenceTranslator extends EventEmitter {
+  readonly engine = 'voice' as const;
+  private carryover?: TranslatorCarryover;
   private callId: string;
   private workspaceId: string;
   private subscriberId: string;
@@ -163,6 +174,7 @@ export class ConferenceTranslator extends EventEmitter {
     this.greetingText = options.greetingText || DEFAULT_GREETING;
     const delay = options.greetingDelaySeconds;
     this.greetingDelaySeconds = Number.isFinite(delay) ? Math.min(30, Math.max(0, delay as number)) : 3;
+    this.carryover = options.carryover;
   }
 
   async start(): Promise<void> {
@@ -171,16 +183,25 @@ export class ConferenceTranslator extends EventEmitter {
     const creds = await resolveCredentialsWithGlobalFallback<{ api_key: string }>(this.workspaceId, 'xai');
     this.xaiApiKey = creds.api_key;
 
-    // Create translator session record
-    const [session] = await db
-      .insert(translatorSessions)
-      .values({
-        subscriber_id: null as any,
-        call_id: this.callId,
-        workspace_id: this.workspaceId,
-      })
-      .returning();
-    this.sessionId = session.id;
+    if (this.carryover) {
+      // Mid-call engine swap — reuse the existing session & accumulated state.
+      // Copy the transcript so a stray event on the detached engine can't mutate ours.
+      this.sessionId = this.carryover.sessionId;
+      this.startTime = this.carryover.startTime;
+      this.transcript = this.carryover.transcript.slice();
+      this.greetingSent = true; // no greeting on swap-in — call is already in progress
+    } else {
+      // Create translator session record
+      const [session] = await db
+        .insert(translatorSessions)
+        .values({
+          subscriber_id: null as any,
+          call_id: this.callId,
+          workspace_id: this.workspaceId,
+        })
+        .returning();
+      this.sessionId = session.id;
+    }
 
     // Connect to Grok Voice Agent API
     this.connectGrok();
@@ -1496,5 +1517,22 @@ ${this.personalContext}` : ''}`;
 
   stop(): void {
     this.finalize().catch(err => log.error({ err, callId: this.callId }, 'Finalize error on stop'));
+  }
+
+  /**
+   * Tear down for a mid-call engine swap WITHOUT finalizing/billing. Setting
+   * `saved` blocks both the close→reconnect path and any stray finalize().
+   * Returns the session state for the incoming engine to continue.
+   */
+  detach(): TranslatorCarryover {
+    this.saved = true;
+    if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
+    if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
+    if (this.playbackSafetyTimer) { clearTimeout(this.playbackSafetyTimer); this.playbackSafetyTimer = null; }
+    if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
+    if (this.updateTimer) { clearTimeout(this.updateTimer); this.updateTimer = null; }
+    this.clearRetranslationTimer();
+    try { this.grokWs?.close(); } catch { /* ignore */ }
+    return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
   }
 }

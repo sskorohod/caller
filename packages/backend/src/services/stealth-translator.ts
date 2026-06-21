@@ -11,6 +11,7 @@ import { LANG_NAMES } from '../config/languages.js';
 import { DeepgramSTT, OpenAISTT, type STTProvider, type TranscriptEvent } from './stt.service.js';
 import { detectTranslationDirection } from '../lib/lang-direction.js';
 import { translateText, DEFAULT_TRANSLATE_MODEL } from './translate-text.js';
+import type { TranslatorCarryover } from './conference-translator.js';
 
 const log = pino({ name: 'stealth-translator' });
 
@@ -21,6 +22,8 @@ export interface StealthTranslatorOptions {
   targetLanguage: string;  // other party's language (e.g. 'en')
   socket: WebSocket;       // Twilio media stream — audio SOURCE only; we never write back
   streamSid: string;
+  /** Mid-call engine swap: reuse the existing session instead of starting fresh. */
+  carryover?: TranslatorCarryover;
 }
 
 // Swappable STT provider/model/language — tune in prod without code changes.
@@ -44,6 +47,8 @@ const STT_LANGUAGE = process.env.STEALTH_STT_LANGUAGE || 'multi';
  *   mixed audio (mulaw 8kHz) → Deepgram → text chunks → translateText → Socket.IO
  */
 export class StealthTranslator extends EventEmitter {
+  readonly engine = 'stealth' as const;
+  private carryover?: TranslatorCarryover;
   private callId: string;
   private workspaceId: string;
   private myLang: string;
@@ -87,6 +92,7 @@ export class StealthTranslator extends EventEmitter {
     this.myLang = options.myLanguage;
     this.targetLang = options.targetLanguage;
     this.streamSid = options.streamSid;
+    this.carryover = options.carryover;
   }
 
   async start(): Promise<void> {
@@ -112,13 +118,21 @@ export class StealthTranslator extends EventEmitter {
       this.stt.connect({}); // OpenAI whisper auto-detects language
     }
 
-    // Create translator session record (same table as the voice translator).
-    const [session] = await db.insert(translatorSessions).values({
-      subscriber_id: null as any,
-      call_id: this.callId,
-      workspace_id: this.workspaceId,
-    }).returning();
-    this.sessionId = session.id;
+    if (this.carryover) {
+      // Mid-call engine swap — reuse session & accumulated state (copy transcript
+      // so a stray event on the detached engine can't mutate ours).
+      this.sessionId = this.carryover.sessionId;
+      this.startTime = this.carryover.startTime;
+      this.transcript = this.carryover.transcript.slice();
+    } else {
+      // Create translator session record (same table as the voice translator).
+      const [session] = await db.insert(translatorSessions).values({
+        subscriber_id: null as any,
+        call_id: this.callId,
+        workspace_id: this.workspaceId,
+      }).returning();
+      this.sessionId = session.id;
+    }
 
     // Safety timer (4 hours max).
     this.safetyTimer = setTimeout(() => {
@@ -161,6 +175,7 @@ export class StealthTranslator extends EventEmitter {
   }
 
   private onTranscript(e: TranscriptEvent): void {
+    if (this.saved || this.paused) return;
     const text = (e.text || '').trim();
     if (!text) return;
 
@@ -201,7 +216,7 @@ export class StealthTranslator extends EventEmitter {
 
     translateText(source, targetLangName, { apiKey: this.xaiApiKey, timeoutMs: 4000 })
       .then(translated => {
-        if (!translated) return;
+        if (!translated || this.saved) return;
         const io = getIo();
         if (io) {
           io.to(`call:${this.callId}:translate`).emit('call:translation:interim', {
@@ -214,6 +229,7 @@ export class StealthTranslator extends EventEmitter {
   }
 
   private onUtteranceEnd(): void {
+    if (this.saved) return;
     const full = [...this.segmentFinals, this.latestInterim].join(' ').trim();
     this.segmentFinals = [];
     this.latestInterim = '';
@@ -224,7 +240,7 @@ export class StealthTranslator extends EventEmitter {
   }
 
   private async commitTurn(original: string): Promise<void> {
-    if (this.paused) return;
+    if (this.paused || this.saved) return;
     const dir = detectTranslationDirection(original, this.myLang, this.targetLang);
     const targetLangCode = dir.isMyLang ? this.targetLang : this.myLang;
     const targetLangName = LANG_NAMES[targetLangCode] || targetLangCode;
@@ -278,6 +294,18 @@ export class StealthTranslator extends EventEmitter {
 
   stop(): void {
     this.finalize().catch(err => log.error({ err, callId: this.callId }, 'Finalize error on stop'));
+  }
+
+  /**
+   * Tear down for a mid-call engine swap WITHOUT finalizing/billing. `saved`
+   * blocks any stray STT event from emitting and makes finalize() a no-op.
+   */
+  detach(): TranslatorCarryover {
+    this.saved = true;
+    if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
+    if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
+    try { this.stt?.close(); } catch { /* ignore */ }
+    return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
   }
 
   async finalize(): Promise<void> {

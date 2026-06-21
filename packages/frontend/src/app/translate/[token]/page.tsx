@@ -88,13 +88,12 @@ export default function LiveTranslatePage() {
     s.on('connect', () => {
       s.emit('call:translate:join:token', { token });
       setStatus('live');
-      // Server already knows call_id from the share-token handshake. Push the
-      // UI's current state right away so dropdown changes made before the
-      // first transcript arrives are not lost.
-      s.emit('translator:set-languages', { my_language: myLang, target_language: targetLang });
-      s.emit('translator:set-tone',      { tone });
-      s.emit('translator:set-voice',     { voice });
-      s.emit('translator:set-mode',      { mode });
+      // Push tone/voice so early dropdown changes aren't lost. Do NOT push mode
+      // on connect — the page's default would be wrong for the actual call and
+      // (since stealth↔voice now swaps the engine) could flip a live call to the
+      // wrong engine. The real mode arrives via 'translator:config' below.
+      s.emit('translator:set-tone',  { tone });
+      s.emit('translator:set-voice', { voice });
     });
 
     s.on('connect_error', () => {
@@ -370,38 +369,35 @@ export default function LiveTranslatePage() {
       {status === 'live' && (
         <div className="sticky bottom-0 z-20 bg-[var(--th-page)]/95 backdrop-blur-sm border-t border-[var(--th-border)] px-3 md:px-4 py-3 md:py-2.5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="max-w-2xl mx-auto flex items-center justify-between gap-3 md:gap-2">
-            {/* Stealth: silent text-only — voice + mode controls don't apply */}
+            {/* Left: voice selector (voice modes only — stealth is silent) */}
             {mode === 'stealth' ? (
-              <span className="px-2.5 py-1.5 rounded-md text-xs md:text-[10px] font-medium bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 inline-flex items-center gap-1.5 shrink-0">
+              <span className="px-2 py-1.5 rounded-md text-[10px] font-medium text-[var(--th-text-muted)] inline-flex items-center gap-1 shrink-0">
                 <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z" /></svg>
-                Stealth · text-only
+                text-only
               </span>
             ) : (
-              <>
-                {/* Voice selector — left */}
-                <select value={voice} onChange={e => changeVoice(e.target.value)}
-                  className="px-2 md:px-1.5 py-2 md:py-1.5 min-h-[44px] md:min-h-0 rounded-lg md:rounded-md text-xs md:text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none shrink-0">
-                  <optgroup label="F">
-                    {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-                  </optgroup>
-                  <optgroup label="M">
-                    {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-                  </optgroup>
-                </select>
-
-                {/* Mode toggle — center */}
-                <div className="flex rounded-lg md:rounded-md border border-[var(--th-border)] overflow-hidden">
-                  {(['bidirectional', 'unidirectional'] as const).map(m => (
-                    <button key={m} onClick={() => changeMode(m)}
-                      className={`px-3 md:px-2.5 py-2.5 md:py-1.5 min-h-[44px] md:min-h-0 text-xs md:text-[10px] font-medium transition-all active:scale-95 ${
-                        mode === m ? 'bg-indigo-500/20 text-indigo-300' : 'text-[var(--th-text-muted)] hover:text-[var(--th-text)]'
-                      }`}>
-                      {m === 'bidirectional' ? '2-way' : '1-way'}
-                    </button>
-                  ))}
-                </div>
-              </>
+              <select value={voice} onChange={e => changeVoice(e.target.value)}
+                className="px-2 md:px-1.5 py-2 md:py-1.5 min-h-[44px] md:min-h-0 rounded-lg md:rounded-md text-xs md:text-[10px] bg-[var(--th-surface)] border border-[var(--th-border)] text-[var(--th-text)] outline-none shrink-0">
+                <optgroup label="F">
+                  {VOICES.filter(v => v.gender === 'F').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                </optgroup>
+                <optgroup label="M">
+                  {VOICES.filter(v => v.gender === 'M').map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                </optgroup>
+              </select>
             )}
+
+            {/* Mode toggle — center: 2-way / 1-way / Stealth (switches live) */}
+            <div className="flex rounded-lg md:rounded-md border border-[var(--th-border)] overflow-hidden">
+              {(['bidirectional', 'unidirectional', 'stealth'] as const).map(m => (
+                <button key={m} onClick={() => changeMode(m)}
+                  className={`px-2.5 md:px-2 py-2.5 md:py-1.5 min-h-[44px] md:min-h-0 text-xs md:text-[10px] font-medium transition-all active:scale-95 ${
+                    mode === m ? 'bg-indigo-500/20 text-indigo-300' : 'text-[var(--th-text-muted)] hover:text-[var(--th-text)]'
+                  }`}>
+                  {m === 'bidirectional' ? '2-way' : m === 'unidirectional' ? '1-way' : 'Stealth'}
+                </button>
+              ))}
+            </div>
 
             {/* Pause button — right */}
             <button onClick={togglePause}
