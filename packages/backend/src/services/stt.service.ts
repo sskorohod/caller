@@ -26,10 +26,12 @@ export class DeepgramSTT extends EventEmitter {
     this.apiKey = apiKey;
   }
 
-  connect(options?: { language?: string; model?: string }): void {
+  connect(options?: { language?: string; model?: string; endpointing?: number; utteranceEndMs?: number }): void {
     const lang = options?.language ?? 'en-US';
     const model = options?.model ?? 'nova-2';
-    const url = `wss://api.deepgram.com/v1/listen?model=${model}&language=${lang}&punctuate=true&interim_results=true&endpointing=200&utterance_end_ms=1000&vad_events=true&encoding=mulaw&sample_rate=8000&channels=1`;
+    const endpointing = options?.endpointing ?? 200;
+    const utteranceEndMs = options?.utteranceEndMs ?? 1000;
+    const url = `wss://api.deepgram.com/v1/listen?model=${model}&language=${lang}&punctuate=true&interim_results=true&endpointing=${endpointing}&utterance_end_ms=${utteranceEndMs}&vad_events=true&encoding=mulaw&sample_rate=8000&channels=1`;
 
     this.ws = new WebSocket(url, {
       headers: { Authorization: `Token ${this.apiKey}` },
