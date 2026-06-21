@@ -61,6 +61,12 @@ services:
       context: .
       dockerfile: packages/backend/Dockerfile
     restart: unless-stopped
+    # Public resolvers: the host network's resolver intermittently fails to
+    # resolve api.telegram.org (EAI_AGAIN), breaking Telegram notifications while
+    # other providers (x.ai, deepgram, twilio) resolve fine. Bypass it.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     depends_on:
       postgres:
         condition: service_healthy

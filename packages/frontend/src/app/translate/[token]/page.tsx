@@ -70,6 +70,8 @@ export default function LiveTranslatePage() {
   const [showToneMenu, setShowToneMenu] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -150,10 +152,20 @@ export default function LiveTranslatePage() {
     return () => { s.disconnect(); };
   }, [token]);
 
-  // Auto-scroll
+  // Sticky auto-scroll: only follow new content if the user is already at the
+  // bottom. Scroll the container itself (not scrollIntoView on the window) so
+  // the mobile viewport never jumps while the user is reading scrolled-up.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isAtBottomRef.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [translations, interimTranslated, isSpeaking]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }, []);
 
   // Controls. Server resolves call_id from socket.data.shareCallId (set during
   // share-token handshake), so we don't need to gate on the local `callId`
@@ -222,7 +234,7 @@ export default function LiveTranslatePage() {
   const currentTone = TONES.find(t => t.value === tone);
 
   return (
-    <div className="min-h-screen bg-[var(--th-page)] text-[var(--th-text)] flex flex-col">
+    <div className="h-[100dvh] bg-[var(--th-page)] text-[var(--th-text)] flex flex-col">
       {/* ─── Header: Timer + Languages + Tone + Cost ─── */}
       <div className="sticky top-0 z-20 bg-[var(--th-page)]/95 backdrop-blur-sm border-b border-[var(--th-border)] px-3 md:px-4 py-2">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
@@ -288,7 +300,7 @@ export default function LiveTranslatePage() {
       </div>
 
       {/* ─── Translations ─── */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 max-w-2xl mx-auto w-full">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-4 max-w-2xl mx-auto w-full">
         {translations.length === 0 && !isSpeaking && status === 'live' && (
           <div className="text-center mt-20">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500/10 flex items-center justify-center">

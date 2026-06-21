@@ -175,11 +175,10 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
             try {
               const creds = JSON.parse(decrypt(telegramCreds.credential_data)) as { bot_token: string; chat_id: string };
               if (creds.bot_token && creds.chat_id) {
-                await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, {
+                userNotified = await sendTranslatorSessionStart(creds.bot_token, creds.chat_id, {
                   subscriberName: callerWorkspace.name,
                   liveUrl,
                 });
-                userNotified = true;
               }
             } catch { /* non-critical */ }
           }
@@ -189,7 +188,7 @@ const twilioRoutes: FastifyPluginAsync = async (app) => {
           if (wsDefs.translation_mode === 'stealth' && !userNotified) {
             try {
               const { sendSms } = await import('../../services/sms.service.js');
-              const ok = await sendSms(callerWorkspace.id, callerNumber, `LingoLine live translation: ${liveUrl}`);
+              const ok = await sendSms(callerWorkspace.id, callerNumber, `LingoLine live translation: ${liveUrl}`, calledNumber);
               app.log.info({ callId: translatorCall.id, smsOk: ok }, 'Stealth link sent via SMS (Telegram not connected)');
             } catch (err) {
               app.log.warn({ err, callId: translatorCall.id }, 'Stealth SMS fallback failed');
