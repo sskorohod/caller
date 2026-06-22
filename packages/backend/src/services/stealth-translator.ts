@@ -3,7 +3,7 @@ import pino from 'pino';
 import { WebSocket } from 'ws';
 import { eq } from 'drizzle-orm';
 import { db } from '../config/db.js';
-import { translatorSessions } from '../db/schema.js';
+import { translatorSessions, calls as callsTable } from '../db/schema.js';
 import { getIo } from '../realtime/io.js';
 import * as callService from './call.service.js';
 import { calculateTelephonyCost } from '../config/pricing.js';
@@ -72,6 +72,10 @@ export class StealthTranslator extends EventEmitter {
   private paused = false;
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private statsTimer?: ReturnType<typeof setInterval>;
+  // Idle hangup: no successful translation (silence or no-translation) for this
+  // long → end the call so an off-hook line isn't billed indefinitely.
+  private idleTimer?: ReturnType<typeof setTimeout>;
+  private static readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
   // Live (non-final) tail of the current segment — shown as the "Listening…"
   // original; translated only once it finalizes (append-only).
@@ -154,6 +158,9 @@ export class StealthTranslator extends EventEmitter {
       }
     }, 5000);
 
+    // Arm idle-hangup (reset on each successful translation).
+    this.resetIdleTimer();
+
     log.info({
       callId: this.callId, myLang: this.myLang, targetLang: this.targetLang,
       sttProvider: STT_PROVIDER, sttModel: STT_MODEL, sttLanguage: STT_LANGUAGE,
@@ -221,6 +228,8 @@ export class StealthTranslator extends EventEmitter {
       apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL,
     })) || '';
 
+    if (translated) this.resetIdleTimer(); // real translation → not idle
+
     this.transcript.push({
       speaker, text: original, lang: dir.detectedLang, translated,
       timestamp: new Date().toISOString(),
@@ -261,6 +270,31 @@ export class StealthTranslator extends EventEmitter {
   updateVoice(_voice: string): void { /* no TTS in stealth */ }
   updateTone(_tone: string): void { /* tone only affects spoken output */ }
 
+  /** (Re)arm the idle-hangup timer — called on each successful translation. */
+  private resetIdleTimer(): void {
+    if (this.saved) return;
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => { void this.hangupOnIdle(); }, StealthTranslator.IDLE_TIMEOUT_MS);
+  }
+
+  /** No translation/silence for IDLE_TIMEOUT_MS → end the Twilio call. */
+  private async hangupOnIdle(): Promise<void> {
+    if (this.saved) return;
+    log.warn({ callId: this.callId, idleMs: StealthTranslator.IDLE_TIMEOUT_MS }, 'Translator idle — hanging up call');
+    try {
+      const [row] = await db.select({ sid: callsTable.twilio_call_sid })
+        .from(callsTable).where(eq(callsTable.id, this.callId)).limit(1);
+      if (row?.sid) {
+        const { hangupCall } = await import('./telephony.service.js');
+        await hangupCall(this.workspaceId, row.sid);
+      }
+    } catch (err) {
+      log.error({ err, callId: this.callId }, 'Idle hangup failed');
+    }
+    // Twilio ending the call closes the media stream → cleanup → finalize.
+    this.finalize().catch(() => {});
+  }
+
   stop(): void {
     this.finalize().catch(err => log.error({ err, callId: this.callId }, 'Finalize error on stop'));
   }
@@ -273,6 +307,7 @@ export class StealthTranslator extends EventEmitter {
     this.saved = true;
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
+    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     try { this.stt?.close(); } catch { /* ignore */ }
     return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
   }
@@ -283,6 +318,7 @@ export class StealthTranslator extends EventEmitter {
 
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
+    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     try { this.stt?.close(); } catch { /* ignore */ }
 
     const durationSecs = Math.floor((Date.now() - this.startTime) / 1000);

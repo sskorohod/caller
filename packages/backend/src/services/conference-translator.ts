@@ -99,6 +99,10 @@ export class ConferenceTranslator extends EventEmitter {
   private saved: boolean = false;
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private statsTimer?: ReturnType<typeof setInterval>;
+  // Idle hangup: no successful translation (silence / no-translation) for this
+  // long → end the call so an off-hook line isn't billed indefinitely.
+  private idleTimer?: ReturnType<typeof setTimeout>;
+  private static readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000;
   private xaiApiKey: string = '';
   private greetingSent: boolean = false;
   private greetingPlayed: boolean = false; // true once greeting response.done fires (or no greeting configured)
@@ -224,6 +228,9 @@ export class ConferenceTranslator extends EventEmitter {
         });
       }
     }, 5000);
+
+    // Arm idle-hangup (reset on each successful translation).
+    this.resetIdleTimer();
 
     log.info({
       callId: this.callId,
@@ -863,6 +870,7 @@ ${this.personalContext}` : ''}`;
       log.error({ err, callId: this.callId }, 'Fallback TTS failed — saving translation as text only');
     }
 
+    this.resetIdleTimer(); // real translation produced → not idle
     this.transcript.push({
       speaker, text: original, lang: detectedLang, translated, timestamp: new Date().toISOString(),
     });
@@ -1252,6 +1260,7 @@ ${this.personalContext}` : ''}`;
           const speaker = isMyLang ? 'subscriber' : 'other';
           const detectedLang = direction.detectedLang;
 
+          this.resetIdleTimer(); // real translation produced → not idle
           this.transcript.push({
             speaker,
             text: original,
@@ -1363,6 +1372,7 @@ ${this.personalContext}` : ''}`;
     this.saved = true;
 
     if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
+    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     this.speechStartedAt = null;
     this.clearRetranslationTimer();
 
@@ -1515,6 +1525,30 @@ ${this.personalContext}` : ''}`;
     } catch { /* non-critical */ }
   }
 
+  /** (Re)arm the idle-hangup timer — called on each successful translation. */
+  private resetIdleTimer(): void {
+    if (this.saved) return;
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => { void this.hangupOnIdle(); }, ConferenceTranslator.IDLE_TIMEOUT_MS);
+  }
+
+  /** No translation/silence for IDLE_TIMEOUT_MS → end the Twilio call. */
+  private async hangupOnIdle(): Promise<void> {
+    if (this.saved) return;
+    log.warn({ callId: this.callId, idleMs: ConferenceTranslator.IDLE_TIMEOUT_MS }, 'Translator idle — hanging up call');
+    try {
+      const [row] = await db.select({ sid: callsTable.twilio_call_sid })
+        .from(callsTable).where(eq(callsTable.id, this.callId)).limit(1);
+      if (row?.sid) {
+        const { hangupCall } = await import('./telephony.service.js');
+        await hangupCall(this.workspaceId, row.sid);
+      }
+    } catch (err) {
+      log.error({ err, callId: this.callId }, 'Idle hangup failed');
+    }
+    this.finalize().catch(() => {});
+  }
+
   stop(): void {
     this.finalize().catch(err => log.error({ err, callId: this.callId }, 'Finalize error on stop'));
   }
@@ -1528,6 +1562,7 @@ ${this.personalContext}` : ''}`;
     this.saved = true;
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
+    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackSafetyTimer) { clearTimeout(this.playbackSafetyTimer); this.playbackSafetyTimer = null; }
     if (this.bargeInTimer) { clearTimeout(this.bargeInTimer); this.bargeInTimer = null; }
     if (this.updateTimer) { clearTimeout(this.updateTimer); this.updateTimer = null; }
