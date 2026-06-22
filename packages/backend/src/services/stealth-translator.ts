@@ -111,7 +111,8 @@ export class StealthTranslator extends EventEmitter {
 
     if (this.stt instanceof DeepgramSTT) {
       // Tighter endpointing so segments finalize sooner → earlier translation.
-      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 150, utteranceEndMs: 800 });
+      // NB: Deepgram requires utterance_end_ms >= 1000 (800 → HTTP 400).
+      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 150, utteranceEndMs: 1000 });
     } else {
       this.stt.connect({}); // OpenAI whisper auto-detects language
     }

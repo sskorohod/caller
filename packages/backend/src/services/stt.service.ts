@@ -30,7 +30,8 @@ export class DeepgramSTT extends EventEmitter {
     const lang = options?.language ?? 'en-US';
     const model = options?.model ?? 'nova-2';
     const endpointing = options?.endpointing ?? 200;
-    const utteranceEndMs = options?.utteranceEndMs ?? 1000;
+    // Deepgram rejects utterance_end_ms < 1000 with HTTP 400 — clamp defensively.
+    const utteranceEndMs = Math.max(1000, options?.utteranceEndMs ?? 1000);
     const url = `wss://api.deepgram.com/v1/listen?model=${model}&language=${lang}&punctuate=true&interim_results=true&endpointing=${endpointing}&utterance_end_ms=${utteranceEndMs}&vad_events=true&encoding=mulaw&sample_rate=8000&channels=1`;
 
     this.ws = new WebSocket(url, {
