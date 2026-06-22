@@ -66,20 +66,13 @@ export class StealthTranslator extends EventEmitter {
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private statsTimer?: ReturnType<typeof setInterval>;
 
-  // Current utterance being spoken: finalized segments + the live (non-final) tail.
-  // We translate the whole thing as a growing draft, then commit on utterance_end.
-  private segmentFinals: string[] = [];
+  // Live (non-final) tail of the current segment — shown as the "Listening…"
+  // original; translated only once it finalizes (append-only).
   private latestInterim = '';
-
-  // Interim translation throttle (Deepgram fires interims rapidly).
-  private interimInFlight = false;
-  private lastInterimAt = 0;
-  private lastInterimSource = '';
 
   // Serialize commits so transcript order is preserved (one is_final segment per turn).
   private commitChain: Promise<void> = Promise.resolve();
 
-  private static readonly INTERIM_THROTTLE_MS = 250;
   // Provider cost estimate (Deepgram STT + grok-3-mini chunks). Far below the
   // Grok Voice path (~$0.05/min) — stealth is genuinely cheaper.
   private static readonly COST_PER_MIN = 0.02;
@@ -181,68 +174,33 @@ export class StealthTranslator extends EventEmitter {
     if (!text) return;
 
     if (e.isFinal) {
-      this.segmentFinals.push(text);
+      // Append-only: translate each finalized segment exactly once and commit it.
+      // No re-translation of a growing buffer → no flicker, no lag, no stalling
+      // on long speech. The frontend merges consecutive segments into a flowing
+      // block so it doesn't look like many separate lines.
       this.latestInterim = '';
+      const seg = text;
+      this.commitChain = this.commitChain.then(() => this.commitTurn(seg)).catch(() => {});
     } else {
+      // Live original (typing feel) for the "Listening…" indicator — NOT a
+      // translated draft, so the translation text never rewrites/blinks.
       this.latestInterim = text;
+      const io = getIo();
+      if (io) {
+        io.to(`call:${this.callId}`).emit('call:transcript', {
+          call_id: this.callId, text, isFinal: false, timestamp: new Date().toISOString(),
+        });
+      }
     }
-
-    // Live original (whole current utterance) — keeps the "Listening..." indicator
-    // up and shows the source text forming during speech.
-    const io = getIo();
-    if (io) {
-      io.to(`call:${this.callId}`).emit('call:transcript', {
-        call_id: this.callId,
-        text: [...this.segmentFinals, this.latestInterim].join(' ').trim(),
-        isFinal: false,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Fast, growing draft translation of the whole current utterance — this is
-    // the "translation in progress" the user reads while the person is talking.
-    this.maybeTranslateInterim();
-  }
-
-  private maybeTranslateInterim(): void {
-    if (this.paused || this.interimInFlight) return;
-    const now = Date.now();
-    if (now - this.lastInterimAt < StealthTranslator.INTERIM_THROTTLE_MS) return;
-
-    const source = [...this.segmentFinals, this.latestInterim].join(' ').trim();
-    if (!source || source === this.lastInterimSource) return;
-
-    this.interimInFlight = true;
-    this.lastInterimAt = now;
-    this.lastInterimSource = source;
-
-    const dir = detectTranslationDirection(source, this.myLang, this.targetLang);
-    const targetLangCode = dir.isMyLang ? this.targetLang : this.myLang;
-    const targetLangName = LANG_NAMES[targetLangCode] || targetLangCode;
-
-    translateText(source, targetLangName, { apiKey: this.xaiApiKey, timeoutMs: 4000 })
-      .then(translated => {
-        if (!translated || this.saved) return;
-        const io = getIo();
-        if (io) {
-          io.to(`call:${this.callId}:translate`).emit('call:translation:interim', {
-            call_id: this.callId, original: source, translated,
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => { this.interimInFlight = false; });
   }
 
   private onUtteranceEnd(): void {
     if (this.saved) return;
-    // Speaker paused — commit the whole utterance as a permanent line.
-    const full = [...this.segmentFinals, this.latestInterim].join(' ').trim();
-    this.segmentFinals = [];
+    // Flush any trailing non-final words that never got an is_final segment.
+    const tail = this.latestInterim.trim();
     this.latestInterim = '';
-    this.lastInterimSource = '';
-    if (!full) return;
-    this.commitChain = this.commitChain.then(() => this.commitTurn(full)).catch(() => {});
+    if (!tail) return;
+    this.commitChain = this.commitChain.then(() => this.commitTurn(tail)).catch(() => {});
   }
 
   private async commitTurn(original: string): Promise<void> {
@@ -264,10 +222,6 @@ export class StealthTranslator extends EventEmitter {
       io.to(`call:${this.callId}:translate`).emit('call:translation', {
         call_id: this.callId, speaker, original, translated,
         detected_language: dir.detectedLang, timestamp: new Date().toISOString(),
-      });
-      // Clear the interim draft now that the final is in.
-      io.to(`call:${this.callId}:translate`).emit('call:translation:interim', {
-        call_id: this.callId, original: '', translated: '',
       });
       io.to(`call:${this.callId}`).emit('call:transcript', {
         call_id: this.callId, speaker: 'conference', text: original,

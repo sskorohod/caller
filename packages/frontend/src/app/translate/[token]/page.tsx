@@ -312,33 +312,48 @@ export default function LiveTranslatePage() {
           </div>
         )}
 
-        {translations.map((entry, i) => {
-          // Direction: src is detected language; dst is the OTHER configured language.
-          const src = entry.detected_language || (entry.speaker === 'subscriber' ? myLang : targetLang);
-          const dst = src === myLang ? targetLang : myLang;
-          return (
-          <div key={i} className="mb-5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${entry.speaker === 'subscriber' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
-                {entry.speaker === 'subscriber' ? 'You' : 'Other'}
-              </span>
-              <span className="text-[11px] text-[var(--th-text-muted)] tabular-nums" title={`${src.toUpperCase()} → ${dst.toUpperCase()}`}>
-                {flagFor(src)}<span className="mx-1 opacity-60">→</span>{flagFor(dst)}
-              </span>
-              <span className="text-[10px] text-[var(--th-text-muted)]">
-                {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
-            </div>
-            <div className="text-base md:text-[17px] leading-relaxed font-medium text-[var(--th-text)] mb-1">
-              {entry.translated}
-            </div>
-            <div className="text-sm md:text-[13px] text-[var(--th-text-muted)] leading-snug">
-              {entry.original}
-            </div>
-          </div>
-          );
-        })}
+        {/* Merge consecutive segments from the same speaker into one flowing
+            block — append-only translation reads as captions, not many cards. */}
+        {(() => {
+          type Grp = { speaker: string; src: string; translated: string; original: string; ts: string };
+          const groups: Grp[] = [];
+          for (const e of translations) {
+            const src = e.detected_language || (e.speaker === 'subscriber' ? myLang : targetLang);
+            const last = groups[groups.length - 1];
+            if (last && last.speaker === e.speaker) {
+              last.translated = `${last.translated} ${e.translated}`.trim();
+              last.original = `${last.original} ${e.original}`.trim();
+              last.ts = e.timestamp;
+            } else {
+              groups.push({ speaker: e.speaker, src, translated: e.translated, original: e.original, ts: e.timestamp });
+            }
+          }
+          return groups.map((g, i) => {
+            const dst = g.src === myLang ? targetLang : myLang;
+            return (
+              <div key={i} className="mb-5">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${g.speaker === 'subscriber' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--th-text-muted)]">
+                    {g.speaker === 'subscriber' ? 'You' : 'Other'}
+                  </span>
+                  <span className="text-[11px] text-[var(--th-text-muted)] tabular-nums" title={`${g.src.toUpperCase()} → ${dst.toUpperCase()}`}>
+                    {flagFor(g.src)}<span className="mx-1 opacity-60">→</span>{flagFor(dst)}
+                  </span>
+                  <span className="text-[10px] text-[var(--th-text-muted)]">
+                    {new Date(g.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+                <div className="text-base md:text-[17px] leading-relaxed font-medium text-[var(--th-text)] mb-1">
+                  {g.translated}
+                </div>
+                <div className="text-sm md:text-[13px] text-[var(--th-text-muted)] leading-snug">
+                  {g.original}
+                </div>
+              </div>
+            );
+          });
+        })()}
 
         {/* Interim */}
         {(isSpeaking || interimTranslated) && (
