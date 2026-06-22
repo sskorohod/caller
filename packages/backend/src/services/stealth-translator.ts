@@ -10,7 +10,7 @@ import { calculateTelephonyCost } from '../config/pricing.js';
 import { LANG_NAMES } from '../config/languages.js';
 import { DeepgramSTT, OpenAISTT, type STTProvider, type TranscriptEvent } from './stt.service.js';
 import { detectTranslationDirection } from '../lib/lang-direction.js';
-import { translateText, DEFAULT_TRANSLATE_MODEL } from './translate-text.js';
+import { translateText } from './translate-text.js';
 import type { TranslatorCarryover } from './conference-translator.js';
 
 const log = pino({ name: 'stealth-translator' });
@@ -34,6 +34,13 @@ const STT_MODEL = process.env.STEALTH_STT_MODEL || 'nova-3';
 // 'multi' = Deepgram code-switching (transcribe both languages on one mixed stream).
 const STT_LANGUAGE = process.env.STEALTH_STT_LANGUAGE || 'multi';
 
+// Translation provider (swappable). Default OpenAI gpt-4o-mini.
+const TRANSLATE_PROVIDER = (process.env.STEALTH_TRANSLATE_PROVIDER || 'openai') as 'openai' | 'xai';
+const TRANSLATE_CRED = TRANSLATE_PROVIDER === 'openai' ? 'openai' : 'xai';
+const TRANSLATE_BASE_URL = TRANSLATE_PROVIDER === 'openai' ? 'https://api.openai.com/v1' : 'https://api.x.ai/v1';
+const TRANSLATE_MODEL = process.env.STEALTH_TRANSLATE_MODEL
+  || (TRANSLATE_PROVIDER === 'openai' ? 'gpt-4o-mini' : 'grok-3-mini');
+
 /**
  * Stealth Translator — silent, text-only live interpretation.
  *
@@ -56,7 +63,7 @@ export class StealthTranslator extends EventEmitter {
   private streamSid: string;
 
   private stt: STTProvider | null = null;
-  private xaiApiKey = '';
+  private translateApiKey = '';
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
   private sessionId: string | null = null;
@@ -90,9 +97,9 @@ export class StealthTranslator extends EventEmitter {
   async start(): Promise<void> {
     const { resolveCredentialsWithGlobalFallback } = await import('./credential-resolver.service.js');
 
-    // Translation model key (xAI by default).
-    const xai = await resolveCredentialsWithGlobalFallback<{ api_key: string }>(this.workspaceId, 'xai');
-    this.xaiApiKey = xai.api_key;
+    // Translation provider key (OpenAI by default).
+    const tcreds = await resolveCredentialsWithGlobalFallback<{ api_key: string }>(this.workspaceId, TRANSLATE_CRED);
+    this.translateApiKey = tcreds.api_key;
 
     // STT provider.
     if (STT_PROVIDER === 'openai') {
@@ -150,7 +157,7 @@ export class StealthTranslator extends EventEmitter {
     log.info({
       callId: this.callId, myLang: this.myLang, targetLang: this.targetLang,
       sttProvider: STT_PROVIDER, sttModel: STT_MODEL, sttLanguage: STT_LANGUAGE,
-      translateModel: DEFAULT_TRANSLATE_MODEL,
+      translateProvider: TRANSLATE_PROVIDER, translateModel: TRANSLATE_MODEL,
     }, 'Stealth translator started');
   }
 
@@ -210,7 +217,9 @@ export class StealthTranslator extends EventEmitter {
     const targetLangName = LANG_NAMES[targetLangCode] || targetLangCode;
     const speaker = dir.isMyLang ? 'subscriber' : 'other';
 
-    const translated = (await translateText(original, targetLangName, { apiKey: this.xaiApiKey })) || '';
+    const translated = (await translateText(original, targetLangName, {
+      apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL,
+    })) || '';
 
     this.transcript.push({
       speaker, text: original, lang: dir.detectedLang, translated,
