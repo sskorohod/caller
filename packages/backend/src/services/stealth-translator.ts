@@ -66,7 +66,9 @@ export class StealthTranslator extends EventEmitter {
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private statsTimer?: ReturnType<typeof setInterval>;
 
-  // Live tail (non-final words) awaiting finalization.
+  // Current utterance being spoken: finalized segments + the live (non-final) tail.
+  // We translate the whole thing as a growing draft, then commit on utterance_end.
+  private segmentFinals: string[] = [];
   private latestInterim = '';
 
   // Interim translation throttle (Deepgram fires interims rapidly).
@@ -110,9 +112,9 @@ export class StealthTranslator extends EventEmitter {
     this.wireSTT();
 
     if (this.stt instanceof DeepgramSTT) {
-      // Tighter endpointing so segments finalize sooner → earlier translation.
-      // NB: Deepgram requires utterance_end_ms >= 1000 (800 → HTTP 400).
-      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 150, utteranceEndMs: 1000 });
+      // endpointing 200 keeps a non-final window during fluent speech so the live
+      // draft translation has time to show. NB: utterance_end_ms must be >= 1000.
+      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 200, utteranceEndMs: 1000 });
     } else {
       this.stt.connect({}); // OpenAI whisper auto-detects language
     }
@@ -178,26 +180,28 @@ export class StealthTranslator extends EventEmitter {
     const text = (e.text || '').trim();
     if (!text) return;
 
-    // Speaking indicator (original text) for the page.
+    if (e.isFinal) {
+      this.segmentFinals.push(text);
+      this.latestInterim = '';
+    } else {
+      this.latestInterim = text;
+    }
+
+    // Live original (whole current utterance) — keeps the "Listening..." indicator
+    // up and shows the source text forming during speech.
     const io = getIo();
     if (io) {
       io.to(`call:${this.callId}`).emit('call:transcript', {
-        call_id: this.callId, text, isFinal: e.isFinal, timestamp: new Date().toISOString(),
+        call_id: this.callId,
+        text: [...this.segmentFinals, this.latestInterim].join(' ').trim(),
+        isFinal: false,
+        timestamp: new Date().toISOString(),
       });
     }
 
-    if (e.isFinal) {
-      // Commit each finalized segment immediately so the translation shows up
-      // mid-utterance (live), not only after the speaker pauses.
-      this.latestInterim = '';
-      this.lastInterimSource = '';
-      const seg = text;
-      this.commitChain = this.commitChain.then(() => this.commitTurn(seg)).catch(() => {});
-    } else {
-      // Non-final tail — show a fast throttled draft.
-      this.latestInterim = text;
-      this.maybeTranslateInterim();
-    }
+    // Fast, growing draft translation of the whole current utterance — this is
+    // the "translation in progress" the user reads while the person is talking.
+    this.maybeTranslateInterim();
   }
 
   private maybeTranslateInterim(): void {
@@ -205,7 +209,7 @@ export class StealthTranslator extends EventEmitter {
     const now = Date.now();
     if (now - this.lastInterimAt < StealthTranslator.INTERIM_THROTTLE_MS) return;
 
-    const source = this.latestInterim.trim();
+    const source = [...this.segmentFinals, this.latestInterim].join(' ').trim();
     if (!source || source === this.lastInterimSource) return;
 
     this.interimInFlight = true;
@@ -232,12 +236,13 @@ export class StealthTranslator extends EventEmitter {
 
   private onUtteranceEnd(): void {
     if (this.saved) return;
-    // Flush any trailing non-final words that never got an is_final segment.
-    const tail = this.latestInterim.trim();
+    // Speaker paused — commit the whole utterance as a permanent line.
+    const full = [...this.segmentFinals, this.latestInterim].join(' ').trim();
+    this.segmentFinals = [];
     this.latestInterim = '';
     this.lastInterimSource = '';
-    if (!tail) return;
-    this.commitChain = this.commitChain.then(() => this.commitTurn(tail)).catch(() => {});
+    if (!full) return;
+    this.commitChain = this.commitChain.then(() => this.commitTurn(full)).catch(() => {});
   }
 
   private async commitTurn(original: string): Promise<void> {
