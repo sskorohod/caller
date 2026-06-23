@@ -124,14 +124,23 @@ interface TranslatorCtx {
 }
 const translatorContexts = new Map<string, TranslatorCtx>();
 
-/** Build a translator instance for the given page mode (stealth → Deepgram, else Grok voice). */
+// Voice-mode engine: 'grok' (default, monolithic Grok Voice Agent) or 'pipeline'
+// (Deepgram STT → OpenAI translate → TTS, same stack as stealth but spoken).
+const VOICE_ENGINE = process.env.VOICE_ENGINE || 'grok';
+
+/** Build a translator instance for the given page mode. */
 async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?: any) {
-  if (pageMode === 'stealth') {
+  const isStealth = pageMode === 'stealth';
+  // Stealth always uses the Deepgram pipeline (silent). Voice modes use it too
+  // when VOICE_ENGINE=pipeline (spoken); otherwise the Grok Voice Agent.
+  if (isStealth || VOICE_ENGINE === 'pipeline') {
     const { StealthTranslator } = await import('../../services/stealth-translator.js');
     return new StealthTranslator({
       callId: ctx.callId, workspaceId: ctx.workspaceId,
       myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
-      socket: ctx.socket, streamSid: ctx.streamSid, carryover,
+      socket: ctx.socket, streamSid: ctx.streamSid,
+      speak: !isStealth, // voice modes speak the translation; stealth stays silent
+      carryover,
     });
   }
   const { ConferenceTranslator } = await import('../../services/conference-translator.js');

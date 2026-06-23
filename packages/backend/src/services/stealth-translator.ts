@@ -9,6 +9,7 @@ import * as callService from './call.service.js';
 import { calculateTelephonyCost } from '../config/pricing.js';
 import { LANG_NAMES } from '../config/languages.js';
 import { DeepgramSTT, OpenAISTT, type STTProvider, type TranscriptEvent } from './stt.service.js';
+import { XaiTTS, OpenAITTS } from './tts.service.js';
 import { detectTranslationDirection } from '../lib/lang-direction.js';
 import { translateText } from './translate-text.js';
 import type { TranslatorCarryover } from './conference-translator.js';
@@ -20,8 +21,10 @@ export interface StealthTranslatorOptions {
   workspaceId: string;
   myLanguage: string;      // subscriber's language (e.g. 'ru')
   targetLanguage: string;  // other party's language (e.g. 'en')
-  socket: WebSocket;       // Twilio media stream — audio SOURCE only; we never write back
+  socket: WebSocket;       // Twilio media stream (audio source; also sink when speak=true)
   streamSid: string;
+  /** Speak the translation back into the call (voice pipeline) vs silent text-only (stealth). */
+  speak?: boolean;
   /** Mid-call engine swap: reuse the existing session instead of starting fresh. */
   carryover?: TranslatorCarryover;
 }
@@ -41,6 +44,13 @@ const TRANSLATE_BASE_URL = TRANSLATE_PROVIDER === 'openai' ? 'https://api.openai
 const TRANSLATE_MODEL = process.env.STEALTH_TRANSLATE_MODEL
   || (TRANSLATE_PROVIDER === 'openai' ? 'gpt-4o-mini' : 'grok-3-mini');
 
+// TTS provider for the voice pipeline (speak=true). Default xAI Grok TTS — it
+// outputs µ-law 8kHz natively (no conversion); OpenAI TTS outputs PCM 24kHz that
+// we downsample via pcmToMulaw.
+const TTS_PROVIDER = (process.env.VOICE_TTS_PROVIDER || 'xai') as 'xai' | 'openai';
+const TTS_CRED = TTS_PROVIDER === 'openai' ? 'openai' : 'xai';
+const TTS_VOICE = process.env.VOICE_TTS_VOICE || (TTS_PROVIDER === 'openai' ? 'alloy' : 'eve');
+
 /**
  * Stealth Translator — silent, text-only live interpretation.
  *
@@ -54,16 +64,25 @@ const TRANSLATE_MODEL = process.env.STEALTH_TRANSLATE_MODEL
  *   mixed audio (mulaw 8kHz) → Deepgram → text chunks → translateText → Socket.IO
  */
 export class StealthTranslator extends EventEmitter {
-  readonly engine = 'stealth' as const;
+  // Voice pipeline (speak=true) reports as 'voice' so the mid-call mode toggle
+  // treats it like a voice engine; silent stealth reports as 'stealth'.
+  get engine() { return this.speak ? 'voice' : 'stealth'; }
+  private speak: boolean;
   private carryover?: TranslatorCarryover;
   private callId: string;
   private workspaceId: string;
   private myLang: string;
   private targetLang: string;
   private streamSid: string;
+  private twilioSocket: WebSocket;
 
   private stt: STTProvider | null = null;
   private translateApiKey = '';
+  private ttsApiKey = '';
+  // Echo suppression: while we're playing TTS into the line, the phone mic picks
+  // it up — drop incoming audio so Deepgram doesn't transcribe our own voice.
+  private playing = false;
+  private playbackTimer?: ReturnType<typeof setTimeout>;
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
   private sessionId: string | null = null;
@@ -95,6 +114,8 @@ export class StealthTranslator extends EventEmitter {
     this.myLang = options.myLanguage;
     this.targetLang = options.targetLanguage;
     this.streamSid = options.streamSid;
+    this.twilioSocket = options.socket;
+    this.speak = options.speak ?? false;
     this.carryover = options.carryover;
   }
 
@@ -104,6 +125,12 @@ export class StealthTranslator extends EventEmitter {
     // Translation provider key (OpenAI by default).
     const tcreds = await resolveCredentialsWithGlobalFallback<{ api_key: string }>(this.workspaceId, TRANSLATE_CRED);
     this.translateApiKey = tcreds.api_key;
+
+    // TTS provider key (voice pipeline only).
+    if (this.speak) {
+      const ttsCreds = await resolveCredentialsWithGlobalFallback<{ api_key: string }>(this.workspaceId, TTS_CRED);
+      this.ttsApiKey = ttsCreds.api_key;
+    }
 
     // STT provider.
     if (STT_PROVIDER === 'openai') {
@@ -179,6 +206,7 @@ export class StealthTranslator extends EventEmitter {
   /** Feed inbound Twilio µ-law audio to the STT. */
   sendAudio(audioBuffer: Buffer): void {
     if (this.paused) return;
+    if (this.playing) return; // echo suppression: don't transcribe our own TTS
     this.stt?.sendAudio(audioBuffer);
   }
 
@@ -249,8 +277,48 @@ export class StealthTranslator extends EventEmitter {
 
     log.info({
       callId: this.callId, metric: 'stealth_chunk_metrics',
-      speaker, input_chars: original.length, output_chars: translated.length,
+      speaker, input_chars: original.length, output_chars: translated.length, spoke: this.speak && !!translated,
     }, 'stealth_chunk_metrics');
+
+    // Voice pipeline: speak the translation back into the call. Awaited so the
+    // commitChain keeps playback serialized (no overlapping TTS) and echo
+    // suppression covers the whole utterance.
+    if (this.speak && translated) {
+      await this.speakTranslation(translated, targetLangCode);
+    }
+  }
+
+  /** Synthesize TTS and stream it into the call (µ-law 8kHz); hold echo suppression for its duration. */
+  private async speakTranslation(text: string, langCode: string): Promise<void> {
+    if (this.saved || this.twilioSocket.readyState !== 1) return;
+    try {
+      let mulaw: Buffer;
+      if (TTS_PROVIDER === 'openai') {
+        const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(text);
+        const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
+        mulaw = pcmToMulaw(pcm);
+      } else {
+        mulaw = await new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en').synthesize(text);
+      }
+      if (this.saved || mulaw.length === 0 || this.twilioSocket.readyState !== 1) return;
+
+      this.playing = true; // echo suppression on
+      if (this.playbackTimer) clearTimeout(this.playbackTimer);
+      for (let i = 0; i < mulaw.length; i += 640) {
+        this.twilioSocket.send(JSON.stringify({
+          event: 'media', streamSid: this.streamSid,
+          media: { payload: mulaw.subarray(i, i + 640).toString('base64') },
+        }));
+      }
+      // Twilio plays at 8kHz real-time; hold echo suppression for the clip length + tail guard.
+      const durationMs = (mulaw.length / 8000) * 1000 + 400;
+      await new Promise<void>(resolve => {
+        this.playbackTimer = setTimeout(() => { this.playing = false; resolve(); }, durationMs);
+      });
+    } catch (err) {
+      this.playing = false;
+      log.warn({ err, callId: this.callId }, 'TTS playback failed');
+    }
   }
 
   /** Update language pair mid-call (from the /translate page selector). */
@@ -308,6 +376,8 @@ export class StealthTranslator extends EventEmitter {
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
+    if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
     return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
   }
@@ -319,6 +389,8 @@ export class StealthTranslator extends EventEmitter {
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
+    if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
 
     const durationSecs = Math.floor((Date.now() - this.startTime) / 1000);

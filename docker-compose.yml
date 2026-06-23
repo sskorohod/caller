@@ -91,6 +91,11 @@ services:
       # flagship elaborates with helper phrases. Overridable via .env to A/B
       # slugs without a rebuild.
       GROK_VOICE_MODEL: ${GROK_VOICE_MODEL:-grok-voice-fast-1.0}
+      # Voice-mode engine: 'grok' (Grok Voice Agent) or 'pipeline' (Deepgram STT
+      # → OpenAI translate → TTS). Flip without a code change; revert instantly.
+      VOICE_ENGINE: ${VOICE_ENGINE:-grok}
+      VOICE_TTS_PROVIDER: ${VOICE_TTS_PROVIDER:-xai}
+      VOICE_TTS_VOICE: ${VOICE_TTS_VOICE:-eve}
       SANDBOX_MAX_SECONDS: ${SANDBOX_MAX_SECONDS:-300}
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
