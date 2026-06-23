@@ -96,6 +96,8 @@ services:
       VOICE_ENGINE: ${VOICE_ENGINE:-grok}
       VOICE_TTS_PROVIDER: ${VOICE_TTS_PROVIDER:-xai}
       VOICE_TTS_VOICE: ${VOICE_TTS_VOICE:-eve}
+      # Barge-in: sustained speech (ms) required to interrupt the spoken translation.
+      VOICE_BARGE_IN_MS: ${VOICE_BARGE_IN_MS:-2000}
       SANDBOX_MAX_SECONDS: ${SANDBOX_MAX_SECONDS:-300}
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
