@@ -140,6 +140,8 @@ async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
       myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
       socket: ctx.socket, streamSid: ctx.streamSid,
       speak: !isStealth, // voice modes speak the translation; stealth stays silent
+      oneWay: pageMode === 'unidirectional',
+      greetingText: ctx.greetingText,
       carryover,
     });
   }

@@ -25,6 +25,10 @@ export interface StealthTranslatorOptions {
   streamSid: string;
   /** Speak the translation back into the call (voice pipeline) vs silent text-only (stealth). */
   speak?: boolean;
+  /** One-way: only speak the subscriber→other direction (other side shown as text). */
+  oneWay?: boolean;
+  /** Greeting spoken to the other party at call start (voice pipeline only). */
+  greetingText?: string;
   /** Mid-call engine swap: reuse the existing session instead of starting fresh. */
   carryover?: TranslatorCarryover;
 }
@@ -68,6 +72,8 @@ export class StealthTranslator extends EventEmitter {
   // treats it like a voice engine; silent stealth reports as 'stealth'.
   get engine() { return this.speak ? 'voice' : 'stealth'; }
   private speak: boolean;
+  private oneWay: boolean;
+  private greetingText: string;
   private carryover?: TranslatorCarryover;
   private callId: string;
   private workspaceId: string;
@@ -83,6 +89,11 @@ export class StealthTranslator extends EventEmitter {
   // it up — drop incoming audio so Deepgram doesn't transcribe our own voice.
   private playing = false;
   private playbackTimer?: ReturnType<typeof setTimeout>;
+  private playbackResolve?: () => void;
+  // Barge-in echo filter: text we're currently speaking + recent outputs, so we
+  // can tell our own TTS (heard back on the mic) from a real interruption.
+  private currentSpokenNorm = '';
+  private recentSpoken: string[] = [];
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
   private sessionId: string | null = null;
@@ -116,6 +127,8 @@ export class StealthTranslator extends EventEmitter {
     this.streamSid = options.streamSid;
     this.twilioSocket = options.socket;
     this.speak = options.speak ?? false;
+    this.oneWay = options.oneWay ?? false;
+    this.greetingText = options.greetingText ?? '';
     this.carryover = options.carryover;
   }
 
@@ -188,6 +201,11 @@ export class StealthTranslator extends EventEmitter {
     // Arm idle-hangup (reset on each successful translation).
     this.resetIdleTimer();
 
+    // Voice pipeline: greet the other party once at call start (not on swap-in).
+    if (this.speak && this.greetingText && !this.carryover) {
+      this.commitChain = this.commitChain.then(() => this.speakTranslation(this.greetingText, this.targetLang)).catch(() => {});
+    }
+
     log.info({
       callId: this.callId, myLang: this.myLang, targetLang: this.targetLang,
       sttProvider: STT_PROVIDER, sttModel: STT_MODEL, sttLanguage: STT_LANGUAGE,
@@ -203,10 +221,11 @@ export class StealthTranslator extends EventEmitter {
     this.stt.on('utterance_end', () => this.onUtteranceEnd());
   }
 
-  /** Feed inbound Twilio µ-law audio to the STT. */
+  /** Feed inbound Twilio µ-law audio to the STT. We keep feeding during TTS
+   *  playback so we can detect a real interruption (barge-in); our own TTS heard
+   *  back on the mic is filtered out by text in onTranscript. */
   sendAudio(audioBuffer: Buffer): void {
     if (this.paused) return;
-    if (this.playing) return; // echo suppression: don't transcribe our own TTS
     this.stt?.sendAudio(audioBuffer);
   }
 
@@ -214,6 +233,13 @@ export class StealthTranslator extends EventEmitter {
     if (this.saved || this.paused) return;
     const text = (e.text || '').trim();
     if (!text) return;
+
+    // While our TTS is playing, distinguish our own voice (echo) from a real
+    // interruption: ignore echo, but on real speech stop the playback (barge-in).
+    if (this.playing) {
+      if (this.isEcho(text)) return;
+      this.stopPlayback();
+    }
 
     if (e.isFinal) {
       // Append-only: translate each finalized segment exactly once and commit it.
@@ -247,6 +273,12 @@ export class StealthTranslator extends EventEmitter {
 
   private async commitTurn(original: string): Promise<void> {
     if (this.paused || this.saved) return;
+    // Loop guard: if this matches something we just spoke, it's our own TTS that
+    // slipped past the echo filter — never re-translate/re-speak it.
+    if (this.speak) {
+      const on = this.normalize(original);
+      if (on && this.recentSpoken.some(s => s.includes(on) || on.includes(s))) return;
+    }
     const dir = detectTranslationDirection(original, this.myLang, this.targetLang);
     const targetLangCode = dir.isMyLang ? this.targetLang : this.myLang;
     const targetLangName = LANG_NAMES[targetLangCode] || targetLangCode;
@@ -280,15 +312,17 @@ export class StealthTranslator extends EventEmitter {
       speaker, input_chars: original.length, output_chars: translated.length, spoke: this.speak && !!translated,
     }, 'stealth_chunk_metrics');
 
-    // Voice pipeline: speak the translation back into the call. Awaited so the
-    // commitChain keeps playback serialized (no overlapping TTS) and echo
-    // suppression covers the whole utterance.
-    if (this.speak && translated) {
+    // Voice pipeline: speak the translation back into the call. In one-way mode
+    // only the subscriber→other direction is spoken (the other side is text-only).
+    // Awaited so the commit chain keeps playback serialized (no overlapping TTS).
+    const shouldSpeak = this.speak && !!translated && (!this.oneWay || speaker === 'subscriber');
+    if (shouldSpeak) {
       await this.speakTranslation(translated, targetLangCode);
     }
   }
 
-  /** Synthesize TTS and stream it into the call (µ-law 8kHz); hold echo suppression for its duration. */
+  /** Synthesize TTS and stream it into the call (µ-law 8kHz). Tracks the spoken
+   *  text for echo filtering; resolves early if barge-in stops playback. */
   private async speakTranslation(text: string, langCode: string): Promise<void> {
     if (this.saved || this.twilioSocket.readyState !== 1) return;
     try {
@@ -302,7 +336,13 @@ export class StealthTranslator extends EventEmitter {
       }
       if (this.saved || mulaw.length === 0 || this.twilioSocket.readyState !== 1) return;
 
-      this.playing = true; // echo suppression on
+      // Remember what we're speaking so the mic echo can be filtered / loop-guarded.
+      const norm = this.normalize(text);
+      this.currentSpokenNorm = norm;
+      this.recentSpoken.push(norm);
+      if (this.recentSpoken.length > 5) this.recentSpoken.shift();
+
+      this.playing = true;
       if (this.playbackTimer) clearTimeout(this.playbackTimer);
       for (let i = 0; i < mulaw.length; i += 640) {
         this.twilioSocket.send(JSON.stringify({
@@ -310,15 +350,45 @@ export class StealthTranslator extends EventEmitter {
           media: { payload: mulaw.subarray(i, i + 640).toString('base64') },
         }));
       }
-      // Twilio plays at 8kHz real-time; hold echo suppression for the clip length + tail guard.
+      // Twilio plays at 8kHz real-time; the echo filter is active for the clip
+      // length + a tail guard, unless barge-in (stopPlayback) ends it earlier.
       const durationMs = (mulaw.length / 8000) * 1000 + 400;
       await new Promise<void>(resolve => {
-        this.playbackTimer = setTimeout(() => { this.playing = false; resolve(); }, durationMs);
+        this.playbackResolve = resolve;
+        this.playbackTimer = setTimeout(() => {
+          this.playing = false; this.playbackResolve = undefined; resolve();
+        }, durationMs);
       });
+      this.currentSpokenNorm = '';
     } catch (err) {
       this.playing = false;
+      this.currentSpokenNorm = '';
       log.warn({ err, callId: this.callId }, 'TTS playback failed');
     }
+  }
+
+  /** Stop in-flight TTS playback (barge-in): flush Twilio buffer + resolve the wait. */
+  private stopPlayback(): void {
+    if (!this.playing) return;
+    if (this.twilioSocket.readyState === 1) {
+      try { this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid })); } catch { /* ignore */ }
+    }
+    this.playing = false;
+    this.currentSpokenNorm = '';
+    if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    if (this.playbackResolve) { this.playbackResolve(); this.playbackResolve = undefined; }
+  }
+
+  private normalize(s: string): string {
+    return s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+  }
+
+  /** True if transcribed text is (part of) what we're currently/recently speaking. */
+  private isEcho(text: string): boolean {
+    const t = this.normalize(text);
+    if (!t) return true;
+    if (this.currentSpokenNorm && (this.currentSpokenNorm.includes(t) || t.includes(this.currentSpokenNorm))) return true;
+    return this.recentSpoken.some(s => s.includes(t) || t.includes(s));
   }
 
   /** Update language pair mid-call (from the /translate page selector). */
@@ -332,10 +402,10 @@ export class StealthTranslator extends EventEmitter {
   resume(): void { this.paused = false; log.info({ callId: this.callId }, 'Stealth translator resumed'); }
   isPaused(): boolean { return this.paused; }
 
-  // Voice-only controls — no-ops in stealth (page hides them, but the page also
-  // pushes current state on connect, so accept and ignore).
-  updateMode(_mode: string): void { /* stealth has no voice mode */ }
-  updateVoice(_voice: string): void { /* no TTS in stealth */ }
+  // 1-way/2-way toggle (voice pipeline). 'text'/'unidirectional' → one-way.
+  // No-op for silent stealth. Page pushes this on connect too — safe to accept.
+  updateMode(mode: string): void { this.oneWay = (mode === 'text' || mode === 'unidirectional'); }
+  updateVoice(_voice: string): void { /* TTS voice fixed via VOICE_TTS_VOICE env */ }
   updateTone(_tone: string): void { /* tone only affects spoken output */ }
 
   /** (Re)arm the idle-hangup timer — called on each successful translation. */
