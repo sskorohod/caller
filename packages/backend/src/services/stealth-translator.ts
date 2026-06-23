@@ -94,6 +94,14 @@ export class StealthTranslator extends EventEmitter {
   // can tell our own TTS (heard back on the mic) from a real interruption.
   private currentSpokenNorm = '';
   private recentSpoken: string[] = [];
+  // Barge-in requires sustained real speech (not a stray sound) before it cuts
+  // our playback — like the old 2s threshold.
+  private bargeInStartAt: number | null = null;
+  private lastNonEchoAt = 0;
+  private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 2000;
+  // Voice mode: accumulate finalized segments and commit the whole utterance on
+  // utterance_end (a pause) so we don't translate/speak before the person is done.
+  private segmentBuffer: string[] = [];
 
   private transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string }> = [];
   private sessionId: string | null = null;
@@ -234,21 +242,31 @@ export class StealthTranslator extends EventEmitter {
     const text = (e.text || '').trim();
     if (!text) return;
 
-    // While our TTS is playing, distinguish our own voice (echo) from a real
-    // interruption: ignore echo, but on real speech stop the playback (barge-in).
+    // While our TTS is playing: ignore our own echo, and require SUSTAINED real
+    // speech (≥ BARGE_IN_MS, gaps < 800ms) before cutting playback — so a stray
+    // sound or a single word doesn't interrupt the translation.
     if (this.playing) {
       if (this.isEcho(text)) return;
+      const now = Date.now();
+      if (this.bargeInStartAt === null || now - this.lastNonEchoAt > 800) this.bargeInStartAt = now;
+      this.lastNonEchoAt = now;
+      if (now - this.bargeInStartAt < StealthTranslator.BARGE_IN_MS) return; // not sustained yet
+      this.bargeInStartAt = null;
       this.stopPlayback();
+      // fall through and process this (sustained) speech
     }
 
     if (e.isFinal) {
-      // Append-only: translate each finalized segment exactly once and commit it.
-      // No re-translation of a growing buffer → no flicker, no lag, no stalling
-      // on long speech. The frontend merges consecutive segments into a flowing
-      // block so it doesn't look like many separate lines.
-      this.latestInterim = '';
-      const seg = text;
-      this.commitChain = this.commitChain.then(() => this.commitTurn(seg)).catch(() => {});
+      if (this.speak) {
+        // Voice: accumulate the utterance; commit the whole thing on the pause.
+        this.segmentBuffer.push(text);
+        this.latestInterim = '';
+      } else {
+        // Stealth (text): commit each finalized segment immediately (responsive).
+        this.latestInterim = '';
+        const seg = text;
+        this.commitChain = this.commitChain.then(() => this.commitTurn(seg)).catch(() => {});
+      }
     } else {
       // Live original (typing feel) for the "Listening…" indicator — NOT a
       // translated draft, so the translation text never rewrites/blinks.
@@ -264,11 +282,13 @@ export class StealthTranslator extends EventEmitter {
 
   private onUtteranceEnd(): void {
     if (this.saved) return;
-    // Flush any trailing non-final words that never got an is_final segment.
-    const tail = this.latestInterim.trim();
+    // Speaker paused → end of thought. Commit the whole accumulated utterance
+    // (voice) or just the trailing tail (stealth commits per-segment already).
+    const full = [...this.segmentBuffer, this.latestInterim].join(' ').trim();
+    this.segmentBuffer = [];
     this.latestInterim = '';
-    if (!tail) return;
-    this.commitChain = this.commitChain.then(() => this.commitTurn(tail)).catch(() => {});
+    if (!full) return;
+    this.commitChain = this.commitChain.then(() => this.commitTurn(full)).catch(() => {});
   }
 
   private async commitTurn(original: string): Promise<void> {
@@ -356,7 +376,7 @@ export class StealthTranslator extends EventEmitter {
       await new Promise<void>(resolve => {
         this.playbackResolve = resolve;
         this.playbackTimer = setTimeout(() => {
-          this.playing = false; this.playbackResolve = undefined; resolve();
+          this.playing = false; this.playbackResolve = undefined; this.bargeInStartAt = null; resolve();
         }, durationMs);
       });
       this.currentSpokenNorm = '';
@@ -375,6 +395,7 @@ export class StealthTranslator extends EventEmitter {
     }
     this.playing = false;
     this.currentSpokenNorm = '';
+    this.bargeInStartAt = null;
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
     if (this.playbackResolve) { this.playbackResolve(); this.playbackResolve = undefined; }
   }
