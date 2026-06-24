@@ -264,7 +264,7 @@ export class StealthTranslator extends EventEmitter {
 
     // Voice pipeline: greet the other party once at call start (not on swap-in).
     if (this.speak && this.greetingText && !this.carryover) {
-      this.commitChain = this.commitChain.then(() => this.speakTranslation(this.greetingText, this.targetLang)).catch(() => {});
+      this.commitChain = this.commitChain.then(() => this.speakTranslation(this.greetingText, this.targetLang, undefined, 'greeting')).catch(() => {});
     }
 
     log.info({
@@ -386,7 +386,7 @@ export class StealthTranslator extends EventEmitter {
           callId: this.callId, metric: 'barge', event: 'escalate', phase, merged, bargeMs, elapsedMs,
           origPhrase: merged ? origPhrase : undefined, captured,
         }, 'barge-in: sustained → re-translating');
-        this.commitChain = this.commitChain.then(() => this.commitTurn(fullText)).catch(() => {});
+        this.commitChain = this.commitChain.then(() => this.commitTurn(fullText, 'barge_escalate')).catch(() => {});
       } else {
         log.info({ callId: this.callId, metric: 'barge', event: 'resume', phase, bargeMs, elapsedMs, dropped: captured }, 'barge-in: short → resuming from pause point');
         this.resumePlayback(); // resume from where we paused; interjection dropped
@@ -528,11 +528,11 @@ export class StealthTranslator extends EventEmitter {
     if (translated && (!this.oneWay || speaker === 'subscriber')) {
       this.currentSpokenOriginal = original;
       this.currentSpokenOriginalIsMyLang = dir.isMyLang;
-      await this.speakTranslation(translated, langCode, playData);
+      await this.speakTranslation(translated, langCode, playData, 'precompute');
     }
   }
 
-  private async commitTurn(original: string): Promise<void> {
+  private async commitTurn(original: string, path = 'fallback'): Promise<void> {
     if (this.paused || this.saved) return;
     // Loop guard: if this matches something we just spoke, it's our own TTS that
     // slipped past the echo filter — never re-translate/re-speak it.
@@ -545,9 +545,11 @@ export class StealthTranslator extends EventEmitter {
     const targetLangName = LANG_NAMES[targetLangCode] || targetLangCode;
     const speaker = dir.isMyLang ? 'subscriber' : 'other';
 
+    const tTranslate = Date.now();
     const translated = (await translateText(original, targetLangName, {
       apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL,
     })) || '';
+    const translateMs = Date.now() - tTranslate;
 
     if (translated) this.resetIdleTimer(); // real translation → not idle
 
@@ -569,8 +571,9 @@ export class StealthTranslator extends EventEmitter {
     }
 
     log.info({
-      callId: this.callId, metric: 'stealth_chunk_metrics',
-      speaker, input_chars: original.length, output_chars: translated.length, spoke: this.speak && !!translated,
+      callId: this.callId, metric: 'stealth_chunk_metrics', path,
+      speaker, input_chars: original.length, output_chars: translated.length,
+      translate_ms: translateMs, spoke: this.speak && !!translated,
     }, 'stealth_chunk_metrics');
 
     // Voice pipeline: speak the translation back into the call. In one-way mode
@@ -580,7 +583,7 @@ export class StealthTranslator extends EventEmitter {
     if (shouldSpeak) {
       this.currentSpokenOriginal = original;
       this.currentSpokenOriginalIsMyLang = dir.isMyLang;
-      await this.speakTranslation(translated, targetLangCode);
+      await this.speakTranslation(translated, targetLangCode, undefined, path);
     }
   }
 
@@ -588,7 +591,7 @@ export class StealthTranslator extends EventEmitter {
    *  (from pre-compute), plays buffered chunks immediately and streams the remainder
    *  as they arrive from the TTS API — no batch wait even for long translations. */
   private async speakTranslation(
-    text: string, langCode: string, streaming?: StreamingPlayData,
+    text: string, langCode: string, streaming?: StreamingPlayData, path = 'precompute',
   ): Promise<void> {
     if (this.saved || this.twilioSocket.readyState !== 1) return;
     try {
@@ -602,13 +605,22 @@ export class StealthTranslator extends EventEmitter {
       this.playbackStartAt = 0;
       if (this.playbackTimer) clearTimeout(this.playbackTimer);
 
+      // Latency instrumentation: time from entering playback (translation ready) to
+      // the FIRST µ-law byte actually sent to Twilio — i.e. TTS time-to-first-byte.
+      const speakAt = Date.now();
       // Accumulate the full clip (for pause/resume) while streaming it to Twilio
       // for low latency. Position is estimated from playbackStartAt (set on the
       // first byte actually sent).
       const appendAndSend = (buf: Buffer) => {
         this.playbackBuffer = Buffer.concat([this.playbackBuffer, buf]);
         if (this.playing && !this.playbackPaused) {
-          if (this.playbackStartAt === 0) this.playbackStartAt = Date.now();
+          if (this.playbackStartAt === 0) {
+            this.playbackStartAt = Date.now();
+            log.info({
+              callId: this.callId, metric: 'voice_play_timing', path,
+              tts_first_byte_ms: this.playbackStartAt - speakAt, chars: text.length,
+            }, 'voice_play_timing');
+          }
           this.sendToTwilio(buf);
         }
       };
@@ -621,20 +633,21 @@ export class StealthTranslator extends EventEmitter {
         streaming.setOnChunk((buf) => { if (this.playing) appendAndSend(buf); });
         for (const chunk of snapshot) appendAndSend(chunk);
         await streaming.ttsComplete;
-      } else {
-        // Fallback batch path (commitTurn or pre-compute unavailable).
-        let mulaw: Buffer;
-        if (TTS_PROVIDER === 'openai') {
-          const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(text);
-          const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
-          mulaw = pcmToMulaw(pcm);
-        } else {
-          mulaw = await new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en').synthesize(text);
-        }
+      } else if (TTS_PROVIDER === 'openai') {
+        // OpenAI returns PCM in one shot — synthesize then convert.
+        const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(text);
+        const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
+        const mulaw = pcmToMulaw(pcm);
         if (this.saved || mulaw.length === 0 || this.twilioSocket.readyState !== 1) {
           this.playing = false; this.currentSpokenNorm = ''; return;
         }
         appendAndSend(mulaw);
+      } else {
+        // xAI streams µ-law chunks — play from the FIRST chunk instead of awaiting the
+        // whole synthesis. The old batch await here was the main barge-in/fallback lag.
+        const tts = new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en');
+        tts.on('chunk', (c: TTSChunk) => { if (!this.saved && this.playing) appendAndSend(c.audio); });
+        await tts.synthesize(text);
       }
 
       if (this.playbackBuffer.length === 0 || !this.playing) {
