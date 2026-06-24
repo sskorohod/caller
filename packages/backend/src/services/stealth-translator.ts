@@ -127,6 +127,10 @@ export class StealthTranslator extends EventEmitter {
   // long (measured at utterance_end) they're finishing a thought → merge + re-translate.
   // Shorter is a stray interjection → replay the phrase from the start. Default 2000ms.
   private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 2000;
+  // Fallback signal for "sustained": this many words means a continued thought even
+  // when Deepgram batched the whole utterance into one segment (so bargeMs reads 0).
+  // ~2s of speech at a normal pace. Tunable without a rebuild.
+  private static readonly BARGE_IN_WORDS = Number(process.env.VOICE_BARGE_IN_WORDS) || 5;
   // Voice mode: accumulate finalized segments and commit the whole utterance on
   // utterance_end (a pause) so we don't translate/speak before the person is done.
   private segmentBuffer: string[] = [];
@@ -341,16 +345,22 @@ export class StealthTranslator extends EventEmitter {
 
     // Barge-in resolution: the user talked over our playback. Now that they've
     // paused (reliable end-of-speech), decide what it was:
-    //  • SHORT (< BARGE_IN_MS): a stray interjection → replay the phrase from the
-    //    start and drop what they said.
-    //  • SUSTAINED (≥ BARGE_IN_MS): they were finishing the thought → merge their
-    //    speech onto the original phrase and re-translate the whole thing.
+    //  • STRAY interjection → replay the phrase from the start, drop what they said.
+    //  • SUSTAINED (finishing a thought) → merge their speech onto the original
+    //    phrase and re-translate the whole thing.
+    // "Sustained" is detected by EITHER elapsed time OR word count. Time alone is
+    // unreliable: Deepgram may deliver a multi-second utterance as a single segment,
+    // making bargeLastAt == bargeStartAt (bargeMs 0). Word count is segmentation-
+    // independent — a long phrase means a continued thought regardless of timing.
     if (this.playbackPaused) {
       const bargeMs = this.bargeLastAt - this.bargeStartAt;
       const captured = [...this.bargeBuffer, this.bargeInterim].join(' ').trim();
       this.bargeBuffer = [];
       this.bargeInterim = '';
-      if (bargeMs >= StealthTranslator.BARGE_IN_MS && captured && this.speak) {
+      const wordCount = captured ? captured.split(/\s+/).length : 0;
+      const sustained = bargeMs >= StealthTranslator.BARGE_IN_MS
+        || wordCount >= StealthTranslator.BARGE_IN_WORDS;
+      if (sustained && captured && this.speak) {
         const origPhrase = this.currentSpokenOriginal;
         const origIsMyLang = this.currentSpokenOriginalIsMyLang;
         this.stopPlayback(); // discard the interrupted clip
@@ -358,12 +368,12 @@ export class StealthTranslator extends EventEmitter {
         const merged = !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
         const fullText = merged ? `${origPhrase} ${captured}`.trim() : captured;
         log.info({
-          callId: this.callId, metric: 'barge', event: 'escalate', merged, bargeMs,
+          callId: this.callId, metric: 'barge', event: 'escalate', merged, bargeMs, wordCount,
           origPhrase: merged ? origPhrase : undefined, captured,
         }, 'barge-in: sustained → re-translating full thought');
         this.commitChain = this.commitChain.then(() => this.commitTurn(fullText)).catch(() => {});
       } else {
-        log.info({ callId: this.callId, metric: 'barge', event: 'resume', bargeMs, dropped: captured }, 'barge-in: short → replaying phrase from start');
+        log.info({ callId: this.callId, metric: 'barge', event: 'resume', bargeMs, wordCount, dropped: captured }, 'barge-in: short → replaying phrase from start');
         this.resumePlayback(); // replay original from the start; interjection dropped
       }
       return;
