@@ -8,7 +8,7 @@ import { db } from '../../config/db.js';
 import { users, workspaces, workspaceMembers, magicLinks } from '../../db/schema.js';
 import { env } from '../../config/env.js';
 import { UnauthorizedError } from '../../lib/errors.js';
-import { sendEmail, buildMagicLinkEmail, isEmailConfigured } from '../../services/email.service.js';
+import { sendEmail, buildMagicLinkEmail, buildPasswordResetEmail, isEmailConfigured } from '../../services/email.service.js';
 import { validatePhoneNumbersUnique } from '../../services/workspace.service.js';
 import { normalizePhone } from '../../lib/phone.js';
 
@@ -467,6 +467,105 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
     // so they stay logged in.
     const token = isChange ? await issueJWT(userId) : undefined;
     return reply.send({ success: true, ...(token ? { token } : {}) });
+  });
+
+  // ─── Password Reset ─────────────────────────────────────────────────
+
+  // POST /api/auth/forgot-password — email a reset link.
+  // Anti-enumeration: always returns the same generic success regardless of
+  // whether the email is registered. A reset token reuses the magic_links table
+  // (an email-ownership proof token); the email points at /auth/reset, which
+  // lets the user set a NEW password without the old one (which they forgot).
+  app.post('/forgot-password', {
+    config: {
+      rateLimit: {
+        max: 3,
+        timeWindow: '15 minutes',
+        keyGenerator: (request: import('fastify').FastifyRequest) => request.ip,
+      },
+    },
+  }, async (request, reply) => {
+    const { email } = z.object({ email: z.string().email().transform(s => s.trim().toLowerCase()) }).parse(request.body);
+
+    // Service-level gate (no per-email info leaked): a reset is impossible if the
+    // mailer is down, so say so instead of pretending a link was sent.
+    if (!isEmailConfigured()) {
+      return reply.status(503).send({ error: 'Password reset is unavailable right now. Please try again later.' });
+    }
+
+    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+
+    if (user) {
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      await db.insert(magicLinks).values({ email, token, expires_at: expiresAt });
+
+      const resetLink = `https://${env.API_DOMAIN}/auth/reset?token=${token}`;
+      const emailContent = buildPasswordResetEmail(resetLink);
+      // Per-send failures are intentionally NOT surfaced here: doing so would
+      // reveal that the email belongs to a real account (enumeration oracle).
+      await sendEmail({ to: email, subject: emailContent.subject, html: emailContent.html });
+    }
+
+    return reply.send({ success: true, message: 'If an account exists for that email, a reset link is on its way.' });
+  });
+
+  // POST /api/auth/reset-password — set a new password using a reset token.
+  // The token (sent to the verified email) is the authorization, so no current
+  // password is required. A successful reset revokes all outstanding sessions
+  // and returns a fresh JWT.
+  app.post('/reset-password', async (request, reply) => {
+    const body = z.object({
+      token: z.string().min(1),
+      password: z.string().min(8, 'Password must be at least 8 characters'),
+    }).parse(request.body);
+
+    const [link] = await db.select()
+      .from(magicLinks)
+      .where(and(
+        eq(magicLinks.token, body.token),
+        gt(magicLinks.expires_at, new Date()),
+        isNull(magicLinks.used_at),
+      ))
+      .limit(1);
+
+    if (!link) {
+      return reply.status(400).send({ error: 'This reset link is invalid or has expired.' });
+    }
+
+    // Single-use: burn the token before mutating the password.
+    await db.update(magicLinks).set({ used_at: new Date() }).where(eq(magicLinks.id, link.id));
+
+    const email = link.email.toLowerCase();
+    const [user] = await db.select({ id: users.id, email: users.email })
+      .from(users).where(eq(users.email, email)).limit(1);
+    if (!user) {
+      return reply.status(400).send({ error: 'Account not found.' });
+    }
+
+    const passwordHash = await hashPassword(body.password);
+    await db.update(users)
+      .set({
+        password_hash: passwordHash,
+        password_set: true,
+        tokens_valid_from: new Date(), // revoke any sessions opened before the reset
+        updated_at: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    const jwt = await issueJWT(user.id);
+
+    // Resolve workspace so the client can land on the dashboard.
+    const [membership] = await db.select({ workspace_id: workspaceMembers.workspace_id })
+      .from(workspaceMembers).where(eq(workspaceMembers.user_id, user.id)).limit(1);
+    let workspace: { id: string; name: string; plan: string } | null = null;
+    if (membership) {
+      const [ws] = await db.select({ id: workspaces.id, name: workspaces.name, plan: workspaces.plan })
+        .from(workspaces).where(eq(workspaces.id, membership.workspace_id));
+      if (ws) workspace = ws;
+    }
+
+    return reply.send({ token: jwt, user: { id: user.id, email: user.email }, workspace });
   });
 };
 

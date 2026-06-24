@@ -43,13 +43,12 @@ export function AppearanceSection() {
       title={t('settings.appearance')}
       description={t('settings.appearanceDesc')}
     >
-      <div className="divide-y" style={{ borderColor: 'var(--th-border-light)' }}>
+      {/* Theme + Language on a single row (wraps on narrow viewports) */}
+      <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
         {/* Theme */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
-          <div>
-            <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.theme')}</div>
-            <div className="text-[11px] text-[var(--th-text-muted)] mt-0.5">{t('settings.themeDesc')}</div>
-          </div>
+        <div className="min-w-[200px]">
+          <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.theme')}</div>
+          <div className="text-[11px] text-[var(--th-text-muted)] mt-0.5 mb-2">{t('settings.themeDesc')}</div>
           <Segmented
             value={theme}
             onChange={setTheme}
@@ -61,8 +60,8 @@ export function AppearanceSection() {
         </div>
 
         {/* Language */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
-          <div className="text-sm font-medium text-[var(--th-text)]">{t('settings.language')}</div>
+        <div className="min-w-[200px]">
+          <div className="text-sm font-medium text-[var(--th-text)] mb-2">{t('settings.language')}</div>
           <Segmented
             value={lang}
             onChange={setLang}

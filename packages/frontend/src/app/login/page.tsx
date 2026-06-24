@@ -16,13 +16,14 @@ function LoginContent() {
   // sink (auth-context login() → safeRedirectPath).
   const returnUrl = searchParams.get('return');
   const modeParam = searchParams.get('mode');
-  const [mode, setMode] = useState<'login' | 'register'>(modeParam === 'register' ? 'register' : 'login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(modeParam === 'register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +34,21 @@ function LoginContent() {
       login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
     } catch (err: any) {
       setError(err.message || t('Invalid email or password', 'Неверный email или пароль'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email) return;
+    setError('');
+    setLoading(true);
+    try {
+      await authApi.forgotPassword({ email });
+      setResetSent(true);
+    } catch (err: any) {
+      setError(err.message || t('Could not send the reset link', 'Не удалось отправить ссылку'));
     } finally {
       setLoading(false);
     }
@@ -151,6 +167,12 @@ function LoginContent() {
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
                       placeholder={t('Enter password', 'Введите пароль')} className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
+                  <div className="text-right mt-1.5">
+                    <button type="button" onClick={() => { setMode('forgot'); setError(''); setResetSent(false); }}
+                      className="text-xs font-medium hover:underline" style={{ color: '#adc6ff' }}>
+                      {t('Forgot password?', 'Забыли пароль?')}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
@@ -179,6 +201,74 @@ function LoginContent() {
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 {t('Create Account', 'Создать аккаунт')}
               </button>
+            </>
+          ) : mode === 'forgot' ? (
+            /* ─── Forgot password (email a reset link) ─── */
+            <>
+              {resetSent ? (
+                <div className="text-center space-y-6">
+                  <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)' }}>
+                    <span className="material-symbols-outlined text-3xl" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>mark_email_read</span>
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-headline font-bold tracking-tight mb-2">{t('Check your email', 'Проверьте почту')}</h1>
+                    <p className="text-sm" style={{ color: '#c2c6d6' }}>
+                      {t('If an account exists for', 'Если аккаунт с адресом')}<br />
+                      <strong style={{ color: '#dde2f3' }}>{email}</strong><br />
+                      {t('we sent a password reset link. It expires in 30 minutes.', 'существует — мы отправили ссылку для сброса пароля. Она действует 30 минут.')}
+                    </p>
+                  </div>
+                  <button onClick={() => { setMode('login'); setError(''); setResetSent(false); }}
+                    className="text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
+                    {t('Back to sign in', 'Вернуться ко входу')}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-6">
+                    <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Reset password', 'Сброс пароля')}</h1>
+                    <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
+                      {t('Enter your email and we’ll send you a link to set a new password.', 'Введите email — мы отправим ссылку для установки нового пароля.')}
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleForgot} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Email</label>
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>mail</span>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                          placeholder="you@company.com" className="input-field" style={{ paddingLeft: '40px' }} autoFocus />
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
+                        style={{ background: 'rgba(248, 113, 113, 0.08)', border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171' }}>
+                        <span className="material-symbols-outlined text-base">error</span>
+                        {error}
+                      </div>
+                    )}
+
+                    <button type="submit" disabled={loading || !email}
+                      className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                      style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)', color: '#0e131f', boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)' }}>
+                      {loading ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          {t('Sending...', 'Отправка…')}
+                        </span>
+                      ) : t('Send reset link', 'Отправить ссылку')}
+                    </button>
+                  </form>
+
+                  <button onClick={() => { setMode('login'); setError(''); }}
+                    className="w-full mt-4 text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
+                    {t('Back to sign in', 'Вернуться ко входу')}
+                  </button>
+                </>
+              )}
             </>
           ) : (
             /* ─── Register (email + password) ─── */

@@ -91,6 +91,51 @@ export function buildMagicLinkEmail(magicLink: string): { subject: string; html:
   };
 }
 
+export function buildPasswordResetEmail(resetLink: string): { subject: string; html: string } {
+  return {
+    subject: 'Reset your LingoLine password',
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#0e131f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0e131f;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background:#1a202c;border-radius:16px;border:1px solid rgba(140,144,159,0.15);overflow:hidden;">
+        <!-- Header -->
+        <tr><td style="padding:32px 32px 0;">
+          <div style="font-size:20px;font-weight:800;color:#dde2f3;letter-spacing:-0.5px;">
+            <span style="color:#adc6ff;">&#9679;</span> LingoLine
+          </div>
+        </td></tr>
+        <!-- Content -->
+        <tr><td style="padding:24px 32px;">
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#dde2f3;">Reset your password</h1>
+          <p style="margin:0 0 24px;font-size:14px;color:#c2c6d6;line-height:1.6;">
+            Click the button below to choose a new password. This link expires in 30 minutes.
+          </p>
+          <a href="${resetLink}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#adc6ff,#4d8eff);color:#0e131f;font-size:14px;font-weight:700;text-decoration:none;border-radius:12px;">
+            Reset Password
+          </a>
+          <p style="margin:24px 0 0;font-size:12px;color:rgba(194,198,214,0.5);line-height:1.5;">
+            If you didn't request this, you can safely ignore this email &mdash; your password won't change.<br>
+            Link: <a href="${resetLink}" style="color:#adc6ff;word-break:break-all;">${resetLink}</a>
+          </p>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:16px 32px 24px;border-top:1px solid rgba(140,144,159,0.1);">
+          <p style="margin:0;font-size:11px;color:rgba(194,198,214,0.3);">
+            LingoLine &mdash; Live Translator
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  };
+}
+
 export function isEmailConfigured(): boolean {
   return !!RESEND_API_KEY;
 }

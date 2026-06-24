@@ -73,4 +73,12 @@ export const authApi = {
     request<{ token: string; user: { id: string; email: string }; workspace: { id: string; name: string } | null }>(
       '/auth/login', { method: 'POST', body: JSON.stringify(data) }
     ),
+  forgotPassword: (data: { email: string }) =>
+    request<{ success: boolean; message: string }>(
+      '/auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }
+    ),
+  resetPassword: (data: { token: string; password: string }) =>
+    request<{ token: string; user: { id: string; email: string }; workspace: { id: string; name: string } | null }>(
+      '/auth/reset-password', { method: 'POST', body: JSON.stringify(data) }
+    ),
 };
