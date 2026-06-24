@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { db } from '../../config/db.js';
 import { translatorSubscribers, translatorSessions, balanceTransactions, subscriberPortalTokens } from '../../db/schema.js';
 import { env } from '../../config/env.js';
-import { sendEmail } from '../../services/email.service.js';
+import { sendEmail, isEmailConfigured } from '../../services/email.service.js';
 import { verifyJWT } from '../../lib/jwt.js';
 import { UnauthorizedError } from '../../lib/errors.js';
 
@@ -59,8 +59,14 @@ function issueSubscriberJWT(subscriberId: string): Promise<string> {
 const portalRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /api/translator/portal/request-link — send magic link email
-  app.post('/request-link', async (request) => {
+  app.post('/request-link', async (request, reply) => {
     const { email } = z.object({ email: z.string().email() }).parse(request.body);
+
+    // Service-level gate (no per-email info leaked): if the mailer is down there's
+    // no point pretending a link was sent.
+    if (!isEmailConfigured()) {
+      return reply.status(503).send({ error: 'Email sign-in is temporarily unavailable. Please try again later.' });
+    }
 
     // Find subscriber by email (across all workspaces — portal is global)
     const [sub] = await db.select({ id: translatorSubscribers.id, name: translatorSubscribers.name })

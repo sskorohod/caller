@@ -8,7 +8,7 @@ import { db } from '../../config/db.js';
 import { users, workspaces, workspaceMembers, magicLinks } from '../../db/schema.js';
 import { env } from '../../config/env.js';
 import { UnauthorizedError } from '../../lib/errors.js';
-import { sendEmail, buildMagicLinkEmail } from '../../services/email.service.js';
+import { sendEmail, buildMagicLinkEmail, isEmailConfigured } from '../../services/email.service.js';
 import { validatePhoneNumbersUnique } from '../../services/workspace.service.js';
 import { normalizePhone } from '../../lib/phone.js';
 
@@ -42,14 +42,14 @@ function issueJWT(userId: string): Promise<string> {
 }
 
 const registerBody = z.object({
-  email: z.string().email(),
+  email: z.string().email().transform(s => s.trim().toLowerCase()),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   workspace_name: z.string().min(1).max(100).optional(),
   phone_number: z.string().transform(normalizePhone).pipe(z.string().regex(/^\+[1-9]\d{1,14}$/)).optional(),
 });
 
 const loginBody = z.object({
-  email: z.string().email(),
+  email: z.string().email().transform(s => s.trim().toLowerCase()),
   password: z.string().min(1),
 });
 
@@ -260,6 +260,13 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
   }, async (request, reply) => {
     const body = z.object({ email: z.string().email(), phone_number: z.string().transform(s => s.replace(/[\s\-\(\)]/g, '')).pipe(z.string().regex(/^\+[1-9]\d{1,14}$/)).optional() }).parse(request.body);
 
+    // Don't create an orphan token (and don't claim success) if email can't be
+    // delivered. Surfacing this instead of the old always-{success:true} keeps
+    // a misconfigured mailer from silently swallowing every sign-in link.
+    if (!isEmailConfigured()) {
+      return reply.status(503).send({ error: 'Email sign-in is unavailable right now. Please sign in with your email and password instead.' });
+    }
+
     // Generate secure token
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
@@ -281,11 +288,14 @@ const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     // Send email
     const emailContent = buildMagicLinkEmail(magicLink);
-    await sendEmail({
+    const sent = await sendEmail({
       to: body.email,
       subject: emailContent.subject,
       html: emailContent.html,
     });
+    if (!sent) {
+      return reply.status(502).send({ error: 'Could not send the sign-in email. Please try again or sign in with your email and password.' });
+    }
 
     return reply.send({ success: true, message: 'Magic link sent' });
   });

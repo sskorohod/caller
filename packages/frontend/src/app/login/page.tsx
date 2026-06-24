@@ -3,7 +3,7 @@ import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { authApi, api } from '@/lib/api';
+import { authApi } from '@/lib/api';
 // Public-site language (shared with the landing — localStorage 'caller_public_lang'),
 // so the language chosen on the landing carries over to the login page.
 import { LangProvider, useLang, LangSwitcher } from '@/app/_landing/useLang';
@@ -22,7 +22,6 @@ function LoginContent() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
@@ -39,17 +38,17 @@ function LoginContent() {
     }
   }
 
-  async function handleMagicLink(e: React.FormEvent) {
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return;
+    if (!email || !password) return;
     setError('');
     setLoading(true);
     try {
       const cleanPhone = phoneNumber.replace(/[\s\-\(\)\.]/g, '');
-      await api.post('/auth/magic-link', { email, phone_number: cleanPhone || undefined });
-      setMagicLinkSent(true);
+      const res = await authApi.register({ email, password, phone_number: cleanPhone || undefined });
+      login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
     } catch (err: any) {
-      setError(err.message || t('Failed to send magic link', 'Не удалось отправить ссылку'));
+      setError(err.message || t('Could not create account', 'Не удалось создать аккаунт'));
     } finally {
       setLoading(false);
     }
@@ -128,32 +127,7 @@ function LoginContent() {
             <span className="text-xl font-headline font-extrabold tracking-tight">LingoLine</span>
           </Link>
 
-          {/* Magic Link Sent State */}
-          {magicLinkSent ? (
-            <div className="text-center space-y-6">
-              <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)' }}>
-                <span className="material-symbols-outlined text-3xl" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>mark_email_read</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-headline font-bold tracking-tight mb-2">{t('Check your email', 'Проверьте почту')}</h1>
-                <p className="text-sm" style={{ color: '#c2c6d6' }}>
-                  {t('We sent a sign-in link to', 'Мы отправили ссылку для входа на')}<br />
-                  <strong style={{ color: '#dde2f3' }}>{email}</strong>
-                </p>
-              </div>
-              <p className="text-xs" style={{ color: 'rgba(194,198,214,0.5)' }}>
-                {t(
-                  'Click the link to verify your email and create your account. Expires in 15 minutes.',
-                  'Перейдите по ссылке, чтобы подтвердить почту и создать аккаунт. Ссылка действует 15 минут.',
-                )}
-              </p>
-              <button onClick={() => { setMagicLinkSent(false); setEmail(''); }}
-                className="text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
-                {t('Use a different email', 'Использовать другую почту')}
-              </button>
-            </div>
-          ) : mode === 'login' ? (
+          {mode === 'login' ? (
             /* ─── Sign In (email + password) ─── */
             <>
               <div className="mb-8">
@@ -207,14 +181,14 @@ function LoginContent() {
               </button>
             </>
           ) : (
-            /* ─── Register (magic link) ─── */
+            /* ─── Register (email + password) ─── */
             <>
               <div className="mb-6">
                 <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Create account', 'Создать аккаунт')}</h1>
                 <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
                   {t(
-                    "Enter your email — we'll send a verification link to get started.",
-                    'Введите email — мы отправим ссылку для подтверждения.',
+                    'Pick a password and you’re in — no email confirmation needed.',
+                    'Придумайте пароль — и вы внутри, без подтверждения по почте.',
                   )}
                 </p>
               </div>
@@ -229,13 +203,21 @@ function LoginContent() {
                 </div>
               </div>
 
-              <form onSubmit={handleMagicLink} className="space-y-4">
+              <form onSubmit={handleRegister} className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>Email</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>mail</span>
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
                       placeholder="you@company.com" className="input-field" style={{ paddingLeft: '40px' }} autoFocus />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Password', 'Пароль')}</label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>lock</span>
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
+                      placeholder={t('At least 8 characters', 'Минимум 8 символов')} className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
                 </div>
                 <div>
@@ -274,13 +256,13 @@ function LoginContent() {
                   </div>
                 )}
 
-                <button type="submit" disabled={loading || !email || !agreedToTerms}
+                <button type="submit" disabled={loading || !email || !password || !agreedToTerms}
                   className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                   style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)', color: '#0e131f', boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)' }}>
                   {loading ? (
                     <span className="inline-flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      {t('Sending...', 'Отправка…')}
+                      {t('Creating account...', 'Создаём аккаунт…')}
                     </span>
                   ) : t('Sign Up', 'Зарегистрироваться')}
                 </button>
