@@ -9,7 +9,7 @@ import * as callService from './call.service.js';
 import { calculateTelephonyCost } from '../config/pricing.js';
 import { LANG_NAMES } from '../config/languages.js';
 import { DeepgramSTT, OpenAISTT, type STTProvider, type TranscriptEvent } from './stt.service.js';
-import { XaiTTS, OpenAITTS } from './tts.service.js';
+import { XaiTTS, OpenAITTS, type TTSChunk } from './tts.service.js';
 import { detectTranslationDirection } from '../lib/lang-direction.js';
 import { translateText } from './translate-text.js';
 import type { TranslatorCarryover } from './conference-translator.js';
@@ -54,6 +54,18 @@ const TRANSLATE_MODEL = process.env.STEALTH_TRANSLATE_MODEL
 const TTS_PROVIDER = (process.env.VOICE_TTS_PROVIDER || 'xai') as 'xai' | 'openai';
 const TTS_CRED = TTS_PROVIDER === 'openai' ? 'openai' : 'xai';
 const TTS_VOICE = process.env.VOICE_TTS_VOICE || (TTS_PROVIDER === 'openai' ? 'alloy' : 'eve');
+
+/** Data returned by doPrecompute — translation done, TTS is streaming in background. */
+interface StreamingPlayData {
+  translated: string;
+  langCode: string;
+  /** Mulaw 8kHz audio chunks; array grows as TTS streams. Reference stays valid. */
+  mulawChunks: Buffer[];
+  /** Resolves when the TTS API call finishes (all chunks buffered). */
+  ttsComplete: Promise<void>;
+  /** Register callback invoked for each new chunk arriving from the TTS stream. */
+  setOnChunk: (fn: (buf: Buffer) => void) => void;
+}
 
 /**
  * Stealth Translator — silent, text-only live interpretation.
@@ -122,6 +134,16 @@ export class StealthTranslator extends EventEmitter {
   // Serialize commits so transcript order is preserved (one is_final segment per turn).
   private commitChain: Promise<void> = Promise.resolve();
 
+  // Streaming pre-computation: on each isFinal segment (voice mode), immediately
+  // translate the accumulated text then stream TTS in background. By utterance_end
+  // (1 s of silence), translation is done and TTS chunks have been accumulating
+  // for ~400-800 ms → playback starts at utterance_end with near-zero extra wait.
+  private precomputeState: {
+    text: string;
+    abort: AbortController;
+    promise: Promise<StreamingPlayData | null>;
+  } | null = null;
+
   // Provider cost estimate (Deepgram STT + grok-3-mini chunks). Far below the
   // Grok Voice path (~$0.05/min) — stealth is genuinely cheaper.
   private static readonly COST_PER_MIN = 0.02;
@@ -164,9 +186,15 @@ export class StealthTranslator extends EventEmitter {
     this.wireSTT();
 
     if (this.stt instanceof DeepgramSTT) {
-      // endpointing 200 keeps a non-final window during fluent speech so the live
-      // draft translation has time to show. NB: utterance_end_ms must be >= 1000.
-      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 200, utteranceEndMs: 1000 });
+      // endpointing: 200 — sends isFinal after 200ms of silence, starting pre-computation.
+      // utteranceEndMs: 1400 — commit only after 1.4 s of true silence. This is the
+      // value the Grok engine used when the product "worked great": it lets the
+      // speaker pause to think (breathing, between sentences, searching for a word)
+      // without the system deciding they're done and cutting in mid-thought. 1000ms
+      // was too aggressive — a ~1 s thinking pause triggered a premature commit and
+      // the translation played over the still-speaking user. Pre-computation runs
+      // during this window, so playback still starts immediately once it fires.
+      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 200, utteranceEndMs: 1400 });
     } else {
       this.stt.connect({}); // OpenAI whisper auto-detects language
     }
@@ -261,6 +289,11 @@ export class StealthTranslator extends EventEmitter {
         // Voice: accumulate the utterance; commit the whole thing on the pause.
         this.segmentBuffer.push(text);
         this.latestInterim = '';
+        // Start pre-computing translate+TTS immediately. If another isFinal arrives
+        // before utterance_end, the previous pre-compute is cancelled and restarted
+        // with the fuller text — the final pre-compute runs during the silence window
+        // so audio is ready (or near-ready) when utterance_end fires.
+        this.startPrecompute(this.segmentBuffer.join(' ').trim());
       } else {
         // Stealth (text): commit each finalized segment immediately (responsive).
         this.latestInterim = '';
@@ -282,13 +315,140 @@ export class StealthTranslator extends EventEmitter {
 
   private onUtteranceEnd(): void {
     if (this.saved) return;
-    // Speaker paused → end of thought. Commit the whole accumulated utterance
-    // (voice) or just the trailing tail (stealth commits per-segment already).
-    const full = [...this.segmentBuffer, this.latestInterim].join(' ').trim();
+    // Speaker paused → end of thought. Commit ONLY finalized segments. Deepgram
+    // sends UtteranceEnd after the matching is_final, so everything the speaker
+    // actually finished is already in segmentBuffer. latestInterim at this point
+    // is a not-yet-finalized tail — typically the START of the next phrase the
+    // speaker began during the pause. Including it caused that fragment to be
+    // committed with the current turn AND again with the next (the "А ещё"
+    // duplication). Leave latestInterim intact so it finalizes into its own turn.
+    const full = this.segmentBuffer.join(' ').trim();
     this.segmentBuffer = [];
-    this.latestInterim = '';
     if (!full) return;
-    this.commitChain = this.commitChain.then(() => this.commitTurn(full)).catch(() => {});
+
+    // Voice mode: check if pre-computation started on the last isFinal matches.
+    // If so, await it (it's been running in parallel) → near-zero additional wait.
+    const pc = this.precomputeState;
+    this.precomputeState = null;
+
+    if (this.speak && pc && pc.text === full) {
+      this.commitChain = this.commitChain.then(async () => {
+        let playData: StreamingPlayData | null = null;
+        try { playData = await pc.promise; } catch { /* fall through */ }
+        if (playData) {
+          await this.commitTurnWithPrecomputed(full, playData);
+        } else {
+          await this.commitTurn(full);
+        }
+      }).catch(() => {});
+    } else {
+      // No matching pre-compute (text changed due to latestInterim tail, or no speak).
+      this.commitChain = this.commitChain.then(() => this.commitTurn(full)).catch(() => {});
+    }
+  }
+
+  /** Start translate → TTS-stream pipeline for the accumulated text. Cancelled and
+   *  restarted on each new isFinal; the final call runs during the 1 s silence
+   *  window so translation is done and TTS is already streaming by utterance_end. */
+  private startPrecompute(text: string): void {
+    if (!text) return;
+    this.precomputeState?.abort.abort();
+    const abort = new AbortController();
+    this.precomputeState = { text, abort, promise: this.doPrecompute(text, abort.signal) };
+  }
+
+  private async doPrecompute(
+    text: string, signal: AbortSignal,
+  ): Promise<StreamingPlayData | null> {
+    const dir = detectTranslationDirection(text, this.myLang, this.targetLang);
+    const langCode = dir.isMyLang ? this.targetLang : this.myLang;
+    const targetLangName = LANG_NAMES[langCode] || langCode;
+    if (this.oneWay && !dir.isMyLang) return null;
+
+    // Phase 1: translate (~300-600 ms). Promise resolves HERE — not after TTS.
+    const translated = (await translateText(text, targetLangName, {
+      apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL,
+    })) || '';
+    if (signal.aborted || !translated) return null;
+
+    // Phase 2: stream TTS in background — chunks accumulate in mulawChunks while
+    // the caller waits for utterance_end. By the time speakTranslation is called,
+    // most or all audio is buffered → playback starts at utterance_end with zero
+    // (or minimal) extra wait regardless of translation length.
+    const mulawChunks: Buffer[] = [];
+    let chunkCallback: ((buf: Buffer) => void) | null = null;
+    let ttsResolve!: () => void;
+    const ttsComplete = new Promise<void>(r => { ttsResolve = r; });
+
+    const runTTS = async () => {
+      try {
+        if (TTS_PROVIDER === 'openai') {
+          // OpenAI returns PCM — await full synthesis then convert in one shot.
+          const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(translated);
+          if (!signal.aborted) {
+            const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
+            const buf = pcmToMulaw(pcm);
+            mulawChunks.push(buf);
+            chunkCallback?.(buf);
+          }
+        } else {
+          // xAI returns mulaw 8kHz natively — each HTTP chunk plays immediately.
+          const tts = new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en');
+          tts.on('chunk', (c: TTSChunk) => {
+            if (signal.aborted) return;
+            mulawChunks.push(c.audio);
+            chunkCallback?.(c.audio);
+          });
+          await tts.synthesize(translated);
+        }
+      } catch { /* ttsComplete resolves below; playback falls back to commitTurn */ }
+      ttsResolve();
+    };
+    void runTTS(); // fire-and-forget: runs in background during 1 s silence window
+
+    return {
+      translated,
+      langCode,
+      mulawChunks,
+      ttsComplete,
+      setOnChunk: (fn) => { chunkCallback = fn; },
+    };
+  }
+
+  /** Fast commit path: translation pre-computed, TTS already streaming into buffer. */
+  private async commitTurnWithPrecomputed(
+    original: string, playData: StreamingPlayData,
+  ): Promise<void> {
+    if (this.paused || this.saved) return;
+    const { translated, langCode } = playData;
+    const on = this.normalize(original);
+    if (on && this.recentSpoken.some(s => s.includes(on) || on.includes(s))) return;
+
+    const dir = detectTranslationDirection(original, this.myLang, this.targetLang);
+    const speaker = dir.isMyLang ? 'subscriber' : 'other';
+
+    if (translated) this.resetIdleTimer();
+    this.transcript.push({ speaker, text: original, lang: dir.detectedLang, translated, timestamp: new Date().toISOString() });
+
+    const io = getIo();
+    if (io) {
+      io.to(`call:${this.callId}:translate`).emit('call:translation', {
+        call_id: this.callId, speaker, original, translated,
+        detected_language: dir.detectedLang, timestamp: new Date().toISOString(),
+      });
+      io.to(`call:${this.callId}`).emit('call:transcript', {
+        call_id: this.callId, speaker: 'conference', text: original,
+        timestamp: new Date().toISOString(), isFinal: true,
+      });
+    }
+    log.info({
+      callId: this.callId, metric: 'stealth_chunk_metrics',
+      speaker, input_chars: original.length, output_chars: translated.length, spoke: true,
+    }, 'stealth_chunk_metrics');
+
+    if (translated && (!this.oneWay || speaker === 'subscriber')) {
+      await this.speakTranslation(translated, langCode, playData);
+    }
   }
 
   private async commitTurn(original: string): Promise<void> {
@@ -341,38 +501,64 @@ export class StealthTranslator extends EventEmitter {
     }
   }
 
-  /** Synthesize TTS and stream it into the call (µ-law 8kHz). Tracks the spoken
-   *  text for echo filtering; resolves early if barge-in stops playback. */
-  private async speakTranslation(text: string, langCode: string): Promise<void> {
+  /** Speak translation into the call (µ-law 8kHz). When streaming data is provided
+   *  (from pre-compute), plays buffered chunks immediately and streams the remainder
+   *  as they arrive from the TTS API — no batch wait even for long translations. */
+  private async speakTranslation(
+    text: string, langCode: string, streaming?: StreamingPlayData,
+  ): Promise<void> {
     if (this.saved || this.twilioSocket.readyState !== 1) return;
     try {
-      let mulaw: Buffer;
-      if (TTS_PROVIDER === 'openai') {
-        const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(text);
-        const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
-        mulaw = pcmToMulaw(pcm);
-      } else {
-        mulaw = await new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en').synthesize(text);
-      }
-      if (this.saved || mulaw.length === 0 || this.twilioSocket.readyState !== 1) return;
-
-      // Remember what we're speaking so the mic echo can be filtered / loop-guarded.
       const norm = this.normalize(text);
       this.currentSpokenNorm = norm;
       this.recentSpoken.push(norm);
       if (this.recentSpoken.length > 5) this.recentSpoken.shift();
-
       this.playing = true;
       if (this.playbackTimer) clearTimeout(this.playbackTimer);
-      for (let i = 0; i < mulaw.length; i += 640) {
-        this.twilioSocket.send(JSON.stringify({
-          event: 'media', streamSid: this.streamSid,
-          media: { payload: mulaw.subarray(i, i + 640).toString('base64') },
-        }));
+
+      let totalBytes = 0;
+      const sendBuf = (buf: Buffer) => {
+        if (!this.playing || this.twilioSocket.readyState !== 1) return;
+        totalBytes += buf.length;
+        for (let i = 0; i < buf.length; i += 640) {
+          this.twilioSocket.send(JSON.stringify({
+            event: 'media', streamSid: this.streamSid,
+            media: { payload: buf.subarray(i, i + 640).toString('base64') },
+          }));
+        }
+      };
+
+      if (streaming) {
+        // Streaming path: snapshot the buffer that accumulated during pre-compute,
+        // register for new chunks, play snapshot. No race: JS is single-threaded —
+        // new chunks only arrive at the await below, after callback is registered.
+        const snapshot = [...streaming.mulawChunks];
+        streaming.setOnChunk((buf) => { if (this.playing) sendBuf(buf); });
+        for (const chunk of snapshot) sendBuf(chunk);
+        await streaming.ttsComplete;
+      } else {
+        // Fallback batch path (commitTurn or pre-compute unavailable).
+        let mulaw: Buffer;
+        if (TTS_PROVIDER === 'openai') {
+          const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(text);
+          const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
+          mulaw = pcmToMulaw(pcm);
+        } else {
+          mulaw = await new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en').synthesize(text);
+        }
+        if (this.saved || mulaw.length === 0 || this.twilioSocket.readyState !== 1) {
+          this.playing = false; this.currentSpokenNorm = ''; return;
+        }
+        sendBuf(mulaw);
       }
-      // Twilio plays at 8kHz real-time; the echo filter is active for the clip
-      // length + a tail guard, unless barge-in (stopPlayback) ends it earlier.
-      const durationMs = (mulaw.length / 8000) * 1000 + 400;
+
+      if (totalBytes === 0 || !this.playing) {
+        this.playing = false; this.currentSpokenNorm = ''; return;
+      }
+
+      // Twilio buffers audio and plays at 8kHz real-time. Wait for the clip to
+      // finish + a tail guard, unless barge-in (stopPlayback) ends it early.
+      const durationMs = (totalBytes / 8000) * 1000 + 400;
       await new Promise<void>(resolve => {
         this.playbackResolve = resolve;
         this.playbackTimer = setTimeout(() => {
@@ -464,6 +650,8 @@ export class StealthTranslator extends EventEmitter {
    */
   detach(): TranslatorCarryover {
     this.saved = true;
+    this.precomputeState?.abort.abort();
+    this.precomputeState = null;
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
@@ -476,6 +664,8 @@ export class StealthTranslator extends EventEmitter {
   async finalize(): Promise<void> {
     if (this.saved) return;
     this.saved = true;
+    this.precomputeState?.abort.abort();
+    this.precomputeState = null;
 
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }

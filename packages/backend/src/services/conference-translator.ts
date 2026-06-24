@@ -11,7 +11,7 @@ import { sendTranslatorSessionStart, sendTranslatorSessionEnd, sendAdminTranslat
 import { decrypt } from '../lib/crypto.js';
 import { providerCredentials } from '../db/schema.js';
 import { env } from '../config/env.js';
-import { detectTranslationDirection, languagesUseDifferentScripts as langsDifferentScripts } from '../lib/lang-direction.js';
+import { detectTranslationDirection, languagesUseDifferentScripts as langsDifferentScripts, CYRILLIC_LANGS } from '../lib/lang-direction.js';
 import { translateText } from './translate-text.js';
 
 const log = pino({ name: 'conference-translator' });
@@ -343,10 +343,11 @@ ${this.personalContext}` : ''}`;
           turn_detection: {
             type: 'server_vad',
             threshold: 0.7,
-            // Was 1400. Lowered to give shorter end-of-turn latency on quick
-            // replies ("Да", "OK", short sentences). The translator's own
-            // instructions still tell Grok to wait for a complete thought
-            // before translating, so mid-sentence cutoff stays rare.
+            // 1000ms: user requirement is "only after a second of silence". Lower
+            // values (700ms) fired on natural mid-speech pauses (breathing, between
+            // sentences) and interrupted speakers mid-thought. With streaming
+            // approval now based on output script alone, first audio arrives
+            // ~200ms after Grok starts → total ~1200ms from end of speech.
             silence_duration_ms: 1000,
             prefix_padding_ms: 400,
           },
@@ -930,26 +931,51 @@ ${this.personalContext}` : ''}`;
   /** Try to enable streaming once we know direction + script is safe. */
   private tryApproveStreaming(): void {
     if (this.streamingApproved || this.streamedAlready) return;
-    if (!this.currentInputDirectionKnown) return;
-    if (this.currentOutputTranscript.length < 6) return;
-    if (!this.currentInputTranscript) return; // greeting/system response — not streamed
+    // Lower threshold: 3 chars is enough to detect script (Cyrillic vs Latin).
+    if (this.currentOutputTranscript.length < 3) return;
+    // Greeting/system guard: if there is zero input transcript AND direction is
+    // unknown, this is a Grok-initiated response (greeting echo, ambient trigger).
+    // Any real translation turn will have at least a partial input delta by now.
+    if (!this.currentInputTranscript && !this.currentInputDirectionKnown) return;
 
     const isOneWay = this.mode === 'text' || this.mode === 'unidirectional';
-    if (isOneWay && !this.currentIsMyLang) return; // other party's audio shouldn't play
 
     if (this.languagesUseDifferentScripts()) {
-      const inputScript = this.detectScript(this.currentInputTranscript);
       const outputScript = this.detectScript(this.currentOutputTranscript);
-      if (inputScript) {
-        const expectedOutputScript = inputScript === 'cyrillic' ? 'latin' : 'cyrillic';
-        // Stream only when output is CONFIRMED in the expected opposite script.
-        // null/ambiguous (e.g. Russian text with a Latin brand name mid-stream like
-        // "Я знаю Housecall Pro") would otherwise leak echo audio to the listener,
-        // because once streamingApproved=true the response.done echo-check is skipped.
-        if (outputScript !== expectedOutputScript) {
-          return;
+      // Can't determine script yet — wait for more output.
+      if (outputScript === null) return;
+
+      if (!this.currentInputDirectionKnown) {
+        // Early-streaming path: input transcription hasn't arrived yet, but for
+        // different-script pairs (ru↔en) the output script alone reliably indicates
+        // direction. This removes the 200-400 ms block on input_transcription.completed
+        // and lets audio start ~200 ms after Grok begins generating.
+        if (isOneWay) {
+          // One-way: only speak when subscriber spoke. If subscriber's lang is
+          // Cyrillic (ru/uk/bg/sr), their speech produces Latin output (targetLang).
+          const targetIsCyrillic = CYRILLIC_LANGS.has(this.targetLang);
+          const outputInTargetScript = targetIsCyrillic
+            ? outputScript === 'cyrillic'
+            : outputScript === 'latin';
+          if (!outputInTargetScript) return; // Other party's speech → don't play
         }
+        // Bidirectional: both directions voiced — stream whenever output script is clear.
+      } else {
+        // Input direction known: full script + direction check (original logic).
+        const inputScript = this.detectScript(this.currentInputTranscript);
+        if (inputScript) {
+          const expectedOutputScript = inputScript === 'cyrillic' ? 'latin' : 'cyrillic';
+          // null/ambiguous output (e.g. "Я знаю Housecall Pro") would leak echo —
+          // skip streaming if output script doesn't match expected opposite.
+          if (outputScript !== expectedOutputScript) return;
+        }
+        if (isOneWay && !this.currentIsMyLang) return;
       }
+    } else {
+      // Same-script pair (fr↔en, es↔en, etc.): can't infer direction from script.
+      // Must wait for input transcription to confirm direction before streaming.
+      if (!this.currentInputDirectionKnown) return;
+      if (isOneWay && !this.currentIsMyLang) return;
     }
 
     // Approved — flush buffered audio and start streaming.
