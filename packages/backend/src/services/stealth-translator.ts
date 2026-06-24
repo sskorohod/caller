@@ -102,29 +102,30 @@ export class StealthTranslator extends EventEmitter {
   private playing = false;
   private playbackTimer?: ReturnType<typeof setTimeout>;
   private playbackResolve?: () => void;
-  // Pause/resume barge-in. The full µ-law of the clip currently playing is kept so
-  // a short interjection can pause it and replay the whole phrase from the start.
+  // Barge-in. The full µ-law of the clip currently playing is kept so a short
+  // interjection can pause it and replay the whole phrase from the start. While
+  // paused we accumulate the user's speech; the pause/escalate decision is made
+  // at utterance_end (a reliable end-of-speech signal) — NOT on a self-made silence
+  // timer, which fired on the normal gaps between Deepgram segments and trapped us
+  // in a pause→replay loop that never reached the escalation threshold.
   private playbackBuffer: Buffer = Buffer.alloc(0); // grows as chunks are sent
   private playbackStartAt = 0;                        // when the current play segment began streaming
-  private playbackPaused = false;                     // paused by a short (<BARGE_IN_MS) barge-in
-  private resumeTimer?: ReturnType<typeof setTimeout>; // fires when the user goes quiet → resume
-  private bargeCaptured: string[] = [];               // finalized speech heard during a barge-in
+  private playbackPaused = false;                     // playback paused by an in-progress barge-in
+  private bargeStartAt = 0;                            // when the current barge-in began
+  private bargeLastAt = 0;                             // last barge-in transcript time
+  private bargeBuffer: string[] = [];                 // finalized barge-in speech
+  private bargeInterim = '';                           // live tail of barge-in speech
   // Original text + direction of the phrase currently being spoken — so a sustained
   // barge-in can re-translate "original phrase + the user's addition" as one thought.
   private currentSpokenOriginal = '';
   private currentSpokenOriginalIsMyLang = false;
-  // Resume the paused clip once the user is quiet this long (short interjection).
-  private static readonly RESUME_SILENCE_MS = 800;
   // Barge-in echo filter: text we're currently speaking + recent outputs, so we
   // can tell our own TTS (heard back on the mic) from a real interruption.
   private currentSpokenNorm = '';
   private recentSpoken: string[] = [];
-  // Barge-in escalation threshold: continuous talking (gaps < 800ms) for this long
-  // means the user is finishing/continuing a thought → full stop + re-translate.
-  // Shorter than this is treated as a stray interjection (replay from the start).
-  // Default 2000ms per user request.
-  private bargeInStartAt: number | null = null;
-  private lastNonEchoAt = 0;
+  // Sustained barge-in threshold: if the user talks over playback for at least this
+  // long (measured at utterance_end) they're finishing a thought → merge + re-translate.
+  // Shorter is a stray interjection → replay the phrase from the start. Default 2000ms.
   private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 2000;
   // Voice mode: accumulate finalized segments and commit the whole utterance on
   // utterance_end (a pause) so we don't translate/speak before the person is done.
@@ -285,66 +286,25 @@ export class StealthTranslator extends EventEmitter {
     const text = (e.text || '').trim();
     if (!text) return;
 
-    // While our TTS is playing and the user starts talking over it:
-    //  • ignore our own TTS echo,
-    //  • pause playback immediately so the two voices don't overlap,
-    //  • SHORT interjection (< BARGE_IN_MS, then a quiet gap): resume the clip from
-    //    where we paused (rewound a touch for continuity); the interjection is
-    //    dropped, not translated.
-    //  • SUSTAINED speech (≥ BARGE_IN_MS continuous, gaps < 800ms): full stop —
-    //    the user is finishing the thought. Append their speech to the ORIGINAL
-    //    phrase being spoken and re-translate the whole thing as one utterance.
+    // While our TTS is playing and the user starts talking over it: ignore our own
+    // echo, pause playback so the voices don't overlap, and accumulate the user's
+    // speech. The decision — short interjection (replay) vs sustained continuation
+    // (merge + re-translate) — is deferred to onUtteranceEnd, which fires on a real
+    // end-of-speech pause. We do NOT decide here on inter-segment gaps.
     if (this.playing) {
       if (this.isEcho(text)) return;
       const now = Date.now();
-      if (this.bargeInStartAt === null || now - this.lastNonEchoAt > 800) this.bargeInStartAt = now;
-      this.lastNonEchoAt = now;
-
-      // First real speech over playback → pause right away.
       if (!this.playbackPaused) {
         log.info({ callId: this.callId, metric: 'barge', event: 'pause', text }, 'barge-in: paused playback');
         this.pausePlayback();
+        this.bargeStartAt = now;
+        this.bargeBuffer = [];
+        this.bargeInterim = '';
       }
-
-      // Capture finalized speech so escalation can translate the whole thought.
-      if (e.isFinal) this.bargeCaptured.push(text);
-
-      // (Re)arm the resume timer: if the user goes quiet before hitting BARGE_IN_MS,
-      // resume the paused clip and drop the interjection.
-      if (this.resumeTimer) clearTimeout(this.resumeTimer);
-      this.resumeTimer = setTimeout(() => this.resumePlayback(), StealthTranslator.RESUME_SILENCE_MS);
-
-      if (now - this.bargeInStartAt < StealthTranslator.BARGE_IN_MS) return; // still short — keep paused
-
-      // Sustained → escalate to a full stop and re-translate as one thought.
-      if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
-      this.bargeInStartAt = null;
-      const origPhrase = this.currentSpokenOriginal;
-      const origIsMyLang = this.currentSpokenOriginalIsMyLang;
-      this.stopPlayback();                       // discard the paused clip
-      const captured = this.bargeCaptured.slice();
-      this.bargeCaptured = [];
-      if (this.speak && captured.length) {
-        // Prepend the original phrase being spoken so the translation covers
-        // "original phrase + the user's addition" as one utterance — but only when
-        // the addition is in the same direction (same speaker's language); otherwise
-        // the two would be different languages and must not be merged.
-        const capturedText = captured.join(' ').trim();
-        const capturedDir = detectTranslationDirection(capturedText, this.myLang, this.targetLang);
-        const merged = !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
-        if (merged) {
-          this.segmentBuffer.push(origPhrase, ...captured);
-        } else {
-          this.segmentBuffer.push(...captured);
-        }
-        log.info({
-          callId: this.callId, metric: 'barge', event: 'escalate', merged,
-          origPhrase: merged ? origPhrase : undefined, captured: capturedText,
-        }, 'barge-in: sustained → re-translating full thought');
-        this.startPrecompute(this.segmentBuffer.join(' ').trim());
-        return; // utterance_end will commit; this segment is already captured
-      }
-      // fall through and process this (sustained) speech normally
+      this.bargeLastAt = now;
+      if (e.isFinal) { this.bargeBuffer.push(text); this.bargeInterim = ''; }
+      else { this.bargeInterim = text; }
+      return; // resolved at onUtteranceEnd
     }
 
     if (e.isFinal) {
@@ -378,6 +338,37 @@ export class StealthTranslator extends EventEmitter {
 
   private onUtteranceEnd(): void {
     if (this.saved) return;
+
+    // Barge-in resolution: the user talked over our playback. Now that they've
+    // paused (reliable end-of-speech), decide what it was:
+    //  • SHORT (< BARGE_IN_MS): a stray interjection → replay the phrase from the
+    //    start and drop what they said.
+    //  • SUSTAINED (≥ BARGE_IN_MS): they were finishing the thought → merge their
+    //    speech onto the original phrase and re-translate the whole thing.
+    if (this.playbackPaused) {
+      const bargeMs = this.bargeLastAt - this.bargeStartAt;
+      const captured = [...this.bargeBuffer, this.bargeInterim].join(' ').trim();
+      this.bargeBuffer = [];
+      this.bargeInterim = '';
+      if (bargeMs >= StealthTranslator.BARGE_IN_MS && captured && this.speak) {
+        const origPhrase = this.currentSpokenOriginal;
+        const origIsMyLang = this.currentSpokenOriginalIsMyLang;
+        this.stopPlayback(); // discard the interrupted clip
+        const capturedDir = detectTranslationDirection(captured, this.myLang, this.targetLang);
+        const merged = !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
+        const fullText = merged ? `${origPhrase} ${captured}`.trim() : captured;
+        log.info({
+          callId: this.callId, metric: 'barge', event: 'escalate', merged, bargeMs,
+          origPhrase: merged ? origPhrase : undefined, captured,
+        }, 'barge-in: sustained → re-translating full thought');
+        this.commitChain = this.commitChain.then(() => this.commitTurn(fullText)).catch(() => {});
+      } else {
+        log.info({ callId: this.callId, metric: 'barge', event: 'resume', bargeMs, dropped: captured }, 'barge-in: short → replaying phrase from start');
+        this.resumePlayback(); // replay original from the start; interjection dropped
+      }
+      return;
+    }
+
     // Speaker paused → end of thought. Commit ONLY finalized segments. Deepgram
     // sends UtteranceEnd after the matching is_final, so everything the speaker
     // actually finished is already in segmentBuffer. latestInterim at this point
@@ -654,8 +645,9 @@ export class StealthTranslator extends EventEmitter {
     }
   }
 
-  /** Short barge-in started: pause playback and flush Twilio's buffered audio so
-   *  our voice and the user's don't overlap. The clip is kept for replay. */
+  /** Barge-in started: pause playback and flush Twilio's buffered audio so our
+   *  voice and the user's don't overlap. The clip is kept for replay or discard,
+   *  decided at onUtteranceEnd. */
   private pausePlayback(): void {
     if (!this.playing || this.playbackPaused || this.playbackStartAt === 0) return;
     this.playbackPaused = true;
@@ -669,12 +661,8 @@ export class StealthTranslator extends EventEmitter {
   /** Short interjection ended (user went quiet): replay the whole phrase from the
    *  start so nothing is lost. The interjection itself is discarded (not translated). */
   private resumePlayback(): void {
-    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
     if (!this.playing || !this.playbackPaused) return;
-    log.info({ callId: this.callId, metric: 'barge', event: 'resume', dropped: this.bargeCaptured.join(' ') }, 'barge-in: short interjection → replaying phrase from start');
     this.playbackPaused = false;
-    this.bargeInStartAt = null;
-    this.bargeCaptured = [];
     if (this.playbackBuffer.length === 0 || this.twilioSocket.readyState !== 1) { this.finishPlayback(); return; }
     this.playbackStartAt = Date.now();
     this.sendToTwilio(this.playbackBuffer);
@@ -686,9 +674,7 @@ export class StealthTranslator extends EventEmitter {
   private finishPlayback(): void {
     this.playing = false;
     this.playbackPaused = false;
-    this.bargeInStartAt = null;
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
-    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
     if (this.playbackResolve) { this.playbackResolve(); this.playbackResolve = undefined; }
   }
 
@@ -773,7 +759,6 @@ export class StealthTranslator extends EventEmitter {
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
-    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
     this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
     return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
@@ -789,7 +774,6 @@ export class StealthTranslator extends EventEmitter {
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
-    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
     this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
 
