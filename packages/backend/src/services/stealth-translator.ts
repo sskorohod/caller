@@ -102,6 +102,20 @@ export class StealthTranslator extends EventEmitter {
   private playing = false;
   private playbackTimer?: ReturnType<typeof setTimeout>;
   private playbackResolve?: () => void;
+  // Pause/resume barge-in. The full µ-law of the clip currently playing is kept so
+  // a short interjection can pause it and resume from the same spot. Twilio gives
+  // no playback-position feedback, so position is estimated from elapsed wall-clock
+  // time (µ-law 8kHz = 8 bytes/ms).
+  private playbackBuffer: Buffer = Buffer.alloc(0); // grows as chunks are sent
+  private playbackStartAt = 0;                        // when the current play segment began streaming
+  private playbackPaused = false;                     // paused by a short (<BARGE_IN_MS) barge-in
+  private pausedAtByte = 0;                            // byte offset reached when we paused
+  private resumeTimer?: ReturnType<typeof setTimeout>; // fires when the user goes quiet → resume
+  private bargeCaptured: string[] = [];               // finalized speech heard during a barge-in
+  // Resume the paused clip once the user is quiet this long (short interjection).
+  private static readonly RESUME_SILENCE_MS = 800;
+  // Replay ~0.8s of already-played audio on resume so the thought isn't cut (µ-law 8kHz).
+  private static readonly REWIND_BYTES = 6400;
   // Barge-in echo filter: text we're currently speaking + recent outputs, so we
   // can tell our own TTS (heard back on the mic) from a real interruption.
   private currentSpokenNorm = '';
@@ -272,18 +286,48 @@ export class StealthTranslator extends EventEmitter {
     const text = (e.text || '').trim();
     if (!text) return;
 
-    // While our TTS is playing: ignore our own echo, and require SUSTAINED real
-    // speech (≥ BARGE_IN_MS, gaps < 800ms) before cutting playback — so a stray
-    // sound or a single word doesn't interrupt the translation.
+    // While our TTS is playing and the user starts talking over it:
+    //  • ignore our own TTS echo,
+    //  • pause playback immediately so the two voices don't overlap,
+    //  • SHORT interjection (< BARGE_IN_MS, then a quiet gap): resume the clip from
+    //    where we paused (rewound a touch for continuity); the interjection is
+    //    dropped, not translated.
+    //  • SUSTAINED speech (≥ BARGE_IN_MS continuous, gaps < 800ms): full stop —
+    //    discard the rest of the clip and translate the whole interjection from the
+    //    moment the user began talking.
     if (this.playing) {
       if (this.isEcho(text)) return;
       const now = Date.now();
       if (this.bargeInStartAt === null || now - this.lastNonEchoAt > 800) this.bargeInStartAt = now;
       this.lastNonEchoAt = now;
-      if (now - this.bargeInStartAt < StealthTranslator.BARGE_IN_MS) return; // not sustained yet
+
+      // First real speech over playback → pause right away.
+      if (!this.playbackPaused) this.pausePlayback();
+
+      // Capture finalized speech so escalation can translate the whole thought.
+      if (e.isFinal) this.bargeCaptured.push(text);
+
+      // (Re)arm the resume timer: if the user goes quiet before hitting BARGE_IN_MS,
+      // resume the paused clip and drop the interjection.
+      if (this.resumeTimer) clearTimeout(this.resumeTimer);
+      this.resumeTimer = setTimeout(() => this.resumePlayback(), StealthTranslator.RESUME_SILENCE_MS);
+
+      if (now - this.bargeInStartAt < StealthTranslator.BARGE_IN_MS) return; // still short — keep paused
+
+      // Sustained → escalate to a full stop and translate the captured interjection.
+      if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
       this.bargeInStartAt = null;
-      this.stopPlayback();
-      // fall through and process this (sustained) speech
+      this.stopPlayback();                       // discard the paused clip
+      const captured = this.bargeCaptured.slice();
+      this.bargeCaptured = [];
+      if (this.speak && captured.length) {
+        // Seed the new utterance with everything heard since the barge-in began, so
+        // the translation covers the full thought from the start.
+        this.segmentBuffer.push(...captured);
+        this.startPrecompute(this.segmentBuffer.join(' ').trim());
+        return; // utterance_end will commit; this segment is already captured
+      }
+      // fall through and process this (sustained) speech normally
     }
 
     if (e.isFinal) {
@@ -516,27 +560,29 @@ export class StealthTranslator extends EventEmitter {
       this.recentSpoken.push(norm);
       if (this.recentSpoken.length > 5) this.recentSpoken.shift();
       this.playing = true;
+      this.playbackPaused = false;
+      this.playbackBuffer = Buffer.alloc(0);
+      this.playbackStartAt = 0;
       if (this.playbackTimer) clearTimeout(this.playbackTimer);
 
-      let totalBytes = 0;
-      const sendBuf = (buf: Buffer) => {
-        if (!this.playing || this.twilioSocket.readyState !== 1) return;
-        totalBytes += buf.length;
-        for (let i = 0; i < buf.length; i += 640) {
-          this.twilioSocket.send(JSON.stringify({
-            event: 'media', streamSid: this.streamSid,
-            media: { payload: buf.subarray(i, i + 640).toString('base64') },
-          }));
+      // Accumulate the full clip (for pause/resume) while streaming it to Twilio
+      // for low latency. Position is estimated from playbackStartAt (set on the
+      // first byte actually sent).
+      const appendAndSend = (buf: Buffer) => {
+        this.playbackBuffer = Buffer.concat([this.playbackBuffer, buf]);
+        if (this.playing && !this.playbackPaused) {
+          if (this.playbackStartAt === 0) this.playbackStartAt = Date.now();
+          this.sendToTwilio(buf);
         }
       };
 
       if (streaming) {
-        // Streaming path: snapshot the buffer that accumulated during pre-compute,
-        // register for new chunks, play snapshot. No race: JS is single-threaded —
-        // new chunks only arrive at the await below, after callback is registered.
+        // Snapshot the buffer accumulated during pre-compute, register for new
+        // chunks, play snapshot. No race: JS is single-threaded — new chunks only
+        // arrive at the await below, after the callback is registered.
         const snapshot = [...streaming.mulawChunks];
-        streaming.setOnChunk((buf) => { if (this.playing) sendBuf(buf); });
-        for (const chunk of snapshot) sendBuf(chunk);
+        streaming.setOnChunk((buf) => { if (this.playing) appendAndSend(buf); });
+        for (const chunk of snapshot) appendAndSend(chunk);
         await streaming.ttsComplete;
       } else {
         // Fallback batch path (commitTurn or pre-compute unavailable).
@@ -551,21 +597,22 @@ export class StealthTranslator extends EventEmitter {
         if (this.saved || mulaw.length === 0 || this.twilioSocket.readyState !== 1) {
           this.playing = false; this.currentSpokenNorm = ''; return;
         }
-        sendBuf(mulaw);
+        appendAndSend(mulaw);
       }
 
-      if (totalBytes === 0 || !this.playing) {
+      if (this.playbackBuffer.length === 0 || !this.playing) {
         this.playing = false; this.currentSpokenNorm = ''; return;
       }
 
-      // Twilio buffers audio and plays at 8kHz real-time. Wait for the clip to
-      // finish + a tail guard, unless barge-in (stopPlayback) ends it early.
-      const durationMs = (totalBytes / 8000) * 1000 + 400;
+      // Wait for the clip to finish + a tail guard. finishPlayback resolves this —
+      // either from the timer below, or after a pause/resume cycle. While paused,
+      // the timer is cleared and resumePlayback re-arms it for the remaining tail.
       await new Promise<void>(resolve => {
         this.playbackResolve = resolve;
-        this.playbackTimer = setTimeout(() => {
-          this.playing = false; this.playbackResolve = undefined; this.bargeInStartAt = null; resolve();
-        }, durationMs);
+        if (!this.playbackPaused) {
+          const remainingMs = (this.playbackBuffer.length / 8) + 400;
+          this.playbackTimer = setTimeout(() => this.finishPlayback(), remainingMs);
+        }
       });
       this.currentSpokenNorm = '';
     } catch (err) {
@@ -575,17 +622,67 @@ export class StealthTranslator extends EventEmitter {
     }
   }
 
-  /** Stop in-flight TTS playback (barge-in): flush Twilio buffer + resolve the wait. */
+  /** Send a µ-law buffer to Twilio in 640-byte (80ms) media frames. */
+  private sendToTwilio(buf: Buffer): void {
+    if (this.twilioSocket.readyState !== 1) return;
+    for (let i = 0; i < buf.length; i += 640) {
+      this.twilioSocket.send(JSON.stringify({
+        event: 'media', streamSid: this.streamSid,
+        media: { payload: buf.subarray(i, i + 640).toString('base64') },
+      }));
+    }
+  }
+
+  /** Short barge-in started: pause playback, flush Twilio's buffer, remember the
+   *  byte position (estimated from elapsed time) so we can resume from there. */
+  private pausePlayback(): void {
+    if (!this.playing || this.playbackPaused || this.playbackStartAt === 0) return;
+    this.playbackPaused = true;
+    const elapsedMs = Date.now() - this.playbackStartAt;
+    this.pausedAtByte = Math.min(this.playbackBuffer.length, Math.max(0, Math.floor(elapsedMs * 8)));
+    if (this.twilioSocket.readyState === 1) {
+      try { this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid })); } catch { /* ignore */ }
+    }
+    if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    // Do NOT resolve the playback promise — the clip is paused, not finished.
+  }
+
+  /** Short interjection ended (user went quiet): resume the paused clip from where
+   *  we left off, rewound ~0.8s for continuity. The interjection is discarded. */
+  private resumePlayback(): void {
+    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
+    if (!this.playing || !this.playbackPaused) return;
+    this.playbackPaused = false;
+    this.bargeInStartAt = null;
+    this.bargeCaptured = [];
+    const startByte = Math.max(0, this.pausedAtByte - StealthTranslator.REWIND_BYTES);
+    const tail = this.playbackBuffer.subarray(startByte);
+    if (tail.length === 0 || this.twilioSocket.readyState !== 1) { this.finishPlayback(); return; }
+    this.playbackStartAt = Date.now() - (startByte / 8);
+    this.sendToTwilio(tail);
+    const remainingMs = ((this.playbackBuffer.length - startByte) / 8) + 400;
+    this.playbackTimer = setTimeout(() => this.finishPlayback(), remainingMs);
+  }
+
+  /** Clip finished (or stopped): clear state and resolve the speakTranslation wait. */
+  private finishPlayback(): void {
+    this.playing = false;
+    this.playbackPaused = false;
+    this.bargeInStartAt = null;
+    if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
+    if (this.playbackResolve) { this.playbackResolve(); this.playbackResolve = undefined; }
+  }
+
+  /** Full stop (sustained barge-in / teardown): discard the clip + flush Twilio. */
   private stopPlayback(): void {
     if (!this.playing) return;
     if (this.twilioSocket.readyState === 1) {
       try { this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid })); } catch { /* ignore */ }
     }
-    this.playing = false;
+    this.playbackBuffer = Buffer.alloc(0);
     this.currentSpokenNorm = '';
-    this.bargeInStartAt = null;
-    if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
-    if (this.playbackResolve) { this.playbackResolve(); this.playbackResolve = undefined; }
+    this.finishPlayback();
   }
 
   private normalize(s: string): string {
@@ -658,6 +755,7 @@ export class StealthTranslator extends EventEmitter {
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
     this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
     return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
@@ -673,6 +771,7 @@ export class StealthTranslator extends EventEmitter {
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
     this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
 
