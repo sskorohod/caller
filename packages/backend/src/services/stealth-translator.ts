@@ -106,11 +106,13 @@ export class StealthTranslator extends EventEmitter {
   // can tell our own TTS (heard back on the mic) from a real interruption.
   private currentSpokenNorm = '';
   private recentSpoken: string[] = [];
-  // Barge-in requires sustained real speech (not a stray sound) before it cuts
-  // our playback — like the old 2s threshold.
+  // Barge-in requires sustained real speech (≥ BARGE_IN_MS of continuous talking,
+  // gaps < 800ms) before it cuts our playback — so a stray sound or a short word
+  // doesn't interrupt the translation. Default 3000ms per user request: only stop
+  // the translator if the user keeps talking for 3 full seconds.
   private bargeInStartAt: number | null = null;
   private lastNonEchoAt = 0;
-  private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 2000;
+  private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 3000;
   // Voice mode: accumulate finalized segments and commit the whole utterance on
   // utterance_end (a pause) so we don't translate/speak before the person is done.
   private segmentBuffer: string[] = [];
