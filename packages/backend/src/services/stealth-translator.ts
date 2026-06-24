@@ -301,7 +301,10 @@ export class StealthTranslator extends EventEmitter {
       this.lastNonEchoAt = now;
 
       // First real speech over playback → pause right away.
-      if (!this.playbackPaused) this.pausePlayback();
+      if (!this.playbackPaused) {
+        log.info({ callId: this.callId, metric: 'barge', event: 'pause', text }, 'barge-in: paused playback');
+        this.pausePlayback();
+      }
 
       // Capture finalized speech so escalation can translate the whole thought.
       if (e.isFinal) this.bargeCaptured.push(text);
@@ -328,11 +331,16 @@ export class StealthTranslator extends EventEmitter {
         // the two would be different languages and must not be merged.
         const capturedText = captured.join(' ').trim();
         const capturedDir = detectTranslationDirection(capturedText, this.myLang, this.targetLang);
-        if (origPhrase && capturedDir.isMyLang === origIsMyLang) {
+        const merged = !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
+        if (merged) {
           this.segmentBuffer.push(origPhrase, ...captured);
         } else {
           this.segmentBuffer.push(...captured);
         }
+        log.info({
+          callId: this.callId, metric: 'barge', event: 'escalate', merged,
+          origPhrase: merged ? origPhrase : undefined, captured: capturedText,
+        }, 'barge-in: sustained → re-translating full thought');
         this.startPrecompute(this.segmentBuffer.join(' ').trim());
         return; // utterance_end will commit; this segment is already captured
       }
@@ -663,6 +671,7 @@ export class StealthTranslator extends EventEmitter {
   private resumePlayback(): void {
     if (this.resumeTimer) { clearTimeout(this.resumeTimer); this.resumeTimer = undefined; }
     if (!this.playing || !this.playbackPaused) return;
+    log.info({ callId: this.callId, metric: 'barge', event: 'resume', dropped: this.bargeCaptured.join(' ') }, 'barge-in: short interjection → replaying phrase from start');
     this.playbackPaused = false;
     this.bargeInStartAt = null;
     this.bargeCaptured = [];
