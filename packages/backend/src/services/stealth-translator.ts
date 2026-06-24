@@ -113,6 +113,7 @@ export class StealthTranslator extends EventEmitter {
   private playbackStartAt = 0;                        // when the current play segment began streaming
   private playbackPaused = false;                     // playback paused by an in-progress barge-in
   private pausedAtByte = 0;                            // playback byte offset reached when we paused
+  private bargePlaybackElapsedMs = 0;                 // how long the clip had played before this barge-in (phase boundary)
   private bargeAudioStart: number | null = null;      // audio-time of first barge-in segment (sec)
   private bargeAudioEnd = 0;                            // audio-time of last barge-in segment (sec)
   private bargeBuffer: string[] = [];                 // finalized barge-in speech
@@ -125,10 +126,18 @@ export class StealthTranslator extends EventEmitter {
   // can tell our own TTS (heard back on the mic) from a real interruption.
   private currentSpokenNorm = '';
   private recentSpoken: string[] = [];
-  // Sustained barge-in threshold (ms of real speech, from Deepgram audio timestamps):
-  // talk over playback at least this long → finishing a thought → merge + re-translate.
-  // Shorter is a stray interjection → resume from where we paused. Default 2500ms.
-  private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 2500;
+  // Two-phase sustained barge-in. The phase is chosen by how long the interrupted clip
+  // had already played (bargePlaybackElapsedMs); barge-in speech duration is measured in
+  // ms of real speech from Deepgram audio timestamps:
+  //  • Phase A — clip played ≤ BARGE_PHASE_BOUNDARY_MS (translation just started):
+  //    interrupt at ≥ BARGE_PHASE_A_MS and MERGE the addition onto the original (the
+  //    original barely played → speaker is likely finishing the same thought).
+  //  • Phase B — clip played longer: interrupt at ≥ BARGE_PHASE_B_MS and translate ONLY
+  //    the new speech (original already played; higher bar so stray remarks don't cut).
+  // Below the phase threshold → stray interjection → resume from where we paused.
+  private static readonly BARGE_PHASE_BOUNDARY_MS = 2000;
+  private static readonly BARGE_PHASE_A_MS = 2000;
+  private static readonly BARGE_PHASE_B_MS = 3000;
   // Replay ~0.8s of already-played audio on resume so the thought isn't cut (µ-law 8kHz).
   private static readonly REWIND_BYTES = 6400;
   // Voice mode: accumulate finalized segments and commit the whole utterance on
@@ -344,31 +353,42 @@ export class StealthTranslator extends EventEmitter {
 
     // Barge-in resolution: the user talked over our playback. Now that they've
     // paused (reliable end-of-speech), decide what it was, using REAL spoken duration
-    // from Deepgram's audio timestamps (segmentation-independent):
-    //  • SHORT (< BARGE_IN_MS): a stray interjection → resume from where we paused
+    // from Deepgram's audio timestamps (segmentation-independent) and the two-phase
+    // thresholds keyed on how long the interrupted clip had already played:
+    //  • SHORT (< phase threshold): a stray interjection → resume from where we paused
     //    (rewound a touch for continuity), drop what they said.
-    //  • SUSTAINED (≥ BARGE_IN_MS): finishing a thought → merge their speech onto the
-    //    original phrase and re-translate the whole thing.
+    //  • SUSTAINED (≥ phase threshold): finishing a thought → re-translate. Phase A
+    //    merges their speech onto the original phrase; phase B translates only the new
+    //    speech.
     if (this.playbackPaused) {
       const bargeMs = this.bargeAudioStart !== null
         ? Math.round((this.bargeAudioEnd - this.bargeAudioStart) * 1000) : 0;
       const captured = [...this.bargeBuffer, this.bargeInterim].join(' ').trim();
       this.bargeBuffer = [];
       this.bargeInterim = '';
-      if (bargeMs >= StealthTranslator.BARGE_IN_MS && captured && this.speak) {
+      // Phase by how long the interrupted clip had already played:
+      //  A (≤ boundary) → easier to interrupt (≥ A ms) + merge the addition;
+      //  B (> boundary) → harder to interrupt (≥ B ms) + translate only the new speech.
+      const elapsedMs = this.bargePlaybackElapsedMs;
+      const phaseA = elapsedMs <= StealthTranslator.BARGE_PHASE_BOUNDARY_MS;
+      const threshold = phaseA ? StealthTranslator.BARGE_PHASE_A_MS : StealthTranslator.BARGE_PHASE_B_MS;
+      const phase = phaseA ? 'A' : 'B';
+      if (bargeMs >= threshold && captured && this.speak) {
         const origPhrase = this.currentSpokenOriginal;
         const origIsMyLang = this.currentSpokenOriginalIsMyLang;
         this.stopPlayback(); // cancel the interrupted clip
         const capturedDir = detectTranslationDirection(captured, this.myLang, this.targetLang);
-        const merged = !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
+        // Merge only in phase A (original barely played). In phase B translate only the
+        // new speech — the original already played.
+        const merged = phaseA && !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
         const fullText = merged ? `${origPhrase} ${captured}`.trim() : captured;
         log.info({
-          callId: this.callId, metric: 'barge', event: 'escalate', merged, bargeMs,
+          callId: this.callId, metric: 'barge', event: 'escalate', phase, merged, bargeMs, elapsedMs,
           origPhrase: merged ? origPhrase : undefined, captured,
-        }, 'barge-in: sustained → re-translating full thought');
+        }, 'barge-in: sustained → re-translating');
         this.commitChain = this.commitChain.then(() => this.commitTurn(fullText)).catch(() => {});
       } else {
-        log.info({ callId: this.callId, metric: 'barge', event: 'resume', bargeMs, dropped: captured }, 'barge-in: short → resuming from pause point');
+        log.info({ callId: this.callId, metric: 'barge', event: 'resume', phase, bargeMs, elapsedMs, dropped: captured }, 'barge-in: short → resuming from pause point');
         this.resumePlayback(); // resume from where we paused; interjection dropped
       }
       return;
@@ -657,6 +677,7 @@ export class StealthTranslator extends EventEmitter {
     if (!this.playing || this.playbackPaused || this.playbackStartAt === 0) return;
     this.playbackPaused = true;
     const elapsedMs = Date.now() - this.playbackStartAt;
+    this.bargePlaybackElapsedMs = elapsedMs; // phase boundary for the barge-in decision at onUtteranceEnd
     this.pausedAtByte = Math.min(this.playbackBuffer.length, Math.max(0, Math.floor(elapsedMs * 8)));
     if (this.twilioSocket.readyState === 1) {
       try { this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid })); } catch { /* ignore */ }
