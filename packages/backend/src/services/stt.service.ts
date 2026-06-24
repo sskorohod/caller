@@ -11,6 +11,12 @@ export interface TranscriptEvent {
   speaker: 'caller' | 'agent';
   confidence: number;
   timestamp: string;
+  /** Audio-stream start offset of this segment, in seconds (Deepgram only). */
+  audioStart?: number;
+  /** Audio-stream end offset of this segment, in seconds (Deepgram only). Reflects
+   *  real spoken duration even when the whole utterance arrives as one segment —
+   *  unlike wall-clock time between segment arrivals. */
+  audioEnd?: number;
 }
 
 /**
@@ -63,12 +69,22 @@ export class DeepgramSTT extends EventEmitter {
         if (msg.type === 'Results') {
           const alt = msg.channel?.alternatives?.[0];
           if (alt && alt.transcript) {
+            // Prefer word-level timestamps (exact spoken span); fall back to the
+            // segment's start+duration. These are audio-stream offsets, so they
+            // measure real speech length regardless of how Deepgram batches segments.
+            const words = alt.words as Array<{ start: number; end: number }> | undefined;
+            const audioStart = words?.length ? words[0].start
+              : (typeof msg.start === 'number' ? msg.start : undefined);
+            const audioEnd = words?.length ? words[words.length - 1].end
+              : (typeof msg.start === 'number' && typeof msg.duration === 'number' ? msg.start + msg.duration : undefined);
             const event: TranscriptEvent = {
               text: alt.transcript,
               isFinal: msg.is_final ?? false,
               speaker: 'caller',
               confidence: alt.confidence ?? 0,
               timestamp: new Date().toISOString(),
+              audioStart,
+              audioEnd,
             };
             this.emit('transcript', event);
           }

@@ -102,17 +102,19 @@ export class StealthTranslator extends EventEmitter {
   private playing = false;
   private playbackTimer?: ReturnType<typeof setTimeout>;
   private playbackResolve?: () => void;
-  // Barge-in. The full µ-law of the clip currently playing is kept so a short
-  // interjection can pause it and replay the whole phrase from the start. While
-  // paused we accumulate the user's speech; the pause/escalate decision is made
-  // at utterance_end (a reliable end-of-speech signal) — NOT on a self-made silence
-  // timer, which fired on the normal gaps between Deepgram segments and trapped us
-  // in a pause→replay loop that never reached the escalation threshold.
+  // Barge-in. The full µ-law of the clip currently playing is kept so we can pause
+  // it and resume from the same spot (short interjection) or discard it (sustained).
+  // The pause/escalate decision is made at utterance_end (a reliable end-of-speech
+  // signal), NOT a self-made silence timer (which fired on normal inter-segment gaps
+  // and trapped us in a pause→replay loop). Barge-in duration is measured from
+  // Deepgram's audio timestamps, not wall-clock between arrivals (which read 0 when a
+  // multi-second utterance arrives as a single segment).
   private playbackBuffer: Buffer = Buffer.alloc(0); // grows as chunks are sent
   private playbackStartAt = 0;                        // when the current play segment began streaming
   private playbackPaused = false;                     // playback paused by an in-progress barge-in
-  private bargeStartAt = 0;                            // when the current barge-in began
-  private bargeLastAt = 0;                             // last barge-in transcript time
+  private pausedAtByte = 0;                            // playback byte offset reached when we paused
+  private bargeAudioStart: number | null = null;      // audio-time of first barge-in segment (sec)
+  private bargeAudioEnd = 0;                            // audio-time of last barge-in segment (sec)
   private bargeBuffer: string[] = [];                 // finalized barge-in speech
   private bargeInterim = '';                           // live tail of barge-in speech
   // Original text + direction of the phrase currently being spoken — so a sustained
@@ -123,14 +125,12 @@ export class StealthTranslator extends EventEmitter {
   // can tell our own TTS (heard back on the mic) from a real interruption.
   private currentSpokenNorm = '';
   private recentSpoken: string[] = [];
-  // Sustained barge-in threshold: if the user talks over playback for at least this
-  // long (measured at utterance_end) they're finishing a thought → merge + re-translate.
-  // Shorter is a stray interjection → replay the phrase from the start. Default 2000ms.
-  private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 2000;
-  // Fallback signal for "sustained": this many words means a continued thought even
-  // when Deepgram batched the whole utterance into one segment (so bargeMs reads 0).
-  // ~2s of speech at a normal pace. Tunable without a rebuild.
-  private static readonly BARGE_IN_WORDS = Number(process.env.VOICE_BARGE_IN_WORDS) || 5;
+  // Sustained barge-in threshold (ms of real speech, from Deepgram audio timestamps):
+  // talk over playback at least this long → finishing a thought → merge + re-translate.
+  // Shorter is a stray interjection → resume from where we paused. Default 2500ms.
+  private static readonly BARGE_IN_MS = Number(process.env.VOICE_BARGE_IN_MS) || 2500;
+  // Replay ~0.8s of already-played audio on resume so the thought isn't cut (µ-law 8kHz).
+  private static readonly REWIND_BYTES = 6400;
   // Voice mode: accumulate finalized segments and commit the whole utterance on
   // utterance_end (a pause) so we don't translate/speak before the person is done.
   private segmentBuffer: string[] = [];
@@ -207,14 +207,10 @@ export class StealthTranslator extends EventEmitter {
 
     if (this.stt instanceof DeepgramSTT) {
       // endpointing: 200 — sends isFinal after 200ms of silence, starting pre-computation.
-      // utteranceEndMs: 1400 — commit only after 1.4 s of true silence. This is the
-      // value the Grok engine used when the product "worked great": it lets the
-      // speaker pause to think (breathing, between sentences, searching for a word)
-      // without the system deciding they're done and cutting in mid-thought. 1000ms
-      // was too aggressive — a ~1 s thinking pause triggered a premature commit and
-      // the translation played over the still-speaking user. Pre-computation runs
-      // during this window, so playback still starts immediately once it fires.
-      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 200, utteranceEndMs: 1400 });
+      // utteranceEndMs: 1000 — commit after 1 s of true silence (per spec: "finalize
+      // after 1 s of silence"). Pre-computation runs during this window, so playback
+      // still starts immediately once it fires. (1000 is also Deepgram's minimum.)
+      this.stt.connect({ language: STT_LANGUAGE, model: STT_MODEL, endpointing: 200, utteranceEndMs: 1000 });
     } else {
       this.stt.connect({}); // OpenAI whisper auto-detects language
     }
@@ -297,15 +293,18 @@ export class StealthTranslator extends EventEmitter {
     // end-of-speech pause. We do NOT decide here on inter-segment gaps.
     if (this.playing) {
       if (this.isEcho(text)) return;
-      const now = Date.now();
       if (!this.playbackPaused) {
         log.info({ callId: this.callId, metric: 'barge', event: 'pause', text }, 'barge-in: paused playback');
         this.pausePlayback();
-        this.bargeStartAt = now;
+        this.bargeAudioStart = null;
+        this.bargeAudioEnd = 0;
         this.bargeBuffer = [];
         this.bargeInterim = '';
       }
-      this.bargeLastAt = now;
+      // Track real spoken duration from Deepgram audio timestamps (segmentation-
+      // independent), not wall-clock arrival times.
+      if (typeof e.audioStart === 'number' && this.bargeAudioStart === null) this.bargeAudioStart = e.audioStart;
+      if (typeof e.audioEnd === 'number') this.bargeAudioEnd = e.audioEnd;
       if (e.isFinal) { this.bargeBuffer.push(text); this.bargeInterim = ''; }
       else { this.bargeInterim = text; }
       return; // resolved at onUtteranceEnd
@@ -344,37 +343,33 @@ export class StealthTranslator extends EventEmitter {
     if (this.saved) return;
 
     // Barge-in resolution: the user talked over our playback. Now that they've
-    // paused (reliable end-of-speech), decide what it was:
-    //  • STRAY interjection → replay the phrase from the start, drop what they said.
-    //  • SUSTAINED (finishing a thought) → merge their speech onto the original
-    //    phrase and re-translate the whole thing.
-    // "Sustained" is detected by EITHER elapsed time OR word count. Time alone is
-    // unreliable: Deepgram may deliver a multi-second utterance as a single segment,
-    // making bargeLastAt == bargeStartAt (bargeMs 0). Word count is segmentation-
-    // independent — a long phrase means a continued thought regardless of timing.
+    // paused (reliable end-of-speech), decide what it was, using REAL spoken duration
+    // from Deepgram's audio timestamps (segmentation-independent):
+    //  • SHORT (< BARGE_IN_MS): a stray interjection → resume from where we paused
+    //    (rewound a touch for continuity), drop what they said.
+    //  • SUSTAINED (≥ BARGE_IN_MS): finishing a thought → merge their speech onto the
+    //    original phrase and re-translate the whole thing.
     if (this.playbackPaused) {
-      const bargeMs = this.bargeLastAt - this.bargeStartAt;
+      const bargeMs = this.bargeAudioStart !== null
+        ? Math.round((this.bargeAudioEnd - this.bargeAudioStart) * 1000) : 0;
       const captured = [...this.bargeBuffer, this.bargeInterim].join(' ').trim();
       this.bargeBuffer = [];
       this.bargeInterim = '';
-      const wordCount = captured ? captured.split(/\s+/).length : 0;
-      const sustained = bargeMs >= StealthTranslator.BARGE_IN_MS
-        || wordCount >= StealthTranslator.BARGE_IN_WORDS;
-      if (sustained && captured && this.speak) {
+      if (bargeMs >= StealthTranslator.BARGE_IN_MS && captured && this.speak) {
         const origPhrase = this.currentSpokenOriginal;
         const origIsMyLang = this.currentSpokenOriginalIsMyLang;
-        this.stopPlayback(); // discard the interrupted clip
+        this.stopPlayback(); // cancel the interrupted clip
         const capturedDir = detectTranslationDirection(captured, this.myLang, this.targetLang);
         const merged = !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
         const fullText = merged ? `${origPhrase} ${captured}`.trim() : captured;
         log.info({
-          callId: this.callId, metric: 'barge', event: 'escalate', merged, bargeMs, wordCount,
+          callId: this.callId, metric: 'barge', event: 'escalate', merged, bargeMs,
           origPhrase: merged ? origPhrase : undefined, captured,
         }, 'barge-in: sustained → re-translating full thought');
         this.commitChain = this.commitChain.then(() => this.commitTurn(fullText)).catch(() => {});
       } else {
-        log.info({ callId: this.callId, metric: 'barge', event: 'resume', bargeMs, wordCount, dropped: captured }, 'barge-in: short → replaying phrase from start');
-        this.resumePlayback(); // replay original from the start; interjection dropped
+        log.info({ callId: this.callId, metric: 'barge', event: 'resume', bargeMs, dropped: captured }, 'barge-in: short → resuming from pause point');
+        this.resumePlayback(); // resume from where we paused; interjection dropped
       }
       return;
     }
@@ -655,12 +650,14 @@ export class StealthTranslator extends EventEmitter {
     }
   }
 
-  /** Barge-in started: pause playback and flush Twilio's buffered audio so our
-   *  voice and the user's don't overlap. The clip is kept for replay or discard,
-   *  decided at onUtteranceEnd. */
+  /** Barge-in started: pause playback, remember the byte position reached (estimated
+   *  from elapsed time), and flush Twilio's buffered audio so our voice and the
+   *  user's don't overlap. The clip is kept; resume/discard decided at onUtteranceEnd. */
   private pausePlayback(): void {
     if (!this.playing || this.playbackPaused || this.playbackStartAt === 0) return;
     this.playbackPaused = true;
+    const elapsedMs = Date.now() - this.playbackStartAt;
+    this.pausedAtByte = Math.min(this.playbackBuffer.length, Math.max(0, Math.floor(elapsedMs * 8)));
     if (this.twilioSocket.readyState === 1) {
       try { this.twilioSocket.send(JSON.stringify({ event: 'clear', streamSid: this.streamSid })); } catch { /* ignore */ }
     }
@@ -668,15 +665,17 @@ export class StealthTranslator extends EventEmitter {
     // Do NOT resolve the playback promise — the clip is paused, not finished.
   }
 
-  /** Short interjection ended (user went quiet): replay the whole phrase from the
-   *  start so nothing is lost. The interjection itself is discarded (not translated). */
+  /** Short interjection ended (user went quiet): resume from where we paused, rewound
+   *  ~0.8s for continuity. The interjection itself is discarded (not translated). */
   private resumePlayback(): void {
     if (!this.playing || !this.playbackPaused) return;
     this.playbackPaused = false;
-    if (this.playbackBuffer.length === 0 || this.twilioSocket.readyState !== 1) { this.finishPlayback(); return; }
-    this.playbackStartAt = Date.now();
-    this.sendToTwilio(this.playbackBuffer);
-    const remainingMs = (this.playbackBuffer.length / 8) + 400;
+    const startByte = Math.max(0, this.pausedAtByte - StealthTranslator.REWIND_BYTES);
+    const tail = this.playbackBuffer.subarray(startByte);
+    if (tail.length === 0 || this.twilioSocket.readyState !== 1) { this.finishPlayback(); return; }
+    this.playbackStartAt = Date.now() - (startByte / 8);
+    this.sendToTwilio(tail);
+    const remainingMs = ((this.playbackBuffer.length - startByte) / 8) + 400;
     this.playbackTimer = setTimeout(() => this.finishPlayback(), remainingMs);
   }
 
