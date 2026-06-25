@@ -195,12 +195,12 @@ function Landing() {
               {
                 n: '01',
                 title: t('Call the person as usual', 'Позвоните собеседнику как обычно', 'Llama a la persona como de costumbre'),
-                body: t('Say "one moment — I\'ll add my interpreter." That\'s all the other person needs to know.', 'Скажите «секунду, подключу переводчика» — это всё, что нужно знать собеседнику.', 'Di «un momento — voy a añadir mi intérprete.» Eso es todo lo que necesita saber la otra persona.'),
+                body: t('Say "one moment — I’ll add my interpreter." That’s all the other person needs to know.', 'Скажите «секунду, подключу переводчика» — это всё, что нужно знать собеседнику.', 'Di «un momento — voy a añadir mi intérprete.» Eso es todo lo que necesita saber la otra persona.'),
               },
               {
                 n: '02',
                 title: t('Add LingoLine and tap "Merge"', 'Добавьте LingoLine и нажмите «Объединить»', 'Añade LingoLine y toca «Fusionar»'),
-                body: t('Tap Add call, dial your LingoLine number, then tap Merge — both buttons are already on your phone\'s call screen.', 'Нажмите «Добавить вызов», наберите номер LingoLine и нажмите «Объединить» — эти кнопки уже есть на экране звонка любого телефона.', 'Toca Agregar llamada, marca tu número de LingoLine, luego toca Fusionar — ambos botones ya están en la pantalla de llamada de tu teléfono.'),
+                body: t('Tap Add call, dial your LingoLine number, then tap Merge — both buttons are already on your phone’s call screen.', 'Нажмите «Добавить вызов», наберите номер LingoLine и нажмите «Объединить» — эти кнопки уже есть на экране звонка любого телефона.', 'Toca Agregar llamada, marca tu número de LingoLine, luego toca Fusionar — ambos botones ya están en la pantalla de llamada de tu teléfono.'),
               },
               {
                 n: '03',
@@ -249,13 +249,13 @@ function Landing() {
               icon: 'bolt',
               k: t('Simplicity', 'Простота', 'Simplicidad'),
               title: t('Nothing to install', 'Нечего устанавливать', 'Nada que instalar'),
-              body: t('No app, no headset, no account for the other person. It works on any phone — mobile or landline — because it\'s just a phone call.', 'Без приложения, гарнитуры и аккаунта для собеседника. Работает на любом телефоне — мобильном или стационарном — это обычный звонок.', 'Sin app, sin auricular, sin cuenta para la otra persona. Funciona en cualquier teléfono — móvil o fijo — porque es solo una llamada.'),
+              body: t('No app, no headset, no account for the other person. It works on any phone — mobile or landline — because it’s just a phone call.', 'Без приложения, гарнитуры и аккаунта для собеседника. Работает на любом телефоне — мобильном или стационарном — это обычный звонок.', 'Sin app, sin auricular, sin cuenta para la otra persona. Funciona en cualquier teléfono — móvil o fijo — porque es solo una llamada.'),
             },
             {
               icon: 'savings',
               k: t('Honesty', 'Честность', 'Honestidad'),
               title: t('Just top up. No subscription.', 'Просто пополняйте. Без подписки.', 'Solo recarga. Sin suscripción.'),
-              body: t('Add credit and pay about $0.20 a minute, only while you\'re talking. No plans, no monthly fee, no surprises. New accounts start with $2 free.', 'Пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без тарифов и абонплаты. Новым аккаунтам — $2 бесплатно.', 'Añade crédito y paga unos $0.20 por minuto, solo mientras hablas. Sin planes ni cuota mensual. Las cuentas nuevas empiezan con $2 gratis.'),
+              body: t('Add credit and pay about $0.20 a minute, only while you’re talking. No plans, no monthly fee, no surprises. New accounts start with $2 free.', 'Пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без тарифов и абонплаты. Новым аккаунтам — $2 бесплатно.', 'Añade crédito y paga unos $0.20 por minuto, solo mientras hablas. Sin planes ni cuota mensual. Las cuentas nuevas empiezan con $2 gratis.'),
             },
           ].map((c, i) => (
             <div key={c.k} className="why-col glass-panel bento-card" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
@@ -294,7 +294,7 @@ function Landing() {
             <p className="eyebrow"><span className="dot" />{t('Pricing', 'Цены', 'Precios')}</p>
             <h2 className="display pricing-h">{t('Pay as you go.', 'Оплата по факту.', 'Pago por uso.')}</h2>
             <p className="lead pricing-lead">
-              {t('No plans to compare, nothing to cancel. You pay for the minutes you actually talk — and nothing when you don\'t.', 'Никаких тарифов для сравнения и ничего не нужно отменять. Платите за минуты, которые реально говорите — и ничего, когда молчите.', 'Sin planes que comparar, nada que cancelar. Pagas por los minutos que realmente hablas — y nada cuando no lo haces.')}
+              {t('No plans to compare, nothing to cancel. You pay for the minutes you actually talk — and nothing when you don’t.', 'Никаких тарифов для сравнения и ничего не нужно отменять. Платите за минуты, которые реально говорите — и ничего, когда молчите.', 'Sin planes que comparar, nada que cancelar. Pagas por los minutos que realmente hablas — y nada cuando no lo haces.')}
             </p>
           </div>
           <div className="pricing-card glass-panel" data-reveal>
@@ -427,7 +427,7 @@ function PhoneMock({ t }: { t: (en: string, ru: string, es?: string) => string }
       </div>
       <p className="pm-hint">
         <span className="material-symbols-outlined">touch_app</span>
-        {t('Tap "Merge" — that\'s the whole trick', 'Нажмите «Объединить» — в этом весь фокус', 'Toca «Fusionar» — ese es todo el truco')}
+        {t('Tap "Merge" — that’s the whole trick', 'Нажмите «Объединить» — в этом весь фокус', 'Toca «Fusionar» — ese es todo el truco')}
       </p>
     </div>
   );
@@ -449,19 +449,19 @@ function Transcript({ lang, t }: { lang: Lang; t: (en: string, ru: string, es?: 
         { who: 'КЛИНИКА', tag: 'EN', icon: 'apartment', text: 'Vida Clinic, how can I help you?', tr: false },
         { who: 'ПЕРЕВОД', tag: 'RU', icon: 'language', text: 'Клиника «Вида», чем могу помочь?', tr: true },
         { who: 'ВЫ', tag: 'RU', icon: 'person', text: 'Здравствуйте, хочу записаться на приём.', tr: false },
-        { who: 'ПЕРЕВОД', tag: 'EN', icon: 'language', text: 'Hello, I\'d like to book an appointment.', tr: true },
+        { who: 'ПЕРЕВОД', tag: 'EN', icon: 'language', text: 'Hello, I’d like to book an appointment.', tr: true },
       ]
     : lang === 'es'
     ? [
         { who: 'CLÍNICA', tag: 'EN', icon: 'apartment', text: 'Good morning, how can I help you?', tr: false },
         { who: 'TRADUCCIÓN', tag: 'ES', icon: 'language', text: 'Buenos días, ¿en qué puedo ayudarle?', tr: true },
         { who: 'USTED', tag: 'ES', icon: 'person', text: 'Quisiera hacer una cita con el médico.', tr: false },
-        { who: 'TRADUCCIÓN', tag: 'EN', icon: 'language', text: 'I\'d like to make an appointment with the doctor.', tr: true },
+        { who: 'TRADUCCIÓN', tag: 'EN', icon: 'language', text: 'I’d like to make an appointment with the doctor.', tr: true },
       ]
     : [
         { who: 'CLINIC', tag: 'ES', icon: 'apartment', text: 'Clínica Vida, ¿en qué puedo ayudarle?', tr: false },
         { who: 'TRANSLATION', tag: 'EN', icon: 'language', text: 'Vida Clinic, how can I help you?', tr: true },
-        { who: 'YOU', tag: 'EN', icon: 'person', text: 'I\'d like to book an appointment.', tr: false },
+        { who: 'YOU', tag: 'EN', icon: 'person', text: 'I’d like to book an appointment.', tr: false },
         { who: 'TRANSLATION', tag: 'ES', icon: 'language', text: 'Quisiera reservar una cita.', tr: true },
       ];
 
