@@ -335,7 +335,7 @@ function HelpPageInner() {
 
                   <div className="rounded-2xl p-6 sm:p-8 help-article-wrapper"
                     style={{ background: 'rgba(26, 32, 44, 0.55)', backdropFilter: 'blur(24px)', border: '0.5px solid rgba(140, 144, 159, 0.12)' }}>
-                    <HelpArticle content={selectedArticle.content[lang] || selectedArticle.content.en} accentColor={accentColor} />
+                    <HelpArticle content={selectedArticle.content[lang as 'en' | 'ru'] || selectedArticle.content.en} accentColor={accentColor} />
                   </div>
                 </AnimatedSection>
               ) : selectedCat ? (
@@ -470,7 +470,7 @@ function HelpPageInner() {
 
                 <div className="rounded-2xl p-4 sm:p-6 help-article-wrapper"
                   style={{ background: 'rgba(26, 32, 44, 0.55)', backdropFilter: 'blur(24px)', border: '0.5px solid rgba(140, 144, 159, 0.12)' }}>
-                  <HelpArticle content={selectedArticle.content[lang] || selectedArticle.content.en} accentColor={accentColor} />
+                  <HelpArticle content={selectedArticle.content[lang as 'en' | 'ru'] || selectedArticle.content.en} accentColor={accentColor} />
                 </div>
               </div>
             )}

@@ -31,7 +31,7 @@ export const websiteSchema: Record<string, unknown> = {
   url: SITE_URL,
   name: 'LingoLine',
   publisher: { '@id': ORG_ID },
-  inLanguage: ['en', 'ru'],
+  inLanguage: ['en', 'ru', 'es'],
 };
 
 /**
@@ -75,7 +75,7 @@ export const softwareApplicationSchema: Record<string, unknown> = {
  */
 export function altLanguages(enPath: string): Record<string, string> {
   const en = `${SITE_URL}${enPath || '/'}`;
-  return { en, ru: `${SITE_URL}/ru${enPath}`, 'x-default': en };
+  return { en, ru: `${SITE_URL}/ru${enPath}`, es: `${SITE_URL}/es${enPath}`, 'x-default': en };
 }
 
 /** Build a BreadcrumbList from [{ name, url }] crumbs. */

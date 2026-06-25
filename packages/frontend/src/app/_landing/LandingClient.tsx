@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { LangProvider, useLang } from './useLang';
+import { LangProvider, useLang, type Lang } from './useLang';
 import { inter, manrope } from '../fonts';
 import { landingFaq } from '../_seo/faq';
 import './landing.css';
@@ -13,7 +13,7 @@ import './landing.css';
    signature "live bilingual call transcript" hero. CSS + reveal motion.
    ═══════════════════════════════════════════════════════════════════ */
 
-export default function LandingClient({ initialLang }: { initialLang?: 'en' | 'ru' }) {
+export default function LandingClient({ initialLang }: { initialLang?: Lang }) {
   return (
     <LangProvider initialLang={initialLang}>
       <Landing />
@@ -70,14 +70,14 @@ function Landing() {
             <span className="font-headline">LingoLine</span>
           </Link>
           <nav className="lp-nav-links">
-            <a href="#how">{t('How it works', 'Как это работает')}</a>
-            <a href="#pricing">{t('Pricing', 'Цены')}</a>
-            <a href="#faq">{t('FAQ', 'Вопросы')}</a>
+            <a href="#how">{t('How it works', 'Как это работает', 'Cómo funciona')}</a>
+            <a href="#pricing">{t('Pricing', 'Цены', 'Precios')}</a>
+            <a href="#faq">{t('FAQ', 'Вопросы', 'FAQ')}</a>
           </nav>
           <div className="lp-nav-right">
             <LangToggle />
-            <Link href="/login" className="nav-login">{t('Log in', 'Войти')}</Link>
-            <Link href={REGISTER} className="btn-accent btn-sm">{t('Start free', 'Начать бесплатно')}</Link>
+            <Link href="/login" className="nav-login">{t('Log in', 'Войти', 'Iniciar sesión')}</Link>
+            <Link href={REGISTER} className="btn-accent btn-sm">{t('Start free', 'Начать бесплатно', 'Empezar gratis')}</Link>
           </div>
         </div>
       </header>
@@ -89,23 +89,24 @@ function Landing() {
         <div className="hero-glow g3" aria-hidden />
         <div className="hero-copy">
           <p className="eyebrow" data-reveal>
-            <span className="dot" />{t('Live phone call translation', 'Живой перевод звонков')}
+            <span className="dot" />{t('Live phone call translation', 'Живой перевод звонков', 'Traducción de llamadas en tiempo real')}
           </p>
           <h1 className="display hero-h" data-reveal style={{ transitionDelay: '60ms' }}>
-            {t('Speak freely.', 'Говорите свободно.')}<br />
-            <em className="gradient-text">{t('Live lighter.', 'Живите легче.')}</em>
+            {t('Speak freely.', 'Говорите свободно.', 'Habla con libertad.')}<br />
+            <em className="gradient-text">{t('Live lighter.', 'Живите легче.', 'Vive sin barreras.')}</em>
           </h1>
           <p className="lead hero-lead" data-reveal style={{ transitionDelay: '120ms' }}>
             {t(
               'LingoLine translates your phone conversations in real time. No language barrier, no extra effort.',
               'LingoLine переводит ваши телефонные разговоры в реальном времени. Без языкового барьера и лишних усилий.',
+              'LingoLine traduce tus conversaciones telefónicas en tiempo real. Sin barreras idiomáticas, sin esfuerzo extra.',
             )}
           </p>
           <ul className="hero-feats" data-reveal style={{ transitionDelay: '150ms' }}>
             {[
-              { icon: 'graphic_eq', l1: t('Real-time', 'Перевод'), l2: t('translation', 'в реальном времени') },
-              { icon: 'sync_alt', l1: t('Two-way', 'Двусторонний'), l2: t('interpretation', 'перевод') },
-              { icon: 'record_voice_over', l1: t('Lifelike', 'Голоса'), l2: t('voices', 'как живые') },
+              { icon: 'graphic_eq', l1: t('Real-time', 'Перевод', 'Traducción'), l2: t('translation', 'в реальном времени', 'en tiempo real') },
+              { icon: 'sync_alt', l1: t('Two-way', 'Двусторонний', 'Intérprete'), l2: t('interpretation', 'перевод', 'bidireccional') },
+              { icon: 'record_voice_over', l1: t('Lifelike', 'Голоса', 'Voces'), l2: t('voices', 'как живые', 'naturales') },
             ].map((f, i) => (
               <li key={i}>
                 <span className="material-symbols-outlined">{f.icon}</span>
@@ -115,13 +116,13 @@ function Landing() {
           </ul>
           <div className="hero-cta" data-reveal style={{ transitionDelay: '180ms' }}>
             <Link href={REGISTER} className="btn-accent cta-glow">
-              {t('Try for free', 'Попробовать бесплатно')}
+              {t('Try for free', 'Попробовать бесплатно', 'Pruébalo gratis')}
               <span className="material-symbols-outlined">arrow_forward</span>
             </Link>
-            <a href="#how" className="btn-ghost">{t('See how it works', 'Как это работает')}</a>
+            <a href="#how" className="btn-ghost">{t('See how it works', 'Как это работает', 'Cómo funciona')}</a>
           </div>
           <p className="hero-micro" data-reveal style={{ transitionDelay: '240ms' }}>
-            {t('$2 free credit', '$2 в подарок')} <span className="hm-dot">•</span> {t('No card needed', 'Без карты')} <span className="hm-dot">•</span> {t('No subscription', 'Без подписки')}
+            {t('$2 free credit', '$2 в подарок', '$2 de regalo')} <span className="hm-dot">•</span> {t('No card needed', 'Без карты', 'Sin tarjeta')} <span className="hm-dot">•</span> {t('No subscription', 'Без подписки', 'Sin suscripción')}
           </p>
           <div className="hero-proof" data-reveal style={{ transitionDelay: '300ms' }}>
             <div className="hp-avatars" aria-hidden>
@@ -129,7 +130,7 @@ function Landing() {
             </div>
             <div>
               <div className="hp-stars" aria-hidden>★★★★★</div>
-              <div className="hp-label">{t('50+ happy clients', '50+ довольных клиентов')}</div>
+              <div className="hp-label">{t('50+ happy clients', '50+ довольных клиентов', '50+ clientes satisfechos')}</div>
             </div>
           </div>
         </div>
@@ -146,10 +147,10 @@ function Landing() {
       <div className="lp-wrap">
         <ul className="trust">
           {[
-            { icon: 'smartphone', l1: t('No app needed —', 'Без приложения —'), l2: t('any phone works', 'с любого телефона') },
-            { icon: 'lock', l1: t('Private', 'Конфиденциально'), l2: t('and secure', 'и безопасно') },
-            { icon: 'language', l1: t('13 languages', '13 языков'), l2: t('and growing', 'и больше') },
-            { icon: 'public', l1: t('Works from', 'Работает из любой'), l2: t('anywhere', 'точки мира') },
+            { icon: 'smartphone', l1: t('No app needed —', 'Без приложения —', 'Sin app —'), l2: t('any phone works', 'с любого телефона', 'cualquier teléfono') },
+            { icon: 'lock', l1: t('Private', 'Конфиденциально', 'Privado'), l2: t('and secure', 'и безопасно', 'y seguro') },
+            { icon: 'language', l1: t('13 languages', '13 языков', '13 idiomas'), l2: t('and growing', 'и больше', 'y creciendo') },
+            { icon: 'public', l1: t('Works from', 'Работает из любой', 'Funciona desde'), l2: t('anywhere', 'точки мира', 'cualquier lugar') },
           ].map((item, i) => (
             <li key={i}>
               <span className="trust-ic"><span className="material-symbols-outlined">{item.icon}</span></span>
@@ -161,20 +162,22 @@ function Landing() {
 
       {/* ─── Problem ─────────────────────────────────────────── */}
       <section className="lp-wrap section problem" data-reveal>
-        <div className="problem-photo" role="img" aria-label={t('An older person confused on a phone call', 'Пожилой человек в растерянности во время звонка')} />
+        <div className="problem-photo" role="img" aria-label={t('An older person confused on a phone call', 'Пожилой человек в растерянности во время звонка', 'Una persona mayor confundida durante una llamada')} />
         <div className="problem-text">
-          <p className="eyebrow"><span className="dot" />{t('The problem', 'Проблема')}</p>
-          <h2 className="display problem-h">{t('You know the feeling.', 'Знакомое чувство.')}</h2>
+          <p className="eyebrow"><span className="dot" />{t('The problem', 'Проблема', 'El problema')}</p>
+          <h2 className="display problem-h">{t('You know the feeling.', 'Знакомое чувство.', 'La conoces bien.')}</h2>
           <p className="lead problem-lead">
             {t(
               'A call to the doctor. The leasing office. The tax line. You rehearse the words, you dread the moment they start speaking too fast — and you hang up having understood half of it.',
               'Звонок врачу. В офис аренды. На налоговую линию. Вы репетируете фразы и боитесь момента, когда заговорят слишком быстро — и кладёте трубку, поняв половину.',
+              'Una llamada al médico. A la oficina de arrendamiento. A la línea de impuestos. Repites las palabras, temes el momento en que empiecen a hablar demasiado rápido — y cuelgas habiendo entendido la mitad.',
             )}
           </p>
           <p className="problem-turn">
             {t(
               'LingoLine takes that wall down. You speak your language, they speak theirs, and everyone is understood — live, on the very same call.',
               'LingoLine убирает эту стену. Вы говорите на своём языке, они на своём — и все друг друга понимают, прямо во время звонка.',
+              'LingoLine derriba esa barrera. Hablas en tu idioma, ellos en el suyo, y todos se entienden — en vivo, en la misma llamada.',
             )}
           </p>
         </div>
@@ -183,26 +186,26 @@ function Landing() {
       {/* ─── How it works ────────────────────────────────────── */}
       <section id="how" className="lp-wrap section">
         <div className="section-head" data-reveal>
-          <p className="eyebrow"><span className="dot" />{t('How it works', 'Как это работает')}</p>
-          <h2 className="display section-h">{t('Three steps. A minute to set up.', 'Три шага. Минута на настройку.')}</h2>
+          <p className="eyebrow"><span className="dot" />{t('How it works', 'Как это работает', 'Cómo funciona')}</p>
+          <h2 className="display section-h">{t('Three steps. A minute to set up.', 'Три шага. Минута на настройку.', 'Tres pasos. Un minuto para configurar.')}</h2>
         </div>
         <div className="how-grid">
           <ol className="steps">
             {[
               {
                 n: '01',
-                title: t('Call the person as usual', 'Позвоните собеседнику как обычно'),
-                body: t('Say “one moment — I’ll add my interpreter.” That’s all the other person needs to know.', 'Скажите «секунду, подключу переводчика» — это всё, что нужно знать собеседнику.'),
+                title: t('Call the person as usual', 'Позвоните собеседнику как обычно', 'Llama a la persona como de costumbre'),
+                body: t('Say "one moment — I\'ll add my interpreter." That\'s all the other person needs to know.', 'Скажите «секунду, подключу переводчика» — это всё, что нужно знать собеседнику.', 'Di «un momento — voy a añadir mi intérprete.» Eso es todo lo que necesita saber la otra persona.'),
               },
               {
                 n: '02',
-                title: t('Add LingoLine and tap “Merge”', 'Добавьте LingoLine и нажмите «Объединить»'),
-                body: t('Tap Add call, dial your LingoLine number, then tap Merge — both buttons are already on your phone’s call screen.', 'Нажмите «Добавить вызов», наберите номер LingoLine и нажмите «Объединить» — эти кнопки уже есть на экране звонка любого телефона.'),
+                title: t('Add LingoLine and tap "Merge"', 'Добавьте LingoLine и нажмите «Объединить»', 'Añade LingoLine y toca «Fusionar»'),
+                body: t('Tap Add call, dial your LingoLine number, then tap Merge — both buttons are already on your phone\'s call screen.', 'Нажмите «Добавить вызов», наберите номер LingoLine и нажмите «Объединить» — эти кнопки уже есть на экране звонка любого телефона.', 'Toca Agregar llamada, marca tu número de LingoLine, luego toca Fusionar — ambos botones ya están en la pantalla de llamada de tu teléfono.'),
               },
               {
                 n: '03',
-                title: t('Enjoy the translation', 'Наслаждайтесь переводом'),
-                body: t('LingoLine introduces itself and speaks the translation out loud — both directions, language detected automatically.', 'LingoLine представится и будет озвучивать перевод в обе стороны — язык определяется автоматически.'),
+                title: t('Enjoy the translation', 'Наслаждайтесь переводом', 'Disfruta la traducción'),
+                body: t('LingoLine introduces itself and speaks the translation out loud — both directions, language detected automatically.', 'LingoLine представится и будет озвучивать перевод в обе стороны — язык определяется автоматически.', 'LingoLine se presenta y habla la traducción en voz alta — en ambas direcciones, el idioma se detecta automáticamente.'),
               },
             ].map((s, i) => (
               <li key={s.n} className="step glass-panel bento-card" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
@@ -219,11 +222,11 @@ function Landing() {
         <div className="step-notes" data-reveal>
           <p className="step-note">
             <span className="material-symbols-outlined">person_add</span>
-            {t('One-time prep: after signup, save your personal LingoLine number in contacts as “Translator”.', 'Разовая подготовка: после регистрации сохраните свой номер LingoLine в контактах как «Переводчик».')}
+            {t('One-time prep: after signup, save your personal LingoLine number in contacts as "Translator".', 'Разовая подготовка: после регистрации сохраните свой номер LingoLine в контактах как «Переводчик».', 'Preparación única: tras registrarte, guarda tu número personal de LingoLine como «Traductor» en tus contactos.')}
           </p>
           <p className="step-note">
             <span className="material-symbols-outlined">group</span>
-            {t('In the same room? Just call LingoLine and put it on speaker.', 'Рядом друг с другом? Просто позвоните LingoLine и включите громкую связь.')}
+            {t('In the same room? Just call LingoLine and put it on speaker.', 'Рядом друг с другом? Просто позвоните LingoLine и включите громкую связь.', '¿En la misma habitación? Simplemente llama a LingoLine y pon el altavoz.')}
           </p>
         </div>
       </section>
@@ -231,28 +234,28 @@ function Landing() {
       {/* ─── Why ─────────────────────────────────────────────── */}
       <section className="lp-wrap section">
         <div className="section-head" data-reveal>
-          <p className="eyebrow"><span className="dot" />{t('Why LingoLine', 'Почему LingoLine')}</p>
-          <h2 className="display section-h">{t('Accurate, simple, honest', 'Точно, просто, честно')}</h2>
+          <p className="eyebrow"><span className="dot" />{t('Why LingoLine', 'Почему LingoLine', 'Por qué LingoLine')}</p>
+          <h2 className="display section-h">{t('Accurate, simple, honest', 'Точно, просто, честно', 'Preciso, simple, honesto')}</h2>
         </div>
         <div className="why">
           {[
             {
               icon: 'verified',
-              k: t('Accuracy', 'Точность'),
-              title: t('Accurate — and it sounds human', 'Точно — и звучит по-человечески'),
-              body: t('Premium AI voices, not robotic text-to-speech. Two-way translation with the language detected automatically — no fiddling with settings mid-call.', 'Премиальные AI-голоса, а не роботный синтез. Двусторонний перевод с авто-определением языка — без настроек посреди разговора.'),
+              k: t('Accuracy', 'Точность', 'Precisión'),
+              title: t('Accurate — and it sounds human', 'Точно — и звучит по-человечески', 'Preciso — y suena humano'),
+              body: t('Premium AI voices, not robotic text-to-speech. Two-way translation with the language detected automatically — no fiddling with settings mid-call.', 'Премиальные AI-голоса, а не роботный синтез. Двусторонний перевод с авто-определением языка — без настроек посреди разговора.', 'Voces premium de IA, no síntesis robótica. Traducción bidireccional con detección automática del idioma — sin configurar nada durante la llamada.'),
             },
             {
               icon: 'bolt',
-              k: t('Simplicity', 'Простота'),
-              title: t('Nothing to install', 'Нечего устанавливать'),
-              body: t('No app, no headset, no account for the other person. It works on any phone — mobile or landline — because it’s just a phone call.', 'Без приложения, гарнитуры и аккаунта для собеседника. Работает на любом телефоне — мобильном или стационарном — это обычный звонок.'),
+              k: t('Simplicity', 'Простота', 'Simplicidad'),
+              title: t('Nothing to install', 'Нечего устанавливать', 'Nada que instalar'),
+              body: t('No app, no headset, no account for the other person. It works on any phone — mobile or landline — because it\'s just a phone call.', 'Без приложения, гарнитуры и аккаунта для собеседника. Работает на любом телефоне — мобильном или стационарном — это обычный звонок.', 'Sin app, sin auricular, sin cuenta para la otra persona. Funciona en cualquier teléfono — móvil o fijo — porque es solo una llamada.'),
             },
             {
               icon: 'savings',
-              k: t('Honesty', 'Честность'),
-              title: t('Just top up. No subscription.', 'Просто пополняйте. Без подписки.'),
-              body: t('Add credit and pay about $0.20 a minute, only while you’re talking. No plans, no monthly fee, no surprises. New accounts start with $2 free.', 'Пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без тарифов и абонплаты. Новым аккаунтам — $2 бесплатно.'),
+              k: t('Honesty', 'Честность', 'Honestidad'),
+              title: t('Just top up. No subscription.', 'Просто пополняйте. Без подписки.', 'Solo recarga. Sin suscripción.'),
+              body: t('Add credit and pay about $0.20 a minute, only while you\'re talking. No plans, no monthly fee, no surprises. New accounts start with $2 free.', 'Пополняете баланс и платите около $0.20 за минуту, только во время разговора. Без тарифов и абонплаты. Новым аккаунтам — $2 бесплатно.', 'Añade crédito y paga unos $0.20 por minuto, solo mientras hablas. Sin planes ni cuota mensual. Las cuentas nuevas empiezan con $2 gratis.'),
             },
           ].map((c, i) => (
             <div key={c.k} className="why-col glass-panel bento-card" data-reveal style={{ transitionDelay: `${i * 80}ms` }}>
@@ -271,8 +274,8 @@ function Landing() {
       {/* ─── Languages ───────────────────────────────────────── */}
       <section className="lp-wrap section section-flush-top">
         <div className="section-head" data-reveal>
-          <p className="eyebrow"><span className="dot" />{t('Languages', 'Языки')}</p>
-          <h2 className="display section-h">{t('Thirteen languages, any direction', 'Тринадцать языков, в любую сторону')}</h2>
+          <p className="eyebrow"><span className="dot" />{t('Languages', 'Языки', 'Idiomas')}</p>
+          <h2 className="display section-h">{t('Thirteen languages, any direction', 'Тринадцать языков, в любую сторону', 'Trece idiomas, en cualquier dirección')}</h2>
         </div>
         <div className="langs" data-reveal>
           {['English', 'Русский', 'Українська', 'Español', 'Deutsch', 'Français', '中文', '日本語', '한국어', 'العربية', 'Português', 'Italiano', 'हिन्दी'].map((l) => (
@@ -280,7 +283,7 @@ function Landing() {
           ))}
         </div>
         <p className="langs-note" data-reveal>
-          {t('Direction is detected automatically — just speak, and LingoLine knows which way to translate.', 'Направление определяется автоматически — просто говорите, и LingoLine сам поймёт, куда переводить.')}
+          {t('Direction is detected automatically — just speak, and LingoLine knows which way to translate.', 'Направление определяется автоматически — просто говорите, и LingoLine сам поймёт, куда переводить.', 'La dirección se detecta automáticamente — solo habla, y LingoLine sabe hacia dónde traducir.')}
         </p>
       </section>
 
@@ -288,29 +291,29 @@ function Landing() {
       <section id="pricing" className="lp-wrap section">
         <div className="pricing">
           <div className="pricing-left" data-reveal>
-            <p className="eyebrow"><span className="dot" />{t('Pricing', 'Цены')}</p>
-            <h2 className="display pricing-h">{t('Pay as you go.', 'Оплата по факту.')}</h2>
+            <p className="eyebrow"><span className="dot" />{t('Pricing', 'Цены', 'Precios')}</p>
+            <h2 className="display pricing-h">{t('Pay as you go.', 'Оплата по факту.', 'Pago por uso.')}</h2>
             <p className="lead pricing-lead">
-              {t('No plans to compare, nothing to cancel. You pay for the minutes you actually talk — and nothing when you don’t.', 'Никаких тарифов для сравнения и ничего не нужно отменять. Платите за минуты, которые реально говорите — и ничего, когда молчите.')}
+              {t('No plans to compare, nothing to cancel. You pay for the minutes you actually talk — and nothing when you don\'t.', 'Никаких тарифов для сравнения и ничего не нужно отменять. Платите за минуты, которые реально говорите — и ничего, когда молчите.', 'Sin planes que comparar, nada que cancelar. Pagas por los minutos que realmente hablas — y nada cuando no lo haces.')}
             </p>
           </div>
           <div className="pricing-card glass-panel" data-reveal>
             <div className="price-row">
               <span className="price display gradient-text">≈&nbsp;$0.20</span>
-              <span className="price-unit">{t('/ minute', '/ минута')}</span>
+              <span className="price-unit">{t('/ minute', '/ минута', '/ minuto')}</span>
             </div>
             <ul className="price-list">
               {[
-                t('$2 free to start — about 10 minutes', '$2 бесплатно на старте — около 10 минут'),
-                t('No subscription, ever', 'Никаких подписок'),
-                t('Top up any time; only pay while talking', 'Пополняйте когда угодно; платите только во время разговора'),
-                t('No card required to try', 'Карта для пробы не нужна'),
+                t('$2 free to start — about 10 minutes', '$2 бесплатно на старте — около 10 минут', '$2 gratis para empezar — unos 10 minutos'),
+                t('No subscription, ever', 'Никаких подписок', 'Sin suscripción, nunca'),
+                t('Top up any time; only pay while talking', 'Пополняйте когда угодно; платите только во время разговора', 'Recarga cuando quieras; paga solo mientras hablas'),
+                t('No card required to try', 'Карта для пробы не нужна', 'No se necesita tarjeta para probar'),
               ].map((p, i) => (
                 <li key={i}><span className="material-symbols-outlined">check_circle</span>{p}</li>
               ))}
             </ul>
             <Link href={REGISTER} className="btn-accent cta-glow btn-block">
-              {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+              {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок', 'Empieza gratis — $2 de regalo')}
             </Link>
           </div>
         </div>
@@ -320,11 +323,11 @@ function Landing() {
       <section id="faq" className="lp-wrap section faq-section">
         <div className="faq-main">
           <div className="section-head" data-reveal>
-            <p className="eyebrow"><span className="dot" />{t('Questions', 'Вопросы')}</p>
-            <h2 className="display section-h">{t('Good to know', 'Полезно знать')}</h2>
+            <p className="eyebrow"><span className="dot" />{t('Questions', 'Вопросы', 'Preguntas')}</p>
+            <h2 className="display section-h">{t('Good to know', 'Полезно знать', 'Bueno saber')}</h2>
           </div>
           <div className="faq" data-reveal>
-            {FAQ(t).map((f, i) => (
+            {FAQ(t, lang).map((f, i) => (
               <details key={i} className="faq-item">
                 <summary>{f.q}<span className="material-symbols-outlined">add</span></summary>
                 <p>{f.a}</p>
@@ -332,19 +335,19 @@ function Landing() {
             ))}
           </div>
         </div>
-        <div className="faq-photo" role="img" aria-label={t('A man happily using the translator on his phone', 'Мужчина с радостью пользуется переводчиком на телефоне')} />
+        <div className="faq-photo" role="img" aria-label={t('A man happily using the translator on his phone', 'Мужчина с радостью пользуется переводчиком на телефоне', 'Un hombre usando felizmente el traductor en su teléfono')} />
       </section>
 
       {/* ─── Final CTA ───────────────────────────────────────── */}
       <section className="lp-wrap section">
         <div className="final glass-panel" data-reveal>
           <div className="hero-glow g1" aria-hidden />
-          <h2 className="display final-h">{t('Make your next call', 'Сделайте следующий звонок')} <em className="gradient-text">{t('without the fear.', 'без страха.')}</em></h2>
+          <h2 className="display final-h">{t('Make your next call', 'Сделайте следующий звонок', 'Haz tu próxima llamada')} <em className="gradient-text">{t('without the fear.', 'без страха.', 'sin miedo.')}</em></h2>
           <p className="final-lead">
-            {t('Two dollars of free credit is already waiting. No card, no subscription — just try it on a real call.', 'Два доллара бесплатного баланса уже ждут. Без карты и подписки — просто попробуйте на реальном звонке.')}
+            {t('Two dollars of free credit is already waiting. No card, no subscription — just try it on a real call.', 'Два доллара бесплатного баланса уже ждут. Без карты и подписки — просто попробуйте на реальном звонке.', 'Dos dólares de crédito gratis ya te esperan. Sin tarjeta, sin suscripción — simplemente pruébalo en una llamada real.')}
           </p>
           <Link href={REGISTER} className="btn-accent cta-glow btn-lg">
-            {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+            {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок', 'Empieza gratis — $2 de regalo')}
             <span className="material-symbols-outlined">arrow_forward</span>
           </Link>
         </div>
@@ -358,21 +361,21 @@ function Landing() {
               <span className="wordmark-badge"><span className="material-symbols-outlined">call</span></span>
               <span className="font-headline">LingoLine</span>
             </Link>
-            <p>{t('Live phone interpretation for people living between languages.', 'Живой перевод звонков для тех, кто живёт между языками.')}</p>
+            <p>{t('Live phone interpretation for people living between languages.', 'Живой перевод звонков для тех, кто живёт между языками.', 'Interpretación telefónica en vivo para personas que viven entre idiomas.')}</p>
           </div>
           <div className="footer-cols">
             <div>
-              <h4>{t('Product', 'Продукт')}</h4>
-              <a href="#how">{t('How it works', 'Как это работает')}</a>
-              <a href="#pricing">{t('Pricing', 'Цены')}</a>
-              <a href="#faq">{t('FAQ', 'Вопросы')}</a>
-              <Link href="/login">{t('Log in', 'Войти')}</Link>
+              <h4>{t('Product', 'Продукт', 'Producto')}</h4>
+              <a href="#how">{t('How it works', 'Как это работает', 'Cómo funciona')}</a>
+              <a href="#pricing">{t('Pricing', 'Цены', 'Precios')}</a>
+              <a href="#faq">{t('FAQ', 'Вопросы', 'FAQ')}</a>
+              <Link href="/login">{t('Log in', 'Войти', 'Iniciar sesión')}</Link>
             </div>
             <div>
-              <h4>{t('Legal', 'Правовое')}</h4>
-              <Link href="/privacy">{t('Privacy', 'Конфиденциальность')}</Link>
-              <Link href="/terms">{t('Terms', 'Условия')}</Link>
-              <Link href="/acceptable-use">{t('Acceptable Use', 'Допустимое использование')}</Link>
+              <h4>{t('Legal', 'Правовое', 'Legal')}</h4>
+              <Link href="/privacy">{t('Privacy', 'Конфиденциальность', 'Privacidad')}</Link>
+              <Link href="/terms">{t('Terms', 'Условия', 'Términos')}</Link>
+              <Link href="/acceptable-use">{t('Acceptable Use', 'Допустимое использование', 'Uso Aceptable')}</Link>
             </div>
           </div>
         </div>
@@ -385,7 +388,7 @@ function Landing() {
       {/* Mobile sticky CTA — slides in once the hero scrolls away */}
       <div className={`sticky-cta${stickyCta ? ' on' : ''}`} aria-hidden={!stickyCta}>
         <Link href={REGISTER} className="btn-accent cta-glow" tabIndex={stickyCta ? 0 : -1}>
-          {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок')}
+          {t('Start free — $2 on us', 'Начать бесплатно — $2 в подарок', 'Empieza gratis — $2 de regalo')}
           <span className="material-symbols-outlined">arrow_forward</span>
         </Link>
       </div>
@@ -394,23 +397,23 @@ function Landing() {
 }
 
 /* ─── Phone-call screen mock (How-it-works visual) ──────────── */
-function PhoneMock({ t }: { t: (en: string, ru: string) => string }) {
+function PhoneMock({ t }: { t: (en: string, ru: string, es?: string) => string }) {
   const keys = [
-    { icon: 'mic_off', label: t('mute', 'звук') },
-    { icon: 'dialpad', label: t('keypad', 'клавиши') },
-    { icon: 'volume_up', label: t('speaker', 'динамик') },
-    { icon: 'add_call', label: t('add call', 'добавить') },
-    { icon: 'call_merge', label: t('merge', 'объединить'), merge: true },
-    { icon: 'person', label: t('contacts', 'контакты') },
+    { icon: 'mic_off', label: t('mute', 'звук', 'silenciar') },
+    { icon: 'dialpad', label: t('keypad', 'клавиши', 'teclas') },
+    { icon: 'volume_up', label: t('speaker', 'динамик', 'altavoz') },
+    { icon: 'add_call', label: t('add call', 'добавить', 'agregar') },
+    { icon: 'call_merge', label: t('merge', 'объединить', 'fusionar'), merge: true },
+    { icon: 'person', label: t('contacts', 'контакты', 'contactos') },
   ];
   return (
     <div className="phone-wrap" data-reveal>
       <div className="phone-mock glass-panel" role="img"
-        aria-label={t('Phone call screen with the Merge button highlighted', 'Экран звонка с подсвеченной кнопкой «Объединить»')}>
+        aria-label={t('Phone call screen with the Merge button highlighted', 'Экран звонка с подсвеченной кнопкой «Объединить»', 'Pantalla de llamada con el botón «Fusionar» resaltado')}>
         <div className="pm-notch" aria-hidden />
         <div className="pm-caller">
-          <div className="pm-name font-headline">{t('Leasing office + LingoLine', 'Офис аренды + LingoLine')}</div>
-          <div className="pm-status">{t('conference · 01:24', 'конференция · 01:24')}</div>
+          <div className="pm-name font-headline">{t('Leasing office + LingoLine', 'Офис аренды + LingoLine', 'Oficina de arrendamiento + LingoLine')}</div>
+          <div className="pm-status">{t('conference · 01:24', 'конференция · 01:24', 'conferencia · 01:24')}</div>
         </div>
         <div className="pm-grid">
           {keys.map((k, i) => (
@@ -424,7 +427,7 @@ function PhoneMock({ t }: { t: (en: string, ru: string) => string }) {
       </div>
       <p className="pm-hint">
         <span className="material-symbols-outlined">touch_app</span>
-        {t('Tap “Merge” — that’s the whole trick', 'Нажмите «Объединить» — в этом весь фокус')}
+        {t('Tap "Merge" — that\'s the whole trick', 'Нажмите «Объединить» — в этом весь фокус', 'Toca «Fusionar» — ese es todo el truco')}
       </p>
     </div>
   );
@@ -439,27 +442,34 @@ function Wave({ n = 14, active = false }: { n?: number; active?: boolean }) {
   );
 }
 
-function Transcript({ lang, t }: { lang: 'en' | 'ru'; t: (en: string, ru: string) => string }) {
+function Transcript({ lang, t }: { lang: Lang; t: (en: string, ru: string, es?: string) => string }) {
   // Believable expat scenario: calling a clinic. Both directions shown.
   const rows = lang === 'ru'
     ? [
         { who: 'КЛИНИКА', tag: 'EN', icon: 'apartment', text: 'Vida Clinic, how can I help you?', tr: false },
         { who: 'ПЕРЕВОД', tag: 'RU', icon: 'language', text: 'Клиника «Вида», чем могу помочь?', tr: true },
         { who: 'ВЫ', tag: 'RU', icon: 'person', text: 'Здравствуйте, хочу записаться на приём.', tr: false },
-        { who: 'ПЕРЕВОД', tag: 'EN', icon: 'language', text: 'Hello, I’d like to book an appointment.', tr: true },
+        { who: 'ПЕРЕВОД', tag: 'EN', icon: 'language', text: 'Hello, I\'d like to book an appointment.', tr: true },
+      ]
+    : lang === 'es'
+    ? [
+        { who: 'CLÍNICA', tag: 'EN', icon: 'apartment', text: 'Good morning, how can I help you?', tr: false },
+        { who: 'TRADUCCIÓN', tag: 'ES', icon: 'language', text: 'Buenos días, ¿en qué puedo ayudarle?', tr: true },
+        { who: 'USTED', tag: 'ES', icon: 'person', text: 'Quisiera hacer una cita con el médico.', tr: false },
+        { who: 'TRADUCCIÓN', tag: 'EN', icon: 'language', text: 'I\'d like to make an appointment with the doctor.', tr: true },
       ]
     : [
         { who: 'CLINIC', tag: 'ES', icon: 'apartment', text: 'Clínica Vida, ¿en qué puedo ayudarle?', tr: false },
         { who: 'TRANSLATION', tag: 'EN', icon: 'language', text: 'Vida Clinic, how can I help you?', tr: true },
-        { who: 'YOU', tag: 'EN', icon: 'person', text: 'I’d like to book an appointment.', tr: false },
+        { who: 'YOU', tag: 'EN', icon: 'person', text: 'I\'d like to book an appointment.', tr: false },
         { who: 'TRANSLATION', tag: 'ES', icon: 'language', text: 'Quisiera reservar una cita.', tr: true },
       ];
 
   return (
-    <div className="tx glass-panel" role="img" aria-label={t('Example of a live translated call', 'Пример звонка с живым переводом')}>
+    <div className="tx glass-panel" role="img" aria-label={t('Example of a live translated call', 'Пример звонка с живым переводом', 'Ejemplo de una llamada con traducción en vivo')}>
       <div className="tx-head">
-        <span className="tx-live"><span className="tx-dot" />{t('Live', 'В эфире')}</span>
-        <span className="tx-meta">{t('translating in real time', 'перевод в реальном времени')}</span>
+        <span className="tx-live"><span className="tx-dot" />{t('Live', 'В эфире', 'En vivo')}</span>
+        <span className="tx-meta">{t('translating in real time', 'перевод в реальном времени', 'traduciendo en tiempo real')}</span>
       </div>
       <div className="tx-body">
         {rows.map((r, i) => (
@@ -476,7 +486,7 @@ function Transcript({ lang, t }: { lang: 'en' | 'ru'; t: (en: string, ru: string
       </div>
       <div className="tx-foot">
         <span className="material-symbols-outlined">graphic_eq</span>
-        {t('Two-way translation is on', 'Двусторонний перевод включён')}
+        {t('Two-way translation is on', 'Двусторонний перевод включён', 'La traducción bidireccional está activa')}
       </div>
     </div>
   );
@@ -484,10 +494,11 @@ function Transcript({ lang, t }: { lang: 'en' | 'ru'; t: (en: string, ru: string
 
 function LangToggle() {
   const { lang, setLang } = useLang();
+  const next: Lang = lang === 'en' ? 'ru' : lang === 'ru' ? 'es' : 'en';
   return (
-    <button className="lang-toggle" onClick={() => setLang(lang === 'en' ? 'ru' : 'en')}
-      title={lang === 'en' ? 'Переключить на русский' : 'Switch to English'}>
-      <span className="material-symbols-outlined">language</span>{lang === 'en' ? 'RU' : 'EN'}
+    <button className="lang-toggle" onClick={() => setLang(next)}
+      title={`Switch to ${next.toUpperCase()}`}>
+      <span className="material-symbols-outlined">language</span>{next.toUpperCase()}
     </button>
   );
 }
@@ -508,7 +519,9 @@ function GreetingsMarquee() {
   );
 }
 
-function FAQ(t: (en: string, ru: string) => string) {
-  return landingFaq.map((f) => ({ q: t(f.q.en, f.q.ru), a: t(f.a.en, f.a.ru) }));
+function FAQ(t: (en: string, ru: string, es?: string) => string, lang: Lang) {
+  return landingFaq.map((f) => ({
+    q: lang === 'es' ? f.q.es : lang === 'ru' ? f.q.ru : f.q.en,
+    a: lang === 'es' ? f.a.es : lang === 'ru' ? f.a.ru : f.a.en,
+  }));
 }
-
