@@ -158,6 +158,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             RU
           </button>
+          <button
+            onClick={() => setLang('es')}
+            className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+              lang === 'es'
+                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_1px_4px_rgba(99,102,241,0.3)]'
+                : 'text-[var(--th-sidebar-label)] hover:text-[var(--th-sidebar-text)]'
+            }`}
+          >
+            ES
+          </button>
           <span className="mx-1 w-px h-3 bg-[var(--th-sidebar-border)]" />
           <button
             onClick={toggle}

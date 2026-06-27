@@ -566,7 +566,7 @@ function DocsPageInner() {
 }
 
 /* ── Exported client component wrapped in Suspense ───────────────────── */
-export default function DocsPageClient({ initialLang }: { initialLang?: 'en' | 'ru' }) {
+export default function DocsPageClient({ initialLang }: { initialLang?: 'en' | 'ru' | 'es' }) {
   return (
     <LangProvider initialLang={initialLang}>
       <Suspense fallback={

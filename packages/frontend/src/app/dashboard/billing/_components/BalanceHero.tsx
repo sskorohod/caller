@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function BalanceHero({ balance, lang, onTopUp, loading }: Props) {
-  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (lang === 'ru') return ru; if (lang === 'es') return es ?? en; return en; };
   const [amount, setAmount] = useState('');
   const [preset, setPreset] = useState<number | null>(null);
 

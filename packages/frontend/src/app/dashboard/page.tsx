@@ -44,7 +44,7 @@ const DEFAULT_GREETING = "Hi, I'm your AI interpreter. Please go ahead.";
 export default function DashboardHub() {
   const t = useT();
   const { lang } = useI18n();
-  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (lang === 'ru') return ru; if (lang === 'es') return es ?? en; return en; };
   const { socket } = useSocket();
   const router = useRouter();
 

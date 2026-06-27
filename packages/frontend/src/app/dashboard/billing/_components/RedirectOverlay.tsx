@@ -10,7 +10,7 @@ interface Props {
 // click always produces immediate, reassuring feedback instead of a silent jump.
 export function RedirectOverlay({ show, lang }: Props) {
   if (!show) return null;
-  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (lang === 'ru') return ru; if (lang === 'es') return es ?? en; return en; };
 
   return (
     <div

@@ -15,7 +15,7 @@ function fmt(sec: number): string {
 export default function SandboxPage() {
   const { lang: uiLang } = useI18n();
   const { token } = useAuth();
-  const tt = (en: string, ru: string) => (uiLang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (uiLang === 'ru') return ru; if (uiLang === 'es') return es ?? en; return en; };
 
   const { status, lines, liveLine, remainingSeconds, error, start, stop } = useSandboxAudio();
   const [mode, setMode] = useState<SandboxMode>('echo');

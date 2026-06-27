@@ -11,7 +11,7 @@ interface Props {
 // Checkout via the ?success=true redirect. Mirrors RedirectOverlay's styling so
 // the start and end of the payment flow feel like one coherent moment.
 export function TopUpSuccessModal({ amount, balance, lang, onClose }: Props) {
-  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (lang === 'ru') return ru; if (lang === 'es') return es ?? en; return en; };
   const parsed = parseFloat(amount);
   const amt = amount && !isNaN(parsed) ? `$${parsed.toFixed(2)}` : null;
 

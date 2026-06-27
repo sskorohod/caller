@@ -8,7 +8,7 @@ import { SectionCard } from './SectionCard';
 export function DangerZone() {
   const t = useT();
   const { lang } = useI18n();
-  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (lang === 'ru') return ru; if (lang === 'es') return es ?? en; return en; };
   const { logout } = useAuth();
 
   const [open, setOpen] = useState(false);

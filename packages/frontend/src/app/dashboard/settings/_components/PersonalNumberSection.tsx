@@ -18,7 +18,7 @@ const fmtPhone = (p: string) => p.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '+1 ($1)
 
 export function PersonalNumberSection() {
   const { lang } = useI18n();
-  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (lang === 'ru') return ru; if (lang === 'es') return es ?? en; return en; };
   const router = useRouter();
 
   const [number, setNumber] = useState<PersonalNumber | null>(null);

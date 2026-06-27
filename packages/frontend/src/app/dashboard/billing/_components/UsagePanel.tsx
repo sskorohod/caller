@@ -22,7 +22,7 @@ const cardCls = 'rounded-2xl border border-[var(--th-card-border-subtle)] bg-[va
 
 export function UsagePanel() {
   const { lang } = useI18n();
-  const tt = (en: string, ru: string) => (lang === 'ru' ? ru : en);
+  const tt = (en: string, ru: string, es?: string) => { if (lang === 'ru') return ru; if (lang === 'es') return es ?? en; return en; };
   const [period, setPeriod] = useState<Period>('30d');
   const [data, setData] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(true);

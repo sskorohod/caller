@@ -68,6 +68,7 @@ export function AppearanceSection() {
             options={[
               { value: 'en', label: 'English' },
               { value: 'ru', label: 'Русский' },
+              { value: 'es', label: 'Español' },
             ]}
           />
         </div>

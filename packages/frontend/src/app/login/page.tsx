@@ -33,7 +33,7 @@ function LoginContent() {
       const res = await authApi.login({ email, password });
       login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
     } catch (err: any) {
-      setError(err.message || t('Invalid email or password', 'Неверный email или пароль'));
+      setError(err.message || t('Invalid email or password', 'Неверный email или пароль', 'Correo o contraseña incorrectos'));
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ function LoginContent() {
       await authApi.forgotPassword({ email });
       setResetSent(true);
     } catch (err: any) {
-      setError(err.message || t('Could not send the reset link', 'Не удалось отправить ссылку'));
+      setError(err.message || t('Could not send the reset link', 'Не удалось отправить ссылку', 'No se pudo enviar el enlace'));
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ function LoginContent() {
       const res = await authApi.register({ email, password, phone_number: cleanPhone || undefined });
       login(res.token, res.user, res.workspace ?? undefined, returnUrl ?? undefined);
     } catch (err: any) {
-      setError(err.message || t('Could not create account', 'Не удалось создать аккаунт'));
+      setError(err.message || t('Could not create account', 'Не удалось создать аккаунт', 'No se pudo crear la cuenta'));
     } finally {
       setLoading(false);
     }
@@ -102,21 +102,22 @@ function LoginContent() {
             <span className="text-2xl font-headline font-extrabold tracking-tight">LingoLine</span>
           </Link>
           <h2 className="text-3xl font-headline font-extrabold tracking-tight leading-tight mb-4">
-            {t('AI Live', 'AI-переводчик')}
+            {t('AI Live', 'AI-переводчик', 'AI en vivo')}
             <br />
-            <span style={{ color: '#adc6ff' }}>{t('Translator', 'в реальном времени')}</span>
+            <span style={{ color: '#adc6ff' }}>{t('Translator', 'в реальном времени', 'Traductor')}</span>
           </h2>
           <p className="text-sm leading-relaxed mb-8" style={{ color: '#c2c6d6' }}>
             {t(
               'Real-time AI interpretation on any phone call. Works from any phone — no apps. Start with free credit.',
               'Перевод звонков с помощью ИИ в реальном времени. Работает с любого телефона — без приложений. Начните с бесплатным балансом.',
+              'Traducción de llamadas con IA en tiempo real. Funciona desde cualquier teléfono — sin apps. Comienza con crédito gratis.',
             )}
           </p>
           <div className="space-y-3">
             {[
-              { icon: 'translate', text: t('Live translation on any phone call', 'Живой перевод любого телефонного звонка') },
-              { icon: 'sync_alt', text: t('Both directions, detected automatically', 'В обе стороны — направление определяется автоматически') },
-              { icon: 'savings', text: t('No subscription — pay per minute', 'Без подписки — оплата за минуты') },
+              { icon: 'translate', text: t('Live translation on any phone call', 'Живой перевод любого телефонного звонка', 'Traducción en vivo en cualquier llamada') },
+              { icon: 'sync_alt', text: t('Both directions, detected automatically', 'В обе стороны — направление определяется автоматически', 'En ambas direcciones, detectado automáticamente') },
+              { icon: 'savings', text: t('No subscription — pay per minute', 'Без подписки — оплата за минуты', 'Sin suscripción — pago por minuto') },
             ].map(f => (
               <div key={f.text} className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>{f.icon}</span>
@@ -147,8 +148,8 @@ function LoginContent() {
             /* ─── Sign In (email + password) ─── */
             <>
               <div className="mb-8">
-                <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Welcome back', 'С возвращением')}</h1>
-                <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>{t('Sign in to your account', 'Войдите в свой аккаунт')}</p>
+                <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Welcome back', 'С возвращением', 'Bienvenido de nuevo')}</h1>
+                <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>{t('Sign in to your account', 'Войдите в свой аккаунт', 'Inicia sesión en tu cuenta')}</p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
@@ -161,16 +162,16 @@ function LoginContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Password', 'Пароль')}</label>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Password', 'Пароль', 'Contraseña')}</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>lock</span>
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
-                      placeholder={t('Enter password', 'Введите пароль')} className="input-field" style={{ paddingLeft: '40px' }} />
+                      placeholder={t('Enter password', 'Введите пароль', 'Ingresa tu contraseña')} className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
                   <div className="text-right mt-1.5">
                     <button type="button" onClick={() => { setMode('forgot'); setError(''); setResetSent(false); }}
                       className="text-xs font-medium hover:underline" style={{ color: '#adc6ff' }}>
-                      {t('Forgot password?', 'Забыли пароль?')}
+                      {t('Forgot password?', 'Забыли пароль?', '¿Olvidaste tu contraseña?')}
                     </button>
                   </div>
                 </div>
@@ -186,20 +187,20 @@ function LoginContent() {
                 <button type="submit" disabled={loading}
                   className="w-full py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                   style={{ background: 'linear-gradient(135deg, #adc6ff 0%, #4d8eff 100%)', color: '#0e131f', boxShadow: '0 4px 24px rgba(77, 142, 255, 0.2)' }}>
-                  {loading ? t('Signing in...', 'Вход…') : t('Sign In', 'Войти')}
+                  {loading ? t('Signing in...', 'Вход…', 'Iniciando sesión...') : t('Sign In', 'Войти', 'Iniciar sesión')}
                 </button>
               </form>
 
               <div className="flex items-center gap-3 my-6">
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
-                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('new here?', 'впервые здесь?')}</span>
+                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('new here?', 'впервые здесь?', '¿nuevo aquí?')}</span>
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
               </div>
 
               <button onClick={() => { setMode('register'); setError(''); }}
                 className="w-full py-3 rounded-xl text-sm font-medium transition-all min-h-[44px]"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {t('Create Account', 'Создать аккаунт')}
+                {t('Create Account', 'Создать аккаунт', 'Crear cuenta')}
               </button>
             </>
           ) : mode === 'forgot' ? (
@@ -212,24 +213,24 @@ function LoginContent() {
                     <span className="material-symbols-outlined text-3xl" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>mark_email_read</span>
                   </div>
                   <div>
-                    <h1 className="text-2xl font-headline font-bold tracking-tight mb-2">{t('Check your email', 'Проверьте почту')}</h1>
+                    <h1 className="text-2xl font-headline font-bold tracking-tight mb-2">{t('Check your email', 'Проверьте почту', 'Revisa tu correo')}</h1>
                     <p className="text-sm" style={{ color: '#c2c6d6' }}>
-                      {t('If an account exists for', 'Если аккаунт с адресом')}<br />
+                      {t('If an account exists for', 'Если аккаунт с адресом', 'Si existe una cuenta para')}<br />
                       <strong style={{ color: '#dde2f3' }}>{email}</strong><br />
-                      {t('we sent a password reset link. It expires in 30 minutes.', 'существует — мы отправили ссылку для сброса пароля. Она действует 30 минут.')}
+                      {t('we sent a password reset link. It expires in 30 minutes.', 'существует — мы отправили ссылку для сброса пароля. Она действует 30 минут.', 'enviamos un enlace para restablecer tu contraseña. Expira en 30 minutos.')}
                     </p>
                   </div>
                   <button onClick={() => { setMode('login'); setError(''); setResetSent(false); }}
                     className="text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
-                    {t('Back to sign in', 'Вернуться ко входу')}
+                    {t('Back to sign in', 'Вернуться ко входу', 'Volver al inicio de sesión')}
                   </button>
                 </div>
               ) : (
                 <>
                   <div className="mb-6">
-                    <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Reset password', 'Сброс пароля')}</h1>
+                    <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Reset password', 'Сброс пароля', 'Restablecer contraseña')}</h1>
                     <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
-                      {t('Enter your email and we’ll send you a link to set a new password.', 'Введите email — мы отправим ссылку для установки нового пароля.')}
+                      {t('Enter your email and we\'ll send you a link to set a new password.', 'Введите email — мы отправим ссылку для установки нового пароля.', 'Ingresa tu correo y te enviaremos un enlace para establecer una nueva contraseña.')}
                     </p>
                   </div>
 
@@ -257,15 +258,15 @@ function LoginContent() {
                       {loading ? (
                         <span className="inline-flex items-center gap-2">
                           <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          {t('Sending...', 'Отправка…')}
+                          {t('Sending...', 'Отправка…', 'Enviando...')}
                         </span>
-                      ) : t('Send reset link', 'Отправить ссылку')}
+                      ) : t('Send reset link', 'Отправить ссылку', 'Enviar enlace')}
                     </button>
                   </form>
 
                   <button onClick={() => { setMode('login'); setError(''); }}
                     className="w-full mt-4 text-sm font-medium hover:underline" style={{ color: '#adc6ff' }}>
-                    {t('Back to sign in', 'Вернуться ко входу')}
+                    {t('Back to sign in', 'Вернуться ко входу', 'Volver al inicio de sesión')}
                   </button>
                 </>
               )}
@@ -274,11 +275,12 @@ function LoginContent() {
             /* ─── Register (email + password) ─── */
             <>
               <div className="mb-6">
-                <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Create account', 'Создать аккаунт')}</h1>
+                <h1 className="text-2xl font-headline font-bold tracking-tight">{t('Create account', 'Создать аккаунт', 'Crear cuenta')}</h1>
                 <p className="text-sm mt-1" style={{ color: '#c2c6d6' }}>
                   {t(
-                    'Pick a password and you’re in — no email confirmation needed.',
+                    'Pick a password and you\'re in — no email confirmation needed.',
                     'Придумайте пароль — и вы внутри, без подтверждения по почте.',
+                    'Elige una contraseña y listo — sin confirmación por correo.',
                   )}
                 </p>
               </div>
@@ -288,8 +290,8 @@ function LoginContent() {
                 style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
                 <span className="material-symbols-outlined text-xl shrink-0" style={{ color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>redeem</span>
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>{t('Ten free minutes as a gift', 'Десять бесплатных минут в подарок')}</div>
-                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>{t('One gift per phone number. No card required to start.', 'Один бонус на один номер. Для старта платёжная карта не нужна.')}</div>
+                  <div className="text-sm font-semibold" style={{ color: '#dde2f3' }}>{t('Ten free minutes as a gift', 'Десять бесплатных минут в подарок', 'Diez minutos gratis de regalo')}</div>
+                  <div className="text-xs mt-0.5" style={{ color: '#c2c6d6' }}>{t('One gift per phone number. No card required to start.', 'Один бонус на один номер. Для старта платёжная карта не нужна.', 'Un regalo por número. No se necesita tarjeta para empezar.')}</div>
                 </div>
               </div>
 
@@ -303,15 +305,15 @@ function LoginContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Password', 'Пароль')}</label>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Password', 'Пароль', 'Contraseña')}</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>lock</span>
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
-                      placeholder={t('At least 8 characters', 'Минимум 8 символов')} className="input-field" style={{ paddingLeft: '40px' }} />
+                      placeholder={t('At least 8 characters', 'Минимум 8 символов', 'Al menos 8 caracteres')} className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Phone Number', 'Номер телефона')}</label>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>{t('Phone Number', 'Номер телефона', 'Número de teléfono')}</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>phone</span>
                     <input type="tel" value={phoneNumber}
@@ -323,18 +325,18 @@ function LoginContent() {
                       onBlur={() => setPhoneNumber(phoneNumber.replace(/[\s\-\(\)\.]/g, ''))}
                       placeholder="+14155551234" className="input-field" style={{ paddingLeft: '40px' }} />
                   </div>
-                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('Your phone number for translator service (E.164 format). The $2 gift is credited when you add a phone number — now or later in Settings.', 'Ваш номер для сервиса перевода (формат E.164). Бонус $2 начисляется при добавлении номера — сейчас или позже в настройках.')}</p>
+                  <p className="text-[10px] mt-1" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('Your phone number for translator service (E.164 format). The $2 gift is credited when you add a phone number — now or later in Settings.', 'Ваш номер для сервиса перевода (формат E.164). Бонус $2 начисляется при добавлении номера — сейчас или позже в настройках.', 'Tu número para el servicio de traducción (formato E.164). El bono de $2 se acredita al añadir un número — ahora o más tarde en Configuración.')}</p>
                 </div>
 
                 <label className="flex items-start gap-3 cursor-pointer select-none mt-1">
                   <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
                     className="mt-0.5 w-4 h-4 rounded accent-blue-500 flex-shrink-0" />
                   <span className="text-xs leading-relaxed" style={{ color: 'rgba(194, 198, 214, 0.5)' }}>
-                    {t('I agree to the', 'Я согласен с')}{' '}
-                    <a href="/terms" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Terms of Service', 'Условиями использования')}</a>,{' '}
-                    <a href="/privacy" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Privacy Policy', 'Политикой конфиденциальности')}</a>{' '}
-                    {t('and', 'и')}{' '}
-                    <a href="/acceptable-use" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Acceptable Use Policy', 'Правилами допустимого использования')}</a>
+                    {t('I agree to the', 'Я согласен с', 'Acepto los')}{' '}
+                    <a href="/terms" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Terms of Service', 'Условиями использования', 'Términos de servicio')}</a>,{' '}
+                    <a href="/privacy" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Privacy Policy', 'Политикой конфиденциальности', 'Política de privacidad')}</a>{' '}
+                    {t('and', 'и', 'y la')}{' '}
+                    <a href="/acceptable-use" target="_blank" className="underline" style={{ color: '#adc6ff' }}>{t('Acceptable Use Policy', 'Правилами допустимого использования', 'Política de uso aceptable')}</a>
                   </span>
                 </label>
 
@@ -352,22 +354,22 @@ function LoginContent() {
                   {loading ? (
                     <span className="inline-flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      {t('Creating account...', 'Создаём аккаунт…')}
+                      {t('Creating account...', 'Создаём аккаунт…', 'Creando cuenta...')}
                     </span>
-                  ) : t('Sign Up', 'Зарегистрироваться')}
+                  ) : t('Sign Up', 'Зарегистрироваться', 'Registrarse')}
                 </button>
               </form>
 
               <div className="flex items-center gap-3 my-6">
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
-                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('already have an account?', 'уже есть аккаунт?')}</span>
+                <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: 'rgba(194, 198, 214, 0.3)' }}>{t('already have an account?', 'уже есть аккаунт?', '¿ya tienes cuenta?')}</span>
                 <div className="flex-1 h-px" style={{ background: 'rgba(140, 144, 159, 0.15)' }} />
               </div>
 
               <button onClick={() => { setMode('login'); setError(''); }}
                 className="w-full py-3 rounded-xl text-sm font-medium transition-all min-h-[44px]"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {t('Sign In with Password', 'Войти по паролю')}
+                {t('Sign In with Password', 'Войти по паролю', 'Iniciar sesión con contraseña')}
               </button>
             </>
           )}

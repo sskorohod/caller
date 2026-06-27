@@ -333,7 +333,7 @@ function LanguagePairsGrid() {
 function TranslatorContent() {
   const { t } = useLang();
 
-  const faqItems = translatorFaq.map((f) => ({ q: t(f.q.en, f.q.ru), a: t(f.a.en, f.a.ru) }));
+  const faqItems = translatorFaq.map((f) => ({ q: t(f.q.en, f.q.ru, f.q.es), a: t(f.a.en, f.a.ru, f.a.es) }));
 
   const features = [
     {
@@ -1006,7 +1006,7 @@ function TranslatorContent() {
 }
 
 /* ── Page Export ─────────────────────────────────────────────────────────── */
-export default function TranslatorPageClient({ initialLang }: { initialLang?: 'en' | 'ru' }) {
+export default function TranslatorPageClient({ initialLang }: { initialLang?: 'en' | 'ru' | 'es' }) {
   return (
     <LangProvider initialLang={initialLang}>
       <TranslatorContent />
