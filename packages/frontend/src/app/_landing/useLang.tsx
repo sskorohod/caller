@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import LanguageDropdown from '@/components/LanguageDropdown';
 
 export type Lang = 'en' | 'ru' | 'es';
 
@@ -59,24 +60,16 @@ export function useLang() {
   return useContext(LangContext);
 }
 
-/** Language switcher button component */
-export function LangSwitcher({ className = '' }: { className?: string }) {
+/** Language switcher dropdown (public dark pages) */
+export function LangSwitcher({ className = '', align = 'end' }: { className?: string; align?: 'start' | 'end' }) {
   const { lang, setLang } = useLang();
-  const next: Lang = lang === 'en' ? 'ru' : lang === 'ru' ? 'es' : 'en';
-
   return (
-    <button
-      onClick={() => setLang(next)}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${className}`}
-      style={{
-        background: 'rgba(140,144,159,0.08)',
-        border: '1px solid rgba(140,144,159,0.1)',
-        color: '#a0a8c0',
-      }}
-      title={`Switch to ${next.toUpperCase()}`}
-    >
-      <span className="material-symbols-outlined text-sm">language</span>
-      {next.toUpperCase()}
-    </button>
+    <LanguageDropdown
+      variant="landing"
+      value={lang}
+      onChange={(v) => setLang(v as Lang)}
+      className={className}
+      align={align}
+    />
   );
 }

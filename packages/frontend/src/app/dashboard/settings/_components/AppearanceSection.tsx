@@ -2,6 +2,7 @@
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
 import { SectionCard } from './SectionCard';
+import LanguageDropdown from '@/components/LanguageDropdown';
 
 function Segmented<T extends string>({ value, onChange, options }: {
   value: T;
@@ -62,15 +63,7 @@ export function AppearanceSection() {
         {/* Language */}
         <div className="min-w-[200px]">
           <div className="text-sm font-medium text-[var(--th-text)] mb-2">{t('settings.language')}</div>
-          <Segmented
-            value={lang}
-            onChange={setLang}
-            options={[
-              { value: 'en', label: 'English' },
-              { value: 'ru', label: 'Русский' },
-              { value: 'es', label: 'Español' },
-            ]}
-          />
+          <LanguageDropdown variant="card" value={lang} onChange={(v) => setLang(v as typeof lang)} />
         </div>
       </div>
     </SectionCard>

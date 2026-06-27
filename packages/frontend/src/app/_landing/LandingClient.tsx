@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { LangProvider, useLang, type Lang } from './useLang';
+import LanguageDropdown from '@/components/LanguageDropdown';
 import { inter, manrope } from '../fonts';
 import { landingFaq } from '../_seo/faq';
 import './landing.css';
@@ -381,7 +382,7 @@ function Landing() {
         </div>
         <div className="lp-wrap footer-bottom">
           <span>© {new Date().getFullYear()} LingoLine</span>
-          <LangToggle />
+          <LangToggle drop="up" />
         </div>
       </footer>
 
@@ -492,14 +493,10 @@ function Transcript({ lang, t }: { lang: Lang; t: (en: string, ru: string, es?: 
   );
 }
 
-function LangToggle() {
+function LangToggle({ drop = 'down' }: { drop?: 'down' | 'up' }) {
   const { lang, setLang } = useLang();
-  const next: Lang = lang === 'en' ? 'ru' : lang === 'ru' ? 'es' : 'en';
   return (
-    <button className="lang-toggle" onClick={() => setLang(next)}
-      title={`Switch to ${next.toUpperCase()}`}>
-      <span className="material-symbols-outlined">language</span>{next.toUpperCase()}
-    </button>
+    <LanguageDropdown variant="landing" value={lang} onChange={(v) => setLang(v as Lang)} drop={drop} align="end" />
   );
 }
 

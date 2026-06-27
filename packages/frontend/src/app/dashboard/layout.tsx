@@ -9,6 +9,7 @@ import { useTheme } from '@/lib/theme';
 import { SocketProvider, useSocket } from '@/lib/socket';
 import IncomingCallCard from '@/components/IncomingCallCard';
 import BottomTabBar from '@/components/BottomTabBar';
+import LanguageDropdown from '@/components/LanguageDropdown';
 import { navItems, getBottomTabs, getMoreItems } from './_lib/nav-config';
 
 function ConnectionIndicator() {
@@ -136,38 +137,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Theme + Language Switcher */}
       <div className="px-3 py-2 border-t border-[var(--th-sidebar-border)]">
-        <div className="flex items-center gap-1 px-3">
+        <div className="flex items-center gap-2 px-3">
           <span className="text-[10px] text-[var(--th-sidebar-label)] font-medium mr-auto">{t('settings.language')}</span>
-          <button
-            onClick={() => setLang('en')}
-            className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
-              lang === 'en'
-                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_1px_4px_rgba(99,102,241,0.3)]'
-                : 'text-[var(--th-sidebar-label)] hover:text-[var(--th-sidebar-text)]'
-            }`}
-          >
-            EN
-          </button>
-          <button
-            onClick={() => setLang('ru')}
-            className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
-              lang === 'ru'
-                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_1px_4px_rgba(99,102,241,0.3)]'
-                : 'text-[var(--th-sidebar-label)] hover:text-[var(--th-sidebar-text)]'
-            }`}
-          >
-            RU
-          </button>
-          <button
-            onClick={() => setLang('es')}
-            className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
-              lang === 'es'
-                ? 'bg-gradient-to-r from-[var(--th-primary)] to-indigo-600 text-white shadow-[0_1px_4px_rgba(99,102,241,0.3)]'
-                : 'text-[var(--th-sidebar-label)] hover:text-[var(--th-sidebar-text)]'
-            }`}
-          >
-            ES
-          </button>
+          <LanguageDropdown
+            variant="sidebar"
+            value={lang}
+            onChange={(v) => setLang(v as typeof lang)}
+            drop="up"
+            align="end"
+          />
           <span className="mx-1 w-px h-3 bg-[var(--th-sidebar-border)]" />
           <button
             onClick={toggle}
