@@ -59,6 +59,11 @@ export default function DashboardHub() {
   const [savedTick, setSavedTick] = useState(false);
   const [lineBusy, setLineBusy] = useState<boolean | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest values mirrored into refs so `update` (stable) can read them without
+  // stale closures: defaultsRef merges rapid changes; live refs gate the live push.
+  const defaultsRef = useRef<TranslatorDefaults>({});
+  const liveCallIdRef = useRef<string | null>(null);
+  const callEndedRef = useRef<boolean>(false);
 
   useEffect(() => {
     api.get<{ phone_number: string | null; is_personal?: boolean }>('/translator/phone').then(r => { setPhone(r.phone_number); setIsPersonalNumber(!!r.is_personal); }).catch(() => {});
@@ -96,17 +101,37 @@ export default function DashboardHub() {
     return () => clearInterval(iv);
   }, [refreshLineStatus]);
 
-  // Debounced autosave on any setting change.
+  // Keep defaultsRef in sync so `update` merges against the latest state
+  // (incl. the initial load, which calls setDefaults directly).
+  useEffect(() => { defaultsRef.current = defaults; }, [defaults]);
+
+  // On any setting change: debounce-save the full state as the workspace default,
+  // and — if a call is live — push the changed setting to the active translator in
+  // real time (same socket events the /translate live page uses).
   const update = useCallback((patch: Partial<TranslatorDefaults>) => {
-    setDefaults(prev => {
-      const next = { ...prev, ...patch };
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        api.put('/translator/defaults', next).then(() => { setSavedTick(true); setTimeout(() => setSavedTick(false), 1500); }).catch(() => {});
-      }, 700);
-      return next;
-    });
-  }, []);
+    const prev = defaultsRef.current;
+    const next = { ...prev, ...patch };
+    defaultsRef.current = next;
+    setDefaults(next);
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      api.put('/translator/defaults', next).then(() => { setSavedTick(true); setTimeout(() => setSavedTick(false), 1500); }).catch(() => {});
+    }, 700);
+
+    const cid = liveCallIdRef.current;
+    if (cid && !callEndedRef.current && socket) {
+      if ((patch.my_language !== undefined && patch.my_language !== prev.my_language) ||
+          (patch.target_language !== undefined && patch.target_language !== prev.target_language))
+        socket.emit('translator:set-languages', { call_id: cid, my_language: next.my_language, target_language: next.target_language });
+      if (patch.tts_voice_id !== undefined && patch.tts_voice_id !== prev.tts_voice_id)
+        socket.emit('translator:set-voice', { call_id: cid, voice: patch.tts_voice_id });
+      if (patch.tone !== undefined && patch.tone !== prev.tone)
+        socket.emit('translator:set-tone', { call_id: cid, tone: patch.tone });
+      if (patch.translation_mode !== undefined && patch.translation_mode !== prev.translation_mode)
+        socket.emit('translator:set-mode', { call_id: cid, mode: patch.translation_mode });
+    }
+  }, [socket]);
 
   // Tapping the number in the header downloads a vCard so the device offers to
   // save the translator number straight to the user's contacts. Built
@@ -141,6 +166,8 @@ export default function DashboardHub() {
   const [liveInterim, setLiveInterim] = useState<{ original: string; translated: string } | null>(null);
   const [callEnded, setCallEnded] = useState(false);
   const liveEndRef = useRef<HTMLDivElement>(null);
+  // Mirror live-call state into refs read by the stable `update` callback.
+  useEffect(() => { liveCallIdRef.current = liveCallId; callEndedRef.current = callEnded; }, [liveCallId, callEnded]);
 
   useEffect(() => {
     api.get<{ sessions: { id: string; call_id: string | null }[] }>('/translator/sessions/active').then(r => {
