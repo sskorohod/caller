@@ -29,6 +29,8 @@ export interface StealthTranslatorOptions {
   oneWay?: boolean;
   /** Greeting spoken to the other party at call start (voice pipeline only). */
   greetingText?: string;
+  /** Seconds to wait after connecting before speaking the greeting (default 5). */
+  greetingDelaySeconds?: number;
   /** Mid-call engine swap: reuse the existing session instead of starting fresh. */
   carryover?: TranslatorCarryover;
 }
@@ -86,6 +88,8 @@ export class StealthTranslator extends EventEmitter {
   private speak: boolean;
   private oneWay: boolean;
   private greetingText: string;
+  private greetingDelaySeconds: number;
+  private greetingTimer?: ReturnType<typeof setTimeout>;
   private carryover?: TranslatorCarryover;
   private callId: string;
   private workspaceId: string;
@@ -188,6 +192,8 @@ export class StealthTranslator extends EventEmitter {
     this.speak = options.speak ?? false;
     this.oneWay = options.oneWay ?? false;
     this.greetingText = options.greetingText ?? '';
+    const gDelay = options.greetingDelaySeconds;
+    this.greetingDelaySeconds = Number.isFinite(gDelay) ? Math.min(30, Math.max(0, gDelay as number)) : 5;
     this.carryover = options.carryover;
   }
 
@@ -263,8 +269,18 @@ export class StealthTranslator extends EventEmitter {
     this.resetIdleTimer();
 
     // Voice pipeline: greet the other party once at call start (not on swap-in).
+    // Wait greetingDelaySeconds after connecting before speaking, so the merge has
+    // settled (mirrors ConferenceTranslator). Translations queue behind the greeting
+    // on commitChain, so nothing is spoken into the line before it.
     if (this.speak && this.greetingText && !this.carryover) {
-      this.commitChain = this.commitChain.then(() => this.speakTranslation(this.greetingText, this.targetLang, undefined, 'greeting')).catch(() => {});
+      const delayMs = this.greetingDelaySeconds * 1000;
+      this.commitChain = this.commitChain
+        .then(() => new Promise<void>(resolve => { this.greetingTimer = setTimeout(resolve, delayMs); }))
+        .then(() => {
+          if (this.saved) return; // call ended (or engine swapped) during the delay
+          return this.speakTranslation(this.greetingText, this.targetLang, undefined, 'greeting');
+        })
+        .catch(() => {});
     }
 
     log.info({
@@ -802,6 +818,7 @@ export class StealthTranslator extends EventEmitter {
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    if (this.greetingTimer) { clearTimeout(this.greetingTimer); this.greetingTimer = undefined; }
     this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
     return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
@@ -817,6 +834,7 @@ export class StealthTranslator extends EventEmitter {
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
+    if (this.greetingTimer) { clearTimeout(this.greetingTimer); this.greetingTimer = undefined; }
     this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
 

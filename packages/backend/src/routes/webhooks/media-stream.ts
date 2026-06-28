@@ -142,6 +142,7 @@ async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
       speak: !isStealth, // voice modes speak the translation; stealth stays silent
       oneWay: pageMode === 'unidirectional',
       greetingText: ctx.greetingText,
+      greetingDelaySeconds: ctx.greetingDelaySeconds,
       carryover,
     });
   }
@@ -688,7 +689,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 personalContext: wsDefs.personal_context || '',
                 whoHears: (wsDefs.who_hears as any) || 'both',
                 greetingText: callMeta.greeting_text || wsDefs.greeting_text || platformGreeting,
-                greetingDelaySeconds: Number(wsDefs.greeting_delay_seconds ?? 3),
+                greetingDelaySeconds: Number(wsDefs.greeting_delay_seconds ?? 5),
                 socket: socket as any,
                 streamSid: streamSid!,
               };

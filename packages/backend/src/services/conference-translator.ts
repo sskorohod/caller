@@ -29,7 +29,7 @@ interface ConferenceTranslatorOptions {
   tone?: string;
   personalContext?: string;
   greetingText?: string;
-  /** Seconds to wait after connecting before speaking the greeting (default 3). */
+  /** Seconds to wait after connecting before speaking the greeting (default 5). */
   greetingDelaySeconds?: number;
   socket: WebSocket;        // Twilio media stream WebSocket
   streamSid: string;        // Twilio stream SID
@@ -177,7 +177,7 @@ export class ConferenceTranslator extends EventEmitter {
     this.personalContext = options.personalContext || '';
     this.greetingText = options.greetingText || DEFAULT_GREETING;
     const delay = options.greetingDelaySeconds;
-    this.greetingDelaySeconds = Number.isFinite(delay) ? Math.min(30, Math.max(0, delay as number)) : 3;
+    this.greetingDelaySeconds = Number.isFinite(delay) ? Math.min(30, Math.max(0, delay as number)) : 5;
     this.carryover = options.carryover;
   }
 

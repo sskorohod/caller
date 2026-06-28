@@ -501,7 +501,7 @@ export default function DashboardHub() {
               <span className="flex items-center gap-1.5 text-[11px] text-[var(--th-text-muted)]">
                 {tt('Speak after', 'Прозвучит через')}
                 <input type="number" min={0} max={30} disabled={!loaded}
-                  value={defaults.greeting_delay_seconds ?? 3}
+                  value={defaults.greeting_delay_seconds ?? 5}
                   onChange={e => update({ greeting_delay_seconds: Math.min(30, Math.max(0, parseInt(e.target.value, 10) || 0)) })}
                   className="w-14 px-2 py-1 rounded-lg border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-xs text-center focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)]" />
                 {tt('sec', 'сек')}
