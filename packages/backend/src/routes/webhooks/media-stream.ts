@@ -143,6 +143,8 @@ async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
       oneWay: pageMode === 'unidirectional',
       greetingText: ctx.greetingText,
       greetingDelaySeconds: ctx.greetingDelaySeconds,
+      ttsVoiceId: ctx.ttsVoiceId,
+      tone: ctx.tone,
       carryover,
     });
   }

@@ -1,4 +1,5 @@
 import pino from 'pino';
+import { TONE_INSTRUCTIONS } from '../config/languages.js';
 
 const log = pino({ name: 'translate-text' });
 
@@ -11,6 +12,8 @@ export interface TranslateTextOptions {
   model?: string;
   /** xAI is OpenAI-compatible; override only if pointing at a different base URL. */
   baseUrl?: string;
+  /** Translator tone (key into TONE_INSTRUCTIONS) appended to the system prompt. */
+  tone?: string;
   /** Abort the request after this many ms (default 6000). */
   timeoutMs?: number;
 }
@@ -29,6 +32,7 @@ export async function translateText(
   opts: TranslateTextOptions,
 ): Promise<string | null> {
   const base = opts.baseUrl || 'https://api.x.ai/v1';
+  const toneClause = opts.tone && TONE_INSTRUCTIONS[opts.tone] ? ` ${TONE_INSTRUCTIONS[opts.tone]}` : '';
   try {
     const res = await fetch(`${base}/chat/completions`, {
       method: 'POST',
@@ -37,7 +41,7 @@ export async function translateText(
         model: opts.model || DEFAULT_TRANSLATE_MODEL,
         temperature: 0.2,
         messages: [
-          { role: 'system', content: `You are a translation machine. Translate the user's message into ${targetLangName}. Output ONLY the ${targetLangName} translation — no quotes, no commentary, nothing else.` },
+          { role: 'system', content: `You are a translation machine. Translate the user's message into ${targetLangName}. Output ONLY the ${targetLangName} translation — no quotes, no commentary, nothing else.${toneClause}` },
           { role: 'user', content: text },
         ],
       }),

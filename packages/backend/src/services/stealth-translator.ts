@@ -31,6 +31,10 @@ export interface StealthTranslatorOptions {
   greetingText?: string;
   /** Seconds to wait after connecting before speaking the greeting (default 5). */
   greetingDelaySeconds?: number;
+  /** TTS voice id for the spoken translation (voice pipeline). Defaults to VOICE_TTS_VOICE. */
+  ttsVoiceId?: string;
+  /** Translator tone (key into TONE_INSTRUCTIONS) applied to every translation. */
+  tone?: string;
   /** Mid-call engine swap: reuse the existing session instead of starting fresh. */
   carryover?: TranslatorCarryover;
 }
@@ -90,6 +94,8 @@ export class StealthTranslator extends EventEmitter {
   private greetingText: string;
   private greetingDelaySeconds: number;
   private greetingTimer?: ReturnType<typeof setTimeout>;
+  private ttsVoiceId: string;
+  private tone: string;
   private carryover?: TranslatorCarryover;
   private callId: string;
   private workspaceId: string;
@@ -194,6 +200,8 @@ export class StealthTranslator extends EventEmitter {
     this.greetingText = options.greetingText ?? '';
     const gDelay = options.greetingDelaySeconds;
     this.greetingDelaySeconds = Number.isFinite(gDelay) ? Math.min(30, Math.max(0, gDelay as number)) : 5;
+    this.ttsVoiceId = options.ttsVoiceId || TTS_VOICE;
+    this.tone = options.tone || 'business';
     this.carryover = options.carryover;
   }
 
@@ -462,7 +470,7 @@ export class StealthTranslator extends EventEmitter {
 
     // Phase 1: translate (~300-600 ms). Promise resolves HERE — not after TTS.
     const translated = (await translateText(text, targetLangName, {
-      apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL,
+      apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, tone: this.tone,
     })) || '';
     if (signal.aborted || !translated) return null;
 
@@ -479,7 +487,7 @@ export class StealthTranslator extends EventEmitter {
       try {
         if (TTS_PROVIDER === 'openai') {
           // OpenAI returns PCM — await full synthesis then convert in one shot.
-          const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(translated);
+          const pcm = await new OpenAITTS(this.ttsApiKey, this.ttsVoiceId).synthesize(translated);
           if (!signal.aborted) {
             const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
             const buf = pcmToMulaw(pcm);
@@ -488,7 +496,7 @@ export class StealthTranslator extends EventEmitter {
           }
         } else {
           // xAI returns mulaw 8kHz natively — each HTTP chunk plays immediately.
-          const tts = new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en');
+          const tts = new XaiTTS(this.ttsApiKey, this.ttsVoiceId.toLowerCase(), langCode || 'en');
           tts.on('chunk', (c: TTSChunk) => {
             if (signal.aborted) return;
             mulawChunks.push(c.audio);
@@ -563,7 +571,7 @@ export class StealthTranslator extends EventEmitter {
 
     const tTranslate = Date.now();
     const translated = (await translateText(original, targetLangName, {
-      apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL,
+      apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, tone: this.tone,
     })) || '';
     const translateMs = Date.now() - tTranslate;
 
@@ -651,7 +659,7 @@ export class StealthTranslator extends EventEmitter {
         await streaming.ttsComplete;
       } else if (TTS_PROVIDER === 'openai') {
         // OpenAI returns PCM in one shot — synthesize then convert.
-        const pcm = await new OpenAITTS(this.ttsApiKey, TTS_VOICE).synthesize(text);
+        const pcm = await new OpenAITTS(this.ttsApiKey, this.ttsVoiceId).synthesize(text);
         const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
         const mulaw = pcmToMulaw(pcm);
         if (this.saved || mulaw.length === 0 || this.twilioSocket.readyState !== 1) {
@@ -661,7 +669,7 @@ export class StealthTranslator extends EventEmitter {
       } else {
         // xAI streams µ-law chunks — play from the FIRST chunk instead of awaiting the
         // whole synthesis. The old batch await here was the main barge-in/fallback lag.
-        const tts = new XaiTTS(this.ttsApiKey, TTS_VOICE.toLowerCase(), langCode || 'en');
+        const tts = new XaiTTS(this.ttsApiKey, this.ttsVoiceId.toLowerCase(), langCode || 'en');
         tts.on('chunk', (c: TTSChunk) => { if (!this.saved && this.playing) appendAndSend(c.audio); });
         await tts.synthesize(text);
       }
@@ -774,8 +782,20 @@ export class StealthTranslator extends EventEmitter {
   // 1-way/2-way toggle (voice pipeline). 'text'/'unidirectional' → one-way.
   // No-op for silent stealth. Page pushes this on connect too — safe to accept.
   updateMode(mode: string): void { this.oneWay = (mode === 'text' || mode === 'unidirectional'); }
-  updateVoice(_voice: string): void { /* TTS voice fixed via VOICE_TTS_VOICE env */ }
-  updateTone(_tone: string): void { /* tone only affects spoken output */ }
+
+  /** Change TTS voice mid-call — the next synthesized utterance uses it. */
+  updateVoice(voice: string): void {
+    if (!voice) return;
+    this.ttsVoiceId = voice;
+    log.info({ callId: this.callId, voice }, 'Stealth translator voice updated');
+  }
+
+  /** Change tone mid-call — the next translation prompt uses it. */
+  updateTone(tone: string): void {
+    if (!tone) return;
+    this.tone = tone;
+    log.info({ callId: this.callId, tone }, 'Stealth translator tone updated');
+  }
 
   /** (Re)arm the idle-hangup timer — called on each successful translation. */
   private resetIdleTimer(): void {
