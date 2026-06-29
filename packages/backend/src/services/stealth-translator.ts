@@ -170,6 +170,12 @@ export class StealthTranslator extends EventEmitter {
   // original; translated only once it finalizes (append-only).
   private latestInterim = '';
 
+  // Latency instrumentation. Wall-clock of the FIRST is_final of the current
+  // utterance (when precompute kicks off) and of the utterance_end commit, so the
+  // per-turn breakdown (speech-end → commit → playback) is visible in prod logs.
+  private utteranceFirstFinalAt = 0;
+  private lastUtteranceEndAt = 0;
+
   // Serialize commits so transcript order is preserved (one is_final segment per turn).
   private commitChain: Promise<void> = Promise.resolve();
 
@@ -346,6 +352,7 @@ export class StealthTranslator extends EventEmitter {
     if (e.isFinal) {
       if (this.speak) {
         // Voice: accumulate the utterance; commit the whole thing on the pause.
+        if (this.segmentBuffer.length === 0) this.utteranceFirstFinalAt = Date.now();
         this.segmentBuffer.push(text);
         this.latestInterim = '';
         // Start pre-computing translate+TTS immediately. If another isFinal arrives
@@ -428,6 +435,7 @@ export class StealthTranslator extends EventEmitter {
     const full = this.segmentBuffer.join(' ').trim();
     this.segmentBuffer = [];
     if (!full) return;
+    this.lastUtteranceEndAt = Date.now();
 
     // Voice mode: check if pre-computation started on the last isFinal matches.
     // If so, await it (it's been running in parallel) → near-zero additional wait.
@@ -469,9 +477,11 @@ export class StealthTranslator extends EventEmitter {
     if (this.oneWay && !dir.isMyLang) return null;
 
     // Phase 1: translate (~300-600 ms). Promise resolves HERE — not after TTS.
+    const tTranslate = Date.now();
     const translated = (await translateText(text, targetLangName, {
       apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, tone: this.tone,
     })) || '';
+    const translateMs = Date.now() - tTranslate;
     if (signal.aborted || !translated) return null;
 
     // Phase 2: stream TTS in background — chunks accumulate in mulawChunks while
@@ -483,6 +493,13 @@ export class StealthTranslator extends EventEmitter {
     let ttsResolve!: () => void;
     const ttsComplete = new Promise<void>(r => { ttsResolve = r; });
 
+    // TTS time-to-first-byte, measured from when the translation finished (i.e. the
+    // pure synthesis latency, isolated from translation). Logged once the first
+    // chunk lands so prod logs show translate vs TTS split inside precompute.
+    const tTtsStart = Date.now();
+    let ttsFirstByteMs = -1;
+    const markFirstByte = () => { if (ttsFirstByteMs < 0) ttsFirstByteMs = Date.now() - tTtsStart; };
+
     const runTTS = async () => {
       try {
         if (TTS_PROVIDER === 'openai') {
@@ -491,6 +508,7 @@ export class StealthTranslator extends EventEmitter {
           if (!signal.aborted) {
             const { pcmToMulaw } = await import('../routes/webhooks/media-stream.js');
             const buf = pcmToMulaw(pcm);
+            markFirstByte();
             mulawChunks.push(buf);
             chunkCallback?.(buf);
           }
@@ -499,12 +517,18 @@ export class StealthTranslator extends EventEmitter {
           const tts = new XaiTTS(this.ttsApiKey, this.ttsVoiceId.toLowerCase(), langCode || 'en');
           tts.on('chunk', (c: TTSChunk) => {
             if (signal.aborted) return;
+            markFirstByte();
             mulawChunks.push(c.audio);
             chunkCallback?.(c.audio);
           });
           await tts.synthesize(translated);
         }
       } catch { /* ttsComplete resolves below; playback falls back to commitTurn */ }
+      log.info({
+        callId: this.callId, metric: 'precompute_timing',
+        translate_ms: translateMs, tts_first_byte_ms: ttsFirstByteMs,
+        chars_in: text.length, chars_out: translated.length,
+      }, 'precompute_timing');
       ttsResolve();
     };
     void runTTS(); // fire-and-forget: runs in background during 1 s silence window
@@ -640,9 +664,14 @@ export class StealthTranslator extends EventEmitter {
         if (this.playing && !this.playbackPaused) {
           if (this.playbackStartAt === 0) {
             this.playbackStartAt = Date.now();
+            // Headline latency: speech-end (first is_final) → first audio byte, and
+            // the commit (utterance_end) → first byte slice. These expose the full
+            // end-of-speech-to-playback gap the user perceives.
             log.info({
               callId: this.callId, metric: 'voice_play_timing', path,
               tts_first_byte_ms: this.playbackStartAt - speakAt, chars: text.length,
+              since_first_final_ms: this.utteranceFirstFinalAt ? this.playbackStartAt - this.utteranceFirstFinalAt : -1,
+              since_utterance_end_ms: this.lastUtteranceEndAt ? this.playbackStartAt - this.lastUtteranceEndAt : -1,
             }, 'voice_play_timing');
           }
           this.sendToTwilio(buf);
