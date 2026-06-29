@@ -161,10 +161,13 @@ export class StealthTranslator extends EventEmitter {
   private paused = false;
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private statsTimer?: ReturnType<typeof setInterval>;
-  // Keep-warm: holds the translate/TTS HTTPS sockets open across conversational
-  // gaps (which exceed undici's keep-alive window) so each turn skips a fresh
-  // TLS handshake — measured ~0.5-1.7 s of cold-connect latency per call.
+  // Keep-warm: the translation INFERENCE path goes cold after ~10 s idle —
+  // measured ~1.1 s cold vs ~0.5 s warm. A bare TCP/HEAD ping does NOT help
+  // (the handshake is only ~140 ms; the cost is OpenAI-side). Only a real
+  // throwaway translation keeps the warm slot, fired solely during idle gaps so
+  // it never contends with a live turn. lastTranslateAt is the warmth heartbeat.
   private warmTimer?: ReturnType<typeof setInterval>;
+  private lastTranslateAt = 0;
   // Idle hangup: no successful translation (silence or no-translation) for this
   // long → end the call so an off-hook line isn't billed indefinitely.
   private idleTimer?: ReturnType<typeof setTimeout>;
@@ -228,10 +231,10 @@ export class StealthTranslator extends EventEmitter {
       this.ttsApiKey = ttsCreds.api_key;
     }
 
-    // Prewarm the translation connection (DNS + TLS + pool) so the FIRST turn
-    // doesn't eat cold-connect latency — measured ~1.7 s on turn 1 vs ~0.5 s
-    // warm. Fire-and-forget; the result is discarded. Runs during the greeting
-    // delay so it's ready well before the first real utterance.
+    // Prewarm the translation inference path so the FIRST turn skips the cold
+    // penalty — measured ~1.6 s cold vs ~0.65 s warm, and the warmth survives
+    // the greeting delay. Fire-and-forget; result discarded.
+    this.lastTranslateAt = Date.now();
     void translateText('warm', 'English', {
       apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, timeoutMs: 4000,
     }).catch(() => {});
@@ -291,16 +294,18 @@ export class StealthTranslator extends EventEmitter {
       }
     }, 5000);
 
-    // Keep the provider sockets hot between turns. Conversational gaps (playback
-    // + the other party's reply) routinely exceed undici's keep-alive window, so
-    // without this every turn pays a fresh TLS handshake. A cheap HEAD to each
-    // origin holds a pooled connection open. Interval < the keep-alive window.
-    const translateOrigin = (() => { try { return new URL(TRANSLATE_BASE_URL).origin; } catch { return ''; } })();
-    const ttsOrigin = this.speak ? (TTS_PROVIDER === 'openai' ? 'https://api.openai.com' : 'https://api.x.ai') : '';
+    // Keep the translation inference path warm during idle gaps so a turn after a
+    // long silence doesn't re-pay the cold penalty. Only fires when no real
+    // translation has run for >6 s (a live conversation keeps it warm on its own,
+    // and this gate avoids contending with an in-flight turn).
     this.warmTimer = setInterval(() => {
-      if (translateOrigin) void fetch(translateOrigin, { method: 'HEAD' }).catch(() => {});
-      if (ttsOrigin && ttsOrigin !== translateOrigin) void fetch(ttsOrigin, { method: 'HEAD' }).catch(() => {});
-    }, 3000);
+      if (this.saved || this.paused) return;
+      if (Date.now() - this.lastTranslateAt < 6000) return;
+      this.lastTranslateAt = Date.now();
+      void translateText('ok', 'English', {
+        apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, timeoutMs: 4000,
+      }).catch(() => {});
+    }, 6000);
 
     // Arm idle-hangup (reset on each successful translation).
     this.resetIdleTimer();
@@ -501,6 +506,7 @@ export class StealthTranslator extends EventEmitter {
 
     // Phase 1: translate (~300-600 ms). Promise resolves HERE — not after TTS.
     const tTranslate = Date.now();
+    this.lastTranslateAt = tTranslate; // real activity → suppress idle keep-warm
     const translated = (await translateText(text, targetLangName, {
       apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, tone: this.tone,
     })) || '';
@@ -617,6 +623,7 @@ export class StealthTranslator extends EventEmitter {
     const speaker = dir.isMyLang ? 'subscriber' : 'other';
 
     const tTranslate = Date.now();
+    this.lastTranslateAt = tTranslate; // real activity → suppress idle keep-warm
     const translated = (await translateText(original, targetLangName, {
       apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, tone: this.tone,
     })) || '';
