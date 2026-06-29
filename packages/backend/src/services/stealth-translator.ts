@@ -161,6 +161,10 @@ export class StealthTranslator extends EventEmitter {
   private paused = false;
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private statsTimer?: ReturnType<typeof setInterval>;
+  // Keep-warm: holds the translate/TTS HTTPS sockets open across conversational
+  // gaps (which exceed undici's keep-alive window) so each turn skips a fresh
+  // TLS handshake — measured ~0.5-1.7 s of cold-connect latency per call.
+  private warmTimer?: ReturnType<typeof setInterval>;
   // Idle hangup: no successful translation (silence or no-translation) for this
   // long → end the call so an off-hook line isn't billed indefinitely.
   private idleTimer?: ReturnType<typeof setTimeout>;
@@ -224,6 +228,14 @@ export class StealthTranslator extends EventEmitter {
       this.ttsApiKey = ttsCreds.api_key;
     }
 
+    // Prewarm the translation connection (DNS + TLS + pool) so the FIRST turn
+    // doesn't eat cold-connect latency — measured ~1.7 s on turn 1 vs ~0.5 s
+    // warm. Fire-and-forget; the result is discarded. Runs during the greeting
+    // delay so it's ready well before the first real utterance.
+    void translateText('warm', 'English', {
+      apiKey: this.translateApiKey, baseUrl: TRANSLATE_BASE_URL, model: TRANSLATE_MODEL, timeoutMs: 4000,
+    }).catch(() => {});
+
     // STT provider.
     if (STT_PROVIDER === 'openai') {
       const openai = await resolveCredentialsWithGlobalFallback<{ api_key: string }>(this.workspaceId, 'openai');
@@ -278,6 +290,17 @@ export class StealthTranslator extends EventEmitter {
         });
       }
     }, 5000);
+
+    // Keep the provider sockets hot between turns. Conversational gaps (playback
+    // + the other party's reply) routinely exceed undici's keep-alive window, so
+    // without this every turn pays a fresh TLS handshake. A cheap HEAD to each
+    // origin holds a pooled connection open. Interval < the keep-alive window.
+    const translateOrigin = (() => { try { return new URL(TRANSLATE_BASE_URL).origin; } catch { return ''; } })();
+    const ttsOrigin = this.speak ? (TTS_PROVIDER === 'openai' ? 'https://api.openai.com' : 'https://api.x.ai') : '';
+    this.warmTimer = setInterval(() => {
+      if (translateOrigin) void fetch(translateOrigin, { method: 'HEAD' }).catch(() => {});
+      if (ttsOrigin && ttsOrigin !== translateOrigin) void fetch(ttsOrigin, { method: 'HEAD' }).catch(() => {});
+    }, 3000);
 
     // Arm idle-hangup (reset on each successful translation).
     this.resetIdleTimer();
@@ -865,6 +888,7 @@ export class StealthTranslator extends EventEmitter {
     this.precomputeState = null;
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
+    if (this.warmTimer) { clearInterval(this.warmTimer); this.warmTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
     if (this.greetingTimer) { clearTimeout(this.greetingTimer); this.greetingTimer = undefined; }
@@ -881,6 +905,7 @@ export class StealthTranslator extends EventEmitter {
 
     if (this.safetyTimer) { clearTimeout(this.safetyTimer); this.safetyTimer = undefined; }
     if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = undefined; }
+    if (this.warmTimer) { clearInterval(this.warmTimer); this.warmTimer = undefined; }
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = undefined; }
     if (this.playbackTimer) { clearTimeout(this.playbackTimer); this.playbackTimer = undefined; }
     if (this.greetingTimer) { clearTimeout(this.greetingTimer); this.greetingTimer = undefined; }
