@@ -16,6 +16,24 @@ import type { TranslatorCarryover } from './conference-translator.js';
 
 const log = pino({ name: 'stealth-translator' });
 
+/** Join an interrupted phrase with the barge-in addition, dropping words duplicated at
+ *  the seam — Deepgram often re-finalizes the original's tail at the head of the new
+ *  speech ("…You're able to" + "You're able to do so…"), which garbles the merged
+ *  text sent to translation. Word-level match, punctuation/case-insensitive. */
+function mergeDedupeOverlap(a: string, b: string): string {
+  const norm = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const aw = a.split(/\s+/), bw = b.split(/\s+/);
+  const max = Math.min(aw.length, bw.length, 12);
+  for (let k = max; k > 0; k--) {
+    let match = true;
+    for (let i = 0; i < k; i++) {
+      if (norm(aw[aw.length - k + i]) !== norm(bw[i])) { match = false; break; }
+    }
+    if (match) return [...aw, ...bw.slice(k)].join(' ').trim();
+  }
+  return `${a} ${b}`.trim();
+}
+
 export interface StealthTranslatorOptions {
   callId: string;
   workspaceId: string;
@@ -132,6 +150,14 @@ export class StealthTranslator extends EventEmitter {
   // barge-in can re-translate "original phrase + the user's addition" as one thought.
   private currentSpokenOriginal = '';
   private currentSpokenOriginalIsMyLang = false;
+  // True when the playing clip is itself a barge-escalate re-translation. A further
+  // phase-A barge must NOT merge onto it again — re-merging snowballs: each merge grows
+  // the clip, a non-stop talker interrupts it at second one (elapsedMs ≈ 0 → phase A),
+  // and the phrase compounds (seen in prod: 80 → 604 → 749 chars, ~60 s of TTS).
+  private currentSpokenIsEscalate = false;
+  // Merge cap: above this, translate only the new speech — long merges re-speak a huge
+  // clip that will inevitably be interrupted again.
+  private static readonly MERGE_MAX_CHARS = 250;
   // Barge-in echo filter: text we're currently speaking + recent outputs, so we
   // can tell our own TTS (heard back on the mic) from a real interruption.
   private currentSpokenNorm = '';
@@ -438,11 +464,16 @@ export class StealthTranslator extends EventEmitter {
         this.stopPlayback(); // cancel the interrupted clip
         const capturedDir = detectTranslationDirection(captured, this.myLang, this.targetLang);
         // Merge only in phase A (original barely played). In phase B translate only the
-        // new speech — the original already played.
-        const merged = phaseA && !!(origPhrase && capturedDir.isMyLang === origIsMyLang);
-        const fullText = merged ? `${origPhrase} ${captured}`.trim() : captured;
+        // new speech — the original already played. Never merge onto a clip that is
+        // itself an escalate result (snowball guard), and cap the merged length —
+        // both otherwise compound against a non-stop talker.
+        const merged = phaseA && !this.currentSpokenIsEscalate
+          && !!(origPhrase && capturedDir.isMyLang === origIsMyLang)
+          && origPhrase.length + captured.length <= StealthTranslator.MERGE_MAX_CHARS;
+        const fullText = merged ? mergeDedupeOverlap(origPhrase, captured) : captured;
         log.info({
           callId: this.callId, metric: 'barge', event: 'escalate', phase, merged, bargeMs, elapsedMs,
+          snowballGuard: phaseA && this.currentSpokenIsEscalate,
           origPhrase: merged ? origPhrase : undefined, captured,
         }, 'barge-in: sustained → re-translating');
         this.commitChain = this.commitChain.then(() => this.commitTurn(fullText, 'barge_escalate')).catch(() => {});
@@ -605,6 +636,7 @@ export class StealthTranslator extends EventEmitter {
     if (translated && (!this.oneWay || speaker === 'subscriber')) {
       this.currentSpokenOriginal = original;
       this.currentSpokenOriginalIsMyLang = dir.isMyLang;
+      this.currentSpokenIsEscalate = false;
       await this.speakTranslation(translated, langCode, playData, 'precompute');
     }
   }
@@ -661,6 +693,7 @@ export class StealthTranslator extends EventEmitter {
     if (shouldSpeak) {
       this.currentSpokenOriginal = original;
       this.currentSpokenOriginalIsMyLang = dir.isMyLang;
+      this.currentSpokenIsEscalate = path === 'barge_escalate';
       await this.speakTranslation(translated, targetLangCode, undefined, path);
     }
   }
