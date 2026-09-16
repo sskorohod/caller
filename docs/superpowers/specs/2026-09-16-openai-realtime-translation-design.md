@@ -36,8 +36,8 @@ LiveKit».
 
 ## 1. Цель
 
-Заменить каскад `Deepgram STT → gpt-4o-mini → xAI TTS` внутри голосового режима на два сеанса
-OpenAI Realtime Translation. Всё, что вокруг — Twilio, биллинг, запись, Telegram, страница
+Заменить каскад `Deepgram STT → gpt-4o-mini → xAI TTS` внутри голосового режима на один сеанс
+OpenAI Realtime Translation с переключаемым выходным языком (§3.1.1). Всё, что вокруг — Twilio, биллинг, запись, Telegram, страница
 `/translate/<token>`, дашборд — не трогается.
 
 Мотив прежний: каскад упирается в пол `utterance_end` Deepgram (1000 мс, непробиваем), и каждое
