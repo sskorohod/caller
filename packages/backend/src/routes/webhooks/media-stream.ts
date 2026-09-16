@@ -119,21 +119,41 @@ interface TranslatorCtx {
   whoHears: 'subscriber' | 'both';
   greetingText: string;
   greetingDelaySeconds: number;
+  /** Per-workspace engine override; falls back to VOICE_ENGINE when unset. */
+  voiceEngine?: string;
   socket: any;
   streamSid: string;
 }
 const translatorContexts = new Map<string, TranslatorCtx>();
 
-// Voice-mode engine: 'grok' (default, monolithic Grok Voice Agent) or 'pipeline'
-// (Deepgram STT → OpenAI translate → TTS, same stack as stealth but spoken).
+// Voice-mode engine. 'pipeline' is the Deepgram STT → translate → TTS cascade;
+// 'realtime' is a single OpenAI Realtime Translation session; 'grok' is the
+// legacy Voice Agent. A workspace can override the default per call.
 const VOICE_ENGINE = process.env.VOICE_ENGINE || 'grok';
 
 /** Build a translator instance for the given page mode. */
 async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?: any) {
   const isStealth = pageMode === 'stealth';
-  // Stealth always uses the Deepgram pipeline (silent). Voice modes use it too
-  // when VOICE_ENGINE=pipeline (spoken); otherwise the Grok Voice Agent.
-  if (isStealth || VOICE_ENGINE === 'pipeline') {
+  const engine = ctx.voiceEngine || VOICE_ENGINE;
+
+  // Stealth stays on the Deepgram pipeline whatever the engine: it is silent
+  // text, and the cascade is both cheaper and already proven for it.
+  if (!isStealth && engine === 'realtime') {
+    const { RealtimeTranslator } = await import('../../services/realtime-translator.js');
+    return new RealtimeTranslator({
+      callId: ctx.callId, workspaceId: ctx.workspaceId,
+      myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
+      socket: ctx.socket, streamSid: ctx.streamSid,
+      oneWay: pageMode === 'unidirectional',
+      greetingText: ctx.greetingText,
+      greetingDelaySeconds: ctx.greetingDelaySeconds,
+      carryover,
+    });
+  }
+
+  // Voice modes use the pipeline too when VOICE_ENGINE=pipeline (spoken);
+  // otherwise the Grok Voice Agent.
+  if (isStealth || engine === 'pipeline') {
     const { StealthTranslator } = await import('../../services/stealth-translator.js');
     return new StealthTranslator({
       callId: ctx.callId, workspaceId: ctx.workspaceId,
@@ -692,6 +712,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 whoHears: (wsDefs.who_hears as any) || 'both',
                 greetingText: callMeta.greeting_text || wsDefs.greeting_text || platformGreeting,
                 greetingDelaySeconds: Number(wsDefs.greeting_delay_seconds ?? 5),
+                voiceEngine: wsDefs.voice_engine || undefined,
                 socket: socket as any,
                 streamSid: streamSid!,
               };

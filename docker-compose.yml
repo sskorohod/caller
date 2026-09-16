@@ -91,9 +91,12 @@ services:
       # flagship elaborates with helper phrases. Overridable via .env to A/B
       # slugs without a rebuild.
       GROK_VOICE_MODEL: ${GROK_VOICE_MODEL:-grok-voice-fast-1.0}
-      # Voice-mode engine: 'grok' (Grok Voice Agent) or 'pipeline' (Deepgram STT
-      # → OpenAI translate → TTS). Flip without a code change; revert instantly.
+      # Voice-mode engine: 'realtime' (one OpenAI Realtime Translation session),
+      # 'pipeline' (Deepgram STT → OpenAI translate → TTS) or 'grok' (legacy
+      # Voice Agent). Flip without a code change; revert instantly. A workspace
+      # can override it per call via translator_defaults.voice_engine.
       VOICE_ENGINE: ${VOICE_ENGINE:-grok}
+      REALTIME_TRANSLATE_MODEL: ${REALTIME_TRANSLATE_MODEL:-gpt-realtime-translate}
       VOICE_TTS_PROVIDER: ${VOICE_TTS_PROVIDER:-xai}
       VOICE_TTS_VOICE: ${VOICE_TTS_VOICE:-eve}
       # Barge-in: sustained speech (ms) required to interrupt the spoken translation.

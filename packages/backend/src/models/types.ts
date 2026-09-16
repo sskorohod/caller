@@ -408,6 +408,9 @@ export interface TranslatorDefaults {
   tts_voice_id?: string;
   tone?: string;
   personal_context?: string;
+  /** Per-workspace voice engine override: 'realtime' | 'pipeline' | 'grok'.
+   *  Falls back to the VOICE_ENGINE env var when unset. */
+  voice_engine?: string;
 }
 
 /** State handed off when swapping translator engines mid-call (Grok ↔ Deepgram). */
