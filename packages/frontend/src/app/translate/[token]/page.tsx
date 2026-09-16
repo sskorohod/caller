@@ -31,12 +31,14 @@ const LANGUAGES = [
   { value: 'fr', label: 'FR' },
 ];
 
+// Voices of the realtime model. Keep in sync with TTS_VOICES in lib/constants.
 const VOICES = [
-  { value: 'ara', label: 'Ara', gender: 'F' },
-  { value: 'eve', label: 'Eve', gender: 'F' },
-  { value: 'rex', label: 'Rex', gender: 'M' },
-  { value: 'sal', label: 'Sal', gender: 'M' },
-  { value: 'leo', label: 'Leo', gender: 'M' },
+  { value: 'marin', label: 'Marin', gender: 'F' },
+  { value: 'coral', label: 'Coral', gender: 'F' },
+  { value: 'shimmer', label: 'Shimmer', gender: 'F' },
+  { value: 'cedar', label: 'Cedar', gender: 'M' },
+  { value: 'ash', label: 'Ash', gender: 'M' },
+  { value: 'verse', label: 'Verse', gender: 'M' },
 ];
 
 const TONES = [
@@ -61,7 +63,7 @@ export default function LiveTranslatePage() {
   const [duration, setDuration] = useState(0);
   const [cost, setCost] = useState(0);
   const [mode, setMode] = useState<Mode>('bidirectional');
-  const [voice, setVoice] = useState('eve');
+  const [voice, setVoice] = useState('marin');
   const [tone, setTone] = useState('business');
   const [myLang, setMyLang] = useState('ru');
   const [targetLang, setTargetLang] = useState('en');

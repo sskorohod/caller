@@ -476,7 +476,7 @@ export default function DashboardHub() {
             <label className="block text-[11px] font-semibold text-[var(--th-text-muted)] uppercase tracking-wide mb-1.5">{t('translator.voice')}</label>
             <div className="grid grid-cols-3 gap-2">
               {VOICES.map(v => {
-                const on = (defaults.tts_voice_id || 'eve') === v.value;
+                const on = (defaults.tts_voice_id || 'marin') === v.value;
                 const accent = v.gender === 'Female' ? '244,114,182' : '96,165,250'; // pink-400 / blue-400
                 return (
                   <button key={v.value} onClick={() => update({ tts_voice_id: v.value })}

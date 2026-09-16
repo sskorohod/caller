@@ -23,14 +23,19 @@ export const LANGUAGE_MAP: Record<string, string> = Object.fromEntries(
   LANGUAGES.map(l => [l.value, l.label])
 );
 
+// Voices of the realtime model that actually speaks the translation. The old
+// list (ara/eve/rex/sal/leo) belonged to xAI TTS, which no longer runs the voice
+// path — picking one of those did nothing you could hear.
 export const TTS_VOICES = [
-  { value: 'ara', label: 'Ara', gender: 'Female' },
-  { value: 'eve', label: 'Eve', gender: 'Female' },
-  { value: 'tara', label: 'Tara', gender: 'Female' },
-  { value: 'rex', label: 'Rex', gender: 'Male' },
-  { value: 'sal', label: 'Sal', gender: 'Male' },
-  { value: 'leo', label: 'Leo', gender: 'Male' },
+  { value: 'marin', label: 'Marin', gender: 'Female' },
+  { value: 'coral', label: 'Coral', gender: 'Female' },
+  { value: 'shimmer', label: 'Shimmer', gender: 'Female' },
+  { value: 'cedar', label: 'Cedar', gender: 'Male' },
+  { value: 'ash', label: 'Ash', gender: 'Male' },
+  { value: 'verse', label: 'Verse', gender: 'Male' },
 ] as const;
+
+export const DEFAULT_TTS_VOICE = 'marin';
 
 export const TRANSLATION_MODES = [
   { value: 'voice', label: 'Voice' },

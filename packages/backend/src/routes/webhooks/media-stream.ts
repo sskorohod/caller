@@ -146,6 +146,8 @@ async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
       socket: ctx.socket, streamSid: ctx.streamSid,
       oneWay: pageMode === 'unidirectional',
       ttsVoiceId: ctx.ttsVoiceId,
+      tone: ctx.tone,
+      personalContext: ctx.personalContext,
       greetingText: ctx.greetingText,
       greetingDelaySeconds: ctx.greetingDelaySeconds,
       carryover,
