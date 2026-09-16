@@ -26,7 +26,7 @@ interface UsageResp {
 }
 
 const TONES = [
-  { value: 'neutral',     label: { en: 'Neutral',     ru: 'Нейтральный' },      desc: { en: 'Natural translation, preserves original tone.',           ru: 'Естественный перевод, сохраняет исходный тон.' } },
+  { value: 'neutral',     label: { en: 'Original',    ru: 'Как есть' },         desc: { en: 'No instruction at all — translated exactly as spoken.',    ru: 'Никаких указаний — перевод ровно так, как сказано.' } },
   { value: 'business',    label: { en: 'Business',    ru: 'Деловой' },          desc: { en: 'Formal, professional. Removes filler words (um, uh).',     ru: 'Формально и профессионально. Убирает слова-паразиты.' } },
   { value: 'friendly',    label: { en: 'Friendly',    ru: 'Дружеский' },        desc: { en: 'Warm, casual, conversational.',                            ru: 'Тёплый, непринуждённый, разговорный.' } },
   { value: 'medical',     label: { en: 'Medical',     ru: 'Медицинский' },      desc: { en: 'Precise medical terminology.',                             ru: 'Точная медицинская терминология.' } },

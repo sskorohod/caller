@@ -29,7 +29,11 @@ export function getLangName(code: string): string {
 }
 
 export const TONE_INSTRUCTIONS: Record<string, string> = {
-  neutral: 'Translate naturally, preserving the original tone and meaning.',
+  // Deliberately empty: this is the "no intervention" setting. Both callers
+  // check the value for truthiness, so an empty string appends nothing to the
+  // prompt at all — the model translates with no register instruction of any
+  // kind. Even "translate naturally, preserving tone" is still a nudge.
+  neutral: '',
   business: 'Professional, formal register suited to a business meeting: precise wording, with hesitations, false starts and repetitions smoothed out.',
   friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
   medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',

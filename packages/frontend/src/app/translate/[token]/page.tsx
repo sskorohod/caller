@@ -42,7 +42,7 @@ const VOICES = [
 ];
 
 const TONES = [
-  { value: 'neutral', label: 'Neutral', icon: '🔄' },
+  { value: 'neutral', label: 'Original', icon: '🔄' },
   { value: 'business', label: 'Business', icon: '💼' },
   { value: 'friendly', label: 'Friendly', icon: '😊' },
   { value: 'medical', label: 'Medical', icon: '🏥' },

@@ -710,7 +710,10 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 myLanguage,
                 targetLanguage,
                 ttsVoiceId: wsDefs.tts_voice_id || 'eve',
-                tone: wsDefs.tone || 'business',
+                // Matches the dashboard, which shows "Original" selected when nothing
+                // is stored. It used to default to the business register here, so an
+                // untouched setting silently smoothed fillers.
+                tone: wsDefs.tone || 'neutral',
                 personalContext: wsDefs.personal_context || '',
                 whoHears: (wsDefs.who_hears as any) || 'both',
                 greetingText: callMeta.greeting_text || wsDefs.greeting_text || platformGreeting,
