@@ -290,6 +290,16 @@ export class RealtimeTranslator extends EventEmitter {
     if (this.ws?.readyState === 1) this.ws.send(JSON.stringify(msg));
   }
 
+  /**
+   * Every session.update must carry session.type or the API rejects the whole
+   * event with "Missing required parameter: 'session.type'". A live call fired
+   * that seven times — once per direction pin — and every pin was silently
+   * dropped, so the model ran on the opening instructions the entire call.
+   */
+  private updateSession(patch: Record<string, unknown>): void {
+    this.send({ type: 'session.update', session: { type: 'realtime', ...patch } });
+  }
+
   // ------------------------------------------------------------------ events
 
   private onEvent(ev: any): void {
@@ -334,7 +344,13 @@ export class RealtimeTranslator extends EventEmitter {
    */
   private onHeard(text: string, isFinal: boolean): void {
     if (!text) return;
-    if (isFinal) this.heard = text; else this.heard += text;
+    // The completed event is authoritative, but on a live call it sometimes
+    // carried only the tail of an utterance whose deltas we had already
+    // accumulated in full — turn 7 logged a truncated `heard` next to a
+    // complete translation. Keep whichever is longer rather than trusting
+    // either one blindly.
+    if (isFinal) this.heard = text.length >= this.heard.length ? text : this.heard;
+    else this.heard += text;
 
     if (this.heardLang) return;
     const lang = this.detectDirection(this.heard);
@@ -343,7 +359,7 @@ export class RealtimeTranslator extends EventEmitter {
     this.heardLang = lang;
     if (lang !== this.pinnedFrom) {
       this.pinnedFrom = lang;
-      this.send({ type: 'session.update', session: { instructions: this.buildInstructions(lang) } });
+      this.updateSession({ instructions: this.buildInstructions(lang) });
     }
   }
 
@@ -487,7 +503,7 @@ export class RealtimeTranslator extends EventEmitter {
     this.myLang = myLang;
     this.targetLang = targetLang;
     this.pinnedFrom = null;
-    this.send({ type: 'session.update', session: { instructions: this.buildInstructions() } });
+    this.updateSession({ instructions: this.buildInstructions() });
     log.info({ callId: this.callId, myLang, targetLang }, 'Realtime translator languages updated');
   }
 
@@ -497,7 +513,7 @@ export class RealtimeTranslator extends EventEmitter {
     this.voice = next;
     // The API rejects a voice change once audio has been produced, so in
     // practice this takes effect on the next call rather than mid-sentence.
-    this.send({ type: 'session.update', session: { audio: { output: { voice: next } } } });
+    this.updateSession({ audio: { output: { voice: next } } });
     log.info({ callId: this.callId, voice: next }, 'Realtime translator voice updated');
   }
 
