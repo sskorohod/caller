@@ -1,8 +1,11 @@
 import { EventEmitter } from 'node:events';
+import pino from 'pino';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { providerCredentials } from '../db/schema.js';
 import { decrypt } from '../lib/crypto.js';
+
+const log = pino({ name: 'tts' });
 
 export interface TTSChunk {
   audio: Buffer;
@@ -69,6 +72,11 @@ export class ElevenLabsTTS extends EventEmitter {
  * Uses gpt-4o-mini-tts model for better pronunciation and lower latency.
  * Streams PCM chunks as they arrive (requires pcmToMulaw conversion downstream).
  */
+/** Voices the OpenAI speech endpoint accepts. Anything else is a 400. */
+const OPENAI_TTS_VOICES = new Set([
+  'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer',
+]);
+
 export class OpenAITTS extends EventEmitter {
   private apiKey: string;
   private voice: string;
@@ -76,7 +84,15 @@ export class OpenAITTS extends EventEmitter {
   constructor(apiKey: string, voice = 'alloy') {
     super();
     this.apiKey = apiKey;
-    this.voice = voice;
+    // Voice ids are stored per workspace and were chosen for xAI ('eve', 'ara',
+    // 'rex'...). Handing one of those to OpenAI is a 400 and the caller hears
+    // nothing, so an unknown voice falls back rather than failing the turn.
+    if (OPENAI_TTS_VOICES.has(voice.toLowerCase())) {
+      this.voice = voice.toLowerCase();
+    } else {
+      this.voice = 'alloy';
+      log.warn({ requested: voice }, 'Unknown OpenAI TTS voice, falling back to alloy');
+    }
   }
 
   async synthesize(text: string): Promise<Buffer> {
