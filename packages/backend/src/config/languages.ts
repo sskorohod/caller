@@ -3,6 +3,11 @@
  * Used by conference-translator, media-stream, call-orchestrator, post-call worker.
  */
 
+// Last-resort fallback; the admin-configurable platform default lives in
+// platform_settings.default_greeting (resolved at the media-stream
+// construction site).
+export const DEFAULT_GREETING = `Hi, I'm your AI interpreter. Please go ahead.`;
+
 export const LANG_NAMES: Record<string, string> = {
   en: 'English',
   ru: 'Russian',

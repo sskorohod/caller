@@ -37,19 +37,8 @@ interface ConferenceTranslatorOptions {
   carryover?: TranslatorCarryover;
 }
 
-/** State handed off when swapping translator engines mid-call (Grok ↔ Deepgram). */
-export interface TranslatorCarryover {
-  sessionId: string | null;
-  startTime: number;
-  transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string; untranslated?: boolean }>;
-}
-
-import { LANG_NAMES, TONE_INSTRUCTIONS } from '../config/languages.js';
-
-// Last-resort fallback; the admin-configurable platform default lives in
-// platform_settings.default_greeting (resolved at the media-stream
-// construction site).
-export const DEFAULT_GREETING = `Hi, I'm your AI interpreter. Please go ahead.`;
+import { DEFAULT_GREETING, LANG_NAMES, TONE_INSTRUCTIONS } from '../config/languages.js';
+import type { TranslatorCarryover } from '../models/types.js';
 
 // Grok Voice Agent realtime model. We were passing the undocumented slug
 // "grok-3-mini-fast", which xAI silently mapped to a default model. Around

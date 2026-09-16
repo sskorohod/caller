@@ -676,7 +676,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
               // Resolve greeting (Grok voice modes). Precedence: per-call meta →
               // workspace setting → admin platform default → hardcoded fallback.
-              const { DEFAULT_GREETING } = await import('../../services/conference-translator.js');
+              const { DEFAULT_GREETING } = await import('../../config/languages.js');
               const { getStringSetting } = await import('../../services/platform-settings.service.js');
               const platformGreeting = await getStringSetting('default_greeting', DEFAULT_GREETING).catch(() => DEFAULT_GREETING);
 

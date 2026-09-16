@@ -98,6 +98,10 @@ services:
       VOICE_TTS_VOICE: ${VOICE_TTS_VOICE:-eve}
       # Barge-in: sustained speech (ms) required to interrupt the spoken translation.
       VOICE_BARGE_IN_MS: ${VOICE_BARGE_IN_MS:-2000}
+      # Diagnostic only: dump the exact Socket.IO payload of every finished turn
+      # so the LiveKit bridge can be diffed against a recording of the live
+      # pipeline. Logs transcript text — turn on for one call, then off.
+      LOG_TRANSLATE_EMITS: ${LOG_TRANSLATE_EMITS:-}
       SANDBOX_MAX_SECONDS: ${SANDBOX_MAX_SECONDS:-300}
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"

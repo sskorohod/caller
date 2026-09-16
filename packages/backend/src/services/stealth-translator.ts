@@ -12,7 +12,7 @@ import { DeepgramSTT, OpenAISTT, type STTProvider, type TranscriptEvent } from '
 import { XaiTTS, OpenAITTS, type TTSChunk } from './tts.service.js';
 import { detectTranslationDirection } from '../lib/lang-direction.js';
 import { translateText } from './translate-text.js';
-import type { TranslatorCarryover } from './conference-translator.js';
+import type { TranslatorCarryover } from '../models/types.js';
 
 const log = pino({ name: 'stealth-translator' });
 
@@ -78,6 +78,11 @@ const TRANSLATE_MODEL = process.env.STEALTH_TRANSLATE_MODEL
 const TTS_PROVIDER = (process.env.VOICE_TTS_PROVIDER || 'xai') as 'xai' | 'openai';
 const TTS_CRED = TTS_PROVIDER === 'openai' ? 'openai' : 'xai';
 const TTS_VOICE = process.env.VOICE_TTS_VOICE || (TTS_PROVIDER === 'openai' ? 'alloy' : 'eve');
+
+// Diagnostic: dump the exact Socket.IO payloads of every finished turn. Used to
+// capture a reference recording of the live pipeline, which the LiveKit bridge
+// is then diffed against field-for-field. Off unless explicitly set to 1.
+const LOG_TRANSLATE_EMITS = process.env.LOG_TRANSLATE_EMITS === '1';
 
 /** Data returned by doPrecompute — translation done, TTS is streaming in background. */
 interface StreamingPlayData {
@@ -602,6 +607,35 @@ export class StealthTranslator extends EventEmitter {
     };
   }
 
+  /**
+   * The only place a finished turn reaches the frontend. Both commit paths go
+   * through here so the payload shape is defined once — the LiveKit bridge has
+   * to reproduce it byte-for-byte, and one definition is checkable by reading.
+   * LOG_TRANSLATE_EMITS=1 dumps the exact objects; that capture is the oracle
+   * the bridge is diffed against.
+   */
+  private emitTurn(speaker: string, original: string, translated: string, detectedLang: string): void {
+    const translation = {
+      call_id: this.callId, speaker, original, translated,
+      detected_language: detectedLang, timestamp: new Date().toISOString(),
+    };
+    const transcript = {
+      call_id: this.callId, speaker: 'conference', text: original,
+      timestamp: new Date().toISOString(), isFinal: true,
+    };
+
+    const io = getIo();
+    if (io) {
+      io.to(`call:${this.callId}:translate`).emit('call:translation', translation);
+      io.to(`call:${this.callId}`).emit('call:transcript', transcript);
+    }
+
+    if (LOG_TRANSLATE_EMITS) {
+      log.info({ ev: 'call:translation', payload: translation }, 'translate_emit');
+      log.info({ ev: 'call:transcript', payload: transcript }, 'translate_emit');
+    }
+  }
+
   /** Fast commit path: translation pre-computed, TTS already streaming into buffer. */
   private async commitTurnWithPrecomputed(
     original: string, playData: StreamingPlayData,
@@ -617,17 +651,8 @@ export class StealthTranslator extends EventEmitter {
     if (translated) this.resetIdleTimer();
     this.transcript.push({ speaker, text: original, lang: dir.detectedLang, translated, timestamp: new Date().toISOString() });
 
-    const io = getIo();
-    if (io) {
-      io.to(`call:${this.callId}:translate`).emit('call:translation', {
-        call_id: this.callId, speaker, original, translated,
-        detected_language: dir.detectedLang, timestamp: new Date().toISOString(),
-      });
-      io.to(`call:${this.callId}`).emit('call:transcript', {
-        call_id: this.callId, speaker: 'conference', text: original,
-        timestamp: new Date().toISOString(), isFinal: true,
-      });
-    }
+    this.emitTurn(speaker, original, translated, dir.detectedLang);
+
     log.info({
       callId: this.callId, metric: 'stealth_chunk_metrics',
       speaker, input_chars: original.length, output_chars: translated.length, spoke: true,
@@ -668,17 +693,7 @@ export class StealthTranslator extends EventEmitter {
       timestamp: new Date().toISOString(),
     });
 
-    const io = getIo();
-    if (io) {
-      io.to(`call:${this.callId}:translate`).emit('call:translation', {
-        call_id: this.callId, speaker, original, translated,
-        detected_language: dir.detectedLang, timestamp: new Date().toISOString(),
-      });
-      io.to(`call:${this.callId}`).emit('call:transcript', {
-        call_id: this.callId, speaker: 'conference', text: original,
-        timestamp: new Date().toISOString(), isFinal: true,
-      });
-    }
+    this.emitTurn(speaker, original, translated, dir.detectedLang);
 
     log.info({
       callId: this.callId, metric: 'stealth_chunk_metrics', path,

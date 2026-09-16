@@ -410,6 +410,13 @@ export interface TranslatorDefaults {
   personal_context?: string;
 }
 
+/** State handed off when swapping translator engines mid-call (Grok ↔ Deepgram). */
+export interface TranslatorCarryover {
+  sessionId: string | null;
+  startTime: number;
+  transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string; untranslated?: boolean }>;
+}
+
 /** ai_call_sessions.transcript entry */
 export interface TranscriptEntry {
   speaker: string;
