@@ -41,6 +41,17 @@ export function detectTranslationDirection(
   if (text && text.length >= 4) {
     const detected = detectLang(text);
     if (detected) {
+      // Exact match wins over family match. Without this, a pair inside one
+      // family routes every turn to the wrong side: LANG_FAMILIES.ru contains
+      // 'uk', and myFamily was tested first, so on a ru↔uk call every Ukrainian
+      // phrase was labelled "my language" and translated back into Ukrainian.
+      // Same shape for es↔ca, es↔gl, pt↔gl, de↔nl.
+      if (detected === myLang) return { isMyLang: true, detectedLang: myLang };
+      if (detected === targetLang) return { isMyLang: false, detectedLang: targetLang };
+
+      // Family match is the fallback, and still earns its place across
+      // families: tinyld reads a Russian phrase carrying a Ukrainian name as
+      // 'uk', and on a ru↔en call that must still count as the Russian side.
       if (myFamily.includes(detected)) {
         return { isMyLang: true, detectedLang: myLang };
       }

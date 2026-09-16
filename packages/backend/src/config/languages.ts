@@ -30,11 +30,11 @@ export function getLangName(code: string): string {
 
 export const TONE_INSTRUCTIONS: Record<string, string> = {
   neutral: 'Translate naturally, preserving the original tone and meaning.',
-  business: 'Translation tone: professional and formal. FIRST, mentally clean up the speaker\'s words — remove filler hesitations both English (um, uh, er, hmm) AND Russian (м, э, ну, типа, как бы, как-то так, вот, значит), and remove false starts and repetitions. THEN translate the cleaned-up version into the OTHER language. The output MUST be in a DIFFERENT language than the input — NEVER output in the same language as was spoken. Use clear, precise language appropriate for business meetings and appointments.',
+  business: 'Professional, formal register suited to a business meeting: precise wording, with hesitations, false starts and repetitions smoothed out.',
   friendly: 'Use a warm, casual, friendly tone. Keep the conversational feel natural and relaxed.',
   medical: 'Use precise medical terminology. Translate accurately without simplifying medical terms. Maintain a calm, professional tone.',
   legal: 'Use precise legal terminology. Translate accurately without paraphrasing legal concepts. Maintain a formal, authoritative tone.',
-  intelligent: 'Before translating, mentally clean up the speaker\'s words: remove ALL filler words (um, uh, er, hmm, М, Э, ну, типа, как бы), remove false starts and repetitions. Then translate the cleaned-up version into the OTHER language. The output MUST be in a DIFFERENT language than the input — NEVER output in the same language as was spoken.',
+  intelligent: 'Polished, articulate register: well-formed sentences and courteous phrasing, free of hesitation, while keeping the speaker\'s meaning and intent exactly.',
 };
 
 export const FILLER_PHRASES: Record<string, string[]> = {
