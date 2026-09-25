@@ -192,9 +192,9 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       try {
         const id = resolveCallId(call_id);
         if (!id || !await authorizeCallAccess(id)) return;
-        const { getActiveConferenceTranslators } = await import('../routes/webhooks/media-stream.js');
-        const ct = getActiveConferenceTranslators().get(id);
-        if (ct) ct.updateLanguages(my_language, target_language);
+        // May swap engines: the consecutive interpreter needs a pair with two alphabets.
+        const { setTranslatorLanguages } = await import('../routes/webhooks/media-stream.js');
+        await setTranslatorLanguages(id, my_language, target_language);
       } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
     });
 

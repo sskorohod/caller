@@ -95,8 +95,7 @@ services:
       # 'pipeline' (Deepgram STT → OpenAI translate → TTS) or 'grok' (legacy
       # Voice Agent). Flip without a code change; revert instantly. A workspace
       # can override it per call via translator_defaults.voice_engine.
-      VOICE_ENGINE: ${VOICE_ENGINE:-grok}
-      REALTIME_TRANSLATE_MODEL: ${REALTIME_TRANSLATE_MODEL:-gpt-realtime-translate}
+      VOICE_ENGINE: ${VOICE_ENGINE:-consecutive}
       VOICE_TTS_PROVIDER: ${VOICE_TTS_PROVIDER:-xai}
       VOICE_TTS_VOICE: ${VOICE_TTS_VOICE:-eve}
       # Barge-in: sustained speech (ms) required to interrupt the spoken translation.

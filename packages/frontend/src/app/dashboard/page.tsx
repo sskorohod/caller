@@ -38,7 +38,7 @@ const card = 'rounded-2xl border border-[var(--th-card-border-subtle)] bg-[var(-
 const selectCls = 'w-full px-3 py-2 rounded-xl border border-[var(--th-border)] bg-[var(--th-input)] text-[var(--th-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--th-primary)]/30 focus:border-[var(--th-primary)] transition-all appearance-none';
 const PRICE_PER_MIN = 0.2;
 // Default greeting pre-filled for new clients; fully editable in the panel below.
-// Keep in sync with DEFAULT_GREETING in backend services/conference-translator.ts.
+// Keep in sync with DEFAULT_GREETING in backend config/languages.ts.
 const DEFAULT_GREETING = "Hi, I'm your AI interpreter. Please go ahead.";
 
 export default function DashboardHub() {

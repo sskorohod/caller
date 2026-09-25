@@ -1,6 +1,6 @@
 /**
  * Centralized language names, tone instructions, and filler phrases.
- * Used by conference-translator, media-stream, call-orchestrator, post-call worker.
+ * Used by consecutive/translator, media-stream, call-orchestrator, post-call worker.
  */
 
 // Last-resort fallback; the admin-configurable platform default lives in

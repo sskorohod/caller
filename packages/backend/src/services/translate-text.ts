@@ -21,7 +21,6 @@ export interface TranslateTextOptions {
 /**
  * Non-realtime text translation via an OpenAI-compatible chat endpoint (xAI by
  * default). The reliable, low-latency path used by:
- *   - ConferenceTranslator, when the realtime Voice Agent fails to translate
  *   - StealthTranslator, for every per-chunk translation
  *
  * Returns null on any error/empty so callers can mark the turn untranslated.
