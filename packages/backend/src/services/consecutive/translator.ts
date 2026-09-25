@@ -827,10 +827,21 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.finalize().catch(err => log.error({ callId: this.callId, err: errorName(err) }, 'Consecutive finalize failed'));
   }
 
+  /** The call's metrics for its record, or null: a failure in these diagnostics must never block closing or billing. */
+  private metricsOrNull(): Record<string, any> | null {
+    if (!this.floor) return null;
+    try {
+      return this.summary();
+    } catch (err) {
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive metrics failed');
+      return null;
+    }
+  }
+
   /** Mid-call engine swap: hand the session on without finalizing it. */
   detach(): TranslatorCarryover {
     this.saved = true;   // the next engine finalizes the session
-    const metrics = this.floor ? this.summary() : null;
+    const metrics = this.metricsOrNull();
     void this.close();   // its synchronous part logs a translation cut off by the swap
     if (this.persist && this.sessionId && metrics) void this.writeMetrics(metrics);
     return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript.slice() };
@@ -904,7 +915,7 @@ export class ConsecutiveTranslator extends EventEmitter {
     const c = this.costParts();
     const costTelephony = calculateTelephonyCost('twilio', durationMins);
     const costTotal = c.stt + c.text + c.judge + c.tts + costTelephony;
-    const metrics = this.floor ? this.summary() : null;
+    const metrics = this.metricsOrNull();
 
     if (this.persist) {
       if (this.sessionId) {

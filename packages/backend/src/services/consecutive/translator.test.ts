@@ -375,6 +375,29 @@ test('a closed call hears nothing more and falls silent at once', async () => {
   assert.equal(h.translator.floor.utterances.size, 0);
 });
 
+test('diagnostics can never block closing or billing', async () => {
+  const broken = () => { throw new Error('diagnostics broke'); };
+  // finalize(): the metrics come before the session row and the billing — they must not stop them
+  const billed = await make();
+  billed.say('Привет.');
+  await billed.advance(1.5);
+  await until(() => billed.transcript().length === 1);
+  billed.translator.floor.latenciesMs = broken;
+  await billed.translator.finalize();   // resolves: the accounting ran to its end (settled line and all)
+  assert.equal(billed.transcriber.closes, 1);
+  // detach(): the swap still gets its carryover, and this engine still closes
+  const swapped = await make();
+  swapped.say('Привет.');
+  await swapped.advance(1.5);
+  await until(() => swapped.transcript().length === 1);
+  swapped.translator.floor.latenciesMs = broken;
+  const carry = swapped.translator.detach();
+  assert.equal(carry.transcript.length, 1);
+  assert.equal(carry.transcript[0].text, 'Привет.');
+  assert.equal(swapped.out.clears, 1);
+  await until(() => swapped.transcriber.closed);
+});
+
 test("a judge that throws still settles the floor's question", async () => {
   const unhandled: unknown[] = [];
   const onUnhandled = (reason: unknown) => { unhandled.push(reason); };
