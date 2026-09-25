@@ -21,6 +21,8 @@ export const PHRASE_MAX_FRAMES = 500;   // 10 s: no phrase runs longer without a
 
 const EMPTY = Buffer.alloc(0);
 
+/** write() must always settle (TwilioOut paces with a timer and settles even on a closed socket),
+ *  or run() never returns after close(). Frames are shared with onFrame and the phrase memory: read-only. */
 export interface PlaybackOut { write(frame: Buffer): Promise<void>; clear(): void }
 
 export class Playback {
@@ -40,6 +42,7 @@ export class Playback {
   private phraseUtt: number | null = null;
   private quietFrames = 0;
 
+  /** Callbacks must be synchronous: a rejected promise from one would escape the guards below. */
   constructor(
     private readonly out: PlaybackOut,
     opts: { onFinished: (utt: number) => void; onFrame?: (frame: Buffer) => void },
