@@ -211,8 +211,11 @@ Voice modes run the **consecutive interpreter** ported from aidispatch
   then the text echo filter runs.
 - Per-call metrics: `translator_sessions.metrics` (admin → Sessions) — latency p50/p90, release
   reasons, interruptions, echo, cost by part, event timeline.
-- Smoke scene without a call:
-  `docker compose exec -T backend node dist/scripts/consecutive-smoke.js --out /tmp/smoke [--echo-db -30]`.
+- Smoke scene without a call (own one-off container — not `exec` into the live backend, which
+  shares its memory/CPU limit with calls in progress; the report is printed, the WAV/JSON stay in
+  the container for `docker cp`):
+  `docker compose run --no-deps -T --name lingo-smoke backend node dist/scripts/consecutive-smoke.js --out /tmp/smoke [--echo-db -30] [--format pcmu]`,
+  then `docker cp lingo-smoke:/tmp/smoke ./smoke && docker rm lingo-smoke`.
 
 The Grok Voice Agent remains only in the sandbox trainer (`sandbox-session.service.ts`). Known
 upstream issue there (May 2026): xAI's Grok Voice Agent realtime endpoint may return
