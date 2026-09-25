@@ -6,7 +6,7 @@
  * model's actual accuracy is measured against the live API, not here.
  */
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateLLMCost } from '../../config/pricing.js';
 import type { ChatClientLike, IntentLabel } from './judge.js';
@@ -24,6 +24,10 @@ process.stdout.write = ((chunk: any, ...rest: any[]) => {
 }) as typeof process.stdout.write;
 
 const { Judge, JUDGE_MODEL, TIMEOUT_MS, INTENTS } = await import('./judge.js');
+
+after(() => {
+  process.stdout.write = realStdoutWrite;
+});
 
 const EMPTY_USAGE = { calls: 0, errors: 0, in: 0, cached: 0, out: 0 };
 const PLAYING = 'Деньги вернут в пятницу.';
@@ -184,6 +188,7 @@ test('garbled answer is no answer', async () => {
     '{"complete": true}', // no confidence
     '{"complete": true, "confidence": "high"}', // confidence is not a number
     '{"complete": true, "confidence": true}', // confidence is a boolean, not a number
+    '{"complete": true, "confidence": 1e999}', // JSON.parse gives Infinity here — not finite, rejected
   ];
   for (const content of contents) {
     const { judge } = make([reply(content)]);
@@ -209,6 +214,19 @@ test('api failure is no answer and the log has no key', async () => {
   assert.ok(!logText.includes('sk-proj-secret'));
 });
 
+test('SDK errors without a name still log their real class', async () => {
+  // Mirrors real OpenAI SDK error classes (RateLimitError, AuthenticationError, ...), which
+  // don't override `.name` — it stays the inherited "Error" — so only `.constructor.name`
+  // reveals the real class. Still never the message.
+  class RateLimitError extends Error {}
+  const { judge } = make([new RateLimitError('quota exceeded for key sk-proj-secret')]);
+  const from = capturedStdout.length;
+  assert.strictEqual(await judge.semanticEnd('Yes.'), null);
+  const logText = capturedStdout.slice(from).join('');
+  assert.ok(logText.includes('RateLimitError'));
+  assert.ok(!logText.includes('sk-proj-secret'));
+});
+
 test('slow answer is dropped at the timeout', async () => {
   // A verdict past the deadline is useless: the turn-taking core decides on its own instead of
   // holding the line. Both classifiers are awaited concurrently so this test costs one
@@ -229,6 +247,22 @@ test('slow answer is dropped at the timeout', async () => {
   assert.ok(elapsed >= TIMEOUT_MS - 200, `expected elapsed >= ~${TIMEOUT_MS}ms, got ${elapsed}`);
   assert.ok(elapsed < TIMEOUT_MS + 2000, `expected the call to not hang, got ${elapsed}`);
   assert.deepStrictEqual(judge.usage, { ...EMPTY_USAGE, calls: 2, errors: 2 });
+});
+
+test('the deadline fires even when the client ignores the abort signal', async () => {
+  // The 2.5s limit must not depend on the client honouring `signal`: this fake never settles and
+  // never even looks at `options`, so only judge.ts's own independent timer can end the call.
+  const neverSettles: ChatClientLike = {
+    chat: { completions: { create: () => new Promise(() => {}) } },
+  };
+  const judge = new Judge(neverSettles, { languages: ['English', 'Russian'] });
+  const started = performance.now();
+  const result = await judge.semanticEnd('Yes.');
+  const elapsed = performance.now() - started;
+  assert.strictEqual(result, null);
+  assert.ok(elapsed >= TIMEOUT_MS - 200, `expected elapsed >= ~${TIMEOUT_MS}ms, got ${elapsed}`);
+  assert.ok(elapsed < TIMEOUT_MS + 2000, `expected the call to not hang, got ${elapsed}`);
+  assert.deepStrictEqual(judge.usage, { ...EMPTY_USAGE, calls: 1, errors: 1 });
 });
 
 test('empty text is not sent', async () => {
