@@ -49,6 +49,7 @@ const FORMATS = {
 export interface WsLike {
   readyState: number; bufferedAmount: number;
   send(data: string): void; close(): void;
+  terminate?(): void;   // drop the connection at once (ws has it): for a close the server leaves unanswered
   on(event: 'open' | 'message' | 'close' | 'error', listener: (...args: any[]) => void): void;
 }
 
@@ -108,7 +109,8 @@ export class TranscribeLeg {
     this.onCompleted = opts.onCompleted;
     this.connect = opts.connect
       ?? ((url, headers) => new WebSocket(url, { headers, handshakeTimeout: HANDSHAKE_TIMEOUT_MS }));
-    this.sleep = opts.sleep ?? ((ms: number) => delay(ms));
+    // the leg's own waits never hold the process: a script that calls aclose() exits at once
+    this.sleep = opts.sleep ?? ((ms: number) => delay(ms, undefined, { ref: false }));
   }
 
   /** Resolves true once the socket is open and session.update went out; false when it could not come up. */
@@ -197,15 +199,15 @@ export class TranscribeLeg {
     try {
       ws = this.connect(TRANSCRIBE_URL, { Authorization: `Bearer ${this.apiKey}` });
     } catch (err) {
-      log.warn({ err: (err as Error)?.name }, 'transcribe leg failed to connect');
+      log.warn(why(err), 'transcribe leg failed to connect');
       return Promise.resolve(false);
     }
     this.ws = ws;
     return new Promise<boolean>((resolve) => {
       let up = false;
-      const gone = (err?: unknown, code?: number): void => {
+      const gone = (err?: unknown, closeCode?: number): void => {
         if (up) {
-          this.lost(ws, err, code);
+          this.lost(ws, err, closeCode);
           return;
         }
         // Never came up: a failed attempt — or aclose() cut the handshake short (it detaches the socket
@@ -213,7 +215,7 @@ export class TranscribeLeg {
         if (ws === this.ws) {
           this.ws = null;
           closeQuietly(ws);
-          log.warn({ err: (err as Error)?.name }, 'transcribe leg failed to connect');
+          log.warn(why(err), 'transcribe leg failed to connect');
         }
         resolve(false);
       };
@@ -238,12 +240,12 @@ export class TranscribeLeg {
       });
       // ws throws on an 'error' nobody listens to, so this listener stays for the socket's whole life
       ws.on('error', (err: unknown) => gone(err));
-      ws.on('close', (code?: number) => gone(undefined, code));
+      ws.on('close', (closeCode?: number) => gone(undefined, closeCode));
     });
   }
 
   /** The session in use is gone: dropped by the server or failed on send. aclose() detaches its socket first. */
-  private lost(ws: WsLike, err?: unknown, code?: number): void {
+  private lost(ws: WsLike, err?: unknown, closeCode?: number): void {
     if (ws !== this.ws) return;
     this.ws = null;
     this.connected = false;              // from this moment there is nowhere to put audio
@@ -255,9 +257,9 @@ export class TranscribeLeg {
       this.alive = false;
       return;
     }
-    log.warn({ err: (err as Error | undefined)?.name, code }, 'transcribe leg lost the socket, reconnecting');
+    log.warn({ ...why(err), closeCode }, 'transcribe leg lost the socket, reconnecting');
     this.reconnect().catch((e: unknown) => {
-      log.error({ err: (e as Error)?.name }, 'transcribe leg stopped');
+      log.error(why(e), 'transcribe leg stopped');
       this.alive = false;
       this.connected = false;
     });
@@ -286,7 +288,7 @@ export class TranscribeLeg {
       ws.send(JSON.stringify(event));
       return true;
     } catch (err) {
-      log.warn({ err: (err as Error)?.name }, 'transcribe leg send failed');
+      log.warn(why(err), 'transcribe leg send failed');
       this.lost(ws);
       return false;
     }
@@ -348,10 +350,31 @@ export class TranscribeLeg {
     this.ws = null;
     if (ws === null) return;
     // A socket still coming up is cut short too: the call ended, and leaving it would mean paying for an empty line.
-    const closed = new Promise<void>(resolve => ws.on('close', () => resolve()));
+    const closed = new Promise<boolean>(resolve => ws.on('close', () => resolve(true)));
     closeQuietly(ws);
-    if (ws.readyState !== WebSocket.CLOSED) await Promise.race([closed, this.sleep(CLOSE_TIMEOUT_S * 1000)]);
+    if (ws.readyState === WebSocket.CLOSED) return;
+    if (await Promise.race([closed, this.sleep(CLOSE_TIMEOUT_S * 1000).then(() => false)])) return;
+    // No answer to the close in time: drop the connection, or ws would keep it (and the process) for its own 30 s.
+    try {
+      ws.terminate?.();
+    } catch {
+      // the socket is gone anyway
+    }
   }
+}
+
+/**
+ * Why a connection failed, for the log: the error class, its code (ECONNREFUSED, ENOTFOUND…) and the HTTP
+ * status when the server refused the upgrade — never the message, which can carry secrets.
+ */
+function why(err: unknown): { err?: string; code?: string | number; status?: number } {
+  const e = (err ?? {}) as { name?: unknown; code?: unknown; message?: unknown };
+  const status = typeof e.message === 'string' ? /Unexpected server response: (\d{3})/.exec(e.message)?.[1] : undefined;
+  return {
+    err: typeof e.name === 'string' ? e.name : undefined,
+    code: typeof e.code === 'string' || typeof e.code === 'number' ? e.code : undefined,
+    status: status === undefined ? undefined : Number(status),
+  };
 }
 
 function unique(languages: string[]): string[] {

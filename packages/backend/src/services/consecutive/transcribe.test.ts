@@ -36,6 +36,7 @@ class FakeWs extends EventEmitter implements WsLike {
   bufferedAmount = 0;
   sent: string[] = [];
   closed = false;          // the leg called close()
+  terminated = false;      // the leg dropped the connection outright
   failSend = false;
 
   constructor(private readonly opts: { hangOnClose?: boolean; slow?: boolean; refuse?: Error; stall?: boolean } = {}) {
@@ -59,6 +60,11 @@ class FakeWs extends EventEmitter implements WsLike {
       if (connecting) this.emit('error', new Error('closed before the connection was established'));
       this.finish();
     });
+  }
+
+  terminate(): void {
+    this.terminated = true;
+    this.finish();
   }
 
   /** The server side of the handshake: open — or refuse the way ws reports it, an error and then the close. */
@@ -522,6 +528,7 @@ test('close is bounded idempotent and never reconnects', async () => {
   await leg.aclose();
   assert.ok(performance.now() - started < 500);
   assert.deepEqual(slept, [CLOSE_TIMEOUT_S * 1000], 'one wait for the close, bounded, and only one');
+  assert.ok(ws.terminated, 'a close left unanswered is cut, so nothing holds the process');
   ws.drop();                                          // the server hangs up at last
   await tick(20);
   assert.ok(ws.closed && !leg.alive && connector.calls.length === 1);
@@ -677,4 +684,24 @@ test('a handshake that times out is a failed connect', async () => {
   assert.ok(midCall.alive && connector.calls.length === 3);
   assert.deepEqual(slept, [500, 1000], 'the next attempt comes after its own pause');
   await midCall.aclose();
+});
+
+test('a failed connect says why in the log but never the message', async (t) => {
+  // An HTTP status or an error code tells a bad key from a dead network; the message itself may carry
+  // secrets, so it never reaches the log.
+  const records = captureLog(t);
+  const unauthorized = Object.assign(new Error('Unexpected server response: 401'), {});
+  const refused = Object.assign(new Error('connect ECONNREFUSED 10.1.2.3:443'), { code: 'ECONNREFUSED' });
+  for (const err of [unauthorized, refused]) {
+    const { leg } = makeLeg(new FakeConnector(err));
+    assert.equal(await leg.start(), false);
+    await leg.aclose();
+  }
+  const failed = at(records, 'warn').filter(r => r.text.includes('failed to connect'));
+  assert.deepEqual(failed.map(r => JSON.parse(r.text)[0]), [
+    { err: 'Error', status: 401 },
+    { err: 'Error', code: 'ECONNREFUSED' },
+  ]);
+  assert.ok(!records.some(r => r.text.includes('Unexpected server response') || r.text.includes('10.1.2.3')),
+    'the message never reaches the log');
 });
