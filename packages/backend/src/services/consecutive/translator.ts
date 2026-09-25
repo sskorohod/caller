@@ -153,7 +153,13 @@ export function percentile(values: number[], p: number): number | null {
 }
 
 const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+/** The error's class for the log, never its message (it can carry the key): its name ('TimeoutError' of a
+ *  DOMException), unless that is the generic 'Error' the OpenAI SDK's classes leave — then the class's own. */
+function errorName(err: unknown): string | undefined {
+  const e = err as { name?: string; constructor?: { name?: string } } | null | undefined;
+  return e?.name && e.name !== 'Error' ? e.name : e?.constructor?.name || e?.name;
+}
 
 export class ConsecutiveTranslator extends EventEmitter {
   readonly engine = 'voice';          // media-stream's mode toggle treats us as a voice engine
@@ -179,6 +185,7 @@ export class ConsecutiveTranslator extends EventEmitter {
   private carryover?: TranslatorCarryover;
 
   private settings: ConsecutiveSettings = DEFAULT_CONSECUTIVE_SETTINGS;
+  private agent: https.Agent | null = null;   // this call's connections to OpenAI, destroyed with it
   private client!: OpenAILike;
   private out!: PlaybackOut;
   private player!: Playback;
@@ -194,6 +201,7 @@ export class ConsecutiveTranslator extends EventEmitter {
 
   private readonly translations = new Map<number, string>();
   private readonly hasAudio = new Set<number>();
+  private readonly engineDone = new Set<number>();   // the engine said "no more audio", and nothing reopened it since
   private readonly logged = new Set<number>();
   private readonly interimAt = new Map<number, number>();
 
@@ -209,7 +217,10 @@ export class ConsecutiveTranslator extends EventEmitter {
   private idleTimer?: ReturnType<typeof setTimeout>;
   private safetyTimer?: ReturnType<typeof setTimeout>;
   private greetingTimer?: ReturnType<typeof setTimeout>;
+  private tickFailures = 0;
   private readonly side = new Set<Promise<unknown>>();
+  private booting: Promise<void> | null = null;
+  private closing: Promise<unknown> | null = null;   // the sockets, closing since shutdown(); awaited last
 
   constructor(private readonly opts: ConsecutiveTranslatorOptions) {
     super();
@@ -222,7 +233,9 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.tone = opts.tone || '';
     this.personalContext = (opts.personalContext || '').trim();
     this.greetingText = (opts.greetingText || '').trim();
-    this.greetingDelaySeconds = Math.min(30, Math.max(0, opts.greetingDelaySeconds ?? 5));
+    // a garbage stored setting arrives as NaN, and setTimeout(NaN) would fire at once
+    const delay = opts.greetingDelaySeconds;
+    this.greetingDelaySeconds = Math.min(30, Math.max(0, typeof delay === 'number' && Number.isFinite(delay) ? delay : 5));
     this.carryover = opts.carryover;
     this.parts = opts.parts ?? {};
     this.persist = this.parts.persist ?? true;
@@ -234,20 +247,30 @@ export class ConsecutiveTranslator extends EventEmitter {
 
   /** Throws when the detector or the transcriber cannot come up: media-stream then runs the cascade. */
   async start(): Promise<void> {
+    this.booting = this.boot();
     try {
-      await this.boot();
+      await this.booting;
     } catch (err) {
       await this.close();   // nothing may stay open when the call falls back
       throw err;
     }
   }
 
+  /** A close() that lands during an await stops the start there: what exists by then close() has
+   *  released, and nothing more is created. Such a start resolves: a stopped call is not a failed one. */
   private async boot(): Promise<void> {
     const p = this.parts;
     const apiKey = p.apiKey ?? await this.resolveApiKey();
+    if (this.closed) return;
     this.settings = p.settings ?? await loadConsecutiveSettings();
+    if (this.closed) return;
     const s = this.settings;
-    this.client = p.client ?? (new OpenAI({ apiKey, httpAgent: httpAgent() }) as unknown as OpenAILike);
+    if (p.client) {
+      this.client = p.client;
+    } else {
+      this.agent = httpAgent();
+      this.client = new OpenAI({ apiKey, httpAgent: this.agent }) as unknown as OpenAILike;
+    }
     this.floor = new FloorManager({
       langA: this.myLang, langB: this.targetLang,
       endSilenceS: s.endSilenceMs / 1000, hardEndS: s.hardEndMs / 1000,
@@ -258,7 +281,7 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.player = new Playback(this.out, { onFinished: u => this.onFinished(u), onFrame: f => this.echo.ours(f) });
     this.judge = p.judge ?? new Judge(this.client, { languages: [getLangName(this.myLang), getLangName(this.targetLang)] });
     // While paused, text still arriving for audio sent before the pause must not start new replies.
-    const onDelta = (_item: string, text: string) => { if (!this.paused) this.apply(this.floor.text(text)); };
+    const onDelta = (_item: string, text: string) => { if (!this.paused && !this.closed) this.apply(this.floor.text(text)); };
     this.transcriber = p.transcriberFactory ? p.transcriberFactory(onDelta) : new TranscribeLeg({
       languages: [this.myLang, this.targetLang], apiKey, format: this.transcribeFormat, onDelta,
     });
@@ -271,17 +294,25 @@ export class ConsecutiveTranslator extends EventEmitter {
     });
     this.engineImpl.setSilentLangs?.(this.silentLangs());   // one place for the real engine and the fakes
     // The detector is a condition of work: without it pauses cannot be counted, and the
-    // cascade is a better call than a translation that plays over the speaker.
-    const model = p.vadModel === undefined ? await loadSilero() : p.vadModel;
-    if (!await this.transcriber.start()) throw new Error('transcriber did not start');
-    if (!await this.engineImpl.start()) throw new Error('engine did not start');
+    // cascade is a better call than a translation that plays over the speaker. It loads while
+    // the transcription session comes up; a failure of either closes both (start()).
+    const [model, up] = await Promise.all([
+      p.vadModel === undefined ? loadSilero() : Promise.resolve(p.vadModel),
+      this.transcriber.start(),
+    ]);
+    if (this.closed) return;   // close() has shut the transcriber (its start then says false) and the engine
+    if (!up) throw new Error('transcriber did not start');
+    const engineUp = await this.engineImpl.start();
+    if (this.closed) return;
+    if (!engineUp) throw new Error('engine did not start');
     if (model) {
       this.vad = new VadStream(model, ev => this.onVad(ev), undefined, err => this.onVadDead(err));
       this.fedByVad = true;
     }
-    void this.player.run();
-    this.ticker = setInterval(() => this.apply(this.floor.tick()), TICK_MS);
+    this.player.run().catch(err => log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive playback stopped'));
+    this.ticker = setInterval(() => this.tick(), TICK_MS);
     await this.openSession();
+    if (this.closed) return;   // close() stopped the ticker, detector and playback; finalize() waits for us for the session row
     this.startTimers();
     this.spawn(this.warmUp());
     if (this.greetingText && !this.carryover) this.scheduleGreeting();
@@ -296,6 +327,7 @@ export class ConsecutiveTranslator extends EventEmitter {
 
   /** Connections for the first reply open while the greeting plays; a failure costs nothing but the warm-up. */
   private async warmUp(): Promise<void> {
+    if (this.closed) return;
     const retrieve = this.client.models?.retrieve;
     if (!retrieve) return;
     await Promise.allSettled(Array.from({ length: WARM_CONNECTIONS }, () => this.client.models!.retrieve(TTS_MODEL)));
@@ -318,20 +350,37 @@ export class ConsecutiveTranslator extends EventEmitter {
   }
 
   private startTimers(): void {
+    if (this.closed) return;
     this.safetyTimer = setTimeout(() => {
       log.warn({ callId: this.callId }, 'Consecutive translator safety timer fired');
       this.finalize().catch(() => {});
     }, SAFETY_TIMEOUT_MS);
     if (this.persist) {
       this.statsTimer = setInterval(() => {
-        const secs = Math.floor((Date.now() - this.startTime) / 1000);
-        const c = this.costParts();
-        getIo()?.to(`call:${this.callId}`).emit('translator:stats', {
-          call_id: this.callId, duration_seconds: secs, cost_usd: c.stt + c.text + c.judge + c.tts,
-        });
+        try {   // what a timer throws is uncaught: it would take the whole process down
+          const secs = Math.floor((Date.now() - this.startTime) / 1000);
+          const c = this.costParts();
+          getIo()?.to(`call:${this.callId}`).emit('translator:stats', {
+            call_id: this.callId, duration_seconds: secs, cost_usd: c.stt + c.text + c.judge + c.tts,
+          });
+        } catch (err) {
+          log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive stats failed');
+        }
       }, STATS_EVERY_MS);
     }
     this.resetIdleTimer();
+  }
+
+  /** The core's clock. What a timer throws is uncaught and would take the whole process down, every call with it. */
+  private tick(): void {
+    try {
+      this.apply(this.floor.tick());
+    } catch (err) {
+      this.tickFailures += 1;
+      if (this.tickFailures <= 3 || this.tickFailures % 100 === 0) {   // 20 ticks a second: no flood
+        log.warn({ callId: this.callId, failures: this.tickFailures, err: errorName(err) }, 'Consecutive tick failed');
+      }
+    }
   }
 
   private resetIdleTimer(): void {
@@ -355,7 +404,7 @@ export class ConsecutiveTranslator extends EventEmitter {
         await telephony.hangupCall(this.workspaceId, row.sid);
       }
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Idle hangup failed');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Idle hangup failed');
     }
     await this.finalize();
   }
@@ -399,7 +448,7 @@ export class ConsecutiveTranslator extends EventEmitter {
   }
 
   private onVadDead(err: unknown): void {
-    log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive: voice detector stopped');
+    log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive: voice detector stopped');
     // No detector any more: the line goes to the transcriber directly, a pending commit now.
     this.fedByVad = false;
     if (this.commitDue !== null) {
@@ -415,7 +464,7 @@ export class ConsecutiveTranslator extends EventEmitter {
       try {
         this.do(cmd);
       } catch (err) {   // one broken command must not take the call down
-        log.warn({ callId: this.callId, cmd: cmd.kind, err: (err as Error)?.name }, 'Consecutive command failed');
+        log.warn({ callId: this.callId, cmd: cmd.kind, err: errorName(err) }, 'Consecutive command failed');
       }
     }
   }
@@ -448,6 +497,7 @@ export class ConsecutiveTranslator extends EventEmitter {
         // the speaker went on before this reply played: the engine's "done" no longer stands
         this.engineImpl.reopened(cmd.utt);
         this.player.undone(cmd.utt);
+        this.engineDone.delete(cmd.utt);
         break;
       case 'play':
         this.player.play(cmd.utt);
@@ -459,6 +509,7 @@ export class ConsecutiveTranslator extends EventEmitter {
         this.hasAudio.delete(cmd.utt);
         this.translations.delete(cmd.utt);
         this.down.delete(cmd.utt);
+        this.engineDone.delete(cmd.utt);
         this.engineImpl.restart(cmd.utt);
         break;
       case 'pause':
@@ -491,7 +542,7 @@ export class ConsecutiveTranslator extends EventEmitter {
     try {
       verdict = await this.judge.semanticEnd(text);
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive judge failed');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive judge failed');
     }
     if (!this.closed) this.apply(this.floor.judged(utt, text, verdict));
   }
@@ -501,13 +552,13 @@ export class ConsecutiveTranslator extends EventEmitter {
     try {
       verdict = await this.judge.intent(text, playing);
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive intent judge failed');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive intent judge failed');
     }
     if (!this.closed) this.apply(this.floor.intent(utt, verdict));
   }
 
   private spawn(task: Promise<unknown>): void {
-    const tracked = task.catch(err => log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive task failed'));
+    const tracked = task.catch(err => log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive task failed'));
     this.side.add(tracked);
     void tracked.finally(() => this.side.delete(tracked));
   }
@@ -535,22 +586,30 @@ export class ConsecutiveTranslator extends EventEmitter {
 
   private onDone(utt: number): void {
     if (this.closed) return;
+    this.engineDone.add(utt);
+    const u = this.floor.utterances.get(utt);
+    // One-way mode: the other side is shown as text only — done once translated. Checked before
+    // the audio: a reply voiced before a switch to one-way would wait for a playback that never comes.
+    if (u && u.state === 'released' && u.lang !== null && this.silentLangs().has(u.lang)) {
+      this.settleText(utt);
+      return;
+    }
     if (this.hasAudio.has(utt)) {
       this.player.done(utt);
       return;
     }
-    const u = this.floor.utterances.get(utt);
     if (!u || u.state !== 'released') return;
-    if (u.lang !== null && this.silentLangs().has(u.lang)) {
-      // one-way mode: the other side is shown as text only — done once translated
-      this.apply(this.floor.textDone(utt));
-      this.logTurn(utt, false);
-      this.resetIdleTimer();   // a turn went through, as for a played one: the line is not idle
-      return;
-    }
     // the engine finished with nothing to say: holding the head of the queue for it only
     // makes everything behind it wait ten seconds
     this.apply(this.floor.discard(utt, 'no translation'));
+  }
+
+  /** A translated reply of a side that is not voiced: it is over. Audio voiced for it before a switch to one-way goes. */
+  private settleText(utt: number): void {
+    this.player.discard(utt);
+    this.apply(this.floor.textDone(utt));
+    this.logTurn(utt, false);
+    this.resetIdleTimer();   // a turn went through, as for a played one: the line is not idle
   }
 
   private onFinished(utt: number): void {
@@ -632,6 +691,7 @@ export class ConsecutiveTranslator extends EventEmitter {
    *  the configured delay and played in the first quiet (at most 6 s later). It translates
    *  nothing, so it never becomes a transcript turn. */
   private scheduleGreeting(): void {
+    if (this.closed) return;   // nothing synthesised, nothing billed
     const text = this.greetingText;
     const audio = (this.engineImpl.synthesize ? this.engineImpl.synthesize(text) : Promise.resolve(Buffer.alloc(0)))
       .catch(() => Buffer.alloc(0));
@@ -689,8 +749,14 @@ export class ConsecutiveTranslator extends EventEmitter {
 
   updateMode(mode: string): void {
     this.oneWay = mode === 'text' || mode === 'unidirectional';
-    this.floor.setSilentLangs(this.silentLangs());
-    this.engineImpl.setSilentLangs?.(this.silentLangs());
+    const silent = this.silentLangs();
+    this.floor.setSilentLangs(silent);
+    this.engineImpl.setSilentLangs?.(silent);
+    // A reply of the side that just went silent, translated and waiting for its turn to sound, never gets
+    // one now: it is over as text. One still being translated is settled when the engine is done (onDone).
+    for (const u of [...this.floor.utterances.values()]) {
+      if (u.state === 'released' && u.lang !== null && silent.has(u.lang) && this.engineDone.has(u.id)) this.settleText(u.id);
+    }
     log.info({ callId: this.callId, mode, oneWay: this.oneWay }, 'Consecutive translator mode updated');
   }
 
@@ -758,7 +824,7 @@ export class ConsecutiveTranslator extends EventEmitter {
   // ------------------------------------------------------------------ teardown
 
   stop(): void {
-    this.finalize().catch(err => log.error({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive finalize failed'));
+    this.finalize().catch(err => log.error({ callId: this.callId, err: errorName(err) }, 'Consecutive finalize failed'));
   }
 
   /** Mid-call engine swap: hand the session on without finalizing it. */
@@ -770,9 +836,17 @@ export class ConsecutiveTranslator extends EventEmitter {
     return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript.slice() };
   }
 
-  /** What must not be lost (turns) first, sockets last: closing them can eat the whole budget. */
   private async close(): Promise<void> {
-    if (this.closed) return;
+    if (this.shutdown()) await this.closeSockets();
+  }
+
+  /**
+   * What must not be lost first, sockets last: closing them can eat the whole budget (aidispatch). This
+   * synchronous part stops the timers and the sound, logs the turns the call leaves unfinished, and sets
+   * the sockets closing; finalize() does its accounting before it waits for them. False: it ran already.
+   */
+  private shutdown(): boolean {
+    if (this.closed) return false;
     this.closed = true;
     for (const t of [this.ticker, this.statsTimer]) if (t) clearInterval(t);
     for (const t of [this.idleTimer, this.safetyTimer, this.greetingTimer]) if (t) clearTimeout(t);
@@ -786,15 +860,44 @@ export class ConsecutiveTranslator extends EventEmitter {
     }
     this.vad?.close();
     this.player?.close();
-    const closers = [this.transcriber?.aclose(), this.engineImpl?.aclose()].filter(Boolean) as Promise<void>[];
-    await Promise.race([Promise.allSettled(closers), sleep(CLOSE_TIMEOUT_MS)]);
+    try {
+      this.out?.clear();   // a swapped-out engine falls silent at once, not after the audio queued at Twilio
+    } catch {
+      // the line is gone anyway
+    }
+    // a transcription socket still coming up is cut short too: a start waiting for it goes on at once
+    this.closing = Promise.allSettled([this.transcriber?.aclose(), this.engineImpl?.aclose()]);
+    return true;
   }
 
+  /** The sockets: at most CLOSE_TIMEOUT_MS, then this call's connections to OpenAI go. */
+  private async closeSockets(): Promise<void> {
+    let budget: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      this.closing,
+      // unref'd: the budget must not keep a finished process (the smoke scene) alive
+      new Promise<void>(resolve => { budget = setTimeout(resolve, CLOSE_TIMEOUT_MS).unref(); }),
+    ]);
+    clearTimeout(budget);
+    this.agent?.destroy();
+  }
+
+  /** Turns and accounting first, sockets last: on shutdown the database may be gone after a second or two. */
   async finalize(): Promise<void> {
     if (this.saved) return;
     this.saved = true;
-    await this.close();
+    const first = this.shutdown();
+    try {
+      // a start this cut short stops at its next await; the session row it may have created is closed too
+      await this.booting?.catch(() => {});
+      await this.account();
+    } finally {
+      if (first) await this.closeSockets();
+    }
+  }
 
+  /** The session row, the call's billing and the settled log line. */
+  private async account(): Promise<void> {
     const durationSecs = Math.floor((Date.now() - this.startTime) / 1000);
     const durationMins = durationSecs / 60;
     const minutesUsed = Math.ceil(durationMins * 100) / 100;
@@ -818,7 +921,7 @@ export class ConsecutiveTranslator extends EventEmitter {
             metrics: metrics as any,
           }).where(eq(translatorSessions.id, this.sessionId));
         } catch (err) {
-          log.error({ callId: this.callId, err: (err as Error)?.name }, 'Failed to update consecutive translator session');
+          log.error({ callId: this.callId, err: errorName(err) }, 'Failed to update consecutive translator session');
         }
       }
       const callService = await import('../call.service.js');
@@ -853,7 +956,7 @@ export class ConsecutiveTranslator extends EventEmitter {
       const { eq } = await import('drizzle-orm');
       await db.update(translatorSessions).set({ metrics: metrics as any }).where(eq(translatorSessions.id, this.sessionId!));
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive metrics not written on swap');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive metrics not written on swap');
     }
   }
 }
