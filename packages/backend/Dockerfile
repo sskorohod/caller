@@ -36,6 +36,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
 
+# Silero VAD model for the consecutive translator (services/consecutive/vad.ts)
+COPY packages/backend/assets ./assets
+
 # Copy database migrations (needed by dist/migrate.js)
 COPY supabase/migrations ./supabase/migrations
 
