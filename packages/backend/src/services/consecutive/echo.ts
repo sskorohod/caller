@@ -21,7 +21,11 @@
 import { dbfs, SILENT_DBFS } from './audio.js';
 
 export const ACTIVE_DBFS = -45;          // our frame carries sound, not a pause between words
-export const MAX_LAG = 100;              // aidispatch 50: our 400 ms queue + two PSTN legs sit between send and echo
+// Echo lag up to 1 s (20 ms frames), as in aidispatch, and enough here: our envelope is paced at line rate (the
+// queue in EchoMeter), so the output queue ahead of playout is not part of the lag, only the phone round trip
+// is. A wider search finds more chance correlations: with 100 lags, false echo in synthetic scenes rose from 10%
+// to 36% (a person answering right after us) and from 26% to 45% (a person talking over us).
+export const MAX_LAG = 50;
 export const WINDOW = 500;               // decide on the last 10 s of the line
 export const MIN_ACTIVE = 75;            // 1.5 s of our audio in the window: with less it is too early to judge
 export const ECHO_CORRELATION = 0.7;     // the line repeats our audio: echo. Live calls up to 0.59, echo 0.88–0.92

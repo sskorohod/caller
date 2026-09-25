@@ -129,10 +129,7 @@ test('an echo buried in the line noise does not count', () => {
 
 test('a person answering right after us is not echo', () => {
   // A level-based meter took this for echo: the other side answers as soon as we stop.
-  // Seed-sensitive: the first verdicts rest on ~75 active frames, and the best of 101 lags reaches 0.7 by chance
-  // in about a third of random scenes (a tenth with aidispatch's 51). Seed 6 draws one (r 0.72 at lag 100),
-  // hence 11, the first seed past aidispatch's.
-  const rng = makeRng(11);
+  const rng = makeRng(6);
   const ours = oursSpeech(rng, 30);
   const line = noise(rng, ours.length, -90);
   for (let k = 1; k < ours.length; k++) {
@@ -170,13 +167,11 @@ test('a distorted echo still counts', () => {
 
 test('our audio handed out ahead of playout is timed as it sounds', () => {
   // The output holds 0.4 s of our audio ahead of playout (at the start of a reply it takes all of it at once).
-  // The envelope still follows playout: an echo 1.8 s after playout is found although 2.2 s have passed since
-  // hand-out, more than MAX_LAG. aidispatch had 0.8 and 1.2 s against its 1 s; the delay grew with MAX_LAG.
-  // Seed 11 rather than 8: with 8 the first verdict latches on a chance peak at lag 6, which passes without
-  // showing that the envelope follows playout.
-  const rng = makeRng(11);
+  // The envelope still follows playout: an echo 0.8 s after playout is found although 1.2 s have passed since
+  // hand-out, more than MAX_LAG.
+  const rng = makeRng(8);
   const ours = oursSpeech(rng, 20);
-  const echo = echoOf(ours, { gain: -30, delay: 90 });
+  const echo = echoOf(ours, { gain: -30, delay: 40 });
   const line = noise(rng, ours.length, -90).map((n, k) => add(echo[k], n));
   const meter = new EchoMeter();
   let handed = 0;
