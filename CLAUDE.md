@@ -40,8 +40,9 @@ docker-compose.yml        postgres + redis + minio + backend + frontend + nginx
 - `socket.io@4.8` (real-time push to dashboard / live translate page)
 - `minio@8.0` (call recording storage)
 - `twilio@5.5` (telephony)
-- `@anthropic-ai/sdk@0.39`, `openai@4.85` (Anthropic + OpenAI; xAI Grok via the OpenAI-compatible endpoint)
+- `@anthropic-ai/sdk@0.39`, `openai@4.85` (Anthropic + OpenAI; xAI Grok via the OpenAI-compatible endpoint, now sandbox-trainer only)
 - `tinyld@1.3` (language detection — used by the translator for direction)
+- `onnxruntime-web@1.30` (Silero VAD for the consecutive translator, WASM — works on alpine)
 - `zod@3.24` (input validation on every route)
 - `jose@6.2` (JWT)
 
@@ -67,10 +68,10 @@ Inbound or outbound business calls handled by an AI agent.
 
 ### 2. Translator (Live Translator product)
 Real-time phone interpretation. **Single-leg speakerphone model — see section below.**
-- **Pipeline:** Grok Voice Agent realtime API (single WS does STT + LLM + TTS)
+- **Pipeline:** consecutive interpreter — see "Translator Architecture"
 - **Entry:** `routes/webhooks/twilio.ts` inbound handler when caller's number matches a
   workspace's translator phone
-- **Core:** `services/conference-translator.ts` (`ConferenceTranslator` class)
+- **Core:** `services/consecutive/translator.ts` (`ConsecutiveTranslator` class)
 
 ### 3. Dialer voice-translate / copilot
 Operator at the dashboard dials out to a callee; live captions + suggestions in the UI.
@@ -90,7 +91,7 @@ Don't conflate Translator (#2) and Dialer voice-translate (#3) — same Russian 
 | Group | Modules |
 |---|---|
 | Calls | `call.service`, `call-orchestrator`, `session-finalizer.service` |
-| Translator | `conference-translator`, `live-translate.service` |
+| Translator | `consecutive/*`, `stealth-translator`, `live-translate.service` |
 | Voice providers | `stt.service` (Deepgram, Whisper), `tts.service` (xAI Grok, OpenAI, Twilio), `llm.service` (Anthropic, OpenAI, xAI) |
 | Telephony | `telephony.service` (Twilio client, outbound dial, AMD), `prompt-builder.service` |
 | Missions | `mission.service`, `mission-failure.service` |
@@ -178,7 +179,7 @@ PostgreSQL 16 with `pgvector` (image: `pgvector/pgvector:pg16`).
 
 ## Translator Architecture (important — easy to get wrong)
 
-The Translator product (`ConferenceTranslator`) is a **single-leg speakerphone**
+The Translator product is a **single-leg speakerphone**
 model, not a 3-way conference bridge:
 
 - Translator user dials their workspace's Twilio number → `<Connect><Stream/>` ships
@@ -186,20 +187,38 @@ model, not a 3-way conference bridge:
   second party in this flow.
 - Both speakers must be physically near the same phone (speakerphone). Both voices
   arrive mixed on a single audio stream.
-- Direction (who said what) is detected from the transcript via `tinyld`, not from
-  per-leg streams. Family-aware mapping handles ru↔uk, es↔gl/ca, etc.
-- The class name `ConferenceTranslator` is historical, not literal. The original
-  product spec called for a 3-way merge but it was never built that way.
+- Direction (who said what) is detected from the transcript, not from per-leg streams:
+  by the alphabet in the consecutive engine (below), via `tinyld` with family-aware
+  mapping (ru↔uk, es↔gl/ca…) in the Deepgram cascade.
 
-Single Grok WebSocket session does STT + LLM + TTS together (all in
-`services/conference-translator.ts`; there is no separate `grok-realtime.service.ts`).
+Voice modes run the **consecutive interpreter** ported from aidispatch
+(`services/consecutive/`, reference `~/aidispatch` @ 9e4b1eb, release 2.29.0):
 
-**Known upstream issue (May 2026):** xAI's Grok Voice Agent realtime endpoint may
-return `response.done` with `status_details: "unimplemented"` and zero output
-tokens — i.e. it accepts audio input but generates nothing. When the diagnostic log
-`grok_event` shows `*.done` events without preceding `*.delta` events, that's the
-symptom. Check xAI console for billing / Voice Agent activation status before
-debugging code.
+- Silero VAD (onnxruntime-web) → `gpt-live-transcribe` (both languages, delay=low) → turn-taking
+  core `floor.ts` → text translation GPT-6 Luna, streamed sentence by sentence while the person
+  still talks → `gpt-4o-mini-tts` → playback one utterance at a time → Twilio (400 ms lead, `clear`).
+- A translation plays when the thought is finished: pause ≥ 700 ms and the judge (`gpt-4.1-mini`)
+  says "complete"; a short phrase by its final punctuation; otherwise the 2.2 s hard limit.
+  Thresholds: admin → Settings → Translator (`platform_settings.translator_consecutive`).
+- Who spoke is decided by the alphabet of the transcribed text, so the engine needs a cross-script
+  pair (ru↔en, en↔zh, ru↔ar…). Same-script pairs (en↔es, ru↔uk, zh↔ja) and stealth run on the
+  Deepgram cascade (`stealth-translator.ts`), which is also the rollback:
+  `VOICE_ENGINE=pipeline` (env) or `translator_defaults.voice_engine='pipeline'` (workspace).
+- "uh-huh" over a translation does not stop it; "stop / wait" does at once; ≥ 5 words → intent
+  judge. The same speaker going on is merged into the same reply (restart within 3 s of playback,
+  else pause and resume from the phrase start).
+- Echo: `echo.ts` measures whether the line repeats our voice (envelope correlation ≥ 0.7); only
+  then the text echo filter runs.
+- Per-call metrics: `translator_sessions.metrics` (admin → Sessions) — latency p50/p90, release
+  reasons, interruptions, echo, cost by part, event timeline.
+- Smoke scene without a call:
+  `docker compose exec -T backend node dist/scripts/consecutive-smoke.js --out /tmp/smoke [--echo-db -30]`.
+
+The Grok Voice Agent remains only in the sandbox trainer (`sandbox-session.service.ts`). Known
+upstream issue there (May 2026): xAI's Grok Voice Agent realtime endpoint may return
+`response.done` with `status_details: "unimplemented"` and zero output tokens — `*.done` events
+without preceding `*.delta` events are the symptom; check the xAI console (billing / Voice Agent
+activation) before debugging code.
 
 ## Operations
 
@@ -213,12 +232,12 @@ current. If wrong: `git checkout main && git pull` first.
 **Translator debug — common SQL:**
 ```bash
 # Latest 5 sessions
-ssh ugreen 'cd ~/caller && docker compose exec -T postgres psql -U caller -d caller -c "
+ssh macmini 'cd ~/caller && docker compose exec -T postgres psql -U caller -d caller -c "
   SELECT id, call_id, created_at, duration_seconds, status, jsonb_array_length(transcript) AS turns
   FROM translator_sessions ORDER BY created_at DESC LIMIT 5;"'
 
-# Untranslated turns (silent-drop tracking — see conference-translator.ts response.done)
-ssh ugreen 'cd ~/caller && docker compose exec -T postgres psql -U caller -d caller -c "
+# Untranslated turns (silent-drop tracking)
+ssh macmini 'cd ~/caller && docker compose exec -T postgres psql -U caller -d caller -c "
   SELECT s.id, s.call_id, s.created_at, turn->>'\''text'\'' AS untranslated_text
   FROM translator_sessions s, jsonb_array_elements(s.transcript) turn
   WHERE (turn->>'\''untranslated'\'')::boolean = true
@@ -226,14 +245,14 @@ ssh ugreen 'cd ~/caller && docker compose exec -T postgres psql -U caller -d cal
 ```
 
 **Translator debug — useful log markers:**
-- `Translation dropped: empty output from Grok` — Grok returned `response.done` with no
-  audio (often upstream issue; check the logged `status_details`)
-- `Same-language echo detected` — Grok output matched input language, retranslation triggered
-- `Greeting response timed out` — greeting didn't complete within 15 s
-- `Grok Voice Agent error` — provider-side error
-- `translator_turn_metrics` — per-turn timing (speech→first-interim, speech→done) for ad-hoc analysis
-- `grok_event` (when verbose logging enabled) — every event Grok sends, useful for
-  diagnosing upstream API changes
+- `consecutive_turn` — one per reply: speaker, language, release reason, latency
+  end-of-speech → first sound, interrupted
+- `consecutive_settled` — per call: utterances, latency p50/p90, counts, echo, cost
+- `Consecutive translator did not start — falling back to the cascade` — detector or
+  transcription session failed at call start
+- `Consecutive: voice detector stopped` — Silero failed mid-call; the line goes to the
+  transcriber directly
+- `transcribe leg …` — transcription socket drops, reconnects, gives up
 
 **Infra layout (Mac mini, `ssh macmini`):**
 - Containers (Colima): `postgres` (pgvector), `redis`, `minio`, `backend`, `frontend`, `nginx`
@@ -251,3 +270,4 @@ ssh ugreen 'cd ~/caller && docker compose exec -T postgres psql -U caller -d cal
 - `npm run dev:mcp` — start MCP server in stdio mode
 - `npm run build` — build all three packages
 - `npm run lint` — lint backend + frontend
+- `npm test -w @caller/backend` — backend unit tests (node:test via tsx)
