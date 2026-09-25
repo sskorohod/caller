@@ -57,8 +57,26 @@ const INTENT_PROMPT =
   "You assist an interpreter on a live phone call between people speaking {first} and {second}.\nSomeone spoke over the interpreter's translation while it played. You get the translation (Playing) and what was said (Heard). Heard is live speech-to-text: punctuation may be missing, small recognition errors are normal.\nClassify Heard:\n- interrupt: the interpreter must stop now — an objection or correction (\"no, that's wrong\"), \"wait\", \"stop\", an urgent question (\"what?\"), or the original speaker correcting themselves.\n- ack: only acknowledgement or agreement (\"yeah, okay, I understand\").\n- later: a real remark or question that can wait until the translation ends.\nGarbled or meaningless text, or a distorted piece of Playing (our own voice leaking back): ack, low confidence. confidence: 0 to 1, lower when unsure.";
 
 function clampConfidence(value: any): number {
-  if (typeof value !== 'number') throw new Error('confidence is not a number');
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('confidence is not a number');
   return Math.min(Math.max(value, 0), 1);
+}
+
+/** Fires when the client neither answers nor honours `signal` in time — see `ask()`. */
+class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
+/**
+ * The class name to log. The OpenAI SDK's own error classes (RateLimitError,
+ * AuthenticationError, ...) don't override `.name`, so the real constructor name is read first
+ * and `.name` is only a fallback. Never reads `.message` — it can carry the API key.
+ */
+function errorClassName(err: unknown): string | undefined {
+  const e = err as { constructor?: { name?: string }; name?: string } | null | undefined;
+  return e?.constructor?.name ?? e?.name;
 }
 
 function parseEnd(data: any): [boolean, number] {
@@ -121,29 +139,42 @@ export class Judge {
     parse: (data: any) => T,
   ): Promise<T | null> {
     this.usage.calls++;
+    // `signal` below only helps if the client actually honours it. This timer is the deadline of
+    // last resort: it fires on its own schedule and doesn't depend on the client noticing the
+    // abort, so a call that never settles still returns null on time.
+    let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      deadlineTimer = setTimeout(() => reject(new TimeoutError('judge call exceeded its deadline')), TIMEOUT_MS);
+      deadlineTimer.unref();
+    });
     try {
-      const response = await this.client.chat.completions.create(
-        {
-          model: JUDGE_MODEL,
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-          response_format: { type: 'json_schema', json_schema: { name, schema, strict: true } },
-          // the answer is a two-field JSON, a dozen tokens; a truncated one would not parse and becomes null
-          max_tokens: 40,
-          temperature: 0,
-        },
-        { signal: AbortSignal.timeout(TIMEOUT_MS), maxRetries: 0 }, // a late verdict is useless; no SDK retries
-      );
+      const response = await Promise.race([
+        this.client.chat.completions.create(
+          {
+            model: JUDGE_MODEL,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: user },
+            ],
+            response_format: { type: 'json_schema', json_schema: { name, schema, strict: true } },
+            // the answer is a two-field JSON, a dozen tokens; a truncated one would not parse and becomes null
+            max_tokens: 40,
+            temperature: 0,
+          },
+          { signal: AbortSignal.timeout(TIMEOUT_MS), maxRetries: 0 }, // a late verdict is useless; no SDK retries
+        ),
+        deadline,
+      ]);
       this.count(response.usage); // before parsing: an unparsed answer is still paid for
       return parse(JSON.parse(response.choices[0].message.content || ''));
     } catch (err) {
       // the judge only advises: any failure means "don't know", not a crashed call. The error
       // text can carry the API key, so only the exception class name may reach the log.
       this.usage.errors++;
-      log.warn({ judge: name, errorName: (err as Error)?.name }, 'consecutive judge call failed');
+      log.warn({ judge: name, errorName: errorClassName(err) }, 'consecutive judge call failed');
       return null;
+    } finally {
+      clearTimeout(deadlineTimer);
     }
   }
 
