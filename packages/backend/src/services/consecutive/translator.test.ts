@@ -263,6 +263,118 @@ test('the close budget does not keep the process alive', async () => {
   assert.equal(budgets[0].hasRef(), false);   // a script that finalizes (the smoke scene) exits at once
 });
 
+test('a floor whose tick throws does not take the process down', async () => {
+  const h = await make();
+  let ticks = 0;
+  h.translator.floor.tick = () => { ticks++; throw new Error('floor broke'); };
+  await until(() => ticks >= 3);   // the interval fired again and again: nothing escaped it
+});
+
+test('a switch to one-way settles a reply of the side that went silent as text', async () => {
+  // The engine had finished it: voiced, it waited for its turn, which never comes in one-way mode.
+  const done = await make();
+  done.say('Hello, how are you today?');               // the other side, two-way still
+  done.apply(done.translator.floor.vadStart());         // someone is talking: nothing may sound yet
+  await done.advance(2.0);
+  await until(() => done.engine().log.includes('released 1 Hello, how are you today?'));
+  await settle();
+  assert.equal(done.translator.floor.utterances.get(1)!.state, 'released');
+  done.translator.updateMode('text');
+  assert.equal(done.translator.floor.utterances.get(1)!.state, 'done');
+  assert.deepEqual(withoutTime(done.transcript()), [
+    { speaker: 'other', text: 'Hello, how are you today?', lang: 'en', translated: 'T(Hello, how are you today?)' },
+  ]);
+  // Still being translated at the switch: settled when the engine is done, its audio never played.
+  let finish!: () => void;
+  const busy = await make({}, {}, engine => {
+    engine.released = (u, text) => {
+      engine.log.push(`released ${u} ${text}`);
+      engine.cb.onText(u, `T(${text})`);
+      engine.cb.onAudio(u, Buffer.alloc(48000));
+      finish = () => engine.cb.onDone(u);
+    };
+  });
+  busy.say('Hello, how are you today?');
+  busy.apply(busy.translator.floor.vadStart());
+  await busy.advance(2.0);
+  await until(() => busy.engine().log.includes('released 1 Hello, how are you today?'));
+  busy.translator.updateMode('text');
+  assert.equal(busy.translator.floor.utterances.get(1)!.state, 'released');   // the engine is not done yet
+  finish();
+  assert.equal(busy.translator.floor.utterances.get(1)!.state, 'done');
+  assert.equal(busy.transcript()[0].translated, 'T(Hello, how are you today?)');
+  for (const h of [done, busy]) {
+    h.apply(h.translator.floor.vadEnd(0.35));
+    await h.advance(1.0);
+    assert.equal(h.out.writes, 0);
+  }
+});
+
+test('a stop while the call is coming up leaves nothing running', async () => {
+  // At each await of the start in turn. start() resolves: a stopped call is no failure, no fallback.
+  // The key and the session row are held by standing in for their private methods: the real ones need a database.
+  for (const { at, swap } of [{ at: 'key' }, { at: 'transcriber' }, { at: 'engine' }, { at: 'session' },
+    { at: 'session', swap: true }]) {
+    let release!: () => void;
+    const held = <T>(value: T) => new Promise<T>(resolve => { release = () => resolve(value); });
+    let synthesized = 0;
+    let warmed = 0;
+    const client = {
+      chat: { completions: { create: async () => ({}) } }, audio: { speech: { create: async () => ({}) } },
+      models: { retrieve: async () => { warmed++; } },
+    };
+    const h = build(
+      { client, ...(at === 'key' ? { apiKey: undefined } : {}), ...(swap ? { persist: true } : {}) },
+      swap ? { carryover: { sessionId: null, startTime: Date.now(), transcript: [] } } : { greetingText: 'Hi', greetingDelaySeconds: 0 },
+      engine => {
+        engine.synthesize = async () => { synthesized++; return Buffer.alloc(4800); };
+        if (at === 'engine') engine.start = () => held(true);
+      });
+    const t = h.translator as any;
+    if (at === 'key') t.resolveApiKey = () => held('k');
+    if (at === 'transcriber') h.transcriber.start = () => held(false);   // a leg closed while connecting says so
+    if (at === 'session') t.openSession = () => held(undefined);
+    const started = h.translator.start();
+    await settle();
+    if (swap) h.translator.detach(); else h.translator.stop();
+    release();
+    await started;
+    await settle();
+    let ticks = 0;
+    if (h.translator.floor) h.translator.floor.tick = () => { ticks++; return []; };
+    await new Promise(resolve => setTimeout(resolve, 120));
+    const where = `${at}${swap ? ' (swap)' : ''}`;
+    assert.equal(ticks, 0, `${where}: the core's clock still runs`);
+    for (const timer of ['safetyTimer', 'statsTimer', 'idleTimer', 'greetingTimer']) assert.equal(t[timer], undefined, `${where}: ${timer}`);
+    assert.equal(synthesized, 0, `${where}: the greeting was synthesised`);
+    assert.equal(warmed, 0, `${where}: the warm-up ran`);
+  }
+});
+
+test('closing does its accounting before it waits for the sockets', async () => {
+  const h = await make();
+  let socketClosed!: () => void;
+  h.transcriber.aclose = () => new Promise<void>(resolve => { socketClosed = resolve; });   // slow to close
+  const order: string[] = [];
+  const summary = h.translator.summary.bind(h.translator);
+  h.translator.summary = () => { order.push('accounting'); return summary(); };
+  const finalized = h.translator.finalize().then(() => { order.push('finalized'); });
+  await until(() => order.includes('accounting'), 100);   // at once, not after the sockets' budget
+  await settle();
+  assert.deepEqual(order, ['accounting']);   // the sockets are still awaited, last
+  socketClosed();
+  await finalized;
+  assert.deepEqual(order, ['accounting', 'finalized']);
+});
+
+test('a closed call hears nothing more and falls silent at once', async () => {
+  const h = await make();
+  h.translator.detach();
+  assert.equal(h.out.clears, 1);   // what Twilio still holds of our voice is dropped
+  h.say('Кто-то ещё говорит.');
+  assert.equal(h.translator.floor.utterances.size, 0);
+});
+
 test("a judge that throws still settles the floor's question", async () => {
   const unhandled: unknown[] = [];
   const onUnhandled = (reason: unknown) => { unhandled.push(reason); };
