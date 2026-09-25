@@ -86,7 +86,7 @@ services:
       HOST: 0.0.0.0
       LOG_LEVEL: ${LOG_LEVEL:-info}
       OPENAI_OAUTH_PROXY_URL: ${OPENAI_OAUTH_PROXY_URL:-}
-      # Grok Voice Agent realtime model for the translator. Default
+      # Grok Voice Agent realtime model — sandbox trainer only. Default
       # grok-voice-fast-1.0 (non-think) translates verbatim; the "think"
       # flagship elaborates with helper phrases. Overridable via .env to A/B
       # slugs without a rebuild.

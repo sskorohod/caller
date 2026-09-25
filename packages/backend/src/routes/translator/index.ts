@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and, desc, gte, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, sql, getTableColumns } from 'drizzle-orm';
 import { authenticateUser, requireRole } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import { translatorSessions, workspaces, telephonyConnections } from '../../db/schema.js';
@@ -37,8 +37,10 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
       offset: z.coerce.number().int().min(0).default(0),
     }).parse(request.query);
 
+    // metrics are internal diagnostics with the provider-cost breakdown: admin only
+    const { metrics: _metrics, ...columns } = getTableColumns(translatorSessions);
     const rows = await db
-      .select()
+      .select(columns)
       .from(translatorSessions)
       .where(eq(translatorSessions.workspace_id, request.auth.workspaceId))
       .orderBy(desc(translatorSessions.created_at))

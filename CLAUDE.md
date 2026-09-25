@@ -226,7 +226,8 @@ activation) before debugging code.
 ## Operations
 
 **Deploy:** `git push` → `ssh macmini` → `cd ~/caller && git pull && docker compose build <service> && docker compose up -d`. 
-New migrations: `docker compose exec -T backend node dist/migrate.js`.
+New migrations: run them from the freshly built image BEFORE `up -d` (new code may already
+write the new columns): `docker compose run --rm --no-deps -T backend node dist/migrate.js`.
 
 **Gotcha:** the server may be checked out on a feature branch. Verify
 `git rev-parse HEAD` on the server matches `origin/main` before assuming a deploy is

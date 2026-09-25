@@ -3,7 +3,9 @@ import type { IncomingMessage, ServerResponse, Server as HttpServer } from 'node
 import { jwtVerify } from 'jose';
 import { and, eq } from 'drizzle-orm';
 import pino from 'pino';
+import { z } from 'zod';
 import { env } from '../config/env.js';
+import { LANG_NAMES } from '../config/languages.js';
 import { db } from '../config/db.js';
 import { workspaceMembers, calls as callsTable } from '../db/schema.js';
 import { setIo } from './io.js';
@@ -182,7 +184,7 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
       try {
         const id = resolveCallId(call_id);
         if (!id || !await authorizeCallAccess(id)) return;
-        // May swap the whole engine (Grok ↔ Deepgram) for stealth ↔ voice.
+        // May swap the whole engine (consecutive ↔ Deepgram cascade) for stealth ↔ voice.
         const { setTranslatorMode } = await import('../routes/webhooks/media-stream.js');
         await setTranslatorMode(id, mode);
       } catch (err) { log.error({ err, call_id }, 'translator socket event failed'); }
@@ -190,6 +192,10 @@ export function initSocketServer(httpServer: HttpServer<typeof IncomingMessage, 
 
     socket.on('translator:set-languages', async ({ call_id, my_language, target_language }: { call_id?: string; my_language: string; target_language: string }) => {
       try {
+        // The codes go into prompts and pick the engine: known languages only, two different ones.
+        const code = z.enum(Object.keys(LANG_NAMES) as [string, ...string[]]);
+        if (!code.safeParse(my_language).success || !code.safeParse(target_language).success
+          || my_language === target_language) return;
         const id = resolveCallId(call_id);
         if (!id || !await authorizeCallAccess(id)) return;
         // May swap engines: the consecutive interpreter needs a pair with two alphabets.
