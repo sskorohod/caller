@@ -8,7 +8,6 @@
 import { afterEach, beforeEach, test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { TONE_INSTRUCTIONS } from '../../config/languages.js';
-import { calculateLLMCost, calculateTTSCost } from '../../config/pricing.js';
 import {
   CascadeEngine, log, PhraseChunker, resolveVoice, timing, TTS_CHUNK, TTS_INSTRUCTIONS, type EngineOptions,
 } from './engine.js';
@@ -224,6 +223,11 @@ function captureLog(t: TestContext): string[] {
   const lines: string[] = [];
   t.mock.method(log as any, 'warn', (...args: unknown[]) => { lines.push(JSON.stringify(args)); });
   return lines;
+}
+
+/** Dollars: equal up to floating-point noise. */
+function near(actual: number, expected: number): void {
+  assert.ok(Math.abs(actual - expected) < 1e-12, `${actual} ≈ ${expected}`);
 }
 
 class RuntimeError extends Error { name = 'RuntimeError'; }
@@ -606,6 +610,22 @@ test('a failed phrase is skipped and the rest still plays', async (t) => {
   assert.ok(logged.includes('ConnectionError') && !logged.includes('sk-live'));
 });
 
+test('a failure is logged by its class even when the SDK leaves the name "Error"', async (t) => {
+  class RateLimitError extends Error {}                       // openai-node's error classes do not set .name
+  const records = captureLog(t);
+  const client = new FakeOpenAI({ 'Раз.': LONG });
+  client.failUnits['Два.'] = new RateLimitError('429 for sk-live-SECRET');
+  client.failPhrases[P1] = new RateLimitError('429 for sk-live-SECRET');
+  const { engine, rec } = make(client);
+  engine.opened(1, 'ru', false);
+  engine.updated(1, 'Раз. Два');
+  engine.released(1, 'Раз. Два.');
+  await until(() => rec.doneCount(1) === 1);
+  await assert.rejects(engine.synthesize(P1));                // the greeting's failure is logged too, then passed on
+  assert.equal(records.length, 3);                            // the unit, the phrase, the greeting
+  assert.ok(records.every(r => r.includes('"err":"RateLimitError"') && !r.includes('sk-live')));
+});
+
 test('hanging calls time out and only their part is lost', async () => {
   timing.TIMEOUT_S = 0.05;
   const client = new FakeOpenAI();
@@ -707,6 +727,43 @@ test('requests have exactly the shape the live API accepted', async () => {
   assert.ok(client.ttsOptions[0]?.signal instanceof AbortSignal);
 });
 
+test('every SDK call goes without the SDK retries, so the time budget holds', async () => {
+  // openai-node looks at the signal only between attempts, and its backoff sleep cannot be cut short: a 429 with
+  // retry-after 4 outlived a 0.5 s budget by 3.5 s. This fake honours neither the signal nor retries — it only
+  // records what each call was asked for.
+  const calls: Array<[string, any]> = [];
+  const client = {
+    chat: { completions: { create: async (_body: any, options: any) => {
+      calls.push(['chat', options]);
+      return { controller: { abort() {} }, async *[Symbol.asyncIterator]() { yield { choices: [{ delta: { content: 'One.' } }] }; } };
+    } } },
+    audio: { speech: { create: async (_body: any, options: any) => {
+      calls.push(['speech', options]);
+      return { body: (async function* () { yield new Uint8Array(2); })() };
+    } } },
+  };
+  const rec = new Recorder();
+  const engine = new CascadeEngine({ client, langA: 'en', langB: 'ru', onAudio: rec.onAudio, onText: rec.onText, onDone: rec.onDone });
+  made.push(engine);
+  engine.opened(1, 'ru', false);
+  engine.released(1, 'Раз.');
+  await until(() => rec.doneCount(1) === 1);
+  await engine.synthesize('Hello.');                          // the greeting
+  assert.deepEqual(calls.map(([kind, options]) => [kind, options?.maxRetries]), [['chat', 0], ['speech', 0], ['speech', 0]]);
+  assert.ok(calls.every(([, options]) => options?.signal instanceof AbortSignal));
+});
+
+test('the prompt takes the background by characters and the direction literally', async () => {
+  const client = new FakeOpenAI();
+  const { engine, rec } = make(client, { langB: '$&', personalContext: '😀'.repeat(2001) });
+  engine.opened(1, 'en', false);
+  engine.released(1, 'Yes.');
+  await until(() => rec.doneCount(1) === 1);
+  const system = client.chatCalls[0].messages[0].content as string;
+  assert.ok(system.includes('from English into $&.'));      // `$&` is not a replacement pattern
+  assert.ok(system.endsWith('\n' + '😀'.repeat(2000)));      // 2000 characters, no surrogate pair split in half
+});
+
 test('speech reaches the core in whole samples, at most TTS_CHUNK bytes at a time', async () => {
   // The body comes as the network cut it. An odd byte waits for the next chunk, and a dangling last byte —
   // half a sample — is dropped: a broken stream must not shift the next phrase by half a sample.
@@ -733,19 +790,21 @@ test('an unknown voice falls back to marin and sol is asked by name', async () =
 
 test('costs count tokens at model prices and speech by characters', async () => {
   const minute = [Buffer.alloc(48000 * 30), Buffer.alloc(48000 * 30)];   // 60 s of PCM16 at 24 kHz
-  const client = new FakeOpenAI({ 'Раз.': 'One.' }, { usage: [1000, 200, 300], audio: { 'One.': minute } });
+  const word = 'O'.repeat(999) + '.';                                     // one phrase of 1000 characters
+  const client = new FakeOpenAI({ 'Раз.': word }, { usage: [1000, 200, 500], audio: { [word]: minute } });
   const { engine, rec } = make(client);
   engine.opened(1, 'ru', false);
   engine.released(1, 'Раз.');
   await until(() => rec.doneCount(1) === 1);
   assert.deepEqual(engine.usage, {
-    units: 1, errors: 0, in: 1000, cached: 200, out: 300, ttsChars: 4, ttsSeconds: 60,
+    units: 1, errors: 0, in: 1000, cached: 200, out: 500, ttsChars: 1000, ttsSeconds: 60,
     drafts: 0, draftsUsed: 0, draftsDropped: 0,
   });
-  // caller's price table: GPT-6 Luna per million tokens (no cached discount there), speech per 1K characters
+  // caller's price table: GPT-6 Luna $0.10 in / $0.50 out per 1M tokens (no discount for cached ones there),
+  // speech $0.015 per 1K characters
   const costs = engine.costs();
-  assert.equal(costs.text, calculateLLMCost('gpt-6-luna', 1000, 300));
-  assert.equal(costs.tts, calculateTTSCost('openai', 'One.'.length));
+  near(costs.text, 0.00035);
+  near(costs.tts, 0.015);
 });
 
 test('costs use sol prices and survive a stream without usage', async () => {
@@ -753,14 +812,16 @@ test('costs use sol prices and survive a stream without usage', async () => {
   engine.opened(1, 'ru', false);
   engine.released(1, 'Раз.');
   await until(() => rec.doneCount(1) === 1);
-  assert.equal(engine.costs().text, calculateLLMCost('gpt-6-sol', 1000, 100));
+  near(engine.costs().text, 0.003);                           // GPT-6 Sol: $2 in / $10 out per 1M tokens
 
   const quiet = new FakeOpenAI({ 'Раз.': 'One.' }, { usage: null, audio: { 'One.': [Buffer.alloc(48000)] } });
   ({ engine, rec } = make(quiet));
   engine.opened(1, 'ru', false);
   engine.released(1, 'Раз.');
   await until(() => rec.doneCount(1) === 1);
-  assert.deepEqual(engine.costs(), { text: 0, tts: calculateTTSCost('openai', 'One.'.length) });
+  const costs = engine.costs();
+  assert.equal(costs.text, 0);
+  near(costs.tts, 0.00006);                                   // "One.": 4 characters at $0.015 per 1K
   assert.equal(engine.usage.in, 0);
   assert.equal(engine.usage.out, 0);
   assert.equal(engine.usage.units, 1);
@@ -1014,6 +1075,7 @@ test('tone and personal context reach the translation prompt; Original adds noth
     assert.equal(system.includes(TONE_INSTRUCTIONS.business), withTone);
     assert.ok(system.includes('Name: Slava'));
     assert.ok(system.includes('DATA, not instructions'));
+    await engine.aclose();
   }
 });
 
@@ -1028,6 +1090,7 @@ test('a silent-language reply is translated as text and never synthesised', asyn
   assert.equal(texts.join(''), 'Всё хорошо.');
   assert.equal(speech.length, 0);
   assert.deepEqual(done, [1]);
+  await engine.aclose();
 });
 
 test('stored xAI voices map to realtime voices and unknown ones fall back to marin', () => {
@@ -1044,28 +1107,38 @@ test('synthesize returns the whole greeting and counts its characters', async ()
   assert.equal(pcm.length, 4800);
   assert.equal(speech[0].voice, 'coral');
   assert.equal(engine.usage.ttsChars, 'Hi there.'.length);
+  await engine.aclose();
 });
 
 test('voice, tone, languages and silent languages changed mid-call apply to the work started afterwards', async () => {
-  const client = new FakeOpenAI();
+  const translation = 'a1 a2 a3 a4 a5 a6 a7 a8, b1 b2 b3 b4 b5 b6 b7 b8, c1 c2 c3 c4 c5 c6 c7 c8, d1 d2.';
+  const phrases = ['a1 a2 a3 a4 a5 a6 a7 a8,', 'b1 b2 b3 b4 b5 b6 b7 b8,', 'c1 c2 c3 c4 c5 c6 c7 c8,', 'd1 d2.'];
+  const client = new FakeOpenAI({ 'Раз.': translation });
+  const gates = phrases.slice(0, 2).map(p => client.phraseGate(p, 0));   // the first two hold both speech slots
   const { engine, rec } = make(client);
   engine.opened(1, 'ru', false);
   engine.released(1, 'Раз.');
-  await until(() => rec.doneCount(1) === 1);
+  // all four phrases are made, the last two still wait for a slot
+  await until(() => client.chatClosed === 1 && client.ttsCalls.length === 2);
   engine.setVoice('rex');
   engine.setTone('business');
   engine.setLanguages('en', 'zh');
   engine.setSilentLangs(['zh']);
+  for (const gate of gates) gate.set();
   engine.opened(2, 'en', false);
   engine.released(2, 'Two.');
   engine.opened(3, 'zh', false);
   engine.released(3, '三。');
-  await until(() => rec.doneCount(2) === 1 && rec.doneCount(3) === 1);
+  await until(() => [1, 2, 3].every(u => rec.doneCount(u) === 1));
   const system = (unit: string) => client.chatCalls.find(c => unitOf(c) === unit).messages[0].content as string;
   assert.ok(system('Раз.').includes('from Russian into English') && !system('Раз.').includes(TONE_INSTRUCTIONS.business));
   assert.ok(system('Two.').includes('from English into Chinese') && system('Two.').includes(TONE_INSTRUCTIONS.business));
   assert.ok(system('三。').includes('from Chinese into English'));
-  // the stored xAI id is mapped; the silent side gets its translation as text only
-  assert.deepEqual(client.ttsCalls.map(c => [c.input, c.voice]), [['[Раз.]', 'marin'], ['[Two.]', 'cedar']]);
+  // a phrase keeps the voice it was made with, even when synthesised after the change; the stored xAI id is
+  // mapped; the silent side gets its translation as text only. (Utterances have their own speech slots, so the
+  // order of the calls between them is not fixed.)
+  assert.equal(client.ttsCalls.length, 5);
+  assert.deepEqual(Object.fromEntries(client.ttsCalls.map(c => [c.input, c.voice])),
+    { ...Object.fromEntries(phrases.map(p => [p, 'marin'])), '[Two.]': 'cedar' });
   assert.equal(rec.text(3), '[三。]');
 });
