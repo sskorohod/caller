@@ -540,7 +540,7 @@ test('the transcriber hears the line only after the detector checked it', async 
   assert.equal(h.transcriber.pushed.length, 0);   // the detector has not judged a window yet
   open();
   await until(() => h.transcriber.pushed.length === 6);   // 200 ms of the line are six 32 ms windows
-  assert.ok(h.transcriber.pushed.every(pcm => pcm.length === 1536));   // each window at 24 kHz
+  assert.ok(h.transcriber.pushed.every(pcm => pcm.length === 256));   // each window in µ-law, a byte a sample
 });
 
 test('a segment is closed only in silence the detector confirmed', async () => {

@@ -22,8 +22,8 @@ export const log = pino({ name: 'consecutive' });
 export const TRANSCRIBE_URL = 'wss://api.openai.com/v1/realtime?intent=transcription';
 export const TRANSCRIBE_MODEL = 'gpt-live-transcribe';
 export type TranscribeFormat = 'pcm24' | 'pcmu';
-/** pcm24 is what aidispatch verified on the live API; pcmu (Twilio's own µ-law) is switched on only after a live check. */
-export const TRANSCRIBE_FORMAT: TranscribeFormat = 'pcm24';
+/** Twilio's own µ-law: the live API accepts it and transcribes the smoke scene as it does pcm24, at a sixth of the upload. */
+export const TRANSCRIBE_FORMAT: TranscribeFormat = 'pcmu';
 // Measured: the last word with its period comes 0.3–0.55 s after speech; the default delay gives 0.7–0.8 s.
 export const DELAY = 'low';
 export const RATE = 24000;             // pcm24: PCM16 mono

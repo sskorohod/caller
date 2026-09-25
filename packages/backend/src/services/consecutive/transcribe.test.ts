@@ -195,7 +195,7 @@ function makeLeg(connector: FakeConnector, opts: LegOptions = {}) {
   const leg = new TranscribeLeg({
     languages: opts.languages ?? ['ru', 'en'],
     apiKey: 'sk-test',
-    format: opts.format,
+    format: opts.format ?? 'pcm24',   // the wire tests count PCM16 24 kHz bytes; pcmu has its own below
     onDelta: opts.onDelta ?? ((itemId, text) => { deltas.push([itemId, text]); }),
     onCompleted: opts.onCompleted ?? ((itemId, text) => { done.push([itemId, text]); }),
     connect: connector.connect,
@@ -613,7 +613,7 @@ test('the contract matches what the live API accepted', () => {
   assert.ok(TRANSCRIBE_MODEL === 'gpt-live-transcribe' && RATE === 24000 && MIN_COMMIT_MS === 100);
   assert.equal(DELAY, 'low');
   assert.deepEqual(BACKOFF_S, [0.5, 1.0, 2.0]);
-  assert.equal(TRANSCRIBE_FORMAT, 'pcm24');           // the format checked live; pcmu waits for its own check
+  assert.equal(TRANSCRIBE_FORMAT, 'pcmu');            // Twilio's µ-law, checked live on the smoke scene
 });
 
 // --- additions: µ-law input, a new language pair mid-call, a session that lived long -------------
