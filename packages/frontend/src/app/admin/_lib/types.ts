@@ -156,6 +156,26 @@ export interface TranscriptEntry {
   translation?: string;
 }
 
+export interface ConsecutiveMetrics {
+  engine: 'consecutive';
+  languages: string[];
+  model: string;
+  voice: string;
+  settings: Record<string, number>;
+  utterances: number;
+  counts: Record<string, number>;
+  latency_ms: { p50: number | null; p90: number | null; n: number };
+  release_ms: { p50: number | null; p90: number | null };
+  judge_ms: { p50: number | null; p90: number | null; n: number };
+  barge_ms: number[];
+  played_s: number;
+  echo: { present: boolean; correlation: number | null; return_db: number | null };
+  engine_usage: Record<string, number>;
+  events: Array<[number, string, string]>;
+  costs: Record<string, number>;
+  cost_usd: number;
+}
+
 export interface Session {
   id: string;
   subscriber_id: string;
@@ -165,6 +185,7 @@ export interface Session {
   status: string;
   transcript: TranscriptEntry[];
   created_at: string;
+  metrics?: ConsecutiveMetrics | null;
 }
 
 // Workspaces
@@ -334,6 +355,7 @@ export interface ProviderConfig {
 export interface PlatformSettings {
   default_greeting?: string;
   pricing?: Partial<PricingTables>;
+  translator_consecutive?: Record<string, unknown>;
   [key: string]: unknown;
 }
 

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useAdminQuery, api } from '../_lib/admin-api';
 import { fmtDuration, fmtCurrency, fmtDateTime, fmtMinutes } from '../_lib/format';
-import type { Session, TranscriptEntry } from '../_lib/types';
+import type { Session, TranscriptEntry, ConsecutiveMetrics } from '../_lib/types';
 import AdminPageHeader from '../_components/AdminPageHeader';
 import AdminKpiCard from '../_components/AdminKpiCard';
 import AdminTable from '../_components/AdminTable';
@@ -17,6 +17,45 @@ interface SessionsResponse {
     total_sessions: number;
     total_minutes: string;
   };
+}
+
+const RELEASE_KEYS = ['semantic', 'punctuation', 'hard', 'yield'] as const;
+const FLOOR_KEYS = ['interrupted', 'restarted', 'paused', 'merged', 'reopened', 'stop_phrase'] as const;
+const fmtS = (ms: number | null | undefined) => (ms == null ? '—' : `${(ms / 1000).toFixed(2)} s`);
+
+function MetricsBlock({ m }: { m: ConsecutiveMetrics }) {
+  const c = m.counts ?? {};
+  const drops = Object.entries(c).filter(([k]) => k.startsWith('drop_')).map(([k, v]) => `${k.slice(5)} ${v}`);
+  const echo = m.echo.correlation == null
+    ? 'not measured'
+    : m.echo.present ? `present (r=${m.echo.correlation}, ${m.echo.return_db ?? '—'} dB)` : `none (r=${m.echo.correlation})`;
+  const row = (label: string, value: string) => (
+    <div className="flex gap-3 text-xs">
+      <span className="w-44 shrink-0" style={{ color: 'var(--th-text-muted)' }}>{label}</span>
+      <span style={{ color: 'var(--th-text)' }}>{value}</span>
+    </div>
+  );
+  return (
+    <div className="px-4 py-3 mb-2 mx-2 rounded-lg space-y-1.5" style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}>
+      <div className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}>
+        Consecutive translation
+      </div>
+      {row('Model · voice · pair', `${m.model} · ${m.voice} · ${m.languages.join(' ↔ ')}`)}
+      {row('End of speech → sound', `p50 ${fmtS(m.latency_ms.p50)} · p90 ${fmtS(m.latency_ms.p90)} (n=${m.latency_ms.n})`)}
+      {row('Released by', `${RELEASE_KEYS.map(k => `${k} ${c[`release_${k}`] ?? 0}`).join(' · ')} · p50 ${fmtS(m.release_ms.p50)}`)}
+      {row('Judge', `p50 ${fmtS(m.judge_ms.p50)} · p90 ${fmtS(m.judge_ms.p90)} (n=${m.judge_ms.n})`)}
+      {row('Floor', FLOOR_KEYS.map(k => `${k} ${c[k] ?? 0}`).join(' · '))}
+      {row('Dropped', drops.length ? drops.join(' · ') : '—')}
+      {row('Echo', echo)}
+      {row('Cost', `${Object.entries(m.costs).map(([k, v]) => `${k} $${v.toFixed(4)}`).join(' · ')} = $${m.cost_usd.toFixed(4)}`)}
+      <details className="text-xs pt-1">
+        <summary className="cursor-pointer" style={{ color: 'var(--th-text-muted)' }}>Timeline ({m.events.length})</summary>
+        <pre className="mt-2 max-h-64 overflow-y-auto text-[11px] leading-relaxed" style={{ color: 'var(--th-text-secondary)' }}>
+          {m.events.map(([t, kind, detail]) => `${t.toFixed(2).padStart(7)}  ${kind.padEnd(9)} ${detail}`).join('\n')}
+        </pre>
+      </details>
+    </div>
+  );
 }
 
 export default function SessionsPage() {
@@ -40,42 +79,45 @@ export default function SessionsPage() {
     const entries: TranscriptEntry[] = Array.isArray(session.transcript) ? session.transcript : [];
 
     return (
-      <div
-        className="px-4 py-3 mb-2 mx-2 rounded-lg"
-        style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}
-      >
+      <>
         <div
-          className="text-[10px] font-semibold uppercase tracking-wider mb-2"
-          style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+          className="px-4 py-3 mb-2 mx-2 rounded-lg"
+          style={{ background: 'var(--th-surface)', border: '1px solid var(--th-border)' }}
         >
-          Transcript
+          <div
+            className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+            style={{ color: 'var(--th-text-muted)', letterSpacing: '0.5px' }}
+          >
+            Transcript
+          </div>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {entries.length === 0 && (
+              <p className="text-xs" style={{ color: 'var(--th-text-muted)' }}>No transcript data</p>
+            )}
+            {entries.map((t, i) => (
+              <div key={i} className="text-xs leading-relaxed">
+                <span
+                  className="font-semibold"
+                  style={{
+                    color: t.speaker === 'subscriber'
+                      ? 'var(--th-primary-text)'
+                      : 'var(--th-info-text)',
+                  }}
+                >
+                  {t.speaker}:
+                </span>{' '}
+                <span style={{ color: 'var(--th-text)' }}>{t.text}</span>
+                {t.translation && (
+                  <span className="italic ml-2" style={{ color: 'var(--th-text-secondary)' }}>
+                    &rarr; {t.translation}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="space-y-1.5 max-h-64 overflow-y-auto">
-          {entries.length === 0 && (
-            <p className="text-xs" style={{ color: 'var(--th-text-muted)' }}>No transcript data</p>
-          )}
-          {entries.map((t, i) => (
-            <div key={i} className="text-xs leading-relaxed">
-              <span
-                className="font-semibold"
-                style={{
-                  color: t.speaker === 'subscriber'
-                    ? 'var(--th-primary-text)'
-                    : 'var(--th-info-text)',
-                }}
-              >
-                {t.speaker}:
-              </span>{' '}
-              <span style={{ color: 'var(--th-text)' }}>{t.text}</span>
-              {t.translation && (
-                <span className="italic ml-2" style={{ color: 'var(--th-text-secondary)' }}>
-                  &rarr; {t.translation}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+        {session.metrics?.engine === 'consecutive' && <MetricsBlock m={session.metrics} />}
+      </>
     );
   };
 
