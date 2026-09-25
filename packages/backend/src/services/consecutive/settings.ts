@@ -51,10 +51,14 @@ export function parseConsecutiveSettings(raw: unknown): ConsecutiveSettings {
   };
 }
 
+const SETTINGS_TIMEOUT_MS = 1000;
+
 export async function loadConsecutiveSettings(): Promise<ConsecutiveSettings> {
   try {
     const { getPlatformSetting } = await import('../platform-settings.service.js');
-    return parseConsecutiveSettings(await getPlatformSetting(CONSECUTIVE_SETTINGS_KEY));
+    // A stuck settings query must not hold up a live call: after a second, defaults.
+    const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), SETTINGS_TIMEOUT_MS).unref());
+    return parseConsecutiveSettings(await Promise.race([getPlatformSetting(CONSECUTIVE_SETTINGS_KEY), timeout]));
   } catch {
     return { ...DEFAULT_CONSECUTIVE_SETTINGS };   // settings unreachable: the call still runs
   }
