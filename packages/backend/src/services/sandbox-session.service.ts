@@ -8,8 +8,12 @@ import { LANG_NAMES } from '../config/languages.js';
 
 const log = pino({ name: 'sandbox-session' });
 
-// Same pinned Grok Voice Agent model as the production translator. See
-// conference-translator.ts for the long story on why this is version-pinned.
+// Pinned Grok Voice Agent model. We used to pass an undocumented slug that xAI silently
+// mapped to its default; around 2026-06 the default drifted to the "think" flagship, a
+// reasoning model that answers utterances and appends helper phrases instead of
+// translating. The non-thinking grok-voice-fast-1.0 translates verbatim — version-pinned
+// so xAI churn cannot change behaviour again. The model must go in ?model=: without it
+// the realtime endpoint falls back to a text-only stub that never speaks.
 const GROK_VOICE_MODEL = process.env.GROK_VOICE_MODEL || 'grok-voice-fast-1.0';
 
 export type SandboxMode = 'echo' | 'simulation' | 'support';
@@ -36,7 +40,7 @@ interface BrowserMessage {
  * phone translator) so the Grok session config is unchanged and the frontend
  * can reuse the existing mulaw decoder / Web-Audio player.
  *
- * Unlike ConferenceTranslator this is NOT a verbatim translator — Grok plays a
+ * Unlike the former Grok voice translator this is NOT a verbatim translator — Grok plays a
  * persona (coach / mock support agent), so we deliberately let it respond and
  * stream its audio straight through (no direction detection, no barge-in logic,
  * no Twilio mark/ack cycle).
@@ -117,8 +121,8 @@ export class SandboxSession {
 
     if (this.mode === 'echo') {
       // Pure verbatim translator — NO greeting (see connectGrok), NO assistant
-      // persona, NO added/encouraging phrases. Same hard rules as the production
-      // ConferenceTranslator, which is the proven "translate only, add nothing" prompt.
+      // persona, NO added/encouraging phrases. Same hard rules as the former Grok
+      // voice translator, which was the proven "translate only, add nothing" prompt.
       return `You are a TRANSLATION MACHINE. You are NOT an assistant and NOT a coach. You do NOT respond to, react to, comment on, or encourage anything. You ONLY translate, verbatim.
 
 Translate between ${langName} and English:

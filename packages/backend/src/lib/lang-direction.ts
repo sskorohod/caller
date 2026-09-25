@@ -28,7 +28,7 @@ export function languagesUseDifferentScripts(myLang: string, targetLang: string)
  * cyrillic-only heuristic if tinyld can't decide. The cyrillic heuristic
  * is what existed before — fine for ru↔en, useless for ES↔EN, FR↔EN, etc.
  *
- * Shared by ConferenceTranslator (Grok Voice) and StealthTranslator (Deepgram).
+ * Used by StealthTranslator (Deepgram).
  */
 export function detectTranslationDirection(
   text: string,

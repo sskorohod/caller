@@ -99,7 +99,7 @@ interface StreamingPlayData {
 /**
  * Stealth Translator — silent, text-only live interpretation.
  *
- * Unlike ConferenceTranslator (Grok Voice Agent, speaks on the line), Stealth:
+ * Unlike the consecutive interpreter (services/consecutive/translator.ts, speaks on the line), Stealth:
  *   - transcribes via a fast streaming STT (Deepgram, swappable to OpenAI)
  *   - translates each chunk via a fast text model (grok-3-mini, swappable)
  *   - pushes interim drafts + authoritative finals to the /translate/<token> page
@@ -343,7 +343,7 @@ export class StealthTranslator extends EventEmitter {
 
     // Voice pipeline: greet the other party once at call start (not on swap-in).
     // Wait greetingDelaySeconds after connecting before speaking, so the merge has
-    // settled (mirrors ConferenceTranslator). Translations queue behind the greeting
+    // settled (mirrors services/consecutive/translator.ts). Translations queue behind the greeting
     // on commitChain, so nothing is spoken into the line before it.
     if (this.speak && this.greetingText && !this.carryover) {
       const delayMs = this.greetingDelaySeconds * 1000;

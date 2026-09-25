@@ -3,7 +3,7 @@
  *
  * Replaces duplicated finalization code in:
  *   - media-stream.ts: finalizeVTSession(), finalizeManualSession()
- *   - conference-translator.ts: finalize()
+ *   - consecutive/translator.ts: finalize()
  *
  * Handles: cost calculation → update AI session → deduct balance → update call status → post-call processing → frontend notification.
  */

@@ -20,8 +20,10 @@ import { getIo } from '../../realtime/io.js';
 import { callEvents } from '../../realtime/call-events.js';
 import { redis } from '../../config/redis.js';
 import { SandboxSession, type SandboxMode } from '../../services/sandbox-session.service.js';
+import { isCrossScriptPair } from '../../services/consecutive/policy.js';
 import { verifyJWT } from '../../lib/jwt.js';
 import { verifyStreamToken } from '../../lib/stream-token.js';
+import { runSerialized } from '../../lib/run-serialized.js';
 import { workspaceMembers } from '../../db/schema.js';
 import pino from 'pino';
 
@@ -110,6 +112,8 @@ export function getActiveConferenceTranslators() { return activeConferenceTransl
 // translator with a different engine for a mid-call mode swap (Grok ↔ Deepgram).
 interface TranslatorCtx {
   callId: string;
+  /** Page mode the translator runs in: 'bidirectional' | 'unidirectional' | 'stealth'. */
+  pageMode: string;
   workspaceId: string;
   myLanguage: string;
   targetLanguage: string;
@@ -126,21 +130,25 @@ interface TranslatorCtx {
 }
 const translatorContexts = new Map<string, TranslatorCtx>();
 
-// Voice-mode engine. 'pipeline' is the Deepgram STT → translate → TTS cascade;
-// 'realtime' is a single OpenAI Realtime Translation session; 'grok' is the
-// legacy Voice Agent. A workspace can override the default per call.
-const VOICE_ENGINE = process.env.VOICE_ENGINE || 'grok';
+// Voice-mode engine. 'consecutive' is the consecutive interpreter ported from
+// aidispatch (services/consecutive/); 'pipeline' forces the Deepgram cascade — the
+// rollback switch. A workspace can force the cascade with
+// translator_defaults.voice_engine = 'pipeline'; other stored values ('realtime',
+// 'grok') belonged to engines that are gone and mean the default.
+const VOICE_ENGINE = process.env.VOICE_ENGINE || 'consecutive';
+
+/** The consecutive interpreter needs a voice mode, no rollback switch, and a pair it tells apart by alphabet. */
+function wantsConsecutive(pageMode: string, ctx: TranslatorCtx): boolean {
+  if (pageMode === 'stealth') return false;
+  if (VOICE_ENGINE === 'pipeline' || ctx.voiceEngine === 'pipeline') return false;
+  return isCrossScriptPair(ctx.myLanguage, ctx.targetLanguage);
+}
 
 /** Build a translator instance for the given page mode. */
-async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?: any) {
-  const isStealth = pageMode === 'stealth';
-  const engine = ctx.voiceEngine || VOICE_ENGINE;
-
-  // Stealth stays on the Deepgram pipeline whatever the engine: it is silent
-  // text, and the cascade is both cheaper and already proven for it.
-  if (!isStealth && engine === 'realtime') {
-    const { RealtimeTranslator } = await import('../../services/realtime-translator.js');
-    return new RealtimeTranslator({
+async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?: any, cascade = false) {
+  if (!cascade && wantsConsecutive(pageMode, ctx)) {
+    const { ConsecutiveTranslator } = await import('../../services/consecutive/translator.js');
+    return new ConsecutiveTranslator({
       callId: ctx.callId, workspaceId: ctx.workspaceId,
       myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
       socket: ctx.socket, streamSid: ctx.streamSid,
@@ -154,34 +162,49 @@ async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
     });
   }
 
-  // Voice modes use the pipeline too when VOICE_ENGINE=pipeline (spoken);
-  // otherwise the Grok Voice Agent.
-  if (isStealth || engine === 'pipeline') {
-    const { StealthTranslator } = await import('../../services/stealth-translator.js');
-    return new StealthTranslator({
-      callId: ctx.callId, workspaceId: ctx.workspaceId,
-      myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
-      socket: ctx.socket, streamSid: ctx.streamSid,
-      speak: !isStealth, // voice modes speak the translation; stealth stays silent
-      oneWay: pageMode === 'unidirectional',
-      greetingText: ctx.greetingText,
-      greetingDelaySeconds: ctx.greetingDelaySeconds,
-      ttsVoiceId: ctx.ttsVoiceId,
-      tone: ctx.tone,
-      carryover,
-    });
-  }
-  const { ConferenceTranslator } = await import('../../services/conference-translator.js');
-  return new ConferenceTranslator({
-    callId: ctx.callId, workspaceId: ctx.workspaceId, subscriberId: ctx.workspaceId,
+  // Stealth (silent text), same-script pairs and the rollback switch run on the
+  // Deepgram cascade; it speaks in the voice modes.
+  const isStealth = pageMode === 'stealth';
+  const { StealthTranslator } = await import('../../services/stealth-translator.js');
+  return new StealthTranslator({
+    callId: ctx.callId, workspaceId: ctx.workspaceId,
     myLanguage: ctx.myLanguage, targetLanguage: ctx.targetLanguage,
-    mode: pageMode === 'unidirectional' ? 'text' : 'voice',
-    whoHears: ctx.whoHears, ttsProvider: 'xai', ttsVoiceId: ctx.ttsVoiceId,
-    tone: ctx.tone, personalContext: ctx.personalContext,
-    greetingText: ctx.greetingText, greetingDelaySeconds: ctx.greetingDelaySeconds,
-    socket: ctx.socket, streamSid: ctx.streamSid, carryover,
+    socket: ctx.socket, streamSid: ctx.streamSid,
+    speak: !isStealth, // voice modes speak the translation; stealth stays silent
+    oneWay: pageMode === 'unidirectional',
+    greetingText: ctx.greetingText,
+    greetingDelaySeconds: ctx.greetingDelaySeconds,
+    ttsVoiceId: ctx.ttsVoiceId,
+    tone: ctx.tone,
+    carryover,
   });
 }
+
+/**
+ * Build and start a translator. When the consecutive interpreter cannot come up (voice
+ * detector or transcription session), the call falls back to the cascade instead of
+ * failing: a translated call beats a dropped one.
+ */
+async function startTranslator(pageMode: string, ctx: TranslatorCtx, carryover?: any) {
+  const translator = await buildTranslator(pageMode, ctx, carryover);
+  try {
+    await translator.start();
+    return translator;
+  } catch (err) {
+    if ((translator as { impl?: string }).impl !== 'consecutive') throw err;
+    logger.error({ err, callId: ctx.callId }, 'Consecutive translator did not start — falling back to the cascade');
+    const fallback = await buildTranslator(pageMode, ctx, carryover, true);
+    await fallback.start();
+    return fallback;
+  }
+}
+
+// Mode and language changes of one call run one at a time. A swap waits seconds for the new
+// engine; a change arriving meanwhile must see the engine that swap installs. Otherwise it
+// detaches the old engine a second time and starts another, and the one left unregistered
+// hangs up the live call on its idle timer. A change that finds the stream closed does
+// nothing: the call is over, and a new engine would only start to be stopped.
+const translatorChanges = new Map<string, Promise<void>>();
 
 /**
  * Switch the live translator mode. Voice sub-modes (2-way/1-way) update in place;
@@ -189,9 +212,14 @@ async function buildTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
  * (transcript, duration, billing) so it stays one continuous call.
  */
 export async function setTranslatorMode(callId: string, pageMode: string): Promise<void> {
+  return runSerialized(translatorChanges, callId, () => applyTranslatorMode(callId, pageMode));
+}
+
+async function applyTranslatorMode(callId: string, pageMode: string): Promise<void> {
   const ctx = translatorContexts.get(callId);
   const current = activeConferenceTranslators.get(callId);
-  if (!ctx || !current) return;
+  if (!ctx || !current || ctx.socket.readyState !== 1) return;
+  ctx.pageMode = pageMode;
   const targetEngine = pageMode === 'stealth' ? 'stealth' : 'voice';
   if (current.engine === targetEngine) {
     if (targetEngine === 'voice' && typeof current.updateMode === 'function') {
@@ -201,11 +229,50 @@ export async function setTranslatorMode(callId: string, pageMode: string): Promi
   }
   // Engine swap — hand off session state without finalizing.
   const carryover = current.detach();
-  const neu = await buildTranslator(pageMode, ctx, carryover);
-  await neu.start();
+  const neu = await startTranslator(pageMode, ctx, carryover);
+  // Twilio hung up while the new engine was starting (seconds for the consecutive
+  // interpreter): the stop/close handlers could only stop the detached engine, which does
+  // not finalize. Stop the new one instead of installing it on a dead stream.
+  if (ctx.socket.readyState !== 1) {
+    logger.info({ callId }, 'Twilio stream closed during the engine swap — stopping the new engine');
+    neu.stop();
+    return;
+  }
   ctx.socket.__conferenceTranslator = neu;
   activeConferenceTranslators.set(callId, neu);
   logger.info({ callId, from: current.engine, to: targetEngine }, 'Translator engine swapped mid-call');
+}
+
+/**
+ * Change the language pair mid-call. The consecutive interpreter only runs a pair with two
+ * alphabets, so a change across that line swaps the engine the way a mode change does;
+ * otherwise the running engine updates in place.
+ */
+export async function setTranslatorLanguages(callId: string, myLanguage: string, targetLanguage: string): Promise<void> {
+  return runSerialized(translatorChanges, callId, () => applyTranslatorLanguages(callId, myLanguage, targetLanguage));
+}
+
+async function applyTranslatorLanguages(callId: string, myLanguage: string, targetLanguage: string): Promise<void> {
+  const ctx = translatorContexts.get(callId);
+  const current = activeConferenceTranslators.get(callId);
+  if (!ctx || !current || ctx.socket.readyState !== 1) return;
+  ctx.myLanguage = myLanguage;
+  ctx.targetLanguage = targetLanguage;
+  if (wantsConsecutive(ctx.pageMode, ctx) === (current.impl === 'consecutive')) {
+    current.updateLanguages(myLanguage, targetLanguage);
+    return;
+  }
+  const carryover = current.detach();
+  const neu = await startTranslator(ctx.pageMode, ctx, carryover);
+  // The call ended while the new engine was starting — see applyTranslatorMode.
+  if (ctx.socket.readyState !== 1) {
+    logger.info({ callId }, 'Twilio stream closed during the engine swap — stopping the new engine');
+    neu.stop();
+    return;
+  }
+  ctx.socket.__conferenceTranslator = neu;
+  activeConferenceTranslators.set(callId, neu);
+  logger.info({ callId, myLanguage, targetLanguage, to: (neu as { impl?: string }).impl ?? neu.engine }, 'Translator engine swapped for a new language pair');
 }
 
 // PTT audio buffer flush callbacks (registered per call, called when PTT released)
@@ -706,6 +773,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
               const pageMode = wsDefs.translation_mode || 'bidirectional';
               const ctx: TranslatorCtx = {
                 callId,
+                pageMode,
                 workspaceId: callerWsId || call.workspace_id,
                 myLanguage,
                 targetLanguage,
@@ -723,8 +791,17 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                 streamSid: streamSid!,
               };
               translatorContexts.set(callId, ctx);
-              const translator = await buildTranslator(pageMode, ctx);
-              await translator.start();
+              const translator = await startTranslator(pageMode, ctx);
+              // Twilio may hang up while the translator is starting (the consecutive
+              // interpreter's transcription handshake takes seconds). The stop/close
+              // handlers found no translator then, so nobody else would stop this one:
+              // it would hold its sockets and bill until the idle hang-up.
+              if (socket.readyState !== 1) {
+                logger.info({ callId }, 'Twilio stream closed while the translator was starting — stopping it');
+                translatorContexts.delete(callId);
+                translator.stop();
+                return;
+              }
               (socket as any).__conferenceTranslator = translator;
               activeConferenceTranslators.set(callId, translator);
               registerSession(callId, { callId, workspaceId: callerWsId || call.workspace_id, type: 'conference', startedAt: new Date().toISOString() }).catch(() => {});
@@ -864,7 +941,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
                     if (msg.delta) {
                       currentOutputTranscript += msg.delta;
                       if (io) {
-                        // Non-volatile — see conference-translator.ts note.
+                        // Non-volatile — see CLAUDE.md, Realtime: Socket.IO is long-polling only.
                         io.to(`call:${callId}:translate`).emit('call:translation:interim', {
                           call_id: callId, original: currentInputTranscript, translated: currentOutputTranscript,
                           timestamp: new Date().toISOString(),
@@ -997,7 +1074,7 @@ const mediaStreamRoutes: FastifyPluginAsync = async (app) => {
 
                   if (!evt.isFinal) {
                     // Interim → show in UI immediately. Non-volatile because
-                    // socket.io is forced onto polling (see conference-translator.ts).
+                    // socket.io is forced onto polling (see CLAUDE.md, Realtime: Socket.IO is long-polling only).
                     if (io) {
                       io.to(`call:${callId}`).emit('call:transcript', {
                         call_id: callId, speaker,
