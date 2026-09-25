@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  isBackchannel, isCrossScriptPair, LANGUAGE_GROUPS, languageOf, realWords, scriptOf, startsWithStop, words,
+  isBackchannel, isCrossScriptPair, LANGUAGE_GROUPS, languageOf, pairScripts, realWords, scriptOf, startsWithStop,
+  stripEcho, words,
 } from './policy.js';
 
 test('words are normalized so lists match whatever the transcriber wrote', () => {
@@ -71,12 +72,20 @@ test('every caller language has a script group and pairs are judged by it', () =
   assert.equal(isCrossScriptPair('ru', 'uk'), false);
   assert.equal(isCrossScriptPair('zh', 'ja'), false);
   assert.equal(isCrossScriptPair('en', 'xx'), false);
+  // keys every object inherits are not languages
+  assert.equal(isCrossScriptPair('en', 'constructor'), false);
+  assert.equal(isCrossScriptPair('toString', 'ru'), false);
+  assert.deepEqual(pairScripts('en', 'constructor'), new Set(['latin']));
 });
 
 test('Chinese and Japanese are counted by character, marks stay inside words', () => {
   assert.deepEqual(words('好的，我们明天见'), ['好', '的', '我', '们', '明', '天', '见']);
-  assert.deepEqual(words('ठीक है'), ['ठक', 'ह']);      // vowel signs dropped the same way in lists and speech
+  // ー is a Japanese character; 、 and 。 share its script extensions but are still punctuation
+  assert.deepEqual(words('コーヒー、ください。'), ['コ', 'ー', 'ヒ', 'ー', 'く', 'だ', 'さ', 'い']);
+  assert.equal(isBackchannel('はい。'), true);
+  assert.deepEqual(words('ठीक है'), ['ठीक', 'है']);   // a vowel sign carries the vowel: है, हाँ and हो are different words
   assert.equal(isBackchannel('ठीक है'), true);
+  assert.equal(isBackchannel('है'), false);
 });
 
 test('Japanese mixes kana and ideographs and is still one side', () => {
@@ -84,6 +93,20 @@ test('Japanese mixes kana and ideographs and is still one side', () => {
   assert.equal(languageOf('Hello there', 'en', 'ja'), 'en');
   // without the Japanese grouping the two ideographs outvote the kana 2:1 and it reads as Chinese
   assert.equal(scriptOf('今日は'), 'han');
+  // the prolonged sound mark ー is Common by Script and kana only by Script_Extensions
+  assert.equal(scriptOf('コーヒー'), 'kana');
+  assert.equal(languageOf('コーヒー', 'en', 'ja'), 'ja');
+});
+
+test('stripEcho cuts our echo out of unspaced Chinese too, keeping the original spelling', () => {
+  const played = ['I spoke with the manager yesterday, and he said they would refund the repair on Friday.'];
+  assert.deepEqual(stripEcho('the manager yesterday. No, Friday!', played, { final: true }), ['No, Friday!', 2]);
+  // while the person still speaks, a last word that may begin our echo waits for the next one
+  assert.deepEqual(stripEcho('the manager yesterday. No, Friday!', played), ['No,', 1]);
+  assert.deepEqual(stripEcho('好的明天见', ['明天见'], { final: true }), ['好的', 2]);
+  // punctuation stays with its character, so endsSentence still sees the full stop
+  assert.deepEqual(stripEcho('好的。明天见', ['明天见'], { final: true }), ['好的。', 2]);
+  assert.deepEqual(stripEcho('OK明天见', ['明天见'], { final: true }), ['OK', 1]);
 });
 
 test('backchannels and stop phrases of the other caller languages', () => {

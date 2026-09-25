@@ -24,26 +24,31 @@ export const LANGUAGE_GROUPS: Record<string, string> = {
 const SCRIPT_TESTS: Array<[Script, RegExp]> = [
   ['latin', /\p{Script=Latin}/u], ['cyrillic', /\p{Script=Cyrillic}/u], ['armenian', /\p{Script=Armenian}/u],
   ['arabic', /\p{Script=Arabic}/u], ['hebrew', /\p{Script=Hebrew}/u], ['han', /\p{Script=Han}/u],
-  ['kana', /[\p{Script=Hiragana}\p{Script=Katakana}]/u], ['hangul', /\p{Script=Hangul}/u],
+  // After han: by Script_Extensions, so the prolonged sound mark ー (Common by Script) counts as kana.
+  ['kana', /[\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}]/u], ['hangul', /\p{Script=Hangul}/u],
   ['devanagari', /\p{Script=Devanagari}/u],
 ];
 const LETTER = /\p{L}/u;
-const MARK = /\p{M}/u;
-const ALNUM = /[\p{L}\p{N}]/u;
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+// Combining marks belong to the word: a Hindi vowel sign carries the vowel (है, हाँ and हो are different words).
+const WORD_CHAR = /[\p{L}\p{M}\p{N}]/u;
 // Chinese and Japanese write no spaces: one ideograph or kana is one token, or a whole
 // Chinese sentence would count as one "word" against every word threshold in the core.
-const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+const CJK = /[\p{Script=Han}\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}]/u;
+// Script_Extensions also takes in punctuation (、 。 「 」 ・) and a few combining marks shared with Latin:
+// only letters and digits become tokens of their own.
+const isCjk = (ch: string) => CJK.test(ch) && LETTER_OR_DIGIT.test(ch);
+const hasCjk = (token: string) => [...token].some(isCjk);
 
 /** Lower-case words without punctuation: "Uh-huh" and "uh huh" from the transcriber must match the lists. */
 export function words(text: string): string[] {
   const out: string[] = [];
   let word = '';
   for (const ch of (text || '').toLowerCase().replace(/ё/g, 'е')) {
-    if (MARK.test(ch)) continue;                  // vowel signs and diacritics stay inside the word
-    if (CJK.test(ch)) {
+    if (isCjk(ch)) {
       if (word) { out.push(word); word = ''; }
       out.push(ch);
-    } else if (ALNUM.test(ch)) {
+    } else if (WORD_CHAR.test(ch)) {
       word += ch;
     } else if ("-'’".includes(ch) && word) {
       continue;                                   // "uh-huh", "that's" stay one word
@@ -83,7 +88,7 @@ const BACKCHANNELS: Record<string, string[]> = {
   zh: ['嗯', '对', '是', '好', '好的', '对的', '是的', '明白', '知道', '知道了', '行', '没问题', '谢谢', '哦', '啊'],
   ja: ['はい', 'うん', 'ええ', 'そう', 'はあ'],
   ko: ['네', '예', '응', '그래요', '그래', '알겠어요', '맞아요', '좋아요', '음', '아', '감사합니다', '오케이'],
-  ar: ['نعم', 'أيوه', 'ايوه', 'طيب', 'تمام', 'حسنا', 'شكرا'],
+  ar: ['نعم', 'أيوه', 'ايوه', 'طيب', 'تمام', 'حسنا', 'حسناً', 'شكرا'],
   hi: ['हाँ', 'हां', 'जी', 'अच्छा', 'ठीक है', 'ठीक', 'धन्यवाद', 'बिल्कुल'],
 };
 // Commands to the interpreter itself: they count only when what was said starts with them.
@@ -135,21 +140,26 @@ export function scriptOf(text: string, japanese = false): string | null {
   return bestCount / total >= 0.6 ? best : null;
 }
 
+/** Own keys only: a code such as "constructor" must not find what every object inherits. */
+function groupOf(lang: string): string | undefined {
+  return Object.hasOwn(LANGUAGE_GROUPS, lang) ? LANGUAGE_GROUPS[lang] : undefined;
+}
+
 /** Which side of the pair said it. A pair sharing one script never gets here: it runs on the cascade. */
 export function languageOf(text: string, langA: string, langB: string): string | null {
   const script = scriptOf(text, langA === 'ja' || langB === 'ja');
   if (script === null) return null;
-  for (const lang of [langA, langB]) if (LANGUAGE_GROUPS[lang] === script) return lang;
+  for (const lang of [langA, langB]) if (groupOf(lang) === script) return lang;
   return null;
 }
 
 export function pairScripts(langA: string, langB: string): Set<string> {
-  return new Set([LANGUAGE_GROUPS[langA], LANGUAGE_GROUPS[langB]].filter(Boolean));
+  return new Set([groupOf(langA), groupOf(langB)].filter((group): group is string => Boolean(group)));
 }
 
 export function isCrossScriptPair(langA: string, langB: string): boolean {
-  const a = LANGUAGE_GROUPS[langA];
-  const b = LANGUAGE_GROUPS[langB];
+  const a = groupOf(langA);
+  const b = groupOf(langB);
   if (!a || !b || a === b) return false;
   // Chinese and Japanese share the ideographs: a Han-only phrase belongs to either side.
   return !((langA === 'zh' && langB === 'ja') || (langA === 'ja' && langB === 'zh'));
@@ -252,7 +262,7 @@ export function realWords(text: string, played: Iterable<string>): string[] {
  * "the" of an echo would start an interruption.
  */
 export function stripEcho(text: string, played: Iterable<string>, { final = false }: { final?: boolean } = {}): [string, number] {
-  const tokens = (text || '').split(/\s+/).filter(Boolean);
+  const tokens = echoTokens(text);
   const ours = [...played].filter(Boolean).map((p) => words(p));
   const flat: string[] = [];
   const owner: number[] = [];
@@ -268,5 +278,32 @@ export function stripEcho(text: string, played: Iterable<string>, { final = fals
     echo[last] = true;
   }
   const keep = new Set(owner.filter((_, k) => !echo[k]));
-  return [tokens.filter((_, i) => keep.has(i)).join(' '), echo.filter((e) => !e).length];
+  // Chinese and Japanese characters join back without a space, everything else with one.
+  const kept = tokens.filter((_, i) => keep.has(i));
+  const said = kept.map((t, i) => (i > 0 && !(hasCjk(kept[i - 1]) && hasCjk(t)) ? ' ' : '') + t).join('');
+  return [said, echo.filter((e) => !e).length];
+}
+
+/**
+ * stripEcho's tokens: whitespace chunks, except that each Chinese or Japanese character is a token of its
+ * own ("OK好的" is OK, 好, 的), so our echo can be cut out of unspaced text. Punctuation stays with the
+ * token it follows: 好的。 keeps the full stop that endsSentence looks for.
+ */
+function echoTokens(text: string): string[] {
+  const tokens: string[] = [];
+  for (const chunk of (text || '').split(/\s+/).filter(Boolean)) {
+    let token = '';
+    for (const ch of chunk) {
+      // A CJK character starts a token unless only punctuation precedes it in the chunk,
+      // and so does any other word character right after a CJK character.
+      const cjk = isCjk(ch);
+      if ((cjk && WORD_CHAR.test(token)) || (!cjk && WORD_CHAR.test(ch) && hasCjk(token))) {
+        tokens.push(token);
+        token = '';
+      }
+      token += ch;
+    }
+    if (token) tokens.push(token);
+  }
+  return tokens;
 }
