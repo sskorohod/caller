@@ -187,11 +187,9 @@ model, not a 3-way conference bridge:
   second party in this flow.
 - Both speakers must be physically near the same phone (speakerphone). Both voices
   arrive mixed on a single audio stream.
-- Direction (who said what) is detected from the transcript via `tinyld`, not from
-  per-leg streams. Family-aware mapping handles ru↔uk, es↔gl/ca, etc.
-- The engine's old class name implied a 3-way conference merge — historical, not
-  literal. The original product spec called for a 3-way merge but it was never
-  built that way; that engine has since been removed (see below).
+- Direction (who said what) is detected from the transcript, not from per-leg streams:
+  by the alphabet in the consecutive engine (below), via `tinyld` with family-aware
+  mapping (ru↔uk, es↔gl/ca…) in the Deepgram cascade.
 
 Voice modes run the **consecutive interpreter** ported from aidispatch
 (`services/consecutive/`, reference `~/aidispatch` @ 9e4b1eb, release 2.29.0):
