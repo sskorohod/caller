@@ -104,7 +104,7 @@ const STOP_PHRASES: Record<string, string[]> = {
   fr: ['stop', 'attends', 'attendez', 'un instant', 'une seconde', 'un moment', 'arrête', 'arrêtez'],
   pt: ['pare', 'espera', 'espere', 'um momento', 'um segundo', 'calma'],   // "para" is also "for"
   it: ['stop', 'aspetta', 'aspetti', 'un momento', 'un attimo', 'un secondo', 'fermo', 'ferma'],
-  zh: ['停', '等一下', '等等', '稍等', '暂停'],
+  zh: ['停', '停下', '停一下', '等一下', '等等', '稍等', '暂停'],
   ja: ['待って', '止めて'],
   ko: ['잠깐', '잠깐만', '잠깐만요', '멈춰', '스톱', '기다려', '기다려요'],
   ar: ['توقف', 'انتظر', 'لحظة', 'استنى'],
