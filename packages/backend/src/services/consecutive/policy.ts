@@ -29,26 +29,28 @@ const SCRIPT_TESTS: Array<[Script, RegExp]> = [
   ['devanagari', /\p{Script=Devanagari}/u],
 ];
 const LETTER = /\p{L}/u;
+const MARK = /\p{M}/u;
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
-// Combining marks belong to the word: a Hindi vowel sign carries the vowel (है, हाँ and हो are different words).
-const WORD_CHAR = /[\p{L}\p{M}\p{N}]/u;
+const SURROGATE = /[\uD800-\uDFFF]/;   // no u flag: it has to see the halves of a pair
 // Chinese and Japanese write no spaces: one ideograph or kana is one token, or a whole
 // Chinese sentence would count as one "word" against every word threshold in the core.
-const CJK = /[\p{Script=Han}\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}]/u;
-// Script_Extensions also takes in punctuation (、 。 「 」 ・) and a few combining marks shared with Latin:
-// only letters and digits become tokens of their own.
+const CJK = /^[\p{Script=Han}\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}]$/u;
+// Exactly one CJK letter or digit (anchored, so it also tells a CJK word from a longer one):
+// Script_Extensions also takes in punctuation (、 。 「 」 ・) and a few combining marks shared
+// with Latin, which must not become tokens of their own.
 const isCjk = (ch: string) => CJK.test(ch) && LETTER_OR_DIGIT.test(ch);
-const hasCjk = (token: string) => [...token].some(isCjk);
 
 /** Lower-case words without punctuation: "Uh-huh" and "uh huh" from the transcriber must match the lists. */
 export function words(text: string): string[] {
   const out: string[] = [];
   let word = '';
-  for (const ch of (text || '').toLowerCase().replace(/ё/g, 'е')) {
+  for (const ch of (text || '').normalize('NFC').toLowerCase().replace(/ё/g, 'е')) {
     if (isCjk(ch)) {
       if (word) { out.push(word); word = ''; }
       out.push(ch);
-    } else if (WORD_CHAR.test(ch)) {
+    } else if (LETTER_OR_DIGIT.test(ch) || (word !== '' && MARK.test(ch))) {
+      // A combining mark extends a word and never starts one: a Hindi vowel sign carries the vowel
+      // (है, हाँ and हो are different words), while the U+FE0F of "❤️" is no word at all.
       word += ch;
     } else if ("-'’".includes(ch) && word) {
       continue;                                   // "uh-huh", "that's" stay one word
@@ -88,7 +90,7 @@ const BACKCHANNELS: Record<string, string[]> = {
   zh: ['嗯', '对', '是', '好', '好的', '对的', '是的', '明白', '知道', '知道了', '行', '没问题', '谢谢', '哦', '啊'],
   ja: ['はい', 'うん', 'ええ', 'そう', 'はあ'],
   ko: ['네', '예', '응', '그래요', '그래', '알겠어요', '맞아요', '좋아요', '음', '아', '감사합니다', '오케이'],
-  ar: ['نعم', 'أيوه', 'ايوه', 'طيب', 'تمام', 'حسنا', 'حسناً', 'شكرا'],
+  ar: ['نعم', 'أيوه', 'ايوه', 'طيب', 'تمام', 'حسنا', 'حسناً', 'شكرا', 'شكراً'],
   hi: ['हाँ', 'हां', 'जी', 'अच्छा', 'ठीक है', 'ठीक', 'धन्यवाद', 'बिल्कुल'],
 };
 // Commands to the interpreter itself: they count only when what was said starts with them.
@@ -102,18 +104,29 @@ const STOP_PHRASES: Record<string, string[]> = {
   fr: ['stop', 'attends', 'attendez', 'un instant', 'une seconde', 'un moment', 'arrête', 'arrêtez'],
   pt: ['pare', 'espera', 'espere', 'um momento', 'um segundo', 'calma'],   // "para" is also "for"
   it: ['stop', 'aspetta', 'aspetti', 'un momento', 'un attimo', 'un secondo', 'fermo', 'ferma'],
-  zh: ['停', '等一下', '等等', '稍等', '暂停'],
+  zh: ['停', '停下', '停一下', '等一下', '等等', '稍等', '暂停'],
   ja: ['待って', '止めて'],
   ko: ['잠깐', '잠깐만', '잠깐만요', '멈춰', '스톱', '기다려', '기다려요'],
   ar: ['توقف', 'انتظر', 'لحظة', 'استنى'],
   hi: ['रुको', 'रुकिए', 'रुकिये', 'एक मिनट', 'एक सेकंड', 'स्टॉप'],
 };
 // May come before a stop word without cancelling it: "No, wait".
+// Single tokens only: Japanese いいえ is three of them and cannot pass as one word.
 const LEADING_WORDS = new Set(
-  ['no', 'oh', 'hey', 'okay', 'ok', 'нет', 'ой', 'эй', 'ну', 'так', 'ні', 'nein', 'non', 'não', 'nao'].map(norm),
+  ['no', 'oh', 'hey', 'okay', 'ok', 'нет', 'ой', 'эй', 'ну', 'так', 'ні', 'nein', 'non', 'não', 'nao',
+    '不', '아니요', '아니', 'لا', 'नहीं'].map(norm),
 );
 const ALL_BACKCHANNELS = new Set(Object.values(BACKCHANNELS).flat().map(norm));
 const ALL_STOPS = [...new Set(Object.values(STOP_PHRASES).flat().map(norm))].sort((a, b) => b.length - a.length);
+// A one-character Chinese stop word counts only on its own: 停 is "stop", but 停车场 is a car park
+// and 停电了 a power cut.
+const ONE_CHAR_STOPS = new Set(ALL_STOPS.filter(isCjk));
+
+/** What was said (after a leading "no") begins with this stop phrase, or, for 停, is nothing else. */
+function stopMatches(phrase: string, seq: string[], head: string): boolean {
+  if (ONE_CHAR_STOPS.has(phrase)) return seq.length > 0 && seq.every((w) => w === phrase);
+  return head === phrase || head.startsWith(phrase + ' ');
+}
 
 /**
  * Majority script of the letters; with `japanese`, kana and ideographs count as one group.
@@ -136,7 +149,7 @@ export function scriptOf(text: string, japanese = false): string | null {
     if (count > bestCount) { best = script; bestCount = count; }
   }
   if (!total) return null;
-  if (total < 2 && !['han', 'japanese', 'hangul', 'other'].includes(best)) return null;   // one letter may start a word
+  if (total < 2 && !['han', 'kana', 'japanese', 'hangul', 'other'].includes(best)) return null;   // one letter may start a word
   return bestCount / total >= 0.6 ? best : null;
 }
 
@@ -187,7 +200,7 @@ export function startsWithStop(text: string): boolean {
     seq = seq.slice(1);             // "No, wait" is still a command to stop
   }
   const head = seq.slice(0, 3).join(' ');
-  return ALL_STOPS.some((phrase) => head === phrase || head.startsWith(phrase + ' '));
+  return ALL_STOPS.some((phrase) => stopMatches(phrase, seq, head));
 }
 
 /**
@@ -200,7 +213,7 @@ export function echoesStop(text: string, played: Iterable<string>): boolean {
   const ours = [...played].filter(Boolean).map((p) => words(p).join(' '));
   const head = seq.slice(0, 3).join(' ');
   for (const phrase of ALL_STOPS) {
-    if (head === phrase || head.startsWith(phrase + ' ')) {
+    if (stopMatches(phrase, seq, head)) {
       return ours.some((said) => ` ${said} `.includes(` ${phrase} `));
     }
   }
@@ -215,6 +228,10 @@ export function endsSentence(text: string): boolean {
 /** One edit in a long word is still the same word: our voice is not always transcribed verbatim. */
 function close(a: string, b: string): boolean {
   if (a === b) return true;
+  // Lengths first, before any array is built: UTF-16 length never undercounts code points, and without
+  // a surrogate pair it is the code point count.
+  if (Math.min(a.length, b.length) < 5) return false;
+  if (Math.abs(a.length - b.length) > 1 && !SURROGATE.test(a) && !SURROGATE.test(b)) return false;
   const x = [...a];   // code points, as Python's len() and indexing count them
   const y = [...b];
   if (Math.min(x.length, y.length) < 5 || Math.abs(x.length - y.length) > 1) return false;
@@ -224,18 +241,23 @@ function close(a: string, b: string): boolean {
   return long.some((_, i) => [...long.slice(0, i), ...long.slice(i + 1)].join('') === target);
 }
 
+// A Chinese or Japanese character is not a word, so a run made only of them is echo from about two words
+// on: shorter, 可以 or 明天 shared with our translation would be cut out of a real reply.
+const CJK_ECHO_RUN = 4;
+
 /**
  * Echo is a run of our translation, not a single shared word: "I" and "said" are in almost any English
  * translation, and dropping them would mean not hearing a real "No, that's not what I said".
  */
 function echoFlags(seq: string[], ours: string[][]): boolean[] {
   const echo: boolean[] = new Array(seq.length).fill(false);
+  const cjk = seq.map(isCjk);
   for (let i = 0; i < seq.length; i++) {
     for (const ref of ours) {
       for (let j = 0; j < ref.length; j++) {
         let k = 0;
         while (i + k < seq.length && j + k < ref.length && close(seq[i + k], ref[j + k])) k += 1;
-        if (k >= 2) {
+        if (k >= 2 && (k >= CJK_ECHO_RUN || !cjk.slice(i, i + k).every(Boolean))) {
           for (let m = i; m < i + k; m++) echo[m] = true;
         }
       }
@@ -267,7 +289,7 @@ export function stripEcho(text: string, played: Iterable<string>, { final = fals
   const flat: string[] = [];
   const owner: number[] = [];
   tokens.forEach((token, index) => {
-    for (const w of words(token)) {
+    for (const w of words(token.text)) {
       flat.push(w);
       owner.push(index);
     }
@@ -278,32 +300,51 @@ export function stripEcho(text: string, played: Iterable<string>, { final = fals
     echo[last] = true;
   }
   const keep = new Set(owner.filter((_, k) => !echo[k]));
-  // Chinese and Japanese characters join back without a space, everything else with one.
-  const kept = tokens.filter((_, i) => keep.has(i));
-  const said = kept.map((t, i) => (i > 0 && !(hasCjk(kept[i - 1]) && hasCjk(t)) ? ' ' : '') + t).join('');
+  // Back the way it was written: a space only where there was whitespace, and between two non-CJK
+  // tokens, which can only meet once the echo between them is cut ("OK明天下午三点thanks").
+  let said = '';
+  let prev: EchoToken | null = null;
+  for (const [i, token] of tokens.entries()) {
+    if (!keep.has(i)) continue;
+    if (prev && (token.spaced || (!prev.cjk && !token.cjk))) said += ' ';
+    said += token.text;
+    prev = token;
+  }
   return [said, echo.filter((e) => !e).length];
+}
+
+interface EchoToken {
+  text: string;
+  spaced: boolean;   // whitespace came before it
+  cjk: boolean;      // it holds a Chinese or Japanese character
 }
 
 /**
  * stripEcho's tokens: whitespace chunks, except that each Chinese or Japanese character is a token of its
  * own ("OK好的" is OK, 好, 的), so our echo can be cut out of unspaced text. Punctuation stays with the
- * token it follows: 好的。 keeps the full stop that endsSentence looks for.
+ * token it follows: 好的。 keeps the full stop that endsSentence looks for. One pass with flags, never
+ * rescanning the token, or a long unspaced chunk would take quadratic time.
  */
-function echoTokens(text: string): string[] {
-  const tokens: string[] = [];
-  for (const chunk of (text || '').split(/\s+/).filter(Boolean)) {
-    let token = '';
+function echoTokens(text: string): EchoToken[] {
+  const tokens: EchoToken[] = [];
+  for (const chunk of (text || '').normalize('NFC').split(/\s+/).filter(Boolean)) {
+    let token: EchoToken = { text: '', spaced: true, cjk: false };
+    let hasWord = false;   // the token holds a letter or digit, not only punctuation
     for (const ch of chunk) {
       // A CJK character starts a token unless only punctuation precedes it in the chunk,
-      // and so does any other word character right after a CJK character.
+      // and so does a letter or digit right after a CJK character.
       const cjk = isCjk(ch);
-      if ((cjk && WORD_CHAR.test(token)) || (!cjk && WORD_CHAR.test(ch) && hasCjk(token))) {
+      const wordChar = cjk || LETTER_OR_DIGIT.test(ch);
+      if ((cjk && hasWord) || (wordChar && !cjk && token.cjk)) {
         tokens.push(token);
-        token = '';
+        token = { text: '', spaced: false, cjk: false };
+        hasWord = false;
       }
-      token += ch;
+      token.text += ch;
+      token.cjk ||= cjk;
+      hasWord ||= wordChar;
     }
-    if (token) tokens.push(token);
+    tokens.push(token);
   }
   return tokens;
 }
