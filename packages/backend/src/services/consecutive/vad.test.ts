@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadSilero, VadStream, type VadEvent, type VadModel } from './vad.js';
+import { Upsampler2 } from './audio.js';
 
 const scripted = (probs: number[]): VadModel => {
   let i = 0;
@@ -9,6 +10,11 @@ const scripted = (probs: number[]): VadModel => {
 };
 const settle = () => new Promise(resolve => setTimeout(resolve, 20));
 const pushMs = (vad: VadStream, ms: number) => { for (let t = 0; t < ms; t += 20) vad.push(Buffer.alloc(320)); };
+/** Poll instead of a fixed sleep, so a slower CI box (or the VAD's own event-loop yields) doesn't flake the test. */
+const waitFor = async (predicate: () => boolean, timeoutMs = 5000): Promise<void> => {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
+};
 
 test('events follow LiveKit: inference first, start after 0.2 s of speech, end after 0.35 s of silence', async () => {
   const events: VadEvent[] = [];
@@ -67,7 +73,46 @@ test('the real Silero model hears speech in the fixture and silence around it', 
   const vad = new VadStream(await loadSilero(), ev => events.push(ev));
   const silence = Buffer.alloc(8000 * 2);
   for (const chunk of [silence, speech, silence]) for (let i = 0; i < chunk.length; i += 320) vad.push(chunk.subarray(i, i + 320));
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await waitFor(() => events.some(e => e.type === 'start') && events.some(e => e.type === 'end'), 5000);
   assert.ok(events.some(e => e.type === 'start'));
   assert.ok(events.some(e => e.type === 'end'));
+});
+
+test('two loadSilero() calls share one session but never see each other\'s recurrent state', async () => {
+  const speech = readFileSync(new URL('./__fixtures__/speech8k.raw', import.meta.url));
+  const speech16 = new Upsampler2().push(speech);   // 16 kHz float windows, same conversion VadStream uses internally
+
+  const modelA = await loadSilero();
+  const modelB = await loadSilero();
+  const silentWindow = new Float32Array(512);
+
+  const probsA: number[] = [];
+  const probsB: number[] = [];
+  for (let i = 0; i + 512 <= speech16.length; i += 512) {
+    // Fire both concurrently so their session.run() calls actually contend on the shared
+    // session, not just alternate one-at-a-time by accident of a sequential await.
+    const [pa, pb] = await Promise.all([
+      modelA.predict(speech16.subarray(i, i + 512)),
+      modelB.predict(silentWindow),
+    ]);
+    probsA.push(pa);
+    probsB.push(pb);
+  }
+
+  assert.ok(probsA.some(p => p > 0.7), `expected model A (speech) to cross 0.7, max was ${Math.max(...probsA)}`);
+  assert.ok(probsB.every(p => p < 0.3), `expected model B (silence) to stay under 0.3, max was ${Math.max(...probsB)}`);
+});
+
+test('a deep backlog yields to the event loop instead of draining in one uninterrupted burst', async () => {
+  const events: VadEvent[] = [];
+  const vad = new VadStream({ predict: async () => 0.1 }, ev => events.push(ev));
+  pushMs(vad, 200 * 32);   // ~200 windows queued synchronously before any of them can run
+
+  let ticks = 0;
+  const heartbeat = setInterval(() => { ticks++; }, 1);
+  await waitFor(() => events.filter(e => e.type === 'inference').length >= 200, 5000);
+  clearInterval(heartbeat);
+
+  assert.equal(events.filter(e => e.type === 'inference').length, 200);
+  assert.ok(ticks >= 3, `expected the 1 ms heartbeat to tick a few times while the backlog drained, got ${ticks}`);
 });
