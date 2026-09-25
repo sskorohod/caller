@@ -407,6 +407,8 @@ export class FloorManager {
     this.cfg = { ...this.cfg, langA, langB };
     this.scripts = pairScripts(langA, langB);
     this.japanese = langA === 'ja' || langB === 'ja';
+    // text without an alphabet (" 15") goes to the last language heard: one outside the new pair must not get it
+    if (this.lastLang !== langA && this.lastLang !== langB) this.lastLang = null;
   }
 
   // --- hearing speech ----------------------------------------------------------------------------------------------

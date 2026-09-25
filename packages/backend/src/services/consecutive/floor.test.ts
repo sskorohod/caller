@@ -14,6 +14,7 @@ const Stop = (utt: number): Command => ({ kind: 'stop', utt });
 const Pause = (utt: number): Command => ({ kind: 'pause', utt });
 const Restart = (utt: number): Command => ({ kind: 'restart', utt });
 const Prepare = (utt: number): Command => ({ kind: 'prepare', utt });
+const Drop = (utt: number, reason: string): Command => ({ kind: 'drop', utt, reason });
 
 class Clock {
   t = 100.0;
@@ -889,6 +890,8 @@ test('one-way: the other side is released but never queued for playback, and tex
   line.take(line.floor.textDone(release.utt));
   assert.equal(line.floor.utterances.get(release.utt)!.state, 'done');
   assert.equal(line.floor.utterances.get(release.utt)!.finishedAt, null);
+  assert.deepEqual(line.floor.events.filter((e) => e[1] === 'text').map((e) => e.slice(1)),
+    [['text', `#${release.utt}`]]);
 });
 
 test('pauseAll stops what plays and drops everything in flight', () => {
@@ -914,4 +917,84 @@ test('Japanese pair routes kana and ideographs to one side', () => {
   const opened = line.of('opened');
   assert.equal(opened.length, 1);
   assert.equal(opened[0].lang, 'ja');
+});
+
+test('pauseAll drops the open reply, the one waiting its turn and the greeting, and the floor works after it', () => {
+  const line = playingLine();                     // #1 plays
+  const [gid, greeting] = line.floor.greeting("Hi, I'm the interpreter.");   // #2 waits for its turn
+  line.take(greeting);
+  line.take(line.floor.audio(gid));
+  line.speakOver("No, I don't agree.");           // #3: said over the translation, to be translated after it
+  line.wait(CANDIDATE_END_S + 0.1);
+  line.take(line.floor.intent(3, ['later', 0.9]));
+  assert.equal(line.floor.utterances.get(3)!.state, 'released');
+  line.speakOver('Последние');                    // #4: the speaker's lone word, kept for his continuation
+  line.wait(CANDIDATE_END_S + 0.1);
+  assert.deepEqual(drops(line), [[4, 'short']]);
+  line.speakOver('Could you please call me later');   // #5: accepted, still being said
+  line.take(line.floor.intent(5, ['later', 0.9]));
+  assert.equal(line.floor.utterances.get(5)!.state, 'open');
+
+  const cmds = line.take(line.floor.pauseAll('paused'));
+  assert.deepEqual(cmds.filter((c) => c.kind === 'stop' || c.kind === 'drop'),
+    [Stop(1), Drop(2, 'paused'), Drop(3, 'paused'), Drop(5, 'paused')]);
+  const u1 = line.floor.utterances.get(1)!;
+  assert.equal(u1.state, 'interrupted');          // cut off, not played to the end
+  assert.notEqual(u1.finishedAt, null);           // it did sound: its words stay in the echo filter's memory
+  assert.deepEqual(line.floor.events.filter((e) => e[1] === 'stop').map((e) => e.slice(1)),
+    [['stop', '#1 (paused)']]);
+  line.take(line.floor.text(' две'));             // resumed at once: the kept word is gone from the listen buffer
+  assert.equal(line.floor.utterances.get(6)!.text, 'две');
+  line.wait(3.0);
+  assert.deepEqual(line.of('play'), [Play(1)]);   // nothing that was in flight plays
+  line.say('Хорошо, тогда до завтра.');           // and the floor works as before
+  line.wait(1.0);
+  assert.deepEqual(line.of('play').at(-1), Play(7));
+});
+
+test('textDone leaves a greeting and an utterance still being said alone', () => {
+  const line = new Line({ silentLangs: ['en'] });
+  line.say('I spoke with the customer yesterday.');
+  assert.equal(line.floor.utterances.get(1)!.state, 'open');   // not released yet
+  line.take(line.floor.textDone(1));
+  assert.equal(line.floor.utterances.get(1)!.state, 'open');
+  const [gid, cmds] = line.floor.greeting("Hi, I'm the interpreter.");
+  line.take(cmds);
+  line.take(line.floor.textDone(gid));
+  assert.equal(line.floor.utterances.get(gid)!.state, 'released');
+});
+
+test('a language switch routes by the new pair and forgets the old last language', () => {
+  const line = new Line();                        // en/ru
+  line.say('Я вчера разговаривал с менеджером.');
+  line.wait(1.0);
+  line.take(line.floor.finished(1));
+  line.wait(2.0);                                 // the echo tail is over
+  line.floor.setLanguages('en', 'zh');
+  const opened = line.of('opened').length;
+  line.take(line.floor.text(' 15'));              // no alphabet: it must not fall to Russian, the last language heard
+  assert.equal(line.of('opened').length, opened);
+  line.take(line.floor.text(' 我们明天见'));
+  assert.equal(line.of('opened').at(-1)!.lang, 'zh');
+  line.take(line.floor.text(' Привет'));          // Russian is no side of the call any more
+  assert.equal(line.floor.counts.foreign_text, 1);
+  line.floor.setLanguages('en', 'ja');
+  line.take(line.floor.text(' 今日は'));          // kana with ideographs is Japanese now, not a foreign script
+  assert.equal(line.of('opened').at(-1)!.lang, 'ja');
+});
+
+test('one-way mode can be switched on and off mid-call', () => {
+  const line = new Line();
+  line.floor.setSilentLangs(['en']);
+  line.say('I spoke with the customer yesterday.');
+  line.wait(1.0);
+  const first = line.of('release').at(-1)!.utt;
+  assert.equal(line.of('play').length, 0);        // English is text only
+  line.take(line.floor.textDone(first));          // its text translation is out
+  line.floor.setSilentLangs([]);
+  line.say('He promised a refund on Friday.');
+  line.wait(1.0);
+  const second = line.of('release').at(-1)!.utt;
+  assert.notEqual(second, first);
+  assert.deepEqual(line.of('play'), [Play(second)]);   // two-way again: the next English reply is voiced
 });
