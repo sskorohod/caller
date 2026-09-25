@@ -30,7 +30,16 @@ function completedEvent(itemId: string, text: string, seconds = 1.0) {
   };
 }
 
-/** A socket: gives the leg what it was fed and remembers everything the leg sent. */
+// The live API's answer to a session it will not take — here the model the key has no access to.
+const REFUSAL = { type: 'error', error: {
+  type: 'invalid_request_error', code: 'model_not_found',
+  message: 'The model `gpt-live-transcribe` does not exist or you do not have access to it.',
+  param: 'session.audio.input.transcription.model', event_id: null } };
+
+/**
+ * A socket: gives the leg what it was fed and remembers everything the leg sent. Like the live API it answers
+ * every session.update — with session.updated unless told to refuse or to stay silent.
+ */
 class FakeWs extends EventEmitter implements WsLike {
   readyState = 0;          // CONNECTING until the fake server accepts
   bufferedAmount = 0;
@@ -39,7 +48,9 @@ class FakeWs extends EventEmitter implements WsLike {
   terminated = false;      // the leg dropped the connection outright
   failSend = false;
 
-  constructor(private readonly opts: { hangOnClose?: boolean; slow?: boolean; refuse?: Error; stall?: boolean } = {}) {
+  constructor(private readonly opts: {
+    hangOnClose?: boolean; slow?: boolean; refuse?: Error; stall?: boolean; session?: 'accept' | 'refuse' | 'ignore';
+  } = {}) {
     super();
   }
 
@@ -47,6 +58,12 @@ class FakeWs extends EventEmitter implements WsLike {
     if (this.failSend) throw new Error('socket is gone');
     this.sent.push(data);
     if (this.opts.slow) this.bufferedAmount += Buffer.byteLength(data);   // nothing ever leaves
+    const answer = this.opts.session ?? 'accept';
+    if (data.startsWith('{"type":"session.update"') && answer !== 'ignore') {
+      setImmediate(() => {
+        if (this.readyState === 1) this.feed(answer === 'accept' ? { type: 'session.updated', session: {} } : REFUSAL);
+      });
+    }
   }
 
   close(): void {
@@ -164,6 +181,7 @@ interface LegOptions {
   format?: TranscribeFormat;
   onDelta?: (itemId: string, text: string) => void;
   onCompleted?: (itemId: string, text: string) => void;
+  acceptTimeoutMs?: number;
 }
 
 /**
@@ -181,6 +199,7 @@ function makeLeg(connector: FakeConnector, opts: LegOptions = {}) {
     onDelta: opts.onDelta ?? ((itemId, text) => { deltas.push([itemId, text]); }),
     onCompleted: opts.onCompleted ?? ((itemId, text) => { done.push([itemId, text]); }),
     connect: connector.connect,
+    acceptTimeoutMs: opts.acceptTimeoutMs,
     sleep: async (ms) => {
       slept.push(ms);
       await new Promise(resolve => setImmediate(resolve));
@@ -704,4 +723,51 @@ test('a failed connect says why in the log but never the message', async (t) => 
   ]);
   assert.ok(!records.some(r => r.text.includes('Unexpected server response') || r.text.includes('10.1.2.3')),
     'the message never reaches the log');
+});
+
+test('a session the server refuses fails the start and closes the socket', async (t) => {
+  // The start is done only once the server takes the session: a refused one (the model not enabled for the
+  // key) must fail it, so the call falls back to the cascade instead of staying silent until the idle hang-up.
+  const records = captureLog(t);
+  const ws = new FakeWs({ session: 'refuse' });
+  const connector = new FakeConnector(ws);
+  const { leg } = makeLeg(connector);
+  assert.equal(await leg.start(), false);
+  assert.ok(ws.closed && !leg.alive && connector.calls.length === 1);
+  const refused = at(records, 'warn').filter(r => r.text.includes('session refused'));
+  assert.deepEqual(refused.map(r => JSON.parse(r.text)[0]), [
+    { code: 'model_not_found', type: 'invalid_request_error' },
+  ]);
+  assert.ok(!records.some(r => r.text.includes('does not exist')), 'the message never reaches the log');
+  await leg.aclose();
+});
+
+test('a session left unanswered fails the start after the timeout', async () => {
+  const ws = new FakeWs({ session: 'ignore' });
+  const { leg } = makeLeg(new FakeConnector(ws), { acceptTimeoutMs: 30 });
+  const started = performance.now();
+  let result: boolean | undefined;
+  void leg.start().then((ok) => { result = ok; });
+  await until(() => result !== undefined);            // the polling holds the loop: the leg's own timer does not
+  assert.equal(result, false);
+  assert.ok(performance.now() - started >= 25, 'it waited for the answer');
+  assert.ok(ws.closed && !leg.alive);
+  await leg.aclose();
+});
+
+test('a reconnect sends the session and goes on without waiting for it', async (t) => {
+  // Mid-call the line cannot wait for the server's answer: the new session is used at once, and an error
+  // about it is only logged, as before.
+  const records = captureLog(t);
+  const first = new FakeWs();
+  const second = new FakeWs({ session: 'refuse' });
+  const { leg } = makeLeg(new FakeConnector(first, second));
+  await leg.start();
+  first.drop();
+  await until(() => second.sent.length === 1);
+  leg.push(FRAME);
+  assert.equal(second.types()[1], 'input_audio_buffer.append', 'audio goes to the new session at once');
+  await until(() => at(records, 'warn').some(r => r.text.includes('model_not_found')));
+  assert.ok(leg.alive && !second.closed);
+  await leg.aclose();
 });

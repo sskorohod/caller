@@ -60,6 +60,7 @@ export interface TranscribeOptions {
   // default: new WebSocket(url, { headers, handshakeTimeout: HANDSHAKE_TIMEOUT_MS }) from 'ws'
   connect?: (url: string, headers: Record<string, string>) => WsLike;
   sleep?: (ms: number) => Promise<void>;   // the reconnect pauses and the close wait; tests make them instant
+  acceptTimeoutMs?: number;   // how long start() waits for the server to accept the session; tests shorten it
 }
 
 /**
@@ -86,6 +87,7 @@ export class TranscribeLeg {
   private readonly onCompleted?: (itemId: string, text: string) => void;
   private readonly connect: (url: string, headers: Record<string, string>) => WsLike;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly acceptTimeoutMs: number;
   private ws: WsLike | null = null;    // the socket coming up or in use; null between a drop and the next attempt
   private connected = false;           // the socket is up right now; between a drop and the reconnect it is not
   private closing = false;
@@ -111,12 +113,16 @@ export class TranscribeLeg {
       ?? ((url, headers) => new WebSocket(url, { headers, handshakeTimeout: HANDSHAKE_TIMEOUT_MS }));
     // the leg's own waits never hold the process: a script that calls aclose() exits at once
     this.sleep = opts.sleep ?? ((ms: number) => delay(ms, undefined, { ref: false }));
+    this.acceptTimeoutMs = opts.acceptTimeoutMs ?? HANDSHAKE_TIMEOUT_MS;
   }
 
-  /** Resolves true once the socket is open and session.update went out; false when it could not come up. */
+  /**
+   * Resolves true once the socket is open and the server has accepted the session; false when it could not
+   * come up — unreachable, refused or unanswered — and the call should fall back.
+   */
   async start(): Promise<boolean> {
     if (this.closing) return false;
-    if (!await this.open()) return false;
+    if (!await this.open(true)) return false;
     if (this.closing) return false;    // the call ended while the socket was coming up: aclose() has closed it
     this.alive = true;
     log.info({ languages: this.languages }, 'transcribe leg up');
@@ -193,8 +199,11 @@ export class TranscribeLeg {
       transcription: { model: TRANSCRIBE_MODEL, languages: this.languages, delay: DELAY } } } } };
   }
 
-  /** One connection attempt: true once the socket is open and session.update went out. */
-  private open(): Promise<boolean> {
+  /**
+   * One connection attempt: true once the socket is open and session.update went out. The call's first
+   * session (awaitAccept) counts only once the server has accepted it; a reconnect sends and goes on.
+   */
+  private open(awaitAccept = false): Promise<boolean> {
     let ws: WsLike;
     try {
       ws = this.connect(TRANSCRIBE_URL, { Authorization: `Bearer ${this.apiKey}` });
@@ -204,39 +213,67 @@ export class TranscribeLeg {
     }
     this.ws = ws;
     return new Promise<boolean>((resolve) => {
-      let up = false;
-      const gone = (err?: unknown, closeCode?: number): void => {
-        if (up) {
-          this.lost(ws, err, closeCode);
-          return;
-        }
-        // Never came up: a failed attempt — or aclose() cut the handshake short (it detaches the socket
-        // first, and ws then reports it closed).
+      let phase: 'connecting' | 'accepting' | 'up' = 'connecting';
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const up = (): void => {
+        clearTimeout(timer);
+        phase = 'up';
+        resolve(true);
+      };
+      // Never came up: a failed attempt, a session refused or left unanswered — or aclose() cut it short (it
+      // detaches the socket first, so there is nothing to log).
+      const fail = (fields: object, message: string): void => {
+        clearTimeout(timer);
         if (ws === this.ws) {
           this.ws = null;
+          this.connected = false;
           closeQuietly(ws);
-          log.warn(why(err), 'transcribe leg failed to connect');
+          log.warn(fields, message);
         }
         resolve(false);
       };
+      const gone = (err?: unknown, closeCode?: number): void => {
+        if (phase === 'up') this.lost(ws, err, closeCode);
+        else fail({ ...why(err), closeCode }, 'transcribe leg failed to connect');
+      };
       ws.on('open', () => {
-        if (ws !== this.ws || up) return;
+        if (ws !== this.ws || phase !== 'connecting') return;
         try {
           ws.send(JSON.stringify(this.sessionUpdate()));
         } catch (err) {
           gone(err);
           return;
         }
-        up = true;
         // A new session starts with an empty buffer: audio not committed on the old socket went with it, so
         // the commit count starts from zero — otherwise the core would get an error instead of an utterance.
         this.uncommitted = 0;
         this.connected = true;
         this.began = now();
-        resolve(true);
+        if (!awaitAccept) {
+          up();
+          return;
+        }
+        // The call's first session must be accepted before the call relies on it: one the server refuses (the
+        // model not enabled for the key) would leave the call silent instead of falling back to the cascade.
+        phase = 'accepting';
+        timer = setTimeout(() => {
+          fail({ timeoutMs: this.acceptTimeoutMs }, 'transcribe leg: session not accepted in time');
+        }, this.acceptTimeoutMs).unref();
       });
       ws.on('message', (data: Buffer | string, isBinary?: boolean) => {
-        if (ws === this.ws && up) this.onMessage(data, isBinary === true);
+        if (ws !== this.ws || phase === 'connecting') return;
+        if (phase === 'accepting' && !isBinary) {
+          const event = parseEvent(data);
+          if (event?.type === 'error') {
+            // the code and type say why; the message is not logged
+            const error = (event.error ?? {}) as { code?: unknown; type?: unknown };
+            fail({ code: typeof error.code === 'string' ? error.code : undefined,
+              type: typeof error.type === 'string' ? error.type : undefined }, 'transcribe leg: session refused');
+            return;
+          }
+          if (event?.type === 'session.updated') up();
+        }
+        this.onMessage(data, isBinary === true);
       });
       // ws throws on an 'error' nobody listens to, so this listener stays for the socket's whole life
       ws.on('error', (err: unknown) => gone(err));
@@ -375,6 +412,17 @@ function why(err: unknown): { err?: string; code?: string | number; status?: num
     code: typeof e.code === 'string' || typeof e.code === 'number' ? e.code : undefined,
     status: status === undefined ? undefined : Number(status),
   };
+}
+
+/** A text frame as an event object, or null when it is not one. */
+function parseEvent(data: Buffer | string): Record<string, unknown> | null {
+  try {
+    const event: unknown = JSON.parse(data.toString());
+    const isObject = typeof event === 'object' && event !== null && !Array.isArray(event);
+    return isObject ? event as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
 }
 
 function unique(languages: string[]): string[] {
