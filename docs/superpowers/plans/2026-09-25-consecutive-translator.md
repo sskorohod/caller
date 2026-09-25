@@ -796,7 +796,7 @@ test('Japanese pair routes kana and ideographs to one side', () => {
 
 ```ts
 export const ACTIVE_DBFS = -45;
-export const MAX_LAG = 100;          // aidispatch 50: our 400 ms queue + two PSTN legs sit between send and echo
+export const MAX_LAG = 50;           // as aidispatch: our envelope is paced at line rate, the lag is the phone round trip
 export const WINDOW = 500;
 export const MIN_ACTIVE = 75;
 export const ECHO_CORRELATION = 0.7;
