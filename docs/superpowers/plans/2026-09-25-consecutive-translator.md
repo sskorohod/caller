@@ -1881,7 +1881,8 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.out = p.out ?? new TwilioOut(this.opts.socket, this.opts.streamSid);
     this.player = new Playback(this.out, { onFinished: u => this.onFinished(u), onFrame: f => this.echo.ours(f) });
     this.judge = p.judge ?? new Judge(this.client, { languages: [getLangName(this.myLang), getLangName(this.targetLang)] });
-    const onDelta = (_item: string, text: string) => this.apply(this.floor.text(text));
+    // While paused, text still arriving for audio sent before the pause must not start new replies.
+    const onDelta = (_item: string, text: string) => { if (!this.paused) this.apply(this.floor.text(text)); };
     this.transcriber = p.transcriberFactory ? p.transcriberFactory(onDelta) : new TranscribeLeg({
       languages: [this.myLang, this.targetLang], apiKey, format: this.transcribeFormat, onDelta,
     });
@@ -1997,7 +1998,7 @@ export class ConsecutiveTranslator extends EventEmitter {
   }
 
   private onVad(ev: VadEvent): void {
-    if (this.closed) return;
+    if (this.closed || this.paused) return;   // windows queued before a pause are not transcribed either
     if (ev.type === 'inference') {
       // The transcriber hears the line through the detector, in the frames it already judged:
       // the end of its buffer is always where speech/silence is known, so a segment closes in
