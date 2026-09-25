@@ -424,6 +424,7 @@ export const translatorSessions = pgTable('translator_sessions', {
   minutes_used: numeric('minutes_used', { precision: 10, scale: 2 }).default('0'),
   cost_usd: numeric('cost_usd', { precision: 10, scale: 4 }).default('0'),
   transcript: jsonb('transcript').notNull().default([]),
+  metrics: jsonb('metrics'), // consecutive translator per-call metrics (services/consecutive/translator.ts)
   status: text('status').notNull().default('active'), // 'active' | 'completed'
   is_training: boolean('is_training').notNull().default(false), // sandbox/trainer session — not billed
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
