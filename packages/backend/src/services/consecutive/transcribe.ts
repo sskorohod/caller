@@ -35,6 +35,8 @@ const WIRE_BYTES = 1.4;                // wire bytes per audio byte: base64 (4/3
 export const BACKOFF_S = [0.5, 1, 2] as const;
 // A connection that lived less is no recovery: three such in a row and the leg gives up.
 const STABLE_S = 10;
+// A stalled handshake must not hold call start or a reconnect for the OS's 75–130 s; aiohttp's session had a cap too.
+export const HANDSHAKE_TIMEOUT_MS = 10_000;
 export const CLOSE_TIMEOUT_S = 1.5;    // a socket that does not answer the close must not hold up the call teardown
 const DROP_LOG_EVERY_S = 5;            // audio is lost at 50 frames a second; a log line every 5 s is enough
 const COMMIT_EMPTY = 'input_audio_buffer_commit_empty';
@@ -54,7 +56,8 @@ export interface TranscribeOptions {
   languages: string[]; apiKey: string; format?: TranscribeFormat;
   onDelta: (itemId: string, text: string) => void;
   onCompleted?: (itemId: string, text: string) => void;
-  connect?: (url: string, headers: Record<string, string>) => WsLike;   // default: new WebSocket(url, { headers }) from 'ws'
+  // default: new WebSocket(url, { headers, handshakeTimeout: HANDSHAKE_TIMEOUT_MS }) from 'ws'
+  connect?: (url: string, headers: Record<string, string>) => WsLike;
   sleep?: (ms: number) => Promise<void>;   // the reconnect pauses and the close wait; tests make them instant
 }
 
@@ -103,7 +106,8 @@ export class TranscribeLeg {
     this.maxBuffered = this.bytesPerS * QUEUE_S * WIRE_BYTES;
     this.onDelta = opts.onDelta;
     this.onCompleted = opts.onCompleted;
-    this.connect = opts.connect ?? ((url, headers) => new WebSocket(url, { headers }));
+    this.connect = opts.connect
+      ?? ((url, headers) => new WebSocket(url, { headers, handshakeTimeout: HANDSHAKE_TIMEOUT_MS }));
     this.sleep = opts.sleep ?? ((ms: number) => delay(ms));
   }
 

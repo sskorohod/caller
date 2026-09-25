@@ -10,8 +10,8 @@ import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import {
-  BACKOFF_S, CLOSE_TIMEOUT_S, DELAY, MIN_COMMIT_MS, RATE, TRANSCRIBE_FORMAT, TRANSCRIBE_MODEL, TRANSCRIBE_URL,
-  TranscribeLeg, log, type TranscribeFormat, type WsLike,
+  BACKOFF_S, CLOSE_TIMEOUT_S, DELAY, HANDSHAKE_TIMEOUT_MS, MIN_COMMIT_MS, RATE, TRANSCRIBE_FORMAT, TRANSCRIBE_MODEL,
+  TRANSCRIBE_URL, TranscribeLeg, log, type TranscribeFormat, type WsLike,
 } from './transcribe.js';
 
 // 20 ms of PCM16 24 kHz mono — 960 bytes, as the line gives them
@@ -38,7 +38,7 @@ class FakeWs extends EventEmitter implements WsLike {
   closed = false;          // the leg called close()
   failSend = false;
 
-  constructor(private readonly opts: { hangOnClose?: boolean; slow?: boolean; refuse?: Error } = {}) {
+  constructor(private readonly opts: { hangOnClose?: boolean; slow?: boolean; refuse?: Error; stall?: boolean } = {}) {
     super();
   }
 
@@ -64,6 +64,7 @@ class FakeWs extends EventEmitter implements WsLike {
   /** The server side of the handshake: open — or refuse the way ws reports it, an error and then the close. */
   accept(): void {
     if (this.readyState !== 0) return;              // closed while connecting: ws never opens after that
+    if (this.opts.stall) return;                    // a server that never answers the handshake
     if (this.opts.refuse) {
       this.readyState = 3;
       this.emit('error', this.opts.refuse);
@@ -85,6 +86,14 @@ class FakeWs extends EventEmitter implements WsLike {
   /** The server dropped the connection on its own: the socket closes without our close(). */
   drop(): void {
     this.finish();
+  }
+
+  /** ws's handshake timer fired: it cuts the handshake and reports it like any failure — an error, then the close. */
+  timeOut(): void {
+    if (this.readyState !== 0) return;
+    this.readyState = 3;
+    this.emit('error', new Error('Opening handshake has timed out'));
+    this.emit('close', 1006, Buffer.alloc(0));
   }
 
   events(): any[] {
@@ -637,4 +646,35 @@ test('a session that lived long is a recovery and the count of short ones starts
   await until(() => sockets[5].sent.length === 1);
   assert.ok(leg.alive && connector.calls.length === 6);
   await leg.aclose();
+});
+
+test('a handshake that times out is a failed connect', async () => {
+  // ws cuts a handshake the server never answers after HANDSHAKE_TIMEOUT_MS and reports it like any failure,
+  // an error and then the close: at the start the leg does not come up, and mid-call it goes on to the next
+  // attempt instead of hanging on a dead one.
+  assert.equal(HANDSHAKE_TIMEOUT_MS, 10_000);
+  const hung = new FakeWs({ stall: true });
+  const { leg } = makeLeg(new FakeConnector(hung));
+  let settled = false;
+  const starting = leg.start().finally(() => { settled = true; });
+  await tick();
+  assert.ok(!settled, 'the start waits on the handshake');
+  hung.timeOut();
+  assert.equal(await starting, false);
+  assert.ok(!leg.alive);
+  await leg.aclose();
+
+  const first = new FakeWs();
+  const stalled = new FakeWs({ stall: true });
+  const second = new FakeWs();
+  const connector = new FakeConnector(first, stalled, second);
+  const { leg: midCall, slept } = makeLeg(connector);
+  await midCall.start();
+  first.drop();
+  await until(() => connector.calls.length === 2);   // the first attempt hangs in the handshake...
+  stalled.timeOut();                                  // ...until the timer cuts it
+  await until(() => second.sent.length === 1);
+  assert.ok(midCall.alive && connector.calls.length === 3);
+  assert.deepEqual(slept, [500, 1000], 'the next attempt comes after its own pause');
+  await midCall.aclose();
 });
