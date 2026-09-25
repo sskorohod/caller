@@ -399,6 +399,7 @@ export class FloorManager {
       if (u.state === 'open' || u.state === 'candidate' || u.state === 'released') this.drop(u, reason, now);
     }
     this.listenRaw.clear();
+    this.held = null;
     return this.finish();
   }
 

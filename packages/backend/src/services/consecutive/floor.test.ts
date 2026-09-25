@@ -897,10 +897,14 @@ test('pauseAll stops what plays and drops everything in flight', () => {
   line.wait(1.0);
   assert.ok(line.of('play').length);
   line.say('I see, and what did he say');
+  line.take(line.floor.text(' I'));               // a single letter waits for the next word to show its language
   const cmds = line.take(line.floor.pauseAll('paused'));
   assert.ok(cmds.some((c) => c.kind === 'stop'));
   assert.ok(cmds.some((c) => c.kind === 'drop' && c.reason === 'paused'));
-  line.wait(3.0);
+  const opened = line.of('opened').length;
+  line.wait(1.0);
+  assert.equal(line.of('opened').length, opened);   // the held letter is forgotten too: nothing said before surfaces
+  line.wait(2.0);
   assert.equal(line.of('play').length, 1);
 });
 
