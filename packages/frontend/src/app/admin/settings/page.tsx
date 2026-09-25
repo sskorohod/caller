@@ -173,6 +173,100 @@ function GreetingCard() {
   );
 }
 
+// ─── Translator card ───────────────────────────────────────────────────────
+
+const TRANSLATOR_DEFAULTS: Record<string, number | string> = {
+  model: 'gpt-6-luna', end_silence_ms: 700, hard_end_ms: 2200, semantic_threshold: 0.8, barge_in_words: 5,
+};
+
+const TRANSLATOR_FIELDS = [
+  { key: 'end_silence_ms', label: 'End-of-thought pause (ms)', hint: 'Silence after which a finished thought is translated. 300–3000.', step: '50', min: 300, max: 3000, int: true },
+  { key: 'hard_end_ms', label: 'Hard limit (ms)', hint: 'Translated after this much silence even when the thought seems unfinished. 800–8000.', step: '100', min: 800, max: 8000, int: true },
+  { key: 'semantic_threshold', label: 'Judge confidence', hint: 'How sure the judge must be that the thought is complete. 0.5–0.99.', step: '0.01', min: 0.5, max: 0.99, int: false },
+  { key: 'barge_in_words', label: 'Words to interrupt', hint: 'Real words over a playing translation before the judge decides whether to stop it. 1–15.', step: '1', min: 1, max: 15, int: true },
+] as const;
+
+function TranslatorCard() {
+  const { data, loading, error, refetch } = useAdminQuery<{ settings: PlatformSettings }>(
+    () => api.get<{ settings: PlatformSettings }>('/admin/settings'),
+  );
+  const [model, setModel] = useState(String(TRANSLATOR_DEFAULTS.model));
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (!data) return;
+    const stored = (data.settings?.translator_consecutive ?? {}) as Record<string, unknown>;
+    setModel(typeof stored.model === 'string' ? stored.model : String(TRANSLATOR_DEFAULTS.model));
+    const next: Record<string, string> = {};
+    for (const f of TRANSLATOR_FIELDS) {
+      const v = stored[f.key];
+      next[f.key] = String(typeof v === 'number' ? v : TRANSLATOR_DEFAULTS[f.key]);
+    }
+    setValues(next);
+  }, [data]);
+
+  async function save() {
+    setBusy(true); setErr(''); setSaved(false);
+    try {
+      const body: Record<string, string | number> = { model };
+      for (const f of TRANSLATOR_FIELDS) {
+        const raw = parseFloat(values[f.key]);
+        const v = f.int ? Math.round(raw) : raw;
+        if (!Number.isFinite(v) || v < f.min || v > f.max) throw new Error(`${f.label}: ${f.min}–${f.max}`);
+        body[f.key] = v;
+      }
+      await api.put('/admin/settings', { translator_consecutive: body });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      refetch();
+    } catch (e: any) { setErr(e.message || 'Failed'); }
+    setBusy(false);
+  }
+
+  return (
+    <div className="rounded-xl p-4 md:p-5 space-y-4" style={cardStyle}>
+      <div>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--th-text)' }}>Translator</h3>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--th-text-muted)' }}>
+          Consecutive interpreter: when a thought counts as finished and when speech over a translation stops it. Applies from the next call.
+        </p>
+      </div>
+      {loading ? (
+        <div className="h-20 rounded-xl animate-pulse" style={{ background: 'var(--th-surface)' }} />
+      ) : error ? (
+        <AdminErrorState error={error} onRetry={refetch} />
+      ) : (
+        <>
+          <AdminFormField label="Translation model">
+            <select value={model} onChange={e => setModel(e.target.value)} className={adminInputClass}>
+              <option value="gpt-6-luna">GPT-6 Luna — fast and cheap (default)</option>
+              <option value="gpt-6-sol">GPT-6 Sol — stronger, 20× the price</option>
+            </select>
+          </AdminFormField>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {TRANSLATOR_FIELDS.map(f => (
+              <AdminFormField key={f.key} label={f.label}>
+                <input
+                  type="number" step={f.step} min={f.min} max={f.max}
+                  value={values[f.key] ?? ''}
+                  onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                  className={adminInputClass}
+                />
+                <p className="text-[11px] mt-1" style={{ color: 'var(--th-text-muted)' }}>{f.hint}</p>
+              </AdminFormField>
+            ))}
+          </div>
+          {err && <p className="text-xs" style={{ color: 'var(--th-error-text)' }}>{err}</p>}
+          <SaveButton busy={busy} saved={saved} onClick={save} />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Provider pricing card ─────────────────────────────────────────────────
 
 type FlatOverrides = Record<string, string>; // "tts.xai" → "0.02"; "llm.gpt-4o.inputPer1M" → "2.5"
@@ -352,6 +446,7 @@ export default function AdminSettingsPage() {
       />
       <BillingCard />
       <GreetingCard />
+      <TranslatorCard />
       <PricingCard />
     </div>
   );

@@ -17,6 +17,7 @@ import {
   saveProviderCredential, getProviderCredential, markProviderVerified, deleteProviderCredential,
 } from '../../services/provider.service.js';
 import { env } from '../../config/env.js';
+import { CONSECUTIVE_SETTINGS_KEY, consecutiveSettingsSchema } from '../../services/consecutive/settings.js';
 
 async function auditLog(userId: string | undefined, action: string, resourceType: string, resourceId: string, details: any, ip?: string) {
   await db.insert(adminAuditLog).values({ user_id: userId, action, resource_type: resourceType, resource_id: resourceId, details, ip_address: ip });
@@ -546,10 +547,11 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   const settingsBodySchema = z.object({
     default_greeting: z.string().max(500).optional(),
     pricing: pricingOverridesSchema.optional(),
+    translator_consecutive: consecutiveSettingsSchema.optional(),
   }).strict();
 
   app.get('/settings', async () => {
-    const keys = ['default_greeting', 'pricing'];
+    const keys = ['default_greeting', 'pricing', CONSECUTIVE_SETTINGS_KEY];
     const rows = await db.select().from(platformSettings)
       .where(or(...keys.map(k => eq(platformSettings.key, k))));
     const settings: Record<string, any> = {};
