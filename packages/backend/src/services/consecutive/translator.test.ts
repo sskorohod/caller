@@ -235,6 +235,34 @@ test('a same-script language change is refused in place', async () => {
   translator.detach();
 });
 
+test('a greeting delay that is not a number falls back to 5 s', async () => {
+  for (const [given, expected] of [[NaN, 5], [Infinity, 5], [undefined, 5], [100, 30], [-1, 0], [2, 2]] as const) {
+    assert.equal((build({}, { greetingDelaySeconds: given }).translator as any).greetingDelaySeconds, expected, `given ${given}`);
+  }
+  // a garbage stored setting arrives as NaN, and setTimeout(NaN) fires at once
+  const h = await make({}, { greetingText: 'Hi', greetingDelaySeconds: NaN });
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(h.translator.floor.utterances.size, 0);   // no greeting queued yet
+});
+
+test('the close budget does not keep the process alive', async () => {
+  const h = await make();
+  const budgets: Array<ReturnType<typeof setTimeout>> = [];
+  const original = globalThis.setTimeout;
+  globalThis.setTimeout = ((handler: any, ms?: number, ...rest: any[]) => {
+    const timer = original(handler, ms, ...rest);
+    if (ms === CLOSE_TIMEOUT_MS) budgets.push(timer);
+    return timer;
+  }) as typeof setTimeout;
+  try {
+    await h.translator.finalize();
+  } finally {
+    globalThis.setTimeout = original;
+  }
+  assert.equal(budgets.length, 1);
+  assert.equal(budgets[0].hasRef(), false);   // a script that finalizes (the smoke scene) exits at once
+});
+
 test("a judge that throws still settles the floor's question", async () => {
   const unhandled: unknown[] = [];
   const onUnhandled = (reason: unknown) => { unhandled.push(reason); };

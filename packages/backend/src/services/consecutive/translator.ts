@@ -153,7 +153,11 @@ export function percentile(values: number[], p: number): number | null {
 }
 
 const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+/** The error's class for the log, never its message (it can carry the key). The OpenAI SDK's
+ *  error classes do not set `name`, so the constructor's name comes first. */
+const errorName = (err: unknown): string | undefined =>
+  (err as { constructor?: { name?: string } } | null)?.constructor?.name || (err as Error | null)?.name;
 
 export class ConsecutiveTranslator extends EventEmitter {
   readonly engine = 'voice';          // media-stream's mode toggle treats us as a voice engine
@@ -222,7 +226,9 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.tone = opts.tone || '';
     this.personalContext = (opts.personalContext || '').trim();
     this.greetingText = (opts.greetingText || '').trim();
-    this.greetingDelaySeconds = Math.min(30, Math.max(0, opts.greetingDelaySeconds ?? 5));
+    // a garbage stored setting arrives as NaN, and setTimeout(NaN) would fire at once
+    const delay = opts.greetingDelaySeconds;
+    this.greetingDelaySeconds = Math.min(30, Math.max(0, typeof delay === 'number' && Number.isFinite(delay) ? delay : 5));
     this.carryover = opts.carryover;
     this.parts = opts.parts ?? {};
     this.persist = this.parts.persist ?? true;
@@ -355,7 +361,7 @@ export class ConsecutiveTranslator extends EventEmitter {
         await telephony.hangupCall(this.workspaceId, row.sid);
       }
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Idle hangup failed');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Idle hangup failed');
     }
     await this.finalize();
   }
@@ -399,7 +405,7 @@ export class ConsecutiveTranslator extends EventEmitter {
   }
 
   private onVadDead(err: unknown): void {
-    log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive: voice detector stopped');
+    log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive: voice detector stopped');
     // No detector any more: the line goes to the transcriber directly, a pending commit now.
     this.fedByVad = false;
     if (this.commitDue !== null) {
@@ -415,7 +421,7 @@ export class ConsecutiveTranslator extends EventEmitter {
       try {
         this.do(cmd);
       } catch (err) {   // one broken command must not take the call down
-        log.warn({ callId: this.callId, cmd: cmd.kind, err: (err as Error)?.name }, 'Consecutive command failed');
+        log.warn({ callId: this.callId, cmd: cmd.kind, err: errorName(err) }, 'Consecutive command failed');
       }
     }
   }
@@ -491,7 +497,7 @@ export class ConsecutiveTranslator extends EventEmitter {
     try {
       verdict = await this.judge.semanticEnd(text);
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive judge failed');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive judge failed');
     }
     if (!this.closed) this.apply(this.floor.judged(utt, text, verdict));
   }
@@ -501,13 +507,13 @@ export class ConsecutiveTranslator extends EventEmitter {
     try {
       verdict = await this.judge.intent(text, playing);
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive intent judge failed');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive intent judge failed');
     }
     if (!this.closed) this.apply(this.floor.intent(utt, verdict));
   }
 
   private spawn(task: Promise<unknown>): void {
-    const tracked = task.catch(err => log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive task failed'));
+    const tracked = task.catch(err => log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive task failed'));
     this.side.add(tracked);
     void tracked.finally(() => this.side.delete(tracked));
   }
@@ -758,7 +764,7 @@ export class ConsecutiveTranslator extends EventEmitter {
   // ------------------------------------------------------------------ teardown
 
   stop(): void {
-    this.finalize().catch(err => log.error({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive finalize failed'));
+    this.finalize().catch(err => log.error({ callId: this.callId, err: errorName(err) }, 'Consecutive finalize failed'));
   }
 
   /** Mid-call engine swap: hand the session on without finalizing it. */
@@ -787,7 +793,13 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.vad?.close();
     this.player?.close();
     const closers = [this.transcriber?.aclose(), this.engineImpl?.aclose()].filter(Boolean) as Promise<void>[];
-    await Promise.race([Promise.allSettled(closers), sleep(CLOSE_TIMEOUT_MS)]);
+    let budget: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.allSettled(closers),
+      // unref'd: the budget must not keep a finished process (the smoke scene) alive
+      new Promise<void>(resolve => { budget = setTimeout(resolve, CLOSE_TIMEOUT_MS).unref(); }),
+    ]);
+    clearTimeout(budget);
   }
 
   async finalize(): Promise<void> {
@@ -818,7 +830,7 @@ export class ConsecutiveTranslator extends EventEmitter {
             metrics: metrics as any,
           }).where(eq(translatorSessions.id, this.sessionId));
         } catch (err) {
-          log.error({ callId: this.callId, err: (err as Error)?.name }, 'Failed to update consecutive translator session');
+          log.error({ callId: this.callId, err: errorName(err) }, 'Failed to update consecutive translator session');
         }
       }
       const callService = await import('../call.service.js');
@@ -853,7 +865,7 @@ export class ConsecutiveTranslator extends EventEmitter {
       const { eq } = await import('drizzle-orm');
       await db.update(translatorSessions).set({ metrics: metrics as any }).where(eq(translatorSessions.id, this.sessionId!));
     } catch (err) {
-      log.warn({ callId: this.callId, err: (err as Error)?.name }, 'Consecutive metrics not written on swap');
+      log.warn({ callId: this.callId, err: errorName(err) }, 'Consecutive metrics not written on swap');
     }
   }
 }
