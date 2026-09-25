@@ -408,8 +408,9 @@ export interface TranslatorDefaults {
   tts_voice_id?: string;
   tone?: string;
   personal_context?: string;
-  /** Per-workspace voice engine override: 'realtime' | 'pipeline' | 'grok'.
-   *  Falls back to the VOICE_ENGINE env var when unset. */
+  /** Per-workspace voice engine override. Only 'pipeline' has an effect: it forces the
+   *  Deepgram cascade for this workspace. Unset or any other stored value ('realtime',
+   *  'grok' from removed engines) means the default, the VOICE_ENGINE env var. */
   voice_engine?: string;
 }
 

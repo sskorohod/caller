@@ -23,6 +23,7 @@ import { SandboxSession, type SandboxMode } from '../../services/sandbox-session
 import { isCrossScriptPair } from '../../services/consecutive/policy.js';
 import { verifyJWT } from '../../lib/jwt.js';
 import { verifyStreamToken } from '../../lib/stream-token.js';
+import { runSerialized } from '../../lib/run-serialized.js';
 import { workspaceMembers } from '../../db/schema.js';
 import pino from 'pino';
 
@@ -198,15 +199,26 @@ async function startTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
   }
 }
 
+// Mode and language changes of one call run one at a time. A swap waits seconds for the new
+// engine; a change arriving meanwhile must see the engine that swap installs. Otherwise it
+// detaches the old engine a second time and starts another, and the one left unregistered
+// hangs up the live call on its idle timer. A change that finds the stream closed does
+// nothing: the call is over, and a new engine would only start to be stopped.
+const translatorChanges = new Map<string, Promise<void>>();
+
 /**
  * Switch the live translator mode. Voice sub-modes (2-way/1-way) update in place;
  * switching to/from stealth swaps the whole engine, handing off the session
  * (transcript, duration, billing) so it stays one continuous call.
  */
 export async function setTranslatorMode(callId: string, pageMode: string): Promise<void> {
+  return runSerialized(translatorChanges, callId, () => applyTranslatorMode(callId, pageMode));
+}
+
+async function applyTranslatorMode(callId: string, pageMode: string): Promise<void> {
   const ctx = translatorContexts.get(callId);
   const current = activeConferenceTranslators.get(callId);
-  if (!ctx || !current) return;
+  if (!ctx || !current || ctx.socket.readyState !== 1) return;
   ctx.pageMode = pageMode;
   const targetEngine = pageMode === 'stealth' ? 'stealth' : 'voice';
   if (current.engine === targetEngine) {
@@ -237,9 +249,13 @@ export async function setTranslatorMode(callId: string, pageMode: string): Promi
  * otherwise the running engine updates in place.
  */
 export async function setTranslatorLanguages(callId: string, myLanguage: string, targetLanguage: string): Promise<void> {
+  return runSerialized(translatorChanges, callId, () => applyTranslatorLanguages(callId, myLanguage, targetLanguage));
+}
+
+async function applyTranslatorLanguages(callId: string, myLanguage: string, targetLanguage: string): Promise<void> {
   const ctx = translatorContexts.get(callId);
   const current = activeConferenceTranslators.get(callId);
-  if (!ctx || !current) return;
+  if (!ctx || !current || ctx.socket.readyState !== 1) return;
   ctx.myLanguage = myLanguage;
   ctx.targetLanguage = targetLanguage;
   if (wantsConsecutive(ctx.pageMode, ctx) === (current.impl === 'consecutive')) {
@@ -248,7 +264,7 @@ export async function setTranslatorLanguages(callId: string, myLanguage: string,
   }
   const carryover = current.detach();
   const neu = await startTranslator(ctx.pageMode, ctx, carryover);
-  // The call ended while the new engine was starting — see setTranslatorMode.
+  // The call ended while the new engine was starting — see applyTranslatorMode.
   if (ctx.socket.readyState !== 1) {
     logger.info({ callId }, 'Twilio stream closed during the engine swap — stopping the new engine');
     neu.stop();
