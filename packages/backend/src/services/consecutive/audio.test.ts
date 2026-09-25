@@ -19,6 +19,10 @@ test('mu-law round trip stays within the quantisation step', () => {
   }
 });
 
+test('mu-law survives the extremes of int16', () => {
+  assert.deepEqual(samples(mulawToPcm(pcmToMulaw(pcm([-32768, 32767])))), [-32124, 32124]);
+});
+
 test('a frame is 20 ms of PCM16 at 8 kHz', () => {
   assert.equal(FRAME_BYTES, 320);
 });
