@@ -31,9 +31,15 @@ export const MIN_COMMIT_MS = 100;      // the server closes nothing shorter: err
 // Audio the socket may hold unsent: beyond that the network clearly can't cope, and hoarding hurts.
 const QUEUE_S = 8;
 const WIRE_BYTES = 1.4;                // wire bytes per audio byte: base64 (4/3) plus the JSON around it
-// Pauses before the reconnect attempts; three failures and the leg is dead.
+// Pauses before the reconnect attempts.
 export const BACKOFF_S = [0.5, 1, 2] as const;
-// A connection that lived less is no recovery: three such in a row and the leg gives up.
+/**
+ * Short-lived sessions tolerated in a row before the leg gives up. Its own constant rather than
+ * BACKOFF_S.length: that array is the pause schedule, and tying the give-up count to it meant
+ * lengthening one silently changed the other.
+ */
+const SHORT_SESSIONS_MAX = BACKOFF_S.length;
+// A connection that lived less is no recovery.
 const STABLE_S = 10;
 // A stalled handshake must not hold call start or a reconnect for the OS's 75–130 s; aiohttp's session had a cap too.
 export const HANDSHAKE_TIMEOUT_MS = 10_000;
@@ -61,6 +67,15 @@ export interface TranscribeOptions {
   connect?: (url: string, headers: Record<string, string>) => WsLike;
   sleep?: (ms: number) => Promise<void>;   // the reconnect pauses and the close wait; tests make them instant
   acceptTimeoutMs?: number;   // how long start() waits for the server to accept the session; tests shorten it
+  /**
+   * The leg has stopped for good and no longer accepts audio. Not called by aclose(): a hang-up is
+   * not a death. Without this the only sign was `alive` going false, which nothing watched — the
+   * call went on deaf, push() returned without even its rate-limited warning, and five minutes
+   * later the idle guard hung up a line whose silence had no explanation anywhere.
+   */
+  onDead?: (reason: string) => void;
+  /** Call id, so the leg's own error lines can be attributed when several calls run at once. */
+  callId?: string;
 }
 
 /**
@@ -97,8 +112,14 @@ export class TranscribeLeg {
   private dropLoggedAt = -Infinity;
   private began = 0;                   // when the current session came up, s
   private short = 0;                   // short-lived sessions in a row
+  private readonly onDead?: (reason: string) => void;
+  private dead = false;                // die() is reported once; a dead leg cannot die again
+  /** Module logger bound to the call, so lines from several concurrent calls can be told apart. */
+  private readonly log: pino.Logger;
 
   constructor(opts: TranscribeOptions) {
+    this.onDead = opts.onDead;
+    this.log = opts.callId ? log.child({ callId: opts.callId }) : log;
     this.languages = unique(opts.languages);   // the pair without repeats, in the given order
     this.apiKey = opts.apiKey;
     const format = FORMATS[opts.format ?? TRANSCRIBE_FORMAT];
@@ -282,6 +303,23 @@ export class TranscribeLeg {
   }
 
   /** The session in use is gone: dropped by the server or failed on send. aclose() detaches its socket first. */
+  /**
+   * The leg has stopped for good. One place for it so the owner is always told, and told once:
+   * every path that used to assign `alive = false` on a failure now comes through here. aclose()
+   * does not — a hang-up is not a death, and reporting one would make every normal call end with a
+   * dead transcriber.
+   */
+  private die(reason: string): void {
+    this.alive = false;
+    if (this.dead) return;
+    this.dead = true;
+    try {
+      this.onDead?.(reason);
+    } catch (err) {   // the owner's handler must not turn a dead leg into a dead call
+      this.log.warn(why(err), 'transcribe leg: onDead handler failed');
+    }
+  }
+
   private lost(ws: WsLike, err?: unknown, closeCode?: number): void {
     if (ws !== this.ws) return;
     this.ws = null;
@@ -289,16 +327,16 @@ export class TranscribeLeg {
     closeQuietly(ws);
     // a server that takes the connection and drops it at once would otherwise keep us in a loop forever
     this.short = now() - this.began < STABLE_S ? this.short + 1 : 0;
-    if (this.short >= BACKOFF_S.length) {
-      log.error({ sessions: this.short }, 'transcribe leg: short-lived sessions in a row, giving up');
-      this.alive = false;
+    if (this.short >= SHORT_SESSIONS_MAX) {
+      this.log.error({ sessions: this.short }, 'transcribe leg: short-lived sessions in a row, giving up');
+      this.die('short-lived sessions in a row');
       return;
     }
     log.warn({ ...why(err), closeCode }, 'transcribe leg lost the socket, reconnecting');
     this.reconnect().catch((e: unknown) => {
-      log.error(why(e), 'transcribe leg stopped');
-      this.alive = false;
+      this.log.error(why(e), 'transcribe leg stopped');
       this.connected = false;
+      this.die('reconnect threw');
     });
   }
 
@@ -316,8 +354,8 @@ export class TranscribeLeg {
       }
       if (this.closing) return;
     }
-    log.error({ attempts: BACKOFF_S.length }, 'transcribe leg gave up reconnecting; the call goes on without text');
-    this.alive = false;
+    this.log.error({ attempts: BACKOFF_S.length }, 'transcribe leg gave up reconnecting; the call goes on without text');
+    this.die('gave up reconnecting');
   }
 
   private send(ws: WsLike, event: object): boolean {

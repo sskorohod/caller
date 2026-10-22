@@ -44,6 +44,8 @@ export const CLOSE_TIMEOUT_MS = 1800;
 const INTERIM_EVERY_S = 0.25;
 const STATS_EVERY_MS = 5000;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+/** Replacements for a dead transcription leg. A leg that dies twice is not a passing blip. */
+const TRANSCRIBER_RESTARTS_MAX = 1;
 /**
  * While paused the idle guard is widened, not removed. Pausing is a deliberate act and five
  * minutes of it is normal, but account() bills wall-clock seconds that keep running regardless —
@@ -201,6 +203,11 @@ export class ConsecutiveTranslator extends EventEmitter {
   private engineImpl!: EngineLike;
   private vad: VadStream | null = null;
   private fedByVad = false;          // the transcriber hears the line through the frames the detector checked
+  /** Rebuilds the transcription leg after one dies; set in start(). */
+  private makeTranscriber?: () => TranscriberLike;
+  private transcriberRestarts = 0;
+  /** Carried into the call's metrics: a call that went deaf should say so in its own record. */
+  private transcriberDeaths: Array<{ reason: string; atS: number; replaced: boolean }> = [];
   private commitDue: number | null = null;   // the core asked to close a segment; closed in the next silence
   private readonly echo = new EchoMeter();    // is our echo on the line at all: without it the echo filter only harms
   private readonly up3 = new Upsampler3();
@@ -289,9 +296,16 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.judge = p.judge ?? new Judge(this.client, { languages: [getLangName(this.myLang), getLangName(this.targetLang)] });
     // While paused, text still arriving for audio sent before the pause must not start new replies.
     const onDelta = (_item: string, text: string) => { if (!this.paused && !this.closed) this.apply(this.floor.text(text)); };
-    this.transcriber = p.transcriberFactory ? p.transcriberFactory(onDelta) : new TranscribeLeg({
-      languages: [this.myLang, this.targetLang], apiKey, format: this.transcribeFormat, onDelta,
-    });
+    // Kept as a factory so a leg that dies can be replaced without holding the key in a field or
+    // re-running the rest of start(). The fakes keep their own factory, unchanged.
+    this.makeTranscriber = p.transcriberFactory
+      ? () => p.transcriberFactory!(onDelta)
+      : () => new TranscribeLeg({
+        languages: [this.myLang, this.targetLang], apiKey, format: this.transcribeFormat, onDelta,
+        callId: this.callId,
+        onDead: reason => this.onTranscriberDead(reason),
+      });
+    this.transcriber = this.makeTranscriber();
     const callbacks: EngineCallbacks = {
       onAudio: (u, pcm) => this.onAudio(u, pcm), onText: (u, t) => this.onText(u, t), onDone: u => this.onDone(u),
     };
@@ -462,6 +476,53 @@ export class ConsecutiveTranslator extends EventEmitter {
       this.commitDue = null;
       this.transcriber.commit();
     }
+  }
+
+  /**
+   * The transcription leg has stopped for good. Before this, the only sign was its `alive` flag
+   * going false, which nothing read: the call carried on deaf, push() returned without even its
+   * rate-limited warning, and five minutes later the idle guard hung up a line whose silence had
+   * no explanation in any record. A four-second blip to the API was enough to reach that state,
+   * because the whole recovery budget is three pauses of 0.5/1/2 s.
+   *
+   * So: say it where it survives, then try once to replace the leg. A replacement is bounded —
+   * a leg that dies twice is not a blip, and reconnecting forever would bill a call that cannot
+   * work. Deliberately NOT a teardown-and-fall-back-to-the-cascade: detach() sets `saved`, so a
+   * teardown with no successor installed leaves the session never finalized and never billed.
+   */
+  private onTranscriberDead(reason: string): void {
+    const atS = Math.floor((Date.now() - this.startTime) / 1000);
+    const canReplace = !this.closed && this.transcriberRestarts < TRANSCRIBER_RESTARTS_MAX && !!this.makeTranscriber;
+    this.transcriberDeaths.push({ reason, atS, replaced: canReplace });
+    log.error({ callId: this.callId, reason, atS, replacing: canReplace }, 'Consecutive: transcription leg died');
+
+    if (this.persist) {
+      void (async () => {
+        const callService = await import('../call.service.js');
+        await callService.addCallEvent({
+          callId: this.callId, workspaceId: this.workspaceId,
+          eventType: 'transcriber_dead',
+          eventData: { reason, at_s: atS, replacing: canReplace, restarts: this.transcriberRestarts },
+        });
+      })().catch(err => log.warn({ callId: this.callId, err: errorName(err) }, 'Could not record the transcriber death'));
+    }
+
+    if (!canReplace) return;
+    this.transcriberRestarts += 1;
+    void (async () => {
+      const next = this.makeTranscriber!();
+      const up = await next.start();
+      if (this.closed) { void next.aclose?.(); return; }
+      if (!up) {
+        log.error({ callId: this.callId }, 'Consecutive: replacement transcription leg did not start');
+        return;
+      }
+      this.transcriber = next;
+      // A fresh session starts with an empty buffer, so a commit the core asked of the dead leg
+      // would close nothing and error as input_audio_buffer_commit_empty.
+      this.commitDue = null;
+      log.info({ callId: this.callId, restarts: this.transcriberRestarts }, 'Consecutive: transcription leg replaced');
+    })().catch(err => log.error({ callId: this.callId, err: errorName(err) }, 'Consecutive: replacing the transcription leg failed'));
   }
 
   // ------------------------------------------------------------------ core commands
@@ -826,6 +887,7 @@ export class ConsecutiveTranslator extends EventEmitter {
       judge_ms: { p50: percentile(f.judgeMs, 50), p90: percentile(f.judgeMs, 90), n: f.judgeMs.length },
       barge_ms: f.bargeMs.map(([first]) => first),
       played_s: this.player?.playedSeconds ?? 0,
+      transcriber_deaths: this.transcriberDeaths,
       echo: { present: f.echo, correlation: this.echo.correlation, return_db: this.echo.returnDb },
       engine_usage: { ...(this.engineImpl?.usage ?? {}) },
       events: f.events.map(e => [...e]),

@@ -199,6 +199,30 @@ test('one-way: a text-only turn keeps the call from the idle hang-up', async () 
   assert.notEqual((h.translator as any).idleTimer, armed);   // re-armed by the other side's turn
 });
 
+test('a dead transcription leg is recorded in the metrics and replaced once', async () => {
+  // Before this, a leg that gave up left no trace anyone could read: `alive` went false, push()
+  // returned without even its rate-limited warning, and the call carried on deaf until the idle
+  // guard hung it up five minutes later. The whole recovery budget is 0.5/1/2 s, so a four-second
+  // blip to the API was enough to get there.
+  const h = await make();
+  const dead = (reason: string) => (h.translator as any).onTranscriberDead(reason);
+
+  dead('gave up reconnecting');
+  let deaths = h.translator.summary().transcriber_deaths;
+  assert.equal(deaths.length, 1);
+  assert.equal(deaths[0].reason, 'gave up reconnecting');
+  assert.equal(deaths[0].replaced, true, 'the first death is worth one replacement');
+
+  // A leg that dies twice is not a passing blip, and reconnecting forever would bill a call that
+  // cannot work.
+  dead('short-lived sessions in a row');
+  deaths = h.translator.summary().transcriber_deaths;
+  assert.equal(deaths.length, 2);
+  assert.equal(deaths[1].replaced, false, 'the second death is final');
+
+  h.translator.detach();
+});
+
 test('pausing widens the idle guard instead of leaving it to hang up the call', async () => {
   // Nothing re-arms the idle timer while paused — sendAudio and onVad both return early, so no
   // utterance is created and neither settleText nor onFinished runs. Before the fix the five-minute
