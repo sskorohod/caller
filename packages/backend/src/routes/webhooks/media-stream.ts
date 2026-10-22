@@ -193,6 +193,25 @@ async function startTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
   } catch (err) {
     if ((translator as { impl?: string }).impl !== 'consecutive') throw err;
     logger.error({ err, callId: ctx.callId }, 'Consecutive translator did not start — falling back to the cascade');
+    // Durable trace. The log line above is the only record today, and container
+    // logs do not survive a redeploy — two of the first five cross-script calls
+    // fell back and by the time anyone looked, the reason was unrecoverable. The
+    // session row cannot carry it either: the consecutive engine throws before it
+    // inserts one, so the row that survives belongs to the cascade and says
+    // nothing about the engine that failed. Fire-and-forget on purpose —
+    // diagnostics must never be what stops a call from connecting.
+    void callService.addCallEvent({
+      callId: ctx.callId,
+      workspaceId: ctx.workspaceId,
+      eventType: 'translator_fallback',
+      eventData: {
+        from: 'consecutive',
+        to: 'cascade',
+        reason: err instanceof Error ? err.message : String(err),
+        languages: [ctx.myLanguage, ctx.targetLanguage],
+        mode: pageMode,
+      },
+    }).catch(e => logger.warn({ err: e, callId: ctx.callId }, 'Could not record the translator fallback'));
     const fallback = await buildTranslator(pageMode, ctx, carryover, true);
     await fallback.start();
     return fallback;
