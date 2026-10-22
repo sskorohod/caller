@@ -44,6 +44,13 @@ export const CLOSE_TIMEOUT_MS = 1800;
 const INTERIM_EVERY_S = 0.25;
 const STATS_EVERY_MS = 5000;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+/**
+ * While paused the idle guard is widened, not removed. Pausing is a deliberate act and five
+ * minutes of it is normal, but account() bills wall-clock seconds that keep running regardless —
+ * so clearing the timer outright would leave only the four-hour safety net, and someone who taps
+ * Pause and walks away would be charged for all of it.
+ */
+const PAUSED_IDLE_TIMEOUT_MS = 20 * 60 * 1000;
 const SAFETY_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 const STT_PRICE_KEY = 'openai-live-transcribe';
 // Connections to OpenAI. The SDK's default agent drops an idle socket after 4 s, and the pause
@@ -383,10 +390,10 @@ export class ConsecutiveTranslator extends EventEmitter {
     }
   }
 
-  private resetIdleTimer(): void {
+  private resetIdleTimer(afterMs = IDLE_TIMEOUT_MS): void {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (!this.persist || this.closed) return;
-    this.idleTimer = setTimeout(() => this.hangupOnIdle().catch(() => {}), IDLE_TIMEOUT_MS);
+    this.idleTimer = setTimeout(() => this.hangupOnIdle().catch(() => {}), afterMs);
   }
 
   private async hangupOnIdle(): Promise<void> {
@@ -519,6 +526,7 @@ export class ConsecutiveTranslator extends EventEmitter {
         this.player.stop(cmd.utt);
         this.engineImpl.stopped(cmd.utt);
         this.logTurn(cmd.utt, true);
+        this.resetIdleTimer();   // a reply cut off by someone speaking is still a live call
         break;
       case 'drop':
         this.player.discard(cmd.utt);
@@ -764,11 +772,16 @@ export class ConsecutiveTranslator extends EventEmitter {
     if (this.paused) return;
     this.paused = true;
     if (this.floor) this.apply(this.floor.pauseAll('paused'));
+    // Nothing re-arms the idle timer while paused: sendAudio and onVad both return early, so no
+    // utterance is created and neither settleText nor onFinished runs. Without this the five-minute
+    // guard fires and hangs up a call the user deliberately paused.
+    this.resetIdleTimer(PAUSED_IDLE_TIMEOUT_MS);
     log.info({ callId: this.callId }, 'Consecutive translator paused');
   }
 
   resume(): void {
     this.paused = false;
+    this.resetIdleTimer();   // back to the normal window, counted from the resume
     log.info({ callId: this.callId }, 'Consecutive translator resumed');
   }
 

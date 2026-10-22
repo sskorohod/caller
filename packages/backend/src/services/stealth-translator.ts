@@ -203,6 +203,7 @@ export class StealthTranslator extends EventEmitter {
   // long → end the call so an off-hook line isn't billed indefinitely.
   private idleTimer?: ReturnType<typeof setTimeout>;
   private static readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+  private static readonly PAUSED_IDLE_TIMEOUT_MS = 20 * 60 * 1000;
 
   // Live (non-final) tail of the current segment — shown as the "Listening…"
   // original; translated only once it finalizes (append-only).
@@ -882,8 +883,20 @@ export class StealthTranslator extends EventEmitter {
     log.info({ callId: this.callId, myLang, targetLang }, 'Stealth translator languages updated');
   }
 
-  pause(): void { this.paused = true; log.info({ callId: this.callId }, 'Stealth translator paused'); }
-  resume(): void { this.paused = false; log.info({ callId: this.callId }, 'Stealth translator resumed'); }
+  // The idle guard is widened while paused rather than cleared: billing runs on wall-clock
+  // seconds either way, so a cleared timer would bill a forgotten pause for up to four hours.
+  // Same defect and same fix as the consecutive engine — this one is the VOICE_ENGINE=pipeline
+  // rollback, so leaving it unfixed would mean rolling back into the bug.
+  pause(): void {
+    this.paused = true;
+    this.resetIdleTimer(StealthTranslator.PAUSED_IDLE_TIMEOUT_MS);
+    log.info({ callId: this.callId }, 'Stealth translator paused');
+  }
+  resume(): void {
+    this.paused = false;
+    this.resetIdleTimer();
+    log.info({ callId: this.callId }, 'Stealth translator resumed');
+  }
   isPaused(): boolean { return this.paused; }
 
   // 1-way/2-way toggle (voice pipeline). 'text'/'unidirectional' → one-way.
@@ -905,10 +918,10 @@ export class StealthTranslator extends EventEmitter {
   }
 
   /** (Re)arm the idle-hangup timer — called on each successful translation. */
-  private resetIdleTimer(): void {
+  private resetIdleTimer(afterMs = StealthTranslator.IDLE_TIMEOUT_MS): void {
     if (this.saved) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => { void this.hangupOnIdle(); }, StealthTranslator.IDLE_TIMEOUT_MS);
+    this.idleTimer = setTimeout(() => { void this.hangupOnIdle(); }, afterMs);
   }
 
   /** No translation/silence for IDLE_TIMEOUT_MS → end the Twilio call. */

@@ -199,6 +199,31 @@ test('one-way: a text-only turn keeps the call from the idle hang-up', async () 
   assert.notEqual((h.translator as any).idleTimer, armed);   // re-armed by the other side's turn
 });
 
+test('pausing widens the idle guard instead of leaving it to hang up the call', async () => {
+  // Nothing re-arms the idle timer while paused — sendAudio and onVad both return early, so no
+  // utterance is created and neither settleText nor onFinished runs. Before the fix the five-minute
+  // guard fired on a call the user had deliberately paused. Clearing the timer is not the answer
+  // either: account() bills wall-clock seconds regardless, so a forgotten pause would be charged
+  // against the four-hour safety net alone.
+  const h = await make({ persist: true }, { carryover: { sessionId: null, startTime: Date.now(), transcript: [] } });
+  const atStart = (h.translator as any).idleTimer;
+  assert.ok(atStart);
+
+  h.translator.pause();
+  const whilePaused = (h.translator as any).idleTimer;
+  assert.ok(whilePaused, 'paused calls keep a guard');
+  assert.notEqual(whilePaused, atStart, 're-armed, not left on the five-minute window');
+  // The widened window is what distinguishes this from the normal one.
+  assert.ok((whilePaused as any)._idleTimeout > 5 * 60 * 1000, 'the paused window is longer than idle');
+
+  h.translator.resume();
+  const afterResume = (h.translator as any).idleTimer;
+  assert.notEqual(afterResume, whilePaused, 'resume restarts the normal window');
+  assert.equal((afterResume as any)._idleTimeout, 5 * 60 * 1000);
+
+  h.translator.detach();
+});
+
 test('Socket.IO payloads are byte-for-byte StealthTranslator.emitTurn', async () => {
   const emitted: Array<[string, string, any]> = [];
   setIo({ to: (room: string) => ({ emit: (ev: string, payload: any) => emitted.push([room, ev, payload]) }) } as any);
