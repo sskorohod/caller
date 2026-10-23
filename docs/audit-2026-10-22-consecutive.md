@@ -41,7 +41,7 @@
 
 ## 3. After a pause or restart the interpreter hears its own voice as a new speaker and reads the caller's own sentence back to them
 
-**ВЫСОКАЯ** · `services/consecutive/floor.ts`
+**ВЫСОКАЯ** · `services/consecutive/floor.ts`  ✅ исправлено (`58f4593`)
 
 **Что ломается.** pause() (floor.ts:778-786) and restart() (793-805) are the only two ways playback stops that do NOT set finishedAt — finished() (333), interrupt() (738) and pauseAll() (393) all do — and restart() additionally erases playing.translation. playedTexts() (961-966) admits only `state === 'playing'` or `finishedAt !== null`, so the just-played text drops out of the echo memory exactly when listening() is still open for ECHO_TAIL_S = 1.5s, i.e. exactly when the tail of that audio returns off the room mic. Reproduced: after pause(#1), our own echoed ' the technician will come tomorrow morning' opens candidate #3 (en), the intent judge is asked with playing = "" (floor.ts:512, this.playing is now null) so the model cannot recognise its own echo either, answers 'later', and #3 is released — queued to be translated back into Russian and spoken at the man who just spoke. Identical after restart(). Stop-word flavour: our own echoed ' Wait' scores counts.stop_phrase: 1. Control with #1 still 'playing': no candidate at all, so the delta is entirely the lost memory. Each occurrence writes a phantom turn into the saved transcript and burns an intent call, a translation and a TTS. The trigger (speaker continuing over the translation of their own words) is a common path the code comments attribute to repeated live calls.
 
