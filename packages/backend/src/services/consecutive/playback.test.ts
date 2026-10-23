@@ -6,10 +6,13 @@ import { Playback, type PlaybackOut } from './playback.js';
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-/** An output with a pace: each write takes `delay` ms, and the frame counts once its write returns. */
+/** An output with a pace: each write takes `delay` ms, and the frame counts once its write returns.
+ *  `lead` is what a real transport would still be holding unplayed; 0 unless a test says otherwise, and a
+ *  clear() drops it, as TwilioOut's does. */
 class Sink implements PlaybackOut {
   frames: Buffer[] = [];
   clears = 0;
+  lead = 0;
 
   constructor(private readonly delay = 1) {}
 
@@ -20,6 +23,11 @@ class Sink implements PlaybackOut {
 
   clear(): void {
     this.clears += 1;
+    this.lead = 0;
+  }
+
+  leadMs(): number {
+    return this.lead;
   }
 }
 
@@ -144,6 +152,7 @@ test('a failing sink does not kill the player', async () => {
       if (calls === 1) throw new Error('boom');
     },
     clear() {},
+    leadMs() { return 0; },
   };
   const player = new Playback(flaky, { onFinished: u => finished.push(u) });
   const running = player.run();
@@ -206,6 +215,78 @@ test('resume starts from the beginning of the interrupted phrase', async () => {
   assert.deepEqual(resumed.slice(0, 6), [0, 0, 0, 0, 0, 11]);   // 0.1 s of silence, then the phrase from its start
   assert.equal(resumed.at(-1), 40);
   assert.ok(!resumed.some(v => v >= 1 && v <= 10));   // the first phrase is not repeated
+  player.close();
+  await running;
+});
+
+test('a pause gives back the end of the phrase before the seam, which downstream had not played', async () => {
+  // Finding 13. The trim at the seam used to throw the end of the previous phrase away while the output was
+  // still holding it unplayed, and the clear() of the pause then dropped it there too: up to 140 ms of
+  // translated speech lost for good, in the one mechanism written to prevent exactly that.
+  // The Sink's clear() zeroes its lead, as TwilioOut's does — so this also pins the ordering: read the lead
+  // BEFORE the clear, or the prefix is empty and the fix is a no-op.
+  const sink = new Sink(2);
+  const finished: number[] = [];
+  const player = new Playback(sink, { onFinished: u => finished.push(u) });
+  const running = player.run();
+  const first = Buffer.concat(Array.from({ length: 10 }, (_, i) => pcm(i + 1)));   // phrase 1: frames 1-10
+  const gap = Buffer.alloc(FRAME_BYTES * 12);                                      // 0.24 s: the seam
+  player.append(1, Buffer.concat([first, gap, pcm(11)]));                          // phrase 2 begins
+  player.play(1);
+  assert.ok(await runUntil(() => sink.frames.length === 23));
+  sink.lead = 400;             // the output still has 0.4 s of it to play: the end of phrase 1 has not sounded
+  player.pause(1);
+  player.append(1, Buffer.concat(Array.from({ length: 29 }, (_, i) => pcm(i + 12))));
+  player.done(1);
+  player.play(1);
+  assert.ok(await runUntil(() => isDeepStrictEqual(finished, [1])));
+  const resumed = sink.frames.map(f => f[0]).slice(23);
+  assert.deepEqual(resumed.slice(0, 8), [3, 4, 5, 6, 7, 8, 9, 10]);   // the unheard end of phrase 1 is back
+  assert.deepEqual(resumed.slice(8, 20), Array.from({ length: 12 }, () => 0));   // the real seam, not a new one
+  assert.equal(resumed[20], 11);          // then phrase 2 from its start
+  assert.equal(resumed.at(-1), 40);
+  player.close();
+  await running;
+});
+
+test('a reply is not finished while the output is still playing it', async () => {
+  // Finding 14. The buffer empties when the LAST frame has been handed over, and the output still has up to
+  // 400 ms of it to play. Reporting the reply finished there stamps the next one's playAt before its first
+  // sound and lets a clear() cut a tail the transcript already called done.
+  const sink = new Sink(1);
+  const finished: number[] = [];
+  const player = new Playback(sink, { onFinished: u => finished.push(u) });
+  const running = player.run();
+  player.append(1, pcm(7, 3));
+  player.done(1);
+  sink.lead = 60;
+  player.play(1);
+  assert.ok(await runUntil(() => sink.frames.length === 3));
+  // Everything has been handed over and the engine is done, but our voice is still in the room.
+  assert.ok(!(await runUntil(() => finished.length > 0, 80)), 'finished while the tail was still sounding');
+  sink.lead = 0;
+  assert.ok(await runUntil(() => isDeepStrictEqual(finished, [1])));
+  player.close();
+  await running;
+});
+
+test('a barge-in while the tail still sounds silences it and the reply counts as interrupted', async () => {
+  // Finding 14, the half that reaches the listener: in that window the floor still has the reply as playing,
+  // so a stop really silences Twilio's buffer — and the turn is recorded interrupted rather than done.
+  const sink = new Sink(1);
+  const finished: number[] = [];
+  const player = new Playback(sink, { onFinished: u => finished.push(u) });
+  const running = player.run();
+  player.append(1, pcm(7, 3));
+  player.done(1);
+  sink.lead = 200;
+  player.play(1);
+  assert.ok(await runUntil(() => sink.frames.length === 3));
+  const clears = sink.clears;
+  player.stop(1);
+  assert.ok(sink.clears > clears, 'the tail downstream is dropped');
+  await sleep(20);
+  assert.deepEqual(finished, []);   // not "done": it was cut off
   player.close();
   await running;
 });

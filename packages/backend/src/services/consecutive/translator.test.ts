@@ -53,6 +53,7 @@ class FakeOut {
   release() { this.open?.(); this.gate = null; }
   async write() { this.writes++; if (this.gate) await this.gate; }
   clear() { this.clears++; }
+  leadMs() { return 0; }
 }
 
 /** aidispatch's fake judge: never sure the thought is over, always for interrupting. */

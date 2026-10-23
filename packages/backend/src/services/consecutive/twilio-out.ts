@@ -42,6 +42,12 @@ export class TwilioOut {
     this.aheadUntil = Math.max(this.aheadUntil, this.now()) + frameMs;
   }
 
+  /** Of what we sent, how much Twilio has not played yet: a clear() drops exactly this. Negative when the
+   *  writer has fallen behind and the queue has run dry, which is zero lead. */
+  leadMs(): number {
+    return Math.max(0, this.aheadUntil - this.now());
+  }
+
   clear(): void {
     this.epoch++;
     this.aheadUntil = this.now();
