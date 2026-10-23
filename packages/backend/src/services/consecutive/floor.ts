@@ -295,7 +295,12 @@ export class FloorManager {
         this.inc('judge_failed');
       } else {
         const [complete, confidence] = verdict;
-        u.verdicts.set(text, confidence >= this.cfg.threshold ? complete : null);
+        // An unsure answer must not be worse than no answer at all. A weak "complete" falls back to the
+        // sentence-end mark, exactly as a missing answer does; a weak "incomplete" keeps waiting, because that
+        // lean, however weak, is the only thing saying the thought is unfinished.
+        const sure = confidence >= this.cfg.threshold;
+        if (!sure) this.inc('judge_unsure');
+        u.verdicts.set(text, sure ? complete : (complete ? 'failed' : null));
         this.log('judge', `#${utt} ${complete ? 'complete' : 'incomplete'} ${confidence.toFixed(2)}`);
       }
     }

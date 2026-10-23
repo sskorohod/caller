@@ -26,8 +26,14 @@ const FIELDS = {
   barge_in_words: z.number().int().min(1).max(15),
 };
 
-/** Admin PUT body for the key: every field optional, nothing unknown. */
-export const consecutiveSettingsSchema = z.object(FIELDS).partial().strict();
+/** Admin PUT body for the key: every field optional, nothing unknown. The two silence thresholds overlap in
+ *  range, and the hard limit is meant to be the LAST gate — with it at or below the end-of-thought pause the
+ *  order inverts and everything releases by the hard limit, so backchannels and transcription garbage get
+ *  spoken aloud. The schema is partial, so a PUT of one field alone skips this; parseConsecutiveSettings
+ *  repairs that case. */
+export const consecutiveSettingsSchema = z.object(FIELDS).partial().strict()
+  .refine(v => v.hard_end_ms === undefined || v.end_silence_ms === undefined || v.hard_end_ms > v.end_silence_ms,
+    { message: 'hard_end_ms must be greater than end_silence_ms', path: ['hard_end_ms'] });
 
 /** Stored value → settings. A missing or out-of-range field falls back to its default; never throws. */
 export function parseConsecutiveSettings(raw: unknown): ConsecutiveSettings {
@@ -42,10 +48,14 @@ export function parseConsecutiveSettings(raw: unknown): ConsecutiveSettings {
   const hardEnd = FIELDS.hard_end_ms.safeParse(obj.hard_end_ms);
   const threshold = FIELDS.semantic_threshold.safeParse(obj.semantic_threshold);
   const bargeIn = FIELDS.barge_in_words.safeParse(obj.barge_in_words);
+  const endSilenceMs = endSilence.success ? endSilence.data : d.endSilenceMs;
   return {
     model: model.success ? model.data : d.model,
-    endSilenceMs: endSilence.success ? endSilence.data : d.endSilenceMs,
-    hardEndMs: hardEnd.success ? hardEnd.data : d.hardEndMs,
+    endSilenceMs,
+    // The hard limit is the last gate: at or below the end-of-thought pause every release reason but 'hard'
+    // goes dead and the drops that hold back backchannels and garbage stop firing. A no-op on any sane pair,
+    // and in range at the worst case (3000 + 100).
+    hardEndMs: Math.max(hardEnd.success ? hardEnd.data : d.hardEndMs, endSilenceMs + 100),
     semanticThreshold: threshold.success ? threshold.data : d.semanticThreshold,
     bargeInWords: bargeIn.success ? bargeIn.data : d.bargeInWords,
   };

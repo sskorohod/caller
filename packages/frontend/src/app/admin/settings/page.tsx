@@ -218,6 +218,12 @@ function TranslatorCard() {
         if (!Number.isFinite(v) || v < f.min || v > f.max) throw new Error(`${f.label}: ${f.min}–${f.max}`);
         body[f.key] = v;
       }
+      // The ranges overlap, and the hard limit is the last gate. With it at or below the end-of-thought pause
+      // every other release reason goes dead and backchannels get spoken aloud; the API repairs this silently,
+      // so say it here instead of letting the saved value differ from the one on screen.
+      if (Number(body.hard_end_ms) <= Number(body.end_silence_ms)) {
+        throw new Error('Hard limit must be greater than the end-of-thought pause');
+      }
       await api.put('/admin/settings', { translator_consecutive: body });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);

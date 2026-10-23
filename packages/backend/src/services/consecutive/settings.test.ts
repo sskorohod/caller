@@ -20,3 +20,17 @@ test('the admin schema enforces the ranges and rejects unknown keys', () => {
   assert.ok(!consecutiveSettingsSchema.safeParse({ model: 'gpt-4o' }).success);
   assert.ok(!consecutiveSettingsSchema.safeParse({ foo: 1 }).success);
 });
+
+test('the hard limit must outlast the end-of-thought pause, and is repaired when it does not', () => {
+  // The ranges overlap and the hard limit is meant to be the LAST gate. Raise the pause to the maximum the
+  // UI itself advertises, leave the limit at its default, and the order inverts: every release reason but
+  // 'hard' goes dead, so a Russian "uh-huh" in the English speaker's pause is translated and spoken into the
+  // room, and so is transcription garbage the overlap drop exists to swallow.
+  assert.ok(!consecutiveSettingsSchema.safeParse({ end_silence_ms: 3000, hard_end_ms: 2200 }).success);
+  assert.ok(!consecutiveSettingsSchema.safeParse({ end_silence_ms: 2200, hard_end_ms: 2200 }).success);
+  assert.ok(consecutiveSettingsSchema.safeParse({ end_silence_ms: 700, hard_end_ms: 2200 }).success);
+  // The schema is partial, so a PUT of one field alone never reaches the cross-field check: the parse repairs it.
+  assert.equal(parseConsecutiveSettings({ end_silence_ms: 3000 }).hardEndMs, 3100);
+  assert.equal(parseConsecutiveSettings({ end_silence_ms: 3000, hard_end_ms: 2200 }).hardEndMs, 3100);
+  assert.equal(parseConsecutiveSettings({ end_silence_ms: 700 }).hardEndMs, 2200);   // a no-op on a sane pair
+});

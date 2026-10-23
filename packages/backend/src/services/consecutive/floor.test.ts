@@ -109,6 +109,31 @@ test('the model verdict beats the period both ways', () => {
   assert.equal(line2.floor.utterances.get(1)!.releaseReason, 'semantic');
 });
 
+test('an unsure judge answer is no worse than no answer', () => {
+  // A weak "complete" used to be stored as a verdict that matched no release path at all, so the utterance
+  // sat out the 2.2 s hard limit — strictly slower than if the model had never answered. The sentence mark
+  // decides instead, exactly as it does when the judge errors or times out.
+  const line = new Line();
+  line.say('I spoke with the customer yesterday.');
+  line.answerJudges(true, 0.6);                   // under the 0.8 threshold
+  line.wait(0.4);                                 // 0.75 s of silence
+  assert.deepEqual(line.of('release').map((r) => r.utt), [1]);
+  assert.equal(line.floor.utterances.get(1)!.releaseReason, 'punctuation');
+  assert.equal(line.floor.counts.judge_unsure, 1);
+});
+
+test('an unsure incomplete keeps waiting: the weak lean is all that says the thought is unfinished', () => {
+  // The deliberate asymmetry. Falling back for an incomplete too would release a phrase the model leaned
+  // against finishing, which is the one case where its weak answer still carries information.
+  const line = new Line();
+  line.say('I spoke with the customer yesterday.');
+  line.answerJudges(false, 0.6);
+  line.wait(0.4);
+  assert.equal(line.of('release').length, 0);
+  line.wait(1.5);
+  assert.equal(line.floor.utterances.get(1)!.releaseReason, 'hard');
+});
+
 test('an unfinished thought with a 900 ms pause is not released and continues', () => {
   const line = new Line();
   line.say('Я поговорил с мастером и он сказал что');
