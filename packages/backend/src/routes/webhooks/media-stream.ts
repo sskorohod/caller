@@ -252,7 +252,17 @@ async function applyTranslatorMode(callId: string, pageMode: string): Promise<vo
   }
   // Engine swap — hand off session state without finalizing.
   const carryover = current.detach();
-  const neu = await startTranslator(pageMode, ctx, carryover);
+  let neu;
+  try {
+    neu = await startTranslator(pageMode, ctx, carryover);
+  } catch (err) {
+    // detach() turned off the old engine's finalize(), and it is still the registered one — so without this
+    // the call would end with no telephony hang-up, no session finalize and nothing billed at all. Hand it
+    // back its right to close the call: a translator that could not swap is better than a call never closed.
+    logger.error({ callId, err }, 'The new translator engine did not start — keeping the old one finalizable');
+    (current as { reattach?: () => void }).reattach?.();
+    return;
+  }
   // Twilio hung up while the new engine was starting (seconds for the consecutive
   // interpreter): the stop/close handlers could only stop the detached engine, which does
   // not finalize. Stop the new one instead of installing it on a dead stream.
@@ -286,7 +296,15 @@ async function applyTranslatorLanguages(callId: string, myLanguage: string, targ
     return;
   }
   const carryover = current.detach();
-  const neu = await startTranslator(ctx.pageMode, ctx, carryover);
+  let neu;
+  try {
+    neu = await startTranslator(ctx.pageMode, ctx, carryover);
+  } catch (err) {
+    // see applyTranslatorMode: a detached engine that stays registered can no longer finalize the call
+    logger.error({ callId, err }, 'The new translator engine did not start — keeping the old one finalizable');
+    (current as { reattach?: () => void }).reattach?.();
+    return;
+  }
   // The call ended while the new engine was starting — see applyTranslatorMode.
   if (ctx.socket.readyState !== 1) {
     logger.info({ callId }, 'Twilio stream closed during the engine swap — stopping the new engine');

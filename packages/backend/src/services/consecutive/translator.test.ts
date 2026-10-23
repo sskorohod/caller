@@ -268,6 +268,39 @@ test('Socket.IO payloads are byte-for-byte StealthTranslator.emitTurn', async ()
   }
 });
 
+test('a swap carries the metered spend over, and the successor bills it once', async () => {
+  // detach() makes finalize() a no-op on the engine it detaches, and the carryover held no cost field — so
+  // everything that leg had metered was simply dropped and the successor billed from the inherited
+  // startTime. Provider cost drives the charge, so lost provider cost is lost margin.
+  const judge = { usage: { in: 250, out: 0 }, semanticEnd: async () => null, intent: async () => null };
+  const h = await make({ judge }, {}, engine => { engine.costs = () => ({ text: 0.002, tts: 0.001 }); });
+  h.transcriber.audioSeconds = 60;
+  h.speak('Да.');
+  await h.advance(0.5);
+  await until(() => h.transcript().length === 1);
+  const carried = h.translator.detach();
+  assert.ok(carried.costs, 'the metered spend goes with the handover');
+  assert.equal(carried.costs!.stt, 0.017);
+  assert.equal(carried.costs!.llm, 0.0021);           // the translation units plus the judge
+  assert.equal(carried.costs!.tts, 0.001);
+  assert.ok(carried.costs!.legStartedAt > 0);
+
+  // The successor adds it exactly once. Its own STT is metered off the audio it really sent, so there is
+  // nothing proportional to the inherited minutes to count twice.
+  const next = build({ judge: { usage: { in: 0, out: 0 }, semanticEnd: async () => null, intent: async () => null } },
+    { carryover: carried }, engine => { engine.costs = () => ({ text: 0, tts: 0 }); });
+  await next.translator.start();
+  let settled: Record<string, any> | null = null;
+  const summary = next.translator.summary.bind(next.translator);
+  next.translator.summary = () => (settled = summary());
+  await next.translator.finalize();
+  assert.ok(settled);
+  const usage: Record<string, any> = settled;
+  assert.deepEqual(usage.inherited, carried.costs);   // carried in, and kept apart from this leg's own spend
+  assert.equal(usage.costs.transcribe, 0);            // this leg metered no audio of its own
+  assert.equal(usage.cost_usd, 0);
+});
+
 test('detach hands over the transcript and closes without finalizing', async () => {
   const { translator, say, advance, transcriber } = await make();
   say('Привет.');

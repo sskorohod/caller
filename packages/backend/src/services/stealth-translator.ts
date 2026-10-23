@@ -120,6 +120,9 @@ export class StealthTranslator extends EventEmitter {
   private ttsVoiceId: string;
   private tone: string;
   private carryover?: TranslatorCarryover;
+  /** When THIS engine's own metering began. startTime is inherited on a swap and covers the whole call, so
+   *  a rate-per-minute estimate taken from it would charge the handed-over minutes a second time. */
+  private readonly legStartedAt = Date.now();
   private callId: string;
   private workspaceId: string;
   private myLang: string;
@@ -962,7 +965,31 @@ export class StealthTranslator extends EventEmitter {
     if (this.greetingTimer) { clearTimeout(this.greetingTimer); this.greetingTimer = undefined; }
     this.playing = false;
     try { this.stt?.close(); } catch { /* ignore */ }
-    return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript };
+    const c = this.legCosts();
+    const inherited = this.carryover?.costs;
+    return {
+      sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript,
+      costs: {
+        stt: c.stt + (inherited?.stt ?? 0),
+        llm: c.llm + (inherited?.llm ?? 0),
+        tts: inherited?.tts ?? 0,   // stealth has no voice of its own
+        legStartedAt: Date.now(),
+      },
+    };
+  }
+
+  /**
+   * The successor could not start, so this engine stays registered and must be able to close the call after
+   * all. Only its right to finalize comes back — it has been shut down and cannot translate again.
+   */
+  reattach(): void {
+    this.saved = false;
+  }
+
+  /** What this leg alone costs: its rates are per minute, so only its OWN minutes may be counted. */
+  private legCosts(): { stt: number; llm: number } {
+    const legMins = Math.max(0, Date.now() - this.legStartedAt) / 60000;
+    return { stt: legMins * 0.0043, llm: legMins * 0.01 };   // Deepgram nova-2; grok-3-mini chunks (estimate)
   }
 
   async finalize(): Promise<void> {
@@ -984,10 +1011,15 @@ export class StealthTranslator extends EventEmitter {
     const durationMins = durationSecs / 60;
     const minutesUsed = Math.ceil(durationMins * 100) / 100;
 
-    const costStt = durationMins * 0.0043;            // Deepgram nova-2
-    const costLlm = durationMins * 0.01;              // grok-3-mini chunks (estimate)
-    const costTelephony = calculateTelephonyCost('twilio', durationMins);
-    const costTotal = costStt + costLlm + costTelephony;
+    // Our own minutes at our own rates, plus whatever a leg that handed this call over had already metered.
+    // Taking these rates from durationMins would charge the handed-over minutes twice over.
+    const leg = this.legCosts();
+    const inherited = this.carryover?.costs;
+    const costStt = leg.stt + (inherited?.stt ?? 0);
+    const costLlm = leg.llm + (inherited?.llm ?? 0);
+    const costTts = inherited?.tts ?? 0;
+    const costTelephony = calculateTelephonyCost('twilio', durationMins);   // the whole call, billed once
+    const costTotal = costStt + costLlm + costTts + costTelephony;
 
     if (this.sessionId) {
       try {
@@ -1011,7 +1043,7 @@ export class StealthTranslator extends EventEmitter {
         workspaceId: this.workspaceId,
         sessionId: aiSession.id,
         transcript: this.transcript,
-        costs: { stt: costStt, llm: costLlm, tts: 0, telephony: costTelephony, sttProvider: STT_PROVIDER, llmProvider: 'xai' },
+        costs: { stt: costStt, llm: costLlm, tts: costTts, telephony: costTelephony, sttProvider: STT_PROVIDER, llmProvider: 'xai' },
         durationSecs,
       });
     }

@@ -845,7 +845,7 @@ test('costs count tokens at model prices and speech by characters', async () => 
   await until(() => rec.doneCount(1) === 1);
   assert.deepEqual(engine.usage, {
     units: 1, errors: 0, in: 1000, cached: 200, out: 500, ttsChars: 1000, ttsSeconds: 60,
-    drafts: 0, draftsUsed: 0, draftsDropped: 0, retried: 0, lost: 0,
+    drafts: 0, draftsUsed: 0, draftsDropped: 0, retried: 0, lost: 0, cancelled: 0,
   });
   // caller's price table: GPT-6 Luna $0.10 in / $0.50 out per 1M tokens (no discount for cached ones there),
   // speech $0.015 per 1K characters
@@ -1188,4 +1188,24 @@ test('voice, tone, languages and silent languages changed mid-call apply to the 
   assert.deepEqual(Object.fromEntries(client.ttsCalls.map(c => [c.input, c.voice])),
     { ...Object.fromEntries(phrases.map(p => [p, 'marin'])), '[Two.]': 'cedar' });
   assert.equal(rec.text(3), '[三。]');
+});
+
+test('the utterance map stays bounded over a long call, and a dropped id stays dropped', async () => {
+  // Nothing was ever deleted from it, so a four-hour call held on to every source and translation string of
+  // the whole call — each entry also keeping a Set, a Semaphore and an AbortController — on a host whose
+  // memory limit is shared with calls in progress.
+  const client = new FakeOpenAI();
+  const { engine } = make(client);
+  for (let i = 1; i <= 400; i++) {
+    engine.opened(i, 'ru', false);
+    engine.dropped(i);
+  }
+  const utts = (engine as any).utts as Map<number, unknown>;
+  assert.ok(utts.size <= 64, `the map grew to ${utts.size}`);
+  // ...and the eviction must not resurrect a dropped utterance: live() builds a fresh, NOT cancelled one for
+  // an unknown id on purpose, so without a tombstone the engine would speak text the floor had dropped.
+  engine.updated(399, 'Это сбросили.');
+  engine.released(399, 'Это сбросили.');
+  await sleep(20);
+  assert.equal(client.chatCalls.length, 0);
 });

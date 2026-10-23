@@ -418,7 +418,18 @@ export interface TranslatorDefaults {
 export interface TranslatorCarryover {
   sessionId: string | null;
   startTime: number;
-  transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string; untranslated?: boolean }>;
+  transcript: Array<{ speaker: string; text: string; lang: string; translated: string; timestamp: string;
+    untranslated?: boolean; interrupted?: boolean; skipped?: string; partial?: string }>;
+  /**
+   * Provider spend already metered by the engine that handed the call over, and the moment it did.
+   *
+   * detach() makes finalize() a no-op on the engine it detaches, so without this the whole of that leg's
+   * metered cost was simply dropped and the successor billed from the inherited startTime. The timestamp is
+   * load-bearing rather than a detail: an engine that estimates cost per minute must charge only its OWN
+   * minutes, or adding these amounts on top charges the handed-over minutes twice and turns an under-charge
+   * into an over-charge. Telephony is deliberately absent — it is billed once, whole-call, from startTime.
+   */
+  costs?: { stt: number; llm: number; tts: number; legStartedAt: number };
 }
 
 /** ai_call_sessions.transcript entry */

@@ -58,6 +58,13 @@ export const timing = {
   RETRY_TIMEOUT_S: 3.0,
 };
 const CONTEXT_UNITS = 3;         // this many earlier units of the same utterance the model sees, for coherence
+/**
+ * Utterance ids kept. The floor allocates a fresh id per turn AND per candidate and can route late text to
+ * one for up to LAG_S = 0.9 s, so a window this wide is far beyond anything it revisits — while without one
+ * the map is monotonic in ids touched, and a four-hour call at ~3.4 turns a minute holds on to every source
+ * and translation string of the whole call, on a host whose memory limit is shared with calls in progress.
+ */
+const KEEP_UTTS = 32;
 const TTS_PARALLEL = 2;          // the head sounds while the next phrase is already being synthesised
 export const TTS_CHUNK = 4800;   // 0.1 s of sound; an even byte count: a broken stream cannot shift the next phrase by half a sample
 const RATE = 24000;              // PCM16 mono 24 kHz: what speech synthesis returns
@@ -275,6 +282,11 @@ export class CascadeEngine {
     units: 0, errors: 0, in: 0, cached: 0, out: 0, ttsChars: 0, ttsSeconds: 0, drafts: 0, draftsUsed: 0, draftsDropped: 0,
     retried: 0,   // units asked for a second time because the first call failed before streaming anything
     lost: 0,      // units never translated: the sentences around them sounded and this one did not
+    // Units whose stream was cancelled before its final chunk. The prompt ran and the provider billed it,
+    // but the usage arrives only in that last chunk, so those tokens are missing from costs.text. The TTS
+    // leg charges cancelled work on purpose (see synthesizePhrase); this counter is what keeps the
+    // asymmetry visible instead of silently understating the text leg.
+    cancelled: 0,
   };
 
   private readonly client: OpenAILike;
@@ -289,6 +301,10 @@ export class CascadeEngine {
   private readonly onDone: EngineCallbacks['onDone'];
   private readonly onSkipped: EngineCallbacks['onSkipped'];
   private readonly utts = new Map<number, Utterance>();
+  /** Ids cancelled by dropped()/stopped(), kept after their utterance is evicted. live() auto-creates a
+   *  fresh, NOT cancelled utterance for an unknown id — on purpose, so late text still gets translated — so
+   *  dropping the tombstone would let the engine speak text the floor had deliberately dropped. */
+  private readonly cancelledIds = new Set<number>();
   private closed = false;
 
   constructor(opts: EngineOptions) {
@@ -314,6 +330,7 @@ export class CascadeEngine {
 
   opened(utt: number, lang: string | null, candidate: boolean): void {
     if (!this.closed && !this.utts.has(utt)) {
+      this.prune();
       this.utts.set(utt, newUtterance(utt, lang !== null && this.langs.includes(lang) ? lang : null));
     }
   }
@@ -399,6 +416,7 @@ export class CascadeEngine {
     const old = this.utts.get(utt);
     if (this.closed || old === undefined || old.cancelled) return false;
     this.cancel(old);
+    this.cancelledIds.delete(utt);   // a restart revives the id on purpose: the thought is translated anew
     this.utts.set(utt, newUtterance(utt, old.lang));
     return true;
   }
@@ -409,6 +427,7 @@ export class CascadeEngine {
       u = newUtterance(utt, null);   // and late events for it are not translated either
       this.utts.set(utt, u);
     }
+    this.bury(utt);
     this.cancel(u);
   }
 
@@ -463,6 +482,8 @@ export class CascadeEngine {
     this.closed = true;
     const tasks = [...this.utts.values()].flatMap(u => [...u.tasks]);
     for (const u of this.utts.values()) this.cancel(u);
+    this.utts.clear();   // closed already makes live() return null: nothing needs them any more
+    this.cancelledIds.clear();
     if (tasks.length) {
       // cancelled tasks end at once; a connection that hangs on close must not hold up the call
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -476,8 +497,27 @@ export class CascadeEngine {
 
   // --- what goes to translation --------------------------------------------------------------------------
 
+  /** Remember that this id was dropped, so a late event for it cannot resurrect it through live(). */
+  private bury(utt: number): void {
+    this.cancelledIds.add(utt);
+  }
+
+  /**
+   * Forget utterances the floor can no longer touch. Their ids stay in cancelledIds when they were dropped,
+   * so a late event still cannot resurrect one; a kept utterance holds its source, its translation, a Set, a
+   * Semaphore and an AbortController, which is why this is worth doing at all.
+   */
+  private prune(): void {
+    if (this.utts.size <= KEEP_UTTS * 2) return;
+    let newest = 0;
+    for (const id of this.utts.keys()) if (id > newest) newest = id;
+    const oldest = newest - KEEP_UTTS;
+    for (const id of [...this.utts.keys()]) if (id < oldest) this.utts.delete(id);
+    for (const id of this.cancelledIds) if (id < oldest) this.cancelledIds.delete(id);
+  }
+
   private live(utt: number): Utterance | null {
-    if (this.closed) return null;
+    if (this.closed || this.cancelledIds.has(utt)) return null;
     let u = this.utts.get(utt);
     if (u === undefined) {
       u = newUtterance(utt, null);   // opened never came: translate without a language hint
@@ -659,10 +699,13 @@ export class CascadeEngine {
         // a translation is hardly longer than its source in tokens; the cap is against a model gone off on its own
         max_completion_tokens: 64 + 2 * unit.length,
       } as any, callOptions(AbortSignal.any([cancel, timeout])));
-      if (cancel.aborted) return 'ok';
+      if (cancel.aborted) { this.usage.cancelled += 1; return 'ok'; }
       for await (const chunk of stream as AsyncIterable<any>) {
-        if (cancel.aborted) return 'ok';
-        this.count(chunk?.usage);   // the usage comes in the last chunk, without a choice
+        if (cancel.aborted) { this.usage.cancelled += 1; return 'ok'; }
+        // The usage comes in the last chunk, without a choice — so a stream cancelled before it reports no
+        // tokens at all, although the prompt ran and was billed. Knowingly lost: usage.cancelled says how
+        // many, and instrumenting the provider proved there is nothing earlier to rescue.
+        this.count(chunk?.usage);
         const choices = chunk?.choices;
         const delta: unknown = choices?.length ? choices[0]?.delta?.content : null;
         if (typeof delta === 'string' && delta) {
@@ -671,10 +714,10 @@ export class CascadeEngine {
           for (const phrase of chunker.feed(delta)) this.speak(u, phrase, draft);
         }
       }
-      if (cancel.aborted) return 'ok';
+      if (cancel.aborted) { this.usage.cancelled += 1; return 'ok'; }
       if (timeout.aborted) throw timeout.reason;   // the SDK ends an aborted stream quietly: the translation is cut
     } catch (err) {
-      if (cancel.aborted) return 'ok';   // a cancellation is not an error
+      if (cancel.aborted) { this.usage.cancelled += 1; return 'ok'; }   // a cancellation is not an error
       this.usage.errors += 1;
       // only the error's name: its text can carry the key
       log.warn({ utt: u.id, err: errorName(err, timeout) }, 'consecutive v2: translation skipped');

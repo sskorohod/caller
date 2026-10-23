@@ -956,6 +956,10 @@ export class ConsecutiveTranslator extends EventEmitter {
       engine_usage: { ...(this.engineImpl?.usage ?? {}) },
       events: f.events.map(e => [...e]),
       costs: { transcribe: round6(c.stt), text: round6(c.text), judge: round6(c.judge), tts: round6(c.tts) },
+      // `costs` and cost_usd are THIS leg's own metered spend — metrics are written per leg, and a detached
+      // one keeps its own. What a previous leg handed over is kept beside them, not folded in: the two are
+      // added once, on the bill.
+      inherited: this.carryover?.costs ? { ...this.carryover.costs } : null,
       cost_usd: round6(c.stt + c.text + c.judge + c.tts),
     };
   }
@@ -981,9 +985,29 @@ export class ConsecutiveTranslator extends EventEmitter {
   detach(): TranslatorCarryover {
     this.saved = true;   // the next engine finalizes the session
     const metrics = this.metricsOrNull();
+    const c = this.costParts();
+    const inherited = this.carryover?.costs;
     void this.close();   // its synchronous part logs a translation cut off by the swap
     if (this.persist && this.sessionId && metrics) void this.writeMetrics(metrics);
-    return { sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript.slice() };
+    return {
+      sessionId: this.sessionId, startTime: this.startTime, transcript: this.transcript.slice(),
+      // What this leg metered, plus whatever a previous leg handed us; telephony stays out, billed once for
+      // the whole call. legStartedAt is now: this instant ends our metering and begins the successor's.
+      costs: {
+        stt: c.stt + (inherited?.stt ?? 0),
+        llm: c.text + c.judge + (inherited?.llm ?? 0),
+        tts: c.tts + (inherited?.tts ?? 0),
+        legStartedAt: Date.now(),
+      },
+    };
+  }
+
+  /**
+   * The successor could not start, so this engine stays registered and must be able to close the call after
+   * all. Only its right to finalize comes back — it has been shut down and cannot translate again.
+   */
+  reattach(): void {
+    this.saved = false;
   }
 
   private async close(): Promise<void> {
@@ -1052,8 +1076,15 @@ export class ConsecutiveTranslator extends EventEmitter {
     const durationMins = durationSecs / 60;
     const minutesUsed = Math.ceil(durationMins * 100) / 100;
     const c = this.costParts();
+    // A leg that handed this call over had its finalize() turned off, so its metered spend only reaches the
+    // bill through here. Added as given: this engine's own STT is metered off the audio it actually sent,
+    // not estimated per minute, so nothing is counted twice.
+    const prior = this.carryover?.costs;
+    const costStt = c.stt + (prior?.stt ?? 0);
+    const costLlm = c.text + c.judge + (prior?.llm ?? 0);
+    const costTts = c.tts + (prior?.tts ?? 0);
     const costTelephony = calculateTelephonyCost('twilio', durationMins);
-    const costTotal = c.stt + c.text + c.judge + c.tts + costTelephony;
+    const costTotal = costStt + costLlm + costTts + costTelephony;
     const metrics = this.metricsOrNull();
 
     if (this.persist) {
@@ -1084,7 +1115,7 @@ export class ConsecutiveTranslator extends EventEmitter {
           sessionId: aiSession.id,
           transcript: this.transcript,
           costs: {
-            stt: c.stt, llm: c.text + c.judge, tts: c.tts, telephony: costTelephony,
+            stt: costStt, llm: costLlm, tts: costTts, telephony: costTelephony,
             sttProvider: 'openai', llmProvider: 'openai', ttsProvider: 'openai',
           },
           durationSecs,
