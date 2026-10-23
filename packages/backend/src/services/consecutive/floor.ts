@@ -38,6 +38,8 @@ export const CANDIDATE_END_S = 1.2;   // this long without new words: the interr
 export const PROMOTE_S = 1.0;         // "uh-huh" in the last second of a translation or after it is an answer already
 export const ECHO_TAIL_S = 1.5;       // the echo of our sound may still come back this long after it
 export const ECHO_MEMORY_S = 10.0;    // played text is remembered for the echo filter this long
+export const SOUNDED_MAX = 8;         // this many discarded translations are kept for the echo filter: more
+                                      // restarts than that inside ECHO_MEMORY_S is a storm, not a conversation
 export const HEAD_TIMEOUT_S = 10.0;   // a released utterance without sound longer than this stops holding the queue:
                                       // the engine broke
 export const GREETING_MAX_WAIT_S = 6.0;  // the greeting waits for quiet, but not forever: both sides must know
@@ -132,6 +134,9 @@ export class Utterance {
   releaseReason = '';
   playAt: number | null = null;
   finishedAt: number | null = null;
+  lastSoundedAt: number | null = null;   // when our sound for it last reached the line. A pause and a restart stop
+                                         // the sound too, and its echo still comes back — unlike finishedAt, which
+                                         // only marks a playback that ended as a whole
   firstRealAt: number | null = null;
   decidedAt: number | null = null;
   firstAt = 0;                        // when the first word came
@@ -185,6 +190,7 @@ export class FloorManager {
   private readonly judgeSent = new Map<string, number>();
   private readonly textTimes = new Map<string, number[]>();
   private held: [string, number] | null = null;   // a single letter waiting for the next word
+  private sounded: Array<[string, number]> = [];  // translations that sounded and were then thrown away
 
   constructor(config: FloorConfig, clock: () => number = () => performance.now() / 1000) {
     this.cfg = {
@@ -330,7 +336,7 @@ export class FloorManager {
     const u = this.utterances.get(utt);
     if (u !== undefined && u.state === 'playing') {
       u.state = 'done';
-      u.finishedAt = now;
+      u.finishedAt = u.lastSoundedAt = now;
       this.playing = null;
       this.playedUntil = now;
       this.log('played', `#${utt}`);
@@ -372,7 +378,7 @@ export class FloorManager {
     this.silent = new Set(langs);
   }
 
-  /** A text-only reply got its translation: it is over. No finishedAt — it never sounded,
+  /** A text-only reply got its translation: it is over. No finishedAt and no lastSoundedAt — it never sounded,
    *  so it is neither a playback source nor text for the echo filter. */
   textDone(utt: number): Command[] {
     const u = this.utterances.get(utt);
@@ -389,7 +395,7 @@ export class FloorManager {
     const playing = this.playing !== null ? this.utterances.get(this.playing) : undefined;
     if (playing) {
       playing.state = 'interrupted';
-      playing.finishedAt = now;
+      playing.finishedAt = playing.lastSoundedAt = now;
       this.playing = null;
       this.playedUntil = now;
       this.out.push({ kind: 'stop', utt: playing.id });
@@ -509,7 +515,8 @@ export class FloorManager {
       this.merge(c, playing, now);
     } else if (c.intentAt === null && c.realCount >= this.cfg.bargeInWords && !isBackchannel(c.clean)) {
       c.intentAt = now;
-      this.out.push({ kind: 'intent', utt: c.id, text: c.clean, playing: playing ? playing.translation : '' });
+      this.out.push({ kind: 'intent', utt: c.id, text: c.clean,
+        playing: playing?.translation || this.lastSoundedText() });
     }
   }
 
@@ -585,7 +592,8 @@ export class FloorManager {
         // "ack" (and garbage) is dropped, "later" is translated after.
         c.intentAt = now;
         const playing = this.playing ? this.utterances.get(this.playing) ?? null : source;
-        this.out.push({ kind: 'intent', utt: c.id, text: c.clean, playing: playing ? playing.translation : '' });
+        this.out.push({ kind: 'intent', utt: c.id, text: c.clean,
+          playing: playing?.translation || this.lastSoundedText() });
       } else if (c.realCount < 2) {
         // One word over a translation is an echo scrap rather than a reply; a reply right after a translation is
         // "yes" or "okay", and those are above, among the backchannels. But for a speaker over the translation of his
@@ -735,7 +743,7 @@ export class FloorManager {
     const playing = this.playing ? this.utterances.get(this.playing) ?? null : null;
     if (playing !== null) {
       playing.state = 'interrupted';
-      playing.finishedAt = now;
+      playing.finishedAt = playing.lastSoundedAt = now;
       this.playing = null;
       this.playedUntil = now;
       this.out.push({ kind: 'stop', utt: playing.id });
@@ -778,6 +786,7 @@ export class FloorManager {
   private pause(playing: Utterance, now: number): void {
     playing.state = 'released';
     playing.paused = true;
+    playing.lastSoundedAt = now;
     this.playing = null;
     this.playedUntil = now;
     this.inc('paused');
@@ -796,6 +805,8 @@ export class FloorManager {
     playing.playAt = null;
     playing.resumedAt = null;
     playing.hasAudio = false;
+    playing.lastSoundedAt = now;
+    this.rememberSounded(playing.translation, now);
     playing.translation = '';
     this.playing = null;
     this.playedUntil = now;
@@ -954,15 +965,37 @@ export class FloorManager {
 
   private sourceOfPlayback(): Utterance | null {
     if (this.playing !== null) return this.utterances.get(this.playing) ?? null;
-    const done = [...this.utterances.values()].filter((u) => u.finishedAt !== null);
-    return done.length > 0 ? done.reduce((a, b) => (b.finishedAt! > a.finishedAt! ? b : a)) : null;
+    const sounded = [...this.utterances.values()].filter((u) => u.lastSoundedAt !== null);
+    return sounded.length > 0 ? sounded.reduce((a, b) => (b.lastSoundedAt! > a.lastSoundedAt! ? b : a)) : null;
   }
 
   private playedTexts(now: number): string[] {
-    return [...this.utterances.values()]
+    const live = [...this.utterances.values()]
       .filter((u) => u.translation && (u.state === 'playing'
-        || (u.finishedAt !== null && now - u.finishedAt < ECHO_MEMORY_S)))
+        || (u.lastSoundedAt !== null && now - u.lastSoundedAt < ECHO_MEMORY_S)))
       .map((u) => u.translation);
+    return [...live, ...this.sounded.filter(([, at]) => now - at < ECHO_MEMORY_S).map(([text]) => text)];
+  }
+
+  /**
+   * A restart throws the translation away and the engine writes a new one over it, so words that have already
+   * sounded cannot be read off the utterance any more. The echo filter still needs them: keep them aside for as
+   * long as their echo can come back.
+   */
+  private rememberSounded(text: string, now: number): void {
+    if (!text.trim()) return;
+    this.sounded = this.sounded.filter(([, at]) => now - at < ECHO_MEMORY_S);
+    this.sounded.push([text, now]);
+    if (this.sounded.length > SOUNDED_MAX) this.sounded.splice(0, this.sounded.length - SOUNDED_MAX);
+  }
+
+  /** What sounded last: after a pause or a restart nothing is playing, but for the judge the question "is this an
+   *  answer to it?" is about the text that had just been heard. */
+  private lastSoundedText(): string {
+    const source = this.sourceOfPlayback();
+    if (source !== null && source.translation) return source.translation;
+    const last = this.sounded.length > 0 ? this.sounded[this.sounded.length - 1] : null;
+    return last !== null ? last[0] : '';
   }
 
   private log(kind: string, detail = ''): void {

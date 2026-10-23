@@ -387,6 +387,36 @@ test('the echo of our own translation is ignored', () => {
   assert.ok(!line.of('opened').some((c) => c.candidate));
 });
 
+test('a restart does not turn what already sounded into a new speaker', () => {
+  // The restart throws the translation away and the engine writes a new one, so our own words are nowhere to be
+  // found in the utterance any more — while the room keeps giving them back, mixed into the continuation. Taken for
+  // speech they become an utterance of the other side, and the person hears his own sentence read back to him.
+  const line = playingLine();
+  line.speakOver('И ещё', { secondsPerWord: 0.1 });
+  assert.deepEqual(line.of('restart'), [Restart(1)]);
+  line.speakOver('одно: the мастер technician должен will come позвонить tomorrow заранее. morning',
+    { secondsPerWord: 0.1 });
+  line.wait(CANDIDATE_END_S + 0.2);
+  assert.deepEqual(line.of('opened').filter((c) => c.candidate && c.lang === 'en'), []);
+  assert.equal(line.of('stop').length, 0);
+  assert.deepEqual(spoken(line), [['ru', 'Мастер приедет завтра утром, с девяти до двенадцати. '
+    + 'И ещё одно: мастер должен позвонить заранее.']]);
+});
+
+test('a pause does not turn what already sounded into a new speaker', () => {
+  // The same on the other path: the translation has played a while, so it is paused rather than restarted. Its text
+  // survives on the utterance, but the utterance is no longer playing — and the echo window outlives the sound.
+  const line = playingLine();
+  line.wait(RESTART_S + 0.5);
+  line.speakOver('И ещё', { secondsPerWord: 0.1 });
+  assert.deepEqual(line.of('pause'), [Pause(1)]);
+  line.speakOver('одно: the мастер technician должен will come позвонить tomorrow заранее. morning',
+    { secondsPerWord: 0.1 });
+  line.wait(CANDIDATE_END_S + 0.2);
+  assert.deepEqual(line.of('opened').filter((c) => c.candidate && c.lang === 'en'), []);
+  assert.equal(line.of('stop').length, 0);
+});
+
 test('without echo on the line, words repeating our translation are real', () => {
   // The call's measurement showed no echo: a repeat of our words is the person, not the line. Run 24.09 lost
   // "Thursday afternoon" of "Got it, Thursday afternoon then".
