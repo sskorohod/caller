@@ -755,19 +755,61 @@ test('a session left unanswered fails the start after the timeout', async () => 
   await leg.aclose();
 });
 
-test('a reconnect sends the session and goes on without waiting for it', async (t) => {
-  // Mid-call the line cannot wait for the server's answer: the new session is used at once, and an error
-  // about it is only logged, as before.
-  const records = captureLog(t);
+test('a reconnect uses its session before the server has answered', async (t) => {
+  // Mid-call the line cannot wait for the answer to session.update: the new session takes audio at once.
+  captureLog(t);
   const first = new FakeWs();
-  const second = new FakeWs({ session: 'refuse' });
+  const second = new FakeWs({ session: 'ignore' });
   const { leg } = makeLeg(new FakeConnector(first, second));
   await leg.start();
   first.drop();
   await until(() => second.sent.length === 1);
   leg.push(FRAME);
   assert.equal(second.types()[1], 'input_audio_buffer.append', 'audio goes to the new session at once');
-  await until(() => at(records, 'warn').some(r => r.text.includes('model_not_found')));
-  assert.ok(leg.alive && !second.closed);
+  assert.ok(leg.alive);
   await leg.aclose();
+});
+
+test('a session the server refuses on a reconnect is retried, not used', async (t) => {
+  // This used to be logged and nothing else: `connected` and `alive` both stayed true, and the leg kept
+  // pushing audio and commits into a session the server had never configured — minutes of billed line, not
+  // one delta, and the idle guard hanging the call up five minutes later. The first session has always
+  // treated the identical event as fatal; now a reconnect does too, so the backoff gets its turn and a
+  // refusal that two more attempts would have survived is survived.
+  const records = captureLog(t);
+  const first = new FakeWs();
+  const refused = new FakeWs({ session: 'refuse' });
+  const third = new FakeWs();
+  const { leg } = makeLeg(new FakeConnector(first, refused, third));
+  await leg.start();
+  first.drop();
+  await until(() => at(records, 'warn').some(r => r.text.includes('model_not_found')));
+  await until(() => third.sent.length > 0);
+  assert.ok(refused.closed, 'the refused socket is not kept');
+  assert.ok(leg.alive, 'the leg recovered on the next attempt');
+  assert.equal(leg.refusals, 1);
+  assert.deepEqual(leg.lastFailure, { kind: 'refused', code: 'model_not_found', type: 'invalid_request_error' });
+  await leg.aclose();
+});
+
+test('a leg that cannot come up says why in fields, not in prose', async (t) => {
+  // One constant string, 'transcriber did not start', used to be the only durable record of all four causes
+  // — and they need four different fixes: the key's model access, the host, the network, the quota.
+  captureLog(t);
+  const handshake = makeLeg(new FakeConnector(new Error('down')));
+  assert.equal(await handshake.leg.start(), false);
+  assert.equal(handshake.leg.lastFailure?.kind, 'handshake');
+  await handshake.leg.aclose();
+
+  const ignored = makeLeg(new FakeConnector(new FakeWs({ session: 'ignore' })), { acceptTimeoutMs: 10 });
+  assert.equal(await ignored.leg.start(), false);
+  assert.deepEqual(ignored.leg.lastFailure, { kind: 'not_accepted', timeoutMs: 10 });
+  await ignored.leg.aclose();
+
+  const refused = makeLeg(new FakeConnector(new FakeWs({ session: 'refuse' })));
+  assert.equal(await refused.leg.start(), false);
+  assert.deepEqual(refused.leg.lastFailure,
+    { kind: 'refused', code: 'model_not_found', type: 'invalid_request_error' });
+  assert.equal(refused.leg.refusals, 1);
+  await refused.leg.aclose();
 });

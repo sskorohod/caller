@@ -724,6 +724,17 @@ test('a translation unit the engine lost is named in the turn instead of passing
   assert.ok(!turn.untranslated);   // the caller did hear the rest: this is not a silent drop
 });
 
+test('call start does not keep the caller in silence past one budget', async () => {
+  // The leg's two timeouts are consecutive, not alternative: a slow but successful upgrade followed by a
+  // session.update the server never answers used to cost both, ~20 s, and nothing above had a deadline. For
+  // all of it the caller is on a live line hearing nothing — no hold music, no greeting yet, inbound frames
+  // discarded. Past one budget the cascade is the better answer.
+  const h = build({ startTimeoutMs: 30 });
+  h.transcriber.start = () => new Promise<boolean>(() => {});   // never comes up, never fails
+  await assert.rejects(h.translator.start(), /transcriber did not start in time/);
+  assert.equal(h.engine().closed, true);   // nothing of ours stays open: media-stream falls back
+});
+
 test('closing writes usage and latency even if parts fail', async () => {
   // aidispatch also wrote the call recording here; caller has none. persist is off: the metrics are what finalize()
   // would write to translator_sessions.metrics.

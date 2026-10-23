@@ -29,7 +29,7 @@ import { Judge, JUDGE_MODEL, type IntentLabel } from './judge.js';
 import { CascadeEngine, resolveVoice, TTS_MODEL, type EngineCallbacks, type OpenAILike } from './engine.js';
 import { Playback, type PlaybackOut } from './playback.js';
 import { TwilioOut, type TwilioSocketLike } from './twilio-out.js';
-import { TranscribeLeg, TRANSCRIBE_FORMAT, type TranscribeFormat } from './transcribe.js';
+import { TranscribeLeg, TRANSCRIBE_FORMAT, type TranscribeFailure, type TranscribeFormat } from './transcribe.js';
 import { loadSilero, VadStream, type VadEvent, type VadModel } from './vad.js';
 import { DEFAULT_CONSECUTIVE_SETTINGS, loadConsecutiveSettings, type ConsecutiveSettings } from './settings.js';
 import { isCrossScriptPair } from './policy.js';
@@ -43,6 +43,12 @@ export const COMMIT_FORCE_S = 10;   // no silence at all — close anyway: the t
 export const CLOSE_TIMEOUT_MS = 1800;
 const INTERIM_EVERY_S = 0.25;
 const STATS_EVERY_MS = 5000;
+/**
+ * The whole of boot(): the detector loading and the transcription session coming up. One budget for the
+ * caller's silence at call start, not one per leg timeout — past it the cascade is a better answer than
+ * more waiting.
+ */
+const START_TIMEOUT_MS = 10_000;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 /** Replacements for a dead transcription leg. A leg that dies twice is not a passing blip. */
 const TRANSCRIBER_RESTARTS_MAX = 1;
@@ -67,6 +73,10 @@ export function httpAgent(): https.Agent {
 
 export interface TranscriberLike {
   audioSeconds: number;
+  /** Why the leg could not come up, when it could not. Optional: the test fakes and the smoke scene's own
+   *  factory have no notion of it, and a fallback record that names the cause is worth more than forcing them to. */
+  lastFailure?: TranscribeFailure | null;
+  refusals?: number;
   start(): Promise<boolean>;
   push(audio: Buffer): void;
   commit(): boolean;
@@ -107,6 +117,7 @@ export interface ConsecutiveParts {
   settings?: ConsecutiveSettings;
   /** null: run without a voice detector (tests). Omitted: load Silero. */
   vadModel?: VadModel | null;
+  startTimeoutMs?: number;   // the whole-boot budget; tests shorten it
   /** Tests and the smoke scene: build the transcriber around our delta handler. */
   transcriberFactory?: (onDelta: (itemId: string, text: string) => void) => TranscriberLike;
   judge?: JudgeLike;
@@ -331,12 +342,33 @@ export class ConsecutiveTranslator extends EventEmitter {
     // The detector is a condition of work: without it pauses cannot be counted, and the
     // cascade is a better call than a translation that plays over the speaker. It loads while
     // the transcription session comes up; a failure of either closes both (start()).
-    const [model, up] = await Promise.all([
+    //
+    // One budget for the whole of it. The leg's two timeouts are consecutive, not alternative — a slow but
+    // successful upgrade followed by a session.update the server never answers costs both — and for every
+    // second of it the caller is on a live line hearing nothing at all: the inbound TwiML has no hold music,
+    // the greeting is only scheduled after this returns, and inbound frames are discarded until it does.
+    // A rejection here is caught by start(), which closes both sides, and media-stream falls back as before.
+    const booting = Promise.all([
       p.vadModel === undefined ? loadSilero() : Promise.resolve(p.vadModel),
       this.transcriber.start(),
     ]);
+    booting.catch(() => {});   // the race below may settle first: a late rejection must not escape
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    let model: VadModel | null;
+    let up: boolean;
+    try {
+      [model, up] = await Promise.race([booting, new Promise<never>((_, reject) => {
+        deadline = setTimeout(() => reject(new Error('transcriber did not start in time')),
+          p.startTimeoutMs ?? START_TIMEOUT_MS);
+        deadline.unref();
+      })]);
+    } finally {
+      clearTimeout(deadline);
+    }
     if (this.closed) return;   // close() has shut the transcriber (its start then says false) and the engine
-    if (!up) throw new Error('transcriber did not start');
+    // The cause travels with the error: four different failures used to reach the durable fallback record as
+    // one constant string, and they need four different fixes.
+    if (!up) throw new Error('transcriber did not start', { cause: this.transcriber.lastFailure ?? undefined });
     const engineUp = await this.engineImpl.start();
     if (this.closed) return;
     if (!engineUp) throw new Error('engine did not start');

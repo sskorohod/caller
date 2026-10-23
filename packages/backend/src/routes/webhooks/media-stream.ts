@@ -208,6 +208,10 @@ async function startTranslator(pageMode: string, ctx: TranslatorCtx, carryover?:
         from: 'consecutive',
         to: 'cascade',
         reason: err instanceof Error ? err.message : String(err),
+        // The four ways the transcription leg can fail to come up — bad config, unreachable host, a refused
+        // session, one left unanswered — need four different fixes, and `reason` alone cannot tell them
+        // apart. The leg carries the cause in fields; only why()-safe ones, never a message.
+        cause: err instanceof Error && err.cause ? err.cause : undefined,
         languages: [ctx.myLanguage, ctx.targetLanguage],
         mode: pageMode,
       },

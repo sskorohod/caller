@@ -52,6 +52,16 @@ const FORMATS = {
   pcmu: { wire: { type: 'audio/pcmu' }, bytesPerS: 8000 },            // G.711 µ-law: a byte a sample at 8 kHz
 } satisfies Record<TranscribeFormat, { wire: { type: string; rate?: number }; bytesPerS: number }>;
 
+/**
+ * Why the leg could not come up, in fields rather than in prose: the four causes need four different fixes
+ * (config, infra, network, quota) and the durable fallback record used to collapse all of them into one
+ * constant string. Only why()-safe fields — never a message, which can carry the key.
+ */
+export type TranscribeFailure = {
+  kind: 'connect' | 'handshake' | 'refused' | 'not_accepted';
+  err?: string; code?: string | number; type?: string; status?: number; closeCode?: number; timeoutMs?: number;
+};
+
 export interface WsLike {
   readyState: number; bufferedAmount: number;
   send(data: string): void; close(): void;
@@ -91,6 +101,10 @@ export interface TranscribeOptions {
 export class TranscribeLeg {
   alive = false;
   audioSeconds = 0;                    // what reached the socket — the price is per minute of it
+  /** Why the last attempt failed. Read by the owner when start() says false, so the fallback record can name
+   *  the cause instead of saying only that the transcriber did not start. */
+  lastFailure: TranscribeFailure | null = null;
+  refusals = 0;                        // sessions the server refused, mid-call ones included
 
   private languages: string[];
   private readonly apiKey: string;
@@ -111,6 +125,7 @@ export class TranscribeLeg {
   private dropped = 0;
   private dropLoggedAt = -Infinity;
   private began = 0;                   // when the current session came up, s
+  private accepted = false;            // the server has configured THIS socket's session
   private short = 0;                   // short-lived sessions in a row
   private readonly onDead?: (reason: string) => void;
   private dead = false;                // die() is reported once; a dead leg cannot die again
@@ -179,6 +194,11 @@ export class TranscribeLeg {
    */
   commit(): boolean {
     const ws = this.ws;
+    // Deliberately NOT gated on `accepted`: commits keep flowing while a reconnect's session.update is still
+    // unanswered, because a server that never answers would otherwise block every commit for the rest of the
+    // call and leave the line with audio but no utterance boundaries. The answer to a commit cannot be
+    // mistaken for a refusal of the session — namesSession() only acts on errors that carry no event_id,
+    // and every commit of ours carries one.
     if (!this.alive || !this.connected || ws === null || ws.readyState !== WebSocket.OPEN
       || this.uncommitted < this.minCommitBytes) return false;
     const eventId = `commit-${this.commits + 1}`;   // the server names our commit by it in an error
@@ -229,10 +249,12 @@ export class TranscribeLeg {
     try {
       ws = this.connect(TRANSCRIBE_URL, { Authorization: `Bearer ${this.apiKey}` });
     } catch (err) {
+      this.lastFailure = { kind: 'connect', ...why(err) };
       log.warn(why(err), 'transcribe leg failed to connect');
       return Promise.resolve(false);
     }
     this.ws = ws;
+    this.accepted = false;
     return new Promise<boolean>((resolve) => {
       let phase: 'connecting' | 'accepting' | 'up' = 'connecting';
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -243,19 +265,20 @@ export class TranscribeLeg {
       };
       // Never came up: a failed attempt, a session refused or left unanswered — or aclose() cut it short (it
       // detaches the socket first, so there is nothing to log).
-      const fail = (fields: object, message: string): void => {
+      const fail = (kind: TranscribeFailure['kind'], fields: object, message: string): void => {
         clearTimeout(timer);
         if (ws === this.ws) {
           this.ws = null;
           this.connected = false;
           closeQuietly(ws);
+          this.lastFailure = { kind, ...fields };
           log.warn(fields, message);
         }
         resolve(false);
       };
       const gone = (err?: unknown, closeCode?: number): void => {
         if (phase === 'up') this.lost(ws, err, closeCode);
-        else fail({ ...why(err), closeCode }, 'transcribe leg failed to connect');
+        else fail('handshake', { ...why(err), closeCode }, 'transcribe leg failed to connect');
       };
       ws.on('open', () => {
         if (ws !== this.ws || phase !== 'connecting') return;
@@ -278,7 +301,7 @@ export class TranscribeLeg {
         // model not enabled for the key) would leave the call silent instead of falling back to the cascade.
         phase = 'accepting';
         timer = setTimeout(() => {
-          fail({ timeoutMs: this.acceptTimeoutMs }, 'transcribe leg: session not accepted in time');
+          fail('not_accepted', { timeoutMs: this.acceptTimeoutMs }, 'transcribe leg: session not accepted in time');
         }, this.acceptTimeoutMs).unref();
       });
       ws.on('message', (data: Buffer | string, isBinary?: boolean) => {
@@ -288,7 +311,8 @@ export class TranscribeLeg {
           if (event?.type === 'error') {
             // the code and type say why; the message is not logged
             const error = (event.error ?? {}) as { code?: unknown; type?: unknown };
-            fail({ code: typeof error.code === 'string' ? error.code : undefined,
+            this.refusals += 1;
+            fail('refused', { code: typeof error.code === 'string' ? error.code : undefined,
               type: typeof error.type === 'string' ? error.type : undefined }, 'transcribe leg: session refused');
             return;
           }
@@ -392,6 +416,7 @@ export class TranscribeLeg {
     } else if (kind === 'input_audio_buffer.committed') {
       log.debug({ itemId: e.item_id }, 'transcribe leg: item committed');
     } else if (kind === 'session.created' || kind === 'session.updated') {
+      if (kind === 'session.updated') this.accepted = true;
       log.debug({ kind }, 'transcribe leg: session event');
     } else if (kind === 'error') {
       const error = (e.error || {}) as Record<string, unknown>;
@@ -400,6 +425,20 @@ export class TranscribeLeg {
         log.info({ eventId: error.event_id }, 'transcribe leg: commit found the buffer too small');
       } else {
         log.warn({ event: JSON.stringify(e).slice(0, 300) }, 'transcribe leg error');
+        // A refusal of a session the server never configured used to be logged and nothing else: `connected`
+        // and `alive` both stayed true, so audio and commits kept going into a session that would never
+        // transcribe — minutes of billed line, not one delta, and the idle guard ending the call. The first
+        // session has always treated this as fatal; a reconnect now does too, so the backoff gets its turn.
+        const ws = this.ws;
+        if (!this.accepted && ws !== null && namesSession(error)) {
+          this.refusals += 1;
+          this.lastFailure = {
+            kind: 'refused',
+            code: typeof error.code === 'string' ? error.code : undefined,
+            type: typeof error.type === 'string' ? error.type : undefined,
+          };
+          this.lost(ws);
+        }
       }
     }
   }
@@ -450,6 +489,17 @@ function why(err: unknown): { err?: string; code?: string | number; status?: num
     code: typeof e.code === 'string' || typeof e.code === 'number' ? e.code : undefined,
     status: status === undefined ? undefined : Number(status),
   };
+}
+
+/**
+ * Is this error about the session itself rather than about one of our events? An error answering an event we
+ * sent carries its event_id, and only a session-level one means the session was never configured. Checked
+ * against the live API's refusal, which names the offending field under `session.` and leaves event_id null.
+ */
+function namesSession(error: Record<string, unknown>): boolean {
+  if (typeof error.event_id === 'string' && error.event_id) return false;
+  const param = typeof error.param === 'string' ? error.param : '';
+  return param === '' || param.startsWith('session.');
 }
 
 /** A text frame as an event object, or null when it is not one. */
