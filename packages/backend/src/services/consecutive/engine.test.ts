@@ -182,6 +182,8 @@ class Recorder {
   readonly onAudio = (utt: number, data: Buffer) => { this.events.push(['audio', utt, data]); };
   readonly onText = (utt: number, text: string) => { this.events.push(['text', utt, text]); };
   readonly onDone = (utt: number) => { this.events.push(['done', utt]); };
+  readonly skipped: Array<[number, string]> = [];
+  readonly onSkipped = (utt: number, source: string) => { this.skipped.push([utt, source]); };
 
   audio(utt: number): Buffer {
     return Buffer.concat(this.events.filter(e => e[0] === 'audio' && e[1] === utt).map(e => e[2] as Buffer));
@@ -203,7 +205,8 @@ class Recorder {
 function make(client = new FakeOpenAI(), kw: Partial<EngineOptions> = {}) {
   const rec = new Recorder();
   const engine = new CascadeEngine({
-    client, langA: 'en', langB: 'ru', onAudio: rec.onAudio, onText: rec.onText, onDone: rec.onDone, ...kw,
+    client, langA: 'en', langB: 'ru',
+    onAudio: rec.onAudio, onText: rec.onText, onDone: rec.onDone, onSkipped: rec.onSkipped, ...kw,
   });
   made.push(engine);
   return { engine, client, rec };
@@ -588,10 +591,16 @@ test('a failed unit is skipped and the utterance still ends', async (t) => {
   engine.updated(1, 'Раз. Два. Три');
   engine.released(1, 'Раз. Два. Три.');
   await until(() => rec.doneCount(1) === 1);
-  assert.deepEqual(client.chatCalls.map(unitOf), ['Раз.', 'Два.', 'Три.']);
+  // Nothing streamed on the first ask, so nothing had reached the room or the echo filter: the unit is asked
+  // for once more before it is given up. The caller still hears the sentences around it and not this one —
+  // but now the turn carries which sentence was lost instead of looking complete.
+  assert.deepEqual(client.chatCalls.map(unitOf), ['Раз.', 'Два.', 'Два.', 'Три.']);
   assert.deepEqual(rec.audio(1), join(pcm('[Раз.]'), pcm('[Три.]')));
-  assert.ok(!(client.chatCalls[2].messages[1].content as string).includes('Два.'));   // a failed unit is no context
-  assert.equal(engine.usage.errors, 1);
+  assert.deepEqual(rec.skipped, [[1, 'Два.']]);
+  assert.equal(engine.usage.retried, 1);
+  assert.equal(engine.usage.lost, 1);
+  assert.ok(!(client.chatCalls[3].messages[1].content as string).includes('Два.'));   // a failed unit is no context
+  assert.equal(engine.usage.errors, 2);   // the first ask and the retry
   const logged = records.join(' ');
   assert.ok(logged.includes('RuntimeError') && !logged.includes('sk-live'));
 });
@@ -622,7 +631,7 @@ test('a failure is logged by its class even when the SDK leaves the name "Error"
   engine.released(1, 'Раз. Два.');
   await until(() => rec.doneCount(1) === 1);
   await assert.rejects(engine.synthesize(P1));                // the greeting's failure is logged too, then passed on
-  assert.equal(records.length, 3);                            // the unit, the phrase, the greeting
+  assert.equal(records.length, 4);                            // the unit, its retry, the phrase, the greeting
   assert.ok(records.every(r => r.includes('"err":"RateLimitError"') && !r.includes('sk-live')));
 });
 
@@ -798,7 +807,7 @@ test('costs count tokens at model prices and speech by characters', async () => 
   await until(() => rec.doneCount(1) === 1);
   assert.deepEqual(engine.usage, {
     units: 1, errors: 0, in: 1000, cached: 200, out: 500, ttsChars: 1000, ttsSeconds: 60,
-    drafts: 0, draftsUsed: 0, draftsDropped: 0,
+    drafts: 0, draftsUsed: 0, draftsDropped: 0, retried: 0, lost: 0,
   });
   // caller's price table: GPT-6 Luna $0.10 in / $0.50 out per 1M tokens (no discount for cached ones there),
   // speech $0.015 per 1K characters

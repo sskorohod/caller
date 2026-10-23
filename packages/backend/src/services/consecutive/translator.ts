@@ -139,9 +139,21 @@ export interface ConsecutiveTranslatorOptions {
   parts?: ConsecutiveParts;
 }
 
+/**
+ * Drop reasons whose text is NOT lost by being dropped, so they must not become transcript entries:
+ * 'merged' and 'lead_in' went into another utterance, 'echo' was our own voice coming back, 'short' and
+ * 'empty' carry nothing to say, and 'overlap' is mis-transcription heard inside the other side's speech
+ * ("Мастер из" in Latin as "Master is") — the admin view renders every entry, so logging those would print
+ * garbage as turns. Everything else is a whole thought and belongs in the record.
+ */
+const MERGED_REASONS = new Set(['merged', 'echo', 'short', 'empty', 'lead_in', 'overlap']);
+
 type Turn = {
   speaker: string; text: string; lang: string; translated: string; timestamp: string;
   untranslated?: boolean; interrupted?: boolean; skipped?: string;
+  /** Source the engine never translated, while the sentences around it did sound. Deliberately NOT
+   *  `untranslated`, which means "nothing was translated at all" and drives the admin health alarm. */
+  partial?: string;
 };
 
 function roundHalfEven(x: number): number {
@@ -217,6 +229,7 @@ export class ConsecutiveTranslator extends EventEmitter {
   private readonly hasAudio = new Set<number>();
   private readonly engineDone = new Set<number>();   // the engine said "no more audio", and nothing reopened it since
   private readonly logged = new Set<number>();
+  private readonly lostUnits = new Map<number, string[]>();   // source units the engine never translated
   private readonly interimAt = new Map<number, number>();
 
   private sessionId: string | null = null;
@@ -308,6 +321,7 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.transcriber = this.makeTranscriber();
     const callbacks: EngineCallbacks = {
       onAudio: (u, pcm) => this.onAudio(u, pcm), onText: (u, t) => this.onText(u, t), onDone: u => this.onDone(u),
+      onSkipped: (u, source) => this.onSkipped(u, source),
     };
     this.engineImpl = p.engineFactory ? p.engineFactory(callbacks) : new CascadeEngine({
       client: this.client, langA: this.myLang, langB: this.targetLang, model: s.model, voice: this.voice,
@@ -576,6 +590,7 @@ export class ConsecutiveTranslator extends EventEmitter {
         this.player.restart(cmd.utt);
         this.hasAudio.delete(cmd.utt);
         this.translations.delete(cmd.utt);
+        this.lostUnits.delete(cmd.utt);
         this.down.delete(cmd.utt);
         this.engineDone.delete(cmd.utt);
         this.engineImpl.restart(cmd.utt);
@@ -593,8 +608,13 @@ export class ConsecutiveTranslator extends EventEmitter {
         this.player.discard(cmd.utt);
         if (u && !u.greeting) {
           this.engineImpl.dropped(cmd.utt);
+          // Log by default and name only the reasons whose text is genuinely not lost. A 'released'
+          // utterance has already passed a release decision, so it is a whole thought: dropping it as
+          // 'interrupted', 'no audio' or on a pause used to leave the transcript showing a conversation in
+          // which the caller never said it. 'no audio' stays on logSkipped — logTurn would assert a
+          // translation the caller never heard, unmarked.
           if (cmd.reason === 'no translation') this.logTurn(cmd.utt, false);
-          else if (cmd.reason === 'backchannel' || cmd.reason === 'ack' || cmd.reason === 'stale') this.logSkipped(cmd.utt, cmd.reason);
+          else if (!MERGED_REASONS.has(cmd.reason)) this.logSkipped(cmd.utt, cmd.reason);
         }
         break;
       case 'commit':
@@ -681,6 +701,15 @@ export class ConsecutiveTranslator extends EventEmitter {
     this.resetIdleTimer();   // a turn went through, as for a played one: the line is not idle
   }
 
+  /** A unit of this reply was never translated. The caller heard the sentences around it, so the turn is not
+   *  "untranslated" — but it is not whole either, and nothing else in the record would ever say so. */
+  private onSkipped(utt: number, source: string): void {
+    const lost = this.lostUnits.get(utt) ?? [];
+    lost.push(source);
+    this.lostUnits.set(utt, lost);
+    log.warn({ callId: this.callId, utt, chars: source.length }, 'consecutive: a translation unit was lost');
+  }
+
   private onFinished(utt: number): void {
     this.apply(this.floor.finished(utt));
     this.logTurn(utt, false);
@@ -701,6 +730,9 @@ export class ConsecutiveTranslator extends EventEmitter {
     const turn: Turn = { speaker, text: u.text, lang, translated, timestamp: new Date().toISOString() };
     if (!translated) turn.untranslated = true;
     if (interrupted) turn.interrupted = true;
+    const lost = this.lostUnits.get(utt);
+    if (lost?.length) turn.partial = lost.join(' ');
+    this.lostUnits.delete(utt);
     this.transcript.push(turn);
     this.emitTurn(speaker, u.text, translated, lang);
     // after a pause the latency counts from the resumed playback, as floor.latenciesMs does

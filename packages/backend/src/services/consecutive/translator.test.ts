@@ -670,6 +670,60 @@ test('no transcriber means no call', async () => {
   assert.equal((h.translator as any).ticker, undefined);
 });
 
+test('a whole thought the floor drops is still kept in the record', async () => {
+  // floor emits ten drop reasons and only four were logged. An utterance dropped as 'interrupted' or on a
+  // pause has already passed a release decision, so it is a whole thought — and it vanished from the
+  // transcript entirely, leaving the admin and the customer reading a conversation in which the caller
+  // never said it. 'what was said must stay', as the sibling cases here already have it.
+  const h = await make({ judge: { usage: { in: 0, out: 0 }, semanticEnd: async () => null, intent: async () => null } });
+  h.speak('Он сказал, что деньги вернут в пятницу.');
+  await h.advance(0.1);
+  const utt = [...h.translator.floor.utterances.values()].find(u => !u.greeting)!;
+  h.apply(h.translator.floor.discard(utt.id, 'interrupted'));
+  await h.advance(0.1);
+  const turns = h.transcript();
+  assert.equal(turns.length, 1, JSON.stringify(turns));
+  assert.equal(turns[0].text, 'Он сказал, что деньги вернут в пятницу.');
+  assert.equal(turns[0].skipped, 'interrupted');
+  assert.equal(turns[0].translated, '');
+  assert.ok(!turns[0].untranslated);   // nothing was promised, so the health alarm must stay quiet
+});
+
+test('an utterance merged into another is not written twice', async () => {
+  // The other half of the same change: reasons whose text is not lost must NOT become entries, or the
+  // record grows duplicates and mis-transcription scraps.
+  const h = await make({ judge: { usage: { in: 0, out: 0 }, semanticEnd: async () => null, intent: async () => null } });
+  h.speak('Первая половина');
+  await h.advance(0.1);
+  const utt = [...h.translator.floor.utterances.values()].find(u => !u.greeting)!;
+  for (const reason of ['merged', 'echo', 'short', 'empty', 'lead_in', 'overlap']) {
+    h.apply([{ kind: 'drop', utt: utt.id, reason }]);
+  }
+  await h.advance(0.1);
+  assert.deepEqual(h.transcript(), []);
+});
+
+test('a translation unit the engine lost is named in the turn instead of passing as whole', async () => {
+  // The engine marks a unit sent before the call runs and has no retry, so a 429 on the middle sentence of a
+  // multi-sentence reply loses it for good: the caller hears sentence 1 and sentence 3. The transcript then
+  // showed a complete turn, because the translation map held the other two — and untranslated, which the
+  // admin health alarm watches, is only set when NOTHING was translated.
+  const h = await make({}, {}, engine => {
+    const released = engine.released.bind(engine);
+    engine.released = (u: number, text: string) => {
+      released(u, text);
+      engine.cb.onSkipped?.(u, 'Вторая часть.');
+    };
+  });
+  h.speak('Первая часть. Вторая часть. Третья часть.');
+  await h.advance(0.5);
+  await until(() => h.transcript().length === 1);
+  const turn = h.transcript()[0];
+  assert.equal(turn.partial, 'Вторая часть.');
+  assert.ok(turn.translated.length > 0);
+  assert.ok(!turn.untranslated);   // the caller did hear the rest: this is not a silent drop
+});
+
 test('closing writes usage and latency even if parts fail', async () => {
   // aidispatch also wrote the call recording here; caller has none. persist is off: the metrics are what finalize()
   // would write to translator_sessions.metrics.

@@ -51,6 +51,11 @@ export const timing = {
   SETTLE_S: 0.15,
   TIMEOUT_S: 15.0,        // per translation or speech call; longer, and that piece is lost while the utterance goes on
   CLOSE_TIMEOUT_S: 1.0,
+  // One more ask for a unit whose call failed before it streamed anything. Both numbers are small on purpose:
+  // the floor drops a released reply that has waited HEAD_TIMEOUT_S without sound, so a slow retry on the
+  // first unit turns one lost sentence into a lost turn.
+  RETRY_DELAY_S: 0.12,
+  RETRY_TIMEOUT_S: 3.0,
 };
 const CONTEXT_UNITS = 3;         // this many earlier units of the same utterance the model sees, for coherence
 const TTS_PARALLEL = 2;          // the head sounds while the next phrase is already being synthesised
@@ -90,6 +95,9 @@ export interface EngineCallbacks {
   onAudio: (utt: number, pcm24: Buffer) => void;   // 24 kHz PCM16, even chunks of at most TTS_CHUNK bytes, in order
   onText: (utt: number, text: string) => void;     // the translation text in pieces: the echo filter and the transcript
   onDone: (utt: number) => void;                   // no more audio for this utterance
+  /** A unit of the source was never translated: the caller heard the sentences around it and not this one.
+   *  Optional because it is a report, not a behaviour — a missing handler loses a diagnostic, not audio. */
+  onSkipped?: (utt: number, source: string) => void;
 }
 
 export interface EngineOptions extends EngineCallbacks {
@@ -236,6 +244,8 @@ export class CascadeEngine {
   readonly name = 'v2';
   readonly usage = {
     units: 0, errors: 0, in: 0, cached: 0, out: 0, ttsChars: 0, ttsSeconds: 0, drafts: 0, draftsUsed: 0, draftsDropped: 0,
+    retried: 0,   // units asked for a second time because the first call failed before streaming anything
+    lost: 0,      // units never translated: the sentences around them sounded and this one did not
   };
 
   private readonly client: OpenAILike;
@@ -248,6 +258,7 @@ export class CascadeEngine {
   private readonly onAudio: EngineCallbacks['onAudio'];
   private readonly onText: EngineCallbacks['onText'];
   private readonly onDone: EngineCallbacks['onDone'];
+  private readonly onSkipped: EngineCallbacks['onSkipped'];
   private readonly utts = new Map<number, Utterance>();
   private closed = false;
 
@@ -262,6 +273,7 @@ export class CascadeEngine {
     this.onAudio = opts.onAudio;
     this.onText = opts.onText;
     this.onDone = opts.onDone;
+    this.onSkipped = opts.onSkipped;
   }
 
   // --- events from the core ------------------------------------------------------------------------------
@@ -573,7 +585,19 @@ export class CascadeEngine {
       if (u.cancelled || gen !== u.loopGen) return;
       const [unit, draft] = u.units.shift()!;
       u.running = draft;
-      await this.translate(u, unit, draft);
+      let outcome = await this.translate(u, unit, draft);
+      if (outcome === 'none' && !u.cancelled && gen === u.loopGen) {
+        // Nothing streamed, so nothing has reached the room, the echo filter or the transcript: this is where
+        // a 429 or a connection reset lands, and asking again cannot duplicate anything. Once a delta has
+        // arrived it is a different matter — see translate().
+        this.usage.retried += 1;
+        await new Promise<void>(resolve => { setTimeout(resolve, timing.RETRY_DELAY_S * 1000).unref(); });
+        if (!u.cancelled && gen === u.loopGen) outcome = await this.translate(u, unit, draft, timing.RETRY_TIMEOUT_S);
+      }
+      if (outcome !== 'ok' && !u.cancelled) {
+        this.usage.lost += 1;
+        this.onSkipped?.(u.id, unit);
+      }
       // cancelled (Python's CancelledError): the rest of this loop is no longer ours
       if (u.cancelled || gen !== u.loopGen) return;
       u.running = null;
@@ -584,13 +608,20 @@ export class CascadeEngine {
     u.loop = null;
   }
 
-  private async translate(u: Utterance, unit: string, draft: Draft | null): Promise<void> {
+  /**
+   * 'ok': translated, or cancelled — a cancellation is not a loss. 'none': the call failed before the first
+   * delta, so nothing reached the room, the echo filter or the transcript and the unit can be asked for again.
+   * 'lost': it failed after streaming began, where a re-issue would duplicate text into the echo filter and
+   * audio into the room; translating "only the un-streamed remainder" is not something we can express.
+   */
+  private async translate(u: Utterance, unit: string, draft: Draft | null,
+    timeoutS = timing.TIMEOUT_S): Promise<'ok' | 'none' | 'lost'> {
     const chunker = new PhraseChunker();
     const said: string[] = [];
     const unitAbort = new AbortController();
     u.unitAbort = unitAbort;
     const cancel = AbortSignal.any([u.abort.signal, unitAbort.signal]);
-    const timeout = AbortSignal.timeout(timing.TIMEOUT_S * 1000);
+    const timeout = AbortSignal.timeout(timeoutS * 1000);
     let stream: any = null;
     try {
       stream = await this.client.chat.completions.create({
@@ -599,9 +630,9 @@ export class CascadeEngine {
         // a translation is hardly longer than its source in tokens; the cap is against a model gone off on its own
         max_completion_tokens: 64 + 2 * unit.length,
       } as any, callOptions(AbortSignal.any([cancel, timeout])));
-      if (cancel.aborted) return;
+      if (cancel.aborted) return 'ok';
       for await (const chunk of stream as AsyncIterable<any>) {
-        if (cancel.aborted) return;
+        if (cancel.aborted) return 'ok';
         this.count(chunk?.usage);   // the usage comes in the last chunk, without a choice
         const choices = chunk?.choices;
         const delta: unknown = choices?.length ? choices[0]?.delta?.content : null;
@@ -611,14 +642,17 @@ export class CascadeEngine {
           for (const phrase of chunker.feed(delta)) this.speak(u, phrase, draft);
         }
       }
-      if (cancel.aborted) return;
+      if (cancel.aborted) return 'ok';
       if (timeout.aborted) throw timeout.reason;   // the SDK ends an aborted stream quietly: the translation is cut
     } catch (err) {
-      if (cancel.aborted) return;   // a cancellation is not an error
+      if (cancel.aborted) return 'ok';   // a cancellation is not an error
       this.usage.errors += 1;
       // only the error's name: its text can carry the key
       log.warn({ utt: u.id, err: errorName(err, timeout) }, 'consecutive v2: translation skipped');
-      return;   // phrases already sent to speech will sound; a scrap of the last one is worse than silence
+      // phrases already sent to speech will sound; a scrap of the last one is worse than silence.
+      // A timeout is reported but never retried: the budget is already spent, and a second wait would land
+      // long after the floor has given up on the reply.
+      return said.length === 0 && !timeout.aborted ? 'none' : 'lost';
     } finally {
       stream?.controller?.abort();   // we close the response ourselves: one dropped half-way holds its connection
     }
@@ -628,6 +662,7 @@ export class CascadeEngine {
       u.context = [...u.context, [unit, translation] as [string, string]].slice(-CONTEXT_UNITS);
       if (draft !== null) draft.inContext = true;
     }
+    return 'ok';
   }
 
   private messages(u: Utterance, unit: string): Array<{ role: 'system' | 'user'; content: string }> {
