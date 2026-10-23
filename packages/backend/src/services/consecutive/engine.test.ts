@@ -278,6 +278,44 @@ test('chunker forces a cut at max words without any mark', () => {
   assert.deepEqual(c.flush(), [w.slice(20).join(' ')]);
 });
 
+test('a Chinese translation is cut into phrases, and only at its marks', () => {
+  // TOKEN matched a space-free run as ONE token, so `ends` held a single entry, the "may still grow" pop
+  // emptied it and cut() returned null for ever: zh and ja never streamed at all. The whole sentence had to
+  // finish before any speech began, and one failed speech request then dropped the WHOLE sentence where it
+  // drops one phrase in English — the opposite of what the engine trades for.
+  const c = new PhraseChunker();
+  const text = '您好，我是口译员，冰箱的压缩机坏了，需要更换零件，大概需要两百八十美元。';
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += 4) out.push(...c.feed(text.slice(i, i + 4)));
+  out.push(...c.flush());
+  assert.ok(out.length >= 2, JSON.stringify(out));
+  assert.equal(out.join(''), text);                      // nothing lost, nothing said twice
+  for (const phrase of out.slice(0, -1)) {
+    assert.ok('，、；：。？！'.includes(phrase.at(-1)!), phrase);   // every boundary is a mark
+  }
+});
+
+test('an unpunctuated Chinese sentence is left whole rather than force-cut mid-word', () => {
+  // One CJK token is one character, so maxWords falls inside an ordinary sentence. The naive fix split
+  // 冰箱 across two speech requests and the model read it as two unrelated syllables.
+  const c = new PhraseChunker();
+  const text = '冰箱的压缩机坏了需要更换零件大概需要两百八十美元还要加上上门费用';
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += 4) out.push(...c.feed(text.slice(i, i + 4)));
+  assert.deepEqual(out, []);
+  assert.deepEqual(c.flush(), [text]);
+});
+
+test('a Japanese translation streams on its wide marks too', () => {
+  const c = new PhraseChunker();
+  const text = 'こんにちは、通訳です。冷蔵庫のコンプレッサーが壊れました、部品の交換が必要です。';
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += 4) out.push(...c.feed(text.slice(i, i + 4)));
+  out.push(...c.flush());
+  assert.ok(out.length >= 2, JSON.stringify(out));
+  assert.equal(out.join(''), text);
+});
+
 test('chunker cuts at a mark only after the space behind it arrived', () => {
   // The model streams a number in pieces: "$1," and "500" come separately. A mark is a place to cut only once
   // the space behind it has come, or speech would say "one" and "five hundred" as two phrases.

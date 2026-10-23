@@ -63,7 +63,9 @@ export const TTS_CHUNK = 4800;   // 0.1 s of sound; an even byte count: a broken
 const RATE = 24000;              // PCM16 mono 24 kHz: what speech synthesis returns
 const BYTES_PER_S = RATE * 2;
 const SENTENCE_ENDS = new Set(SENTENCE_END);
-const PHRASE_MARKS = new Set([...',;:—', ...SENTENCE_END]);
+// Wide marks and the Arabic comma belong here too: they are the only phrase boundaries a script without
+// spaces offers, and Arabic is space-separated, so that one is a free win.
+const PHRASE_MARKS = new Set([...',;:—', ...'，、；：٫،', ...SENTENCE_END]);
 const WIDE_MARKS = new Set([...'。？！']);   // never followed by a space, and never found inside words
 
 const SYSTEM_PROMPT =
@@ -75,6 +77,18 @@ const CONTEXT_HEADER = 'Earlier parts of the same utterance, already translated 
 const NEW_HEADER = 'NEW part to translate:';
 const TOKEN = /\S+/g;
 const SPACE = /\s/;
+/**
+ * Tokens as the phrase cutter counts them: one character per ideograph or kana, one run per anything else.
+ *
+ * TOKEN itself must not change — realign() leans on its whitespace semantics — but counting with it made the
+ * cutter dead for Chinese and Japanese: a space-free run is ONE match, the "the last word may still grow" pop
+ * emptied the list, and cut() returned null for ever. So a whole sentence had to finish streaming before any
+ * speech began, and one failed speech request dropped the entire sentence where it would drop one phrase in
+ * English — inverting the engine's own "a scrap of the last one is worse than silence" trade-off.
+ */
+const CJK = '\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff';
+const CUT_TOKEN = new RegExp(`[${CJK}]|[^\\s${CJK}]+`, 'g');
+const CJK_CHAR = new RegExp(`[${CJK}]`);
 
 const XAI_VOICE_MAP: Record<string, string> = { ara: 'coral', eve: 'marin', tara: 'shimmer', rex: 'cedar', sal: 'ash', leo: 'verse' };
 
@@ -138,8 +152,13 @@ export class PhraseChunker {
 
   private cut(): number | null {
     const buf = this.buf;
-    const ends = [...buf.matchAll(TOKEN)].map(m => m.index + m[0].length);
-    if (ends.length && !isSpace(buf[buf.length - 1])) ends.pop();   // the last word may still grow
+    const tokens = [...buf.matchAll(CUT_TOKEN)];
+    const ends = tokens.map(m => m.index + m[0].length);
+    const last = tokens[tokens.length - 1]?.[0] ?? '';
+    // The last token may still grow — unless it is a single ideograph or kana, which is already whole. A
+    // trailing mark is popped with the rest on purpose: "$1," must not become a boundary before the space
+    // after it, or a streamed number is cut in half.
+    if (ends.length && !isSpace(buf[buf.length - 1]) && !CJK_CHAR.test(last)) ends.pop();
     let best: number | null = null;
     let mark: number | null = null;
     for (let count = 1; count <= Math.min(ends.length, this.maxWords); count++) {
@@ -150,7 +169,17 @@ export class PhraseChunker {
       }
     }
     if (best !== null) return best;
-    if (ends.length >= this.maxWords) return mark ?? ends[this.maxWords - 1];
+    if (ends.length >= this.maxWords) {
+      if (mark !== null) return mark;
+      const at = ends[this.maxWords - 1];
+      // Between two ideographs there is no word boundary to use: one token is one character, so maxWords
+      // falls inside an ordinary sentence and the forced cut lands mid-word — 冰箱 split across two speech
+      // requests is read as two unrelated syllables. Better to wait for a mark and let the unit flush whole,
+      // which is what Chinese and Japanese did anyway before any of this worked.
+      const after = buf[at] ?? '';   // empty: the next character has not been streamed yet, so it may continue the word
+      if (CJK_CHAR.test(buf[at - 1] ?? '') && (after === '' || CJK_CHAR.test(after))) return null;
+      return at;
+    }
     return null;
   }
 }
