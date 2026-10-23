@@ -2,6 +2,7 @@
 // the echo of its own voice. And the alphabet: on the mixed line it is the only sign of who is speaking.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { LANG_NAMES, normalizeLangCode } from '../../config/languages.js';
 import {
   echoesStop, endsSentence, isBackchannel, isCrossScriptPair, LANGUAGE_GROUPS, languageOf, pairScripts, realWords,
   scriptOf, startsWithStop, stripEcho, words,
@@ -23,6 +24,9 @@ test('script covers every language the admin offers', () => {
     assert.equal(scriptOf(text, code === 'ja'), LANGUAGE_GROUPS[code], code);
   }
   assert.deepEqual(new Set(Object.keys(samples)), new Set(Object.keys(LANGUAGE_GROUPS)));
+  // Nothing else holds these two hand-maintained lists together: a language offered in the UI but absent
+  // from the groups is in no script, which routes its every call to the cascade and breaks direction detection.
+  assert.deepEqual(new Set(Object.keys(LANG_NAMES)), new Set(Object.keys(LANGUAGE_GROUPS)));
   // punctuation and digits do not give the language away
   assert.equal(scriptOf('. , ?'), null);
   assert.equal(scriptOf('310'), null);
@@ -171,4 +175,21 @@ test('backchannels and stop phrases of the other caller languages', () => {
     '待って', '잠깐만요', '아니요, 잠깐만요', 'انتظر', 'لا، انتظر', 'रुको', 'नहीं, रुको']) {
     assert.equal(startsWithStop(t), true, t);
   }
+});
+
+test('a language code is reduced to one we know, or refused', () => {
+  // 'ru-RU' was accepted by the defaults PUT and made sticky by its merge. After that groupOf() finds no
+  // script, so the workspace is routed to the cascade for good, and lang-direction matches neither the code
+  // nor its family and falls through to "this is the subscriber" for every utterance — the English party's
+  // turns were sent to be translated into 'en-US' and came back unchanged, spoken into the room.
+  assert.equal(normalizeLangCode('ru-RU'), 'ru');
+  assert.equal(normalizeLangCode('en_US'), 'en');
+  assert.equal(normalizeLangCode(' ZH-Hans '), 'zh');
+  assert.equal(normalizeLangCode('ru'), 'ru');
+  assert.equal(normalizeLangCode('xx'), null);
+  assert.equal(normalizeLangCode('ru-RU-x-nonsense'), 'ru');
+  assert.equal(normalizeLangCode(''), null);
+  assert.equal(normalizeLangCode(undefined), null);
+  assert.equal(normalizeLangCode(42), null);
+  for (const code of Object.keys(LANG_NAMES)) assert.equal(normalizeLangCode(code), code);
 });

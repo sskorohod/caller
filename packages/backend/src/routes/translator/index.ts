@@ -219,10 +219,15 @@ const translatorRoutes: FastifyPluginAsync = async (app) => {
     const current = (ws?.translator_defaults as Record<string, unknown>) || {};
     const merged = { ...current, ...body } as Record<string, unknown>;
 
-    // Always persist a language pair so the live translator never ends up with
-    // my_language === target_language (which makes Grok just echo the input).
-    if (!merged.my_language) merged.my_language = 'ru';
-    if (!merged.target_language) merged.target_language = 'en';
+    // Always persist a KNOWN language pair. The codes go into prompts, pick the engine and drive direction
+    // detection, so a locale-shaped string that merely looks like a code is worse than no value at all — and
+    // this route is the only writer. Normalize rather than reject: the dashboard sends its whole state back
+    // and swallows the error, so a 400 over one stale field would silently cost the user every other setting.
+    const { normalizeLangCode } = await import('../../config/languages.js');
+    merged.my_language = normalizeLangCode(merged.my_language) ?? normalizeLangCode(current.my_language) ?? 'ru';
+    merged.target_language = normalizeLangCode(merged.target_language)
+      ?? normalizeLangCode(current.target_language) ?? 'en';
+    // never my_language === target_language: the model would just echo the input back
     if (merged.my_language === merged.target_language) {
       merged.target_language = merged.my_language === 'en' ? 'ru' : 'en';
     }

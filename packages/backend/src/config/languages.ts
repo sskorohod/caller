@@ -28,6 +28,20 @@ export function getLangName(code: string): string {
   return LANG_NAMES[code] || code;
 }
 
+/**
+ * A submitted or stored language code reduced to one we actually know, or null.
+ *
+ * A locale shape ('ru-RU', 'en_US') is the natural thing for anyone scripting the API, and storing it as
+ * given is quietly fatal: the code is then in no script group, so the engine choice falls to the cascade for
+ * that workspace for good, and direction detection matches neither the code nor its family and takes EVERY
+ * utterance for the subscriber's — the other side's turns come back untranslated and are spoken into the room.
+ */
+export function normalizeLangCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const code = value.trim().toLowerCase().split(/[-_]/)[0];
+  return Object.hasOwn(LANG_NAMES, code) ? code : null;
+}
+
 export const TONE_INSTRUCTIONS: Record<string, string> = {
   // Deliberately empty: this is the "no intervention" setting. Both callers
   // check the value for truthiness, so an empty string appends nothing to the
