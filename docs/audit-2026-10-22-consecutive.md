@@ -53,7 +53,7 @@
 
 ## 4. A refused session on a reconnect is logged and ignored: the leg reports healthy and appends into a session that will never transcribe
 
-**СРЕДНЯЯ** · `services/consecutive/transcribe.ts`
+**СРЕДНЯЯ** · `services/consecutive/transcribe.ts`  ✅ исправлено (`4ca9631`)
 
 **Что ломается.** On a reconnect, open() is called with awaitAccept = false, so `up()` runs at transcribe.ts:252-253 the moment session.update is written to the socket, before any answer. The server's refusal then lands in handle() (358-366) and only log.warns, while `connected` stayed true and `alive` was already true — so push() and commit() keep running into a session the server never configured. The first session treats the identical event as fatal (267-272, fail('session refused')); the reconnect does not. Reproduced with a fake socket answering {type:'error', code:'rate_limit_exceeded'} and staying open: alive = true, socket open, 15000 appends accepted, 299 commits sent, audioSeconds 300.0. Not one delta comes back, the floor gets no text, no turn completes, and the idle timer ends the call ~5 minutes later. The retry machinery is bypassed entirely: a transient refusal that two more attempts would have survived is recorded as success and never retried.
 
@@ -65,7 +65,7 @@
 
 ## 5. The only durable record of a cascade fallback carries a constant string; four distinct causes collapse into 'transcriber did not start'
 
-**СРЕДНЯЯ** · `services/consecutive/transcribe.ts`
+**СРЕДНЯЯ** · `services/consecutive/transcribe.ts`  ✅ исправлено (`4ca9631`)
 
 **Что ломается.** TranscribeLeg.start() (transcribe.ts:123-130) returns a bare `false` for all four of: a synchronous connect throw with code/HTTP status (211), a handshake/close failure with closeCode (237), the accept timeout (260), and an outright session refusal with the server's error.code/type (270-271) — each reported only into pino. translator.ts:304 turns that into `new Error('transcriber did not start')`, and media-stream.ts:210 stores exactly that message as the `translator_fallback` reason. The sibling branch at translator.ts:307 is dead code (CascadeEngine.start() is `return true`, engine.ts:270-272), and every other boot failure already carries a real message — so the transcriber, the likeliest failure and the one depending on the network and the admin key's model access, is the only anonymised one. Those four causes need four different fixes (config / infra / network / quota) and the record cannot tell them apart, which is why the 09-29 pair is unrecoverable.
 
@@ -77,7 +77,7 @@
 
 ## 6. Call start can burn two serial 10-second budgets before falling back, and the caller is neither heard nor spoken to for all of it
 
-**СРЕДНЯЯ** · `services/consecutive/transcribe.ts`
+**СРЕДНЯЯ** · `services/consecutive/transcribe.ts`  ✅ исправлено (`4ca9631`)
 
 **Что ломается.** The two timeouts are consecutive, not alternative: `handshakeTimeout: HANDSHAKE_TIMEOUT_MS` is baked into the default connect factory (transcribe.ts:112-113) and governs TCP/TLS/upgrade, and only once `ws.on('open')` fires does the accept timer get its own full acceptTimeoutMs, defaulted to the same 10s (116, 258-261). A slow-but-successful upgrade followed by a session.update the server never answers costs ~20s; the ordinary single-failure case is 10s. `await Promise.all([loadSilero(), transcriber.start()])` (translator.ts:299) has no deadline, nor does startTranslator or the media-stream `start` handler that awaits it. For the whole of it the caller is on a live PSTN call hearing nothing: the inbound TwiML is a bare <Connect><Stream> with no <Say> and no hold music (twilio.ts:227-236), the greeting is scheduled only after boot() completes (translator.ts:317) and then waits its own greetingDelaySeconds, and inbound media frames are discarded because __conferenceTranslator is assigned only at media-stream.ts:824, after the await. The author's own comment at transcribe.ts:38 budgets ONE such wait for call start; line 116 silently adds a second.
 
@@ -89,7 +89,7 @@
 
 ## 7. Two in-range settings values invert the release gate: backchannels and transcription garbage get spoken aloud into the room
 
-**СРЕДНЯЯ** · `services/consecutive/settings.ts`
+**СРЕДНЯЯ** · `services/consecutive/settings.ts`  ✅ исправлено (`0d43f56`)
 
 **Что ломается.** end_silence_ms accepts 300..3000 and hard_end_ms accepts 800..8000 (settings.ts:23-24), the ranges overlap, and nothing — not the schema, not parseConsecutiveSettings (which only applies `??` defaults), not the admin UI's per-field check (admin/settings/page.tsx:218) — requires hard_end > end_silence. floor.ts then orders its rules by silence elapsed with hardEndS as the intended last gate (627, 630, 637, 649, 660). One natural single edit inverts it: raise 'End-of-thought pause' to 3000, its advertised maximum printed in the UI hint, and leave 'Hard limit' at its 2200 default — save() always sends all five fields. Reproduced on the real FloorManager: defaults drop [[2,'backchannel']] and release [1]; inverted drops [] and releases [1,2] with utt 2 = 'uh-huh' reason 'hard'. So a Russian 'uh-huh' said in the English speaker's pause is translated and SPOKEN, and the same bypass hits the 'overlap' drop, so mis-transcription garbage ('uda moica') is spoken too. The semantic and punctuation paths also go dead — every utterance releases at hardEndS, cutting unfinished thoughts EARLIER than the default — while every gpt-4.1-mini judge call is still issued and billed on a verdict that can no longer be acted on.
 
@@ -101,7 +101,7 @@
 
 ## 8. Unvalidated language codes in the defaults PUT: one locale-shaped string kills half the line for that workspace, permanently
 
-**СРЕДНЯЯ** · `routes/translator/index.ts`
+**СРЕДНЯЯ** · `routes/translator/index.ts`  ✅ исправлено (`58f83d8`)
 
 **Что ломается.** PUT /api/translator/defaults takes `z.string().min(2).max(10)` for my_language and target_language (routes/translator/index.ts:210-211) and is the ONLY writer of translator_defaults; the sibling mid-call path validates against the real code set (socket-server.ts:196, comment: 'The codes go into prompts and pick the engine: known languages only'). With my_language='ru-RU', target_language='en-US' — a natural shape for anyone scripting the API, accepted with a 200 and made sticky by the `{...current, ...body}` merge at :220 — two things break. First, groupOf returns undefined (policy.ts:158) so isCrossScriptPair is false and wantsConsecutive routes every call of that workspace to the cascade forever. Worse, and in a file the original finding never opened: lib/lang-direction.ts:38-39 builds families as ['ru-RU'] / ['en-US'], tinyld returns 'ru'/'en' which match neither exactly nor by family, CYRILLIC_LANGS.has('ru-RU') is false so the cyrillic fallback at :68-73 is skipped, and execution falls through to `return { isMyLang: true }` at :77 for EVERY utterance. The English party's turns are treated as 'my language' and sent to be translated into 'en-US' — English comes back unchanged and is spoken into the room. Russian->English works; English->Russian never does. A caller absolutely notices.
 
@@ -113,7 +113,7 @@
 
 ## 9. An unsure judge answer is treated worse than no answer: +1.5s of dead air on exactly the short clear utterances the fast path exists for
 
-**СРЕДНЯЯ** · `services/consecutive/floor.ts`
+**СРЕДНЯЯ** · `services/consecutive/floor.ts`  ✅ исправлено (`0d43f56`)
 
 **Что ломается.** floor.ts:292 stores `confidence >= threshold ? complete : null`. A stored null matches none of true / 'failed' / 'ask' at floor.ts:645-658, so neither the semantic nor the punctuation path can fire and the text is never re-asked (decideReleases only re-asks when !verdicts.has(text)). Measured on 'I spoke with the customer yesterday.' (6 words, final period), end of speech to release: no answer -> 0.75s punctuation; judge errored/timed out -> 0.75s punctuation; complete/0.95 -> 0.75s semantic; complete/0.79 -> 2.25s hard; incomplete/0.70 -> 2.25s hard. A weak answer is strictly worse than no answer — a monotonicity violation — roughly doubling latency against the project's own ~1.2-1.3s p50 baseline. And the knob inverts: semantic_threshold is operator-tunable to 0.99 (settings.ts:27), at which EVERY judge answer stores null and both fast paths are dead engine-wide, so an admin tuning for 'safer' gets uniformly worse latency. Metrics show only release_hard while the event log says 'judge #N complete 0.70', so the two never line up — an unsure answer increments no counter at all.
 
@@ -125,7 +125,7 @@
 
 ## 10. A translation unit lost to a transient API error is never retried and leaves no per-turn trace, while the record shows the turn as fully translated
 
-**СРЕДНЯЯ** · `services/consecutive/engine.ts`
+**СРЕДНЯЯ** · `services/consecutive/engine.ts`  ✅ исправлено (`a1e07df`)
 
 **Что ломается.** send() marks the source as sent BEFORE the call runs (engine.ts:461, `u.sent = u.text.slice(0, end)`), and the catch at 617-621 counts usage.errors, log.warns and returns — with maxRetries: 0 deliberate at 807-809 and no engine-level retry anywhere, so the unit is gone. Multi-unit utterances are the normal case, not an edge: settle() sends each stable sentence end as its own unit while the person keeps talking. The project's own test asserts this as intended (engine.test.ts:581 drives three units, fails the middle one, asserts audio == [Раз.]+[Три.]). The caller hears sentence 1 and sentence 3 with the middle one missing. Then logTurn writes `translated` from the translations map, which onText already filled with units 1 and 3, so it is non-empty, turn.untranslated is NOT set, and the transcript, the /translate page and the Telegram report all show a normal complete-looking turn. EngineCallbacks (89-93) is only onAudio/onText/onDone — there is no channel back to report the loss. The only durable trace is engine_usage.errors, a bare aggregate that is incremented from BOTH the text unit (618) and a TTS phrase (715), so it cannot even distinguish a lost sentence from a lost voicing; the pino logger is unbound (26) so the warn carries no callId. CLAUDE.md's silent-drop SQL on `untranslated` returns nothing for this entire class.
 
@@ -137,7 +137,7 @@
 
 ## 11. Released utterances dropped as 'interrupted' or 'overlap' never reach the call transcript
 
-**СРЕДНЯЯ** · `services/consecutive/translator.ts`
+**СРЕДНЯЯ** · `services/consecutive/translator.ts`  ✅ исправлено (`a1e07df`)
 
 **Что ломается.** The drop case (translator.ts:523-530) logs only a four-item whitelist: 'no translation' via logTurn, and 'backchannel' / 'ack' / 'stale' via logSkipped. floor.ts emits ten other reasons, and three carry a complete utterance that reaches neither: 'interrupted' (floor.ts:747, a released sibling killed by a barge-in), 'no audio' (689, a released head that waited HEAD_TIMEOUT_S with no sound), and pauseAll's reason (399). A 'released' utterance has already passed MIN_LETTERS and a release decision, so it is a whole thought. Reproduced on the real translator for crosstalk A(ru) -> B(en) -> A(ru) then a stop-word: #1 ru playing, #3 ru released with reason 'punctuation' and its translation present in the map; B's interrupt() produced drop commands `#2 overlap` and `#3 interrupted`, and the transcript ended with ONE turn out of three real utterances — #2 being a full sentence from the other speaker. Nothing rescues them: shutdown (866-869) logs only playing/open/released/candidate, never 'dropped'. The user- and admin-visible transcript (admin/sessions/page.tsx:79-100) shows a conversation in which the caller never said it, and the team already fixed the two sibling cases on exactly this principle (test comments at translator.test.ts:664, 676-678: 'what was said must stay').
 
@@ -149,7 +149,7 @@
 
 ## 12. PhraseChunker counts words with /\S+/, so Chinese and Japanese translations are never cut: the streaming-TTS head start is dead for zh/ja
 
-**СРЕДНЯЯ** · `services/consecutive/engine.ts`
+**СРЕДНЯЯ** · `services/consecutive/engine.ts`  ✅ исправлено (`b0e1961`)
 
 **Что ломается.** TOKEN = /\S+/g (engine.ts:71) matches a space-free CJK run as ONE token; the buffer never ends in whitespace, so `ends.pop()` at 134 empties the list and cut() returns null forever. Measured on the real exported PhraseChunker streaming 4 chars at a time: a 42-char Chinese sentence yields [] during streaming and the whole sentence at flush, a 59-char Japanese one the same, while the equivalent English yields 2 phrases during streaming. This also makes the CJK sentence marks that ARE in PHRASE_MARKS (。？！ via SENTENCE_END, policy.ts:13) unreachable — the token count breaks first, so the missing CJK commas (，、；：) are a second-order problem. zh/ja are user-selectable and marketed, and isCrossScriptPair returns true for en/zh, ru/zh, en/ja, so these calls DO route to the consecutive engine. Consequences: the whole unit must finish streaming before any TTS starts, and — the strongest part — synthesizePhrase logs and returns on error (713-717), so one TTS failure or 15s timeout drops the WHOLE sentence for zh/ja where it would drop one phrase for en, inverting the engine's own 'a scrap of the last one is worse than silence' trade-off. Zero production exposure so far (all 6 calls were ru-en or pt-en), which is why this sits below the ru-en items.
 
@@ -159,7 +159,7 @@
 
 ## 13. A barge-in just after a pause in our own audio silently drops up to 140 ms off the end of the previous phrase
 
-**НИЗКАЯ** · `services/consecutive/playback.ts`
+**НИЗКАЯ** · `services/consecutive/playback.ts`  ✅ исправлено (`835560a`)
 
 **Что ломается.** remember() trims the phrase memory to LEAD_FRAMES = 5 on the first voiced frame after a GAP_FRAMES silence (playback.ts:196), and it runs BEFORE the write (154) — while TwilioOut still holds 19-20 unplayed frames, all of which clear() discards. pause() then restores only what is left in this.phrase (101-111). Reproduced with the real Playback + real TwilioOut and a FIFO playout model: frames of phrase A never heard in either pass = max(0, 20 - g - k), i.e. 140 ms at a 240 ms seam with a barge-in 1 frame into phrase B, 80 ms at a 300 ms seam, zero once the seam is >= 380 ms. The listener's heard position is ~400 ms behind the writer, so they hear A truncated ('...I'll be there on Thursd') and the resume jumps to B — permanent loss of translated speech, and precisely the fragment the pause mechanism was written to prevent. Narrower than first reported: the window is 20-140 ms wide and needs the seam silence in the 240-380 ms band, and a barge-in within RESTART_S = 3s produces restart() (whole translation redone) rather than this path.
 
@@ -171,7 +171,7 @@
 
 ## 14. Playback reports an utterance finished 400 ms before it stops sounding, so a barge-in in that window truncates its tail at Twilio
 
-**НИЗКАЯ** · `services/consecutive/playback.ts`
+**НИЗКАЯ** · `services/consecutive/playback.ts`  ✅ исправлено (`835560a`)
 
 **Что ломается.** The buffer is empty as soon as the LAST frame has been handed to TwilioOut, which by construction still holds up to QUEUE_MS = 400 ms of it — so notify() (playback.ts:144-150) -> onFinished -> floor.finished() runs 400 ms before the listener stops hearing the reply. Reproduced with the real pair on a virtual clock: last frame handed over at 1600 ms, onFinished at 1600 ms, last frame stops sounding at 2000 ms. The originally-claimed echo-window consequence is BACKWARDS and should be dropped — playedUntil is set at the notify instant, so listening() stays TRUE through the residual sound and still leaves 1.1 s of margin. What survives: (a) in the echo-absent case (echo.ts correlation < 0.7 -> setEcho(false)), decidePlayback's `quiet` gate no longer holds the next utterance, so a back-to-back reply's playAt is stamped 400 ms before its first sound and metrics.latency_ms p50/p90 understate that turn by up to 400 ms; (b) more important, any safeClear() between notify and the real end — speaker goes on over his own translation -> pause/restart -> TwilioOut.clear() — drops Twilio's whole buffer, which still holds the previous utterance's last ~380 ms, while the transcript records it as done rather than interrupted.
 
@@ -183,7 +183,7 @@
 
 ## 15. The event timeline stops ~5 minutes into every call, so a 4-hour call's metrics hold nothing after its first ~55 turns
 
-**НИЗКАЯ** · `services/consecutive/floor.ts`
+**НИЗКАЯ** · `services/consecutive/floor.ts`  ✅ исправлено (`cea9aeb`)
 
 **Что ломается.** log() silently drops everything past EVENTS_MAX = 300 (floor.ts:71, 968-972) — no else, no counter, no marker — and the array leaves the module only at translator.ts:818, inside the metrics written once at finalize. Reproduced on the real FloorManager over 4 hours of alternating ru/en turns: the cap fills at turn 55, t+312s, last stored event t+308s of 14402s, ~98% of the timeline absent; with barge-in traffic (8.1 events/turn) the cap fills at turn 37, t+153s. No test comes near it — instrumenting log() across the whole consecutive suite shows a peak of 36 events held by any FloorManager. The loss is narrower than first claimed and purely diagnostic: `this.transcript` (translator.ts:625-657) and the `consecutive_turn` log line are both uncapped and per-turn with timestamps, so ordered 'what happened when' survives minute 40 fine. What is actually lost past ~5 min is the sub-turn micro-sequence — judge verdicts with confidence, intent verdicts, echo on/off flips, candidate/prepare/merge/pause/restart ordering with ms timing. Also drop the tie to the 09-29 fallbacks: those stored no metrics at all, and the cap preserves exactly the call opening a start-time question needs.
 
@@ -193,7 +193,7 @@
 
 ## 16. A mid-call engine swap discards the detached engine's metered provider spend, and a successor that fails to start loses the whole call's billing
 
-**НИЗКАЯ** · `services/consecutive/translator.ts`
+**НИЗКАЯ** · `services/consecutive/translator.ts`  ✅ исправлено (`0045193`)
 
 **Что ломается.** detach() sets saved = true (translator.ts:843), which makes finalize() a no-op at 898, so account() — the only place costParts() is charged — never runs for that engine, and TranslatorCarryover (models/types.ts:417-422) carries no cost field. The successor then bills from the inherited startTime. Reachable by an ordinary user twice over from the public share-token page: the stealth button (translate/[token]/page.tsx:409 -> socket-server.ts:183-191 -> media-stream.ts:250) and a language change that crosses the cross-script boundary (media-stream.ts:284). Because the charge is provider-cost-driven (session-finalizer -> billing.service.ts:90-100, markup 3.0), lost provider cost is lost margin — net ~$0.024/min of provider cost, ~$0.07/min of client charge after accounting for the offset the successor's flat estimate already covers. Cents per swap, customer under-charged never over-charged, and no production call has swapped — hence low. The genuinely larger hole is adjacent: applyTranslatorMode (media-stream.ts:250-251), applyTranslatorLanguages (:284-285) and the fallback's own `await fallback.start()` (:216) are unguarded, so if the successor throws after detach(), activeConferenceTranslators keeps the detached engine whose finalize() returns at 898 — no telephony, no finalizeSession, and the call row never reaches 'completed'. Whole call billed nothing.
 
@@ -205,7 +205,7 @@
 
 ## 17. Neither utterance map is ever pruned; floor's is additionally scanned on every tick
 
-**НИЗКАЯ** · `services/consecutive/engine.ts`
+**НИЗКАЯ** · `services/consecutive/engine.ts`  ✅ исправлено (`0045193`)
 
 **Что ломается.** CascadeEngine.utts (engine.ts:251) has no delete anywhere — the only `delete` in the file is u.tasks.delete at 785 — so it is monotonic in distinct ids touched, and aclose() cancels entries without dropping them. Each retained Utterance keeps text, sent and said (source plus translation), a Set, a Semaphore and its own AbortController. floor.ts allocates a fresh monotonic id per turn and per candidate and live()/dropped() auto-create an entry for any unseen id, so a 4-hour call at ~3.4 turns/min accumulates 800-1500 entries, a few hundred KB to a few MB of strings that cannot be collected until hangup, on a Mac mini container sharing its memory limit with calls in progress. `context` is NOT quadratic (clamped to 3 units at 628), so this is strings, not blowup. The better lead is floor.ts:161's own `utterances` map, which has no eviction either AND is scanned with [...values()].filter(...) in ~a dozen per-tick paths (398, 438, 481, 558, 672, 696, 746, 812, 820, 943, 957, 962, 981) — same class with a real O(n)-per-tick cost.
 
@@ -215,7 +215,7 @@
 
 ## 18. Token usage of a cancelled translation stream is never recorded, so costs.text omits work the provider billed
 
-**НИЗКАЯ** · `services/consecutive/engine.ts`
+**НИЗКАЯ** · `services/consecutive/engine.ts`  ✅ исправлено (`0045193`)
 
 **Что ломается.** dropDraft()/restart() abort the stream before its final include_usage chunk arrives, so a cancelled unit contributes zero tokens although the prompt was run and billed. Reproduced with a provider fake billing 500 in / 100 out per request: provider ran 2 requests (1000/200), engine.usage recorded 500/100, costs().text was exactly half. The ordinary trigger is the designed path — speaker pauses >600 ms mid-thought, decideDrafts issues prepare, the speaker continues, updated() calls dropDraft() — which is why usage.draftsDropped exists as a counter. It is also internally inconsistent with the TTS leg, which charges cancelled work ON PURPOSE (engine.ts:694, 'we pay for every synthesis started, a cancelled one too'). But the magnitude is three orders below what was claimed: real prod numbers (09-26 call) are engine_usage in 1054 / out 104 over 9 units with 2 drafts dropped, i.e. ~117 prompt tokens per unit and a text leg that is 0.37% of the call — the lost amount is ~$0.000023, well under cost_usd's numeric(10,4) resolution and the balance deduction's toFixed(4), so nothing persisted or deducted actually changes. Direction is under-charging.
 
@@ -255,3 +255,30 @@ THREE REAL CONFLICTS — resolve before writing code.
 ONE NON-CONFLICT WORTH PAIRING: #7 (judge threshold) and #8 (hard_end/end_silence clamp) both alter the release gate in floor.ts. Not contradictory — #8's clamp restores `hardEndS` as the last gate, which is exactly the gate #7's unsure verdicts currently fall through to — but verify them in one pass, not two.
 
 AND ONE FIX-INTERNAL TRAP: #16's "add inherited costs in account()" must NOT be applied naively. In the consecutive->stealth direction the surviving engine is StealthTranslator, whose finalize computes STT/LLM as `durationMins * rate` off the INHERITED startTime (stealth-translator.ts:297, 970, 974-975) — adding the detached leg's metered costs on top bills those minutes twice. Carry a leg-start timestamp in the carryover and rebase stealth's duration-proportional estimators onto it, or the under-charge becomes an over-charge.
+
+
+---
+
+## Отступления от предписаний
+
+Правки, где я сознательно сделал не то, что сказано в «Правке», с причиной. Остальные — по тексту.
+
+- **#4** — гейт `commit()` на `accepted` **не поставлен**. Предписание ставило его ради того, чтобы ответ
+  сервера на коммит не прочитался как отказ сессии; `namesSession()` уже исключает это по `event_id`, который
+  наши коммиты всегда несут. А гейт взамен вносил бы вечную блокировку коммитов, если сервер не ответит на
+  `session.update`: линия с аудио, но без границ реплик.
+- **#6** — только внешний дедлайн в `boot()`; `HANDSHAKE_TIMEOUT_MS` и `acceptTimeoutMs` не тронуты. Это
+  вариант, который сам аудит называет «safer still»: укорачивание общего замыкания ударило бы по реконнектам
+  на хосте с интермиттентно фильтрующим резолвером. Конфликт (1) тем самым снят целиком.
+- **#13** — никакой отдельной вставки `LEAD_FRAMES` тишины: эти пять кадров уже внутри `phrase`, их оставляет
+  тримминг, и именно их дословно проверяет `playback.test.ts:206`. Вторая порция сломала бы фикстуру. И вместо
+  параллельного кольца — указатель `phraseStart`: тримминг перестаёт выбрасывать кадры и просто сдвигает его.
+  Это убирает по построению целый класс ошибки «кадры чужой реплики в кольце», вместо страховки от неё.
+- **#14** — перечитывание состояния в цикле вместо одноразового таймера с отменой в шести местах. Все четыре
+  команды (stop/discard/pause/restart) обнуляют `current`, поэтому перечитывание строго сильнее проверки
+  генерации, которую предписывал аудит, и не требует нового поля. `drain()` на интерфейсе отклонён: тест
+  удалось сделать детерминированнее через инвариант «никогда не notify, пока lead > 0», чем через замер времени.
+- **#16** — в метриках `costs`/`cost_usd` остались спендом **своей** ноги, а унаследованное лежит рядом в
+  `inherited`. Метрики пишутся по ноге (отцепленная сохраняет свои), и складывать их имеет смысл только в счёте.
+- **#15/#18** — сделаны последними как наименее важные: первое чисто диагностическое, второе на сумму ниже
+  разрешения `numeric(10,4)`, что аудит сам и говорит.
