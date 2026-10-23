@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CANDIDATE_END_S, FloorManager, GREETING_MAX_WAIT_S, HEAD_TIMEOUT_S, INTENT_WAIT_S, RESTART_S,
-  type Command, type FloorConfig,
+  CANDIDATE_END_S, EVENTS_HEAD, EVENTS_MAX, FloorManager, GREETING_MAX_WAIT_S, HEAD_TIMEOUT_S, INTENT_WAIT_S,
+  RESTART_S, type Command, type FloorConfig,
 } from './floor.js';
 
 type Of<K extends Command['kind']> = Extract<Command, { kind: K }>;
@@ -1052,4 +1052,26 @@ test('one-way mode can be switched on and off mid-call', () => {
   const second = line.of('release').at(-1)!.utt;
   assert.notEqual(second, first);
   assert.deepEqual(line.of('play'), [Play(second)]);   // two-way again: the next English reply is voiced
+});
+
+test('a long call keeps its opening in the timeline and says what it rolled', () => {
+  // The cap filled at turn 55, about five minutes in, and everything after was dropped with no else, no
+  // counter and no marker — so ~98% of a four-hour call had no sub-turn detail, and a truncated timeline
+  // read exactly like a quiet one. A plain tail ring would have been worse: metrics are written once at
+  // finalize, so it would throw away the start of every call, which is the window the field has needed.
+  const line = new Line();
+  const turn = (i: number) => {
+    line.say(i % 2 === 0 ? `Реплика номер ${i} и ещё немного текста.` : `Reply number ${i} and a little more.`);
+    line.answerJudges(true);
+    line.wait(0.4);
+  };
+  let i = 0;
+  while (line.floor.events.length < EVENTS_HEAD) turn(i++);
+  const opening = line.floor.events.slice(0, EVENTS_HEAD).map(e => [...e]);
+  for (let n = 0; n < 400; n++) turn(i++);
+  const events = line.floor.events;
+  assert.ok(events.length <= EVENTS_MAX, String(events.length));
+  assert.ok(line.floor.counts.events_dropped > 0, 'the truncation is explicit');
+  assert.deepEqual(events.slice(0, EVENTS_HEAD), opening, 'the opening is kept verbatim');
+  assert.ok(events.at(-1)![0] > events[EVENTS_HEAD - 1][0], 'and the tail is the end of the call');
 });

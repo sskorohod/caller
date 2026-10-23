@@ -70,7 +70,19 @@ export const HOLD_LETTER_S = 0.5;     // a single letter ("И") waits this long 
 export const COMMIT_MIN_S = 1.0;      // transcription segments shorter than this are not committed
 export const COMMIT_AFTER_S = 10.0;   // a long monologue is committed at the nearest pause...
 export const COMMIT_HARD_S = 20.0;    // ...and forcibly
-export const EVENTS_MAX = 300;
+/**
+ * The call's event timeline, kept for metrics. An entry is about 39 JSON bytes, so this is ~78 KB on the
+ * longest call and the old 300 filled at turn 55 — about five minutes in — leaving ~98% of a four-hour call
+ * with no sub-turn detail at all: no judge verdicts with their confidence, no intent verdicts, no echo
+ * on/off flips, no candidate/prepare/merge/pause/restart ordering.
+ */
+export const EVENTS_MAX = 2000;
+/**
+ * Entries at the head that are never rolled. A plain tail ring would be a net regression: metrics are
+ * written once at finalize, so it would throw away the start of every call — which is the one window a
+ * question about how a call began actually needs.
+ */
+export const EVENTS_HEAD = 100;
 
 export interface FloorConfig {
   langA: string;
@@ -1004,9 +1016,16 @@ export class FloorManager {
   }
 
   private log(kind: string, detail = ''): void {
+    const entry: [number, string, string] = [Math.round((this.clock() - this.t0) * 1000) / 1000, kind, detail];
     if (this.events.length < EVENTS_MAX) {
-      this.events.push([Math.round((this.clock() - this.t0) * 1000) / 1000, kind, detail]);
+      this.events.push(entry);
+      return;
     }
+    // Full: keep the opening, roll what follows it, and say so — the old version dropped everything past the
+    // cap with no else, no counter and no marker, so a truncated timeline read exactly like a quiet call.
+    this.events.splice(EVENTS_HEAD, 1);
+    this.events.push(entry);
+    this.inc('events_dropped');
   }
 
   private inc(key: string): void {
