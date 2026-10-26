@@ -6,6 +6,7 @@ import { decrypt, encrypt } from '../lib/crypto.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { env } from '../config/env.js';
 import { signStreamToken, streamIdFromUrl } from '../lib/stream-token.js';
+import { isUsPhone } from '../lib/phone.js';
 import type { TelephonyConnection, ProviderName } from '../models/types.js';
 import pino from 'pino';
 
@@ -100,6 +101,8 @@ export async function initiateOutboundCall(params: {
   statusCallbackUrl: string;
   streamUrl: string;
 }): Promise<string> {
+  // International calling is disabled — outbound calls go to US numbers only.
+  if (!isUsPhone(params.to)) throw new ValidationError('Only US phone numbers can be called');
   const client = await getTwilioClient(params.workspaceId);
 
   const twiml = new twilio.twiml.VoiceResponse();

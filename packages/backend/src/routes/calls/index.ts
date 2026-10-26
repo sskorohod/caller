@@ -9,6 +9,7 @@ import { ValidationError, AppError } from '../../lib/errors.js';
 import { env } from '../../config/env.js';
 import { signStreamToken } from '../../lib/stream-token.js';
 import { isTwilioRecordingUrl } from '../../lib/url-validation.js';
+import { isUsPhone } from '../../lib/phone.js';
 import { db } from '../../config/db.js';
 import { calls } from '../../db/schema.js';
 import { eq, and, or, sql, gte, desc, inArray } from 'drizzle-orm';
@@ -380,7 +381,8 @@ const callRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [authenticateUser, requireDialerAccess(), requireBalance()],
   }, async (request, reply) => {
     const body = z.object({
-      to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format'),
+      to: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Phone number must be in E.164 format')
+        .refine(isUsPhone, 'Only US phone numbers can be called'),
       stt_language: z.enum(['auto', 'en', 'ru', 'es', 'de', 'fr']).optional().default('en'),
       stt_provider: z.enum(['deepgram', 'openai']).optional().default('deepgram'),
       voice_translate: z.boolean().optional().default(false),
@@ -477,7 +479,8 @@ const callRoutes: FastifyPluginAsync = async (app) => {
       mode: z.enum(['phone', 'browser']),
       // E.164 only — this value is interpolated into TwiML, so anything other
       // than +digits would allow XML/TwiML injection.
-      phone_number: z.string().regex(/^\+[1-9]\d{6,14}$/, 'Invalid phone number').optional(),
+      phone_number: z.string().regex(/^\+[1-9]\d{6,14}$/, 'Invalid phone number')
+        .refine(isUsPhone, 'Only US phone numbers can be called').optional(),
     }).refine(b => b.mode !== 'phone' || !!b.phone_number, {
       message: 'phone_number is required for phone takeover', path: ['phone_number'],
     }).parse(request.body);
