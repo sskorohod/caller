@@ -34,21 +34,6 @@ export async function runPostCallAnalysis(params: {
 
   const transcriptText = transcript.map(t => `${t.speaker}: ${t.text}`).join('\n');
 
-  // LLM provider fallback chain (resolved from the platform admin's credentials)
-  let llm: LLMProvider | undefined;
-  let selectedProvider: 'anthropic' | 'xai' | 'openai' = 'anthropic';
-  for (const provider of ['anthropic', 'xai', 'openai'] as const) {
-    try {
-      llm = await createLLMProvider(workspaceId, provider);
-      selectedProvider = provider;
-      break;
-    } catch { /* try next */ }
-  }
-  if (!llm) {
-    log.warn({ callId }, 'No LLM provider configured for post-call analysis');
-    return;
-  }
-
   // Summary language = workspace primary language
   const [ws] = await db.select({ languages: workspaces.languages })
     .from(workspaces).where(eq(workspaces.id, workspaceId));
@@ -84,29 +69,48 @@ Respond in JSON format:
     xai: 'grok-3-mini-fast',
     openai: 'gpt-4o-mini',
   };
-  const model = providerModelMap[selectedProvider];
 
+  // LLM provider fallback chain (resolved from the platform admin's credentials).
+  // A provider that is configured but failing (e.g. out of credits) hands over
+  // to the next one instead of losing the analysis.
+  let selectedProvider: 'anthropic' | 'xai' | 'openai' | null = null;
+  let model = '';
   // `unknown` (not a narrowed union) because the assignment happens inside a
   // callback TypeScript's control-flow analysis can't see.
   let resultRaw: unknown = null;
   let tokensIn = 0;
   let tokensOut = 0;
-  await llm.generateStream(messages, model, 0.3, {
-    onToken: () => {},
-    onComplete: (response) => {
-      tokensIn = response.tokensIn;
-      tokensOut = response.tokensOut;
-      try {
-        const jsonMatch = response.text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) resultRaw = JSON.parse(jsonMatch[0]);
-      } catch {
-        log.warn({ callId }, 'Failed to parse post-call analysis');
-      }
-    },
-    onError: (err) => {
-      log.error({ err, callId }, 'Post-call LLM error');
-    },
-  });
+  for (const provider of ['anthropic', 'xai', 'openai'] as const) {
+    let llm: LLMProvider;
+    try {
+      llm = await createLLMProvider(workspaceId, provider);
+    } catch { continue; /* not configured */ }
+    selectedProvider = provider;
+    model = providerModelMap[provider];
+    let failed = false;
+    await llm.generateStream(messages, model, 0.3, {
+      onToken: () => {},
+      onComplete: (response) => {
+        tokensIn = response.tokensIn;
+        tokensOut = response.tokensOut;
+        try {
+          const jsonMatch = response.text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) resultRaw = JSON.parse(jsonMatch[0]);
+        } catch {
+          log.warn({ callId }, 'Failed to parse post-call analysis');
+        }
+      },
+      onError: (err) => {
+        failed = true;
+        log.error({ err, callId, provider }, 'Post-call LLM error');
+      },
+    });
+    if (!failed) break;
+  }
+  if (!selectedProvider) {
+    log.warn({ callId }, 'No LLM provider configured for post-call analysis');
+    return;
+  }
   const analysis = resultRaw as { short_title?: string; summary?: string; action_items?: string[]; sentiment?: string } | null;
   if (!analysis) return;
 
